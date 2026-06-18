@@ -10,7 +10,9 @@ import {
   Wrench, 
   PackageCheck,
   X,
-  FileCode2
+  FileCode2,
+  Send,
+  CheckCircle2
 } from 'lucide-react';
 
 export default function PartsCatalog({ 
@@ -21,7 +23,9 @@ export default function PartsCatalog({
   onAddPart, 
   onEditPart, 
   onDeletePart,
-  onRestockPart
+  onRestockPart,
+  isReadOnly = false,
+  onAddLog
 }) {
   const [search, setSearch] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -34,6 +38,22 @@ export default function PartsCatalog({
   
   // Restock state inline
   const [restockAmount, setRestockAmount] = useState({});
+
+  // Quote request state for customer mode
+  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [inquiryPart, setInquiryPart] = useState(null);
+  const [inquiryQty, setInquiryQty] = useState('1');
+  const [inquiryMsg, setInquiryMsg] = useState('');
+  const [inquirySuccess, setInquirySuccess] = useState(false);
+
+  const handleRequestQuoteSubmit = (e) => {
+    e.preventDefault();
+    if (onAddLog && inquiryPart) {
+      onAddLog('system', `Quote request submitted by Customer for ${inquiryQty}x ${inquiryPart.name}.`);
+    }
+    setInquirySuccess(true);
+    setIsInquiryModalOpen(false);
+  };
   
   // Form state for add/edit
   const [formName, setFormName] = useState('');
@@ -142,25 +162,29 @@ export default function PartsCatalog({
 
         {/* Categories Tab selector */}
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
-          <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-800/80 cursor-pointer select-none">
-            <input 
-              type="checkbox" 
-              checked={showLowStockOnly} 
-              onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-              className="rounded text-red-600 focus:ring-red-600 border-slate-800 bg-slate-950 w-4 h-4"
-            />
-            <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> Low Stock Warning
-            </span>
-          </label>
+          {!isReadOnly && (
+            <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-800/80 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={showLowStockOnly} 
+                onChange={() => setShowLowStockOnly(!showLowStockOnly)}
+                className="rounded text-red-600 focus:ring-red-600 border-slate-800 bg-slate-950 w-4 h-4"
+              />
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> Low Stock Warning
+              </span>
+            </label>
+          )}
 
-          <button 
-            onClick={openAddModal}
-            className="flex items-center gap-1.5 px-4.5 py-2.5 bg-accent hover:bg-accent/90 text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Add New Part
-          </button>
+          {!isReadOnly && (
+            <button 
+              onClick={openAddModal}
+              className="flex items-center gap-1.5 px-4.5 py-2.5 bg-accent hover:bg-accent/90 text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Add New Part
+            </button>
+          )}
         </div>
       </div>
 
@@ -254,52 +278,68 @@ export default function PartsCatalog({
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Quantity</span>
-                      <span className={`text-base font-extrabold ${isLowStock ? 'text-red-500' : 'text-slate-300'}`}>
-                        {part.stock} / {part.minStock} <span className="text-xs text-slate-600 font-normal">min</span>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
+                      <span className={`text-base font-extrabold ${isLowStock && !isReadOnly ? 'text-red-500' : 'text-slate-300'}`}>
+                        {isReadOnly ? (part.stock > 0 ? `${part.stock} available` : 'Out of Stock') : `${part.stock} / ${part.minStock} min`}
                       </span>
                     </div>
                   </div>
 
-                  {/* Restock Inline Form */}
-                  <div className="flex gap-2">
-                    <input 
-                      type="number" 
-                      placeholder="+Qty" 
-                      min="1"
-                      value={restockAmount[part.id] || ''}
-                      onChange={(e) => setRestockAmount({ ...restockAmount, [part.id]: e.target.value })}
-                      className="w-16 bg-slate-950 border border-slate-800/80 rounded-lg text-xs py-1.5 text-center focus:outline-none focus:border-red-600 text-slate-300 font-bold"
-                    />
-                    <button 
-                      onClick={() => handleRestockSubmit(part.id)}
-                      className="flex-1 py-1.5 px-3 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-700/30 transition-all flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Restock
-                    </button>
-                  </div>
-
-                  {/* Edit/Delete Actions */}
-                  <div className="flex gap-2 justify-end">
-                    <button 
-                      onClick={() => openEditModal(part)}
-                      className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors border border-slate-800/40"
-                      title="Edit Part Details"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
+                  {isReadOnly ? (
                     <button 
                       onClick={() => {
-                        if (confirm(`Are you sure you want to remove ${part.name}?`)) {
-                          onDeletePart(part.id);
-                        }
+                        setInquiryPart(part);
+                        setInquiryQty('1');
+                        setInquiryMsg('');
+                        setIsInquiryModalOpen(true);
                       }}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors border border-slate-800/40"
-                      title="Delete Part"
+                      className="w-full py-2 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-700/30 transition-all flex items-center justify-center gap-1.5"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Send className="w-3.5 h-3.5" /> Request Quote
                     </button>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Restock Inline Form */}
+                      <div className="flex gap-2">
+                        <input 
+                          type="number" 
+                          placeholder="+Qty" 
+                          min="1"
+                          value={restockAmount[part.id] || ''}
+                          onChange={(e) => setRestockAmount({ ...restockAmount, [part.id]: e.target.value })}
+                          className="w-16 bg-slate-950 border border-slate-800/80 rounded-lg text-xs py-1.5 text-center focus:outline-none focus:border-red-600 text-slate-300 font-bold"
+                        />
+                        <button 
+                          onClick={() => handleRestockSubmit(part.id)}
+                          className="flex-1 py-1.5 px-3 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-700/30 transition-all flex items-center justify-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Restock
+                        </button>
+                      </div>
+
+                      {/* Edit/Delete Actions */}
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          onClick={() => openEditModal(part)}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors border border-slate-800/40"
+                          title="Edit Part Details"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to remove ${part.name}?`)) {
+                              onDeletePart(part.id);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors border border-slate-800/40"
+                          title="Delete Part"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -372,15 +412,30 @@ export default function PartsCatalog({
                 )}
 
                 <div className="pt-4 flex justify-end">
-                  <button 
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      openEditModal(selectedPart);
-                    }}
-                    className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-900 text-brandBlue-300 border border-brandBlue-700/30 hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
-                  >
-                    <Edit className="w-3.5 h-3.5" /> Edit Details
-                  </button>
+                  {isReadOnly ? (
+                    <button 
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setInquiryPart(selectedPart);
+                        setInquiryQty('1');
+                        setInquiryMsg('');
+                        setIsInquiryModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-900 text-brandBlue-300 border border-brandBlue-700/30 hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Request Quote
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        openEditModal(selectedPart);
+                      }}
+                      className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-900 text-brandBlue-300 border border-brandBlue-700/30 hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Edit Details
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -520,6 +575,100 @@ export default function PartsCatalog({
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Inquiry Form Modal for Customer Mode */}
+      {isInquiryModalOpen && inquiryPart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white font-outfit">Parts Quote Request</h3>
+              <button 
+                onClick={() => setIsInquiryModalOpen(false)}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body Form */}
+            <form onSubmit={handleRequestQuoteSubmit}>
+              <div className="p-6 space-y-4">
+                <div className="bg-slate-950/45 p-3.5 rounded-xl border border-slate-850 text-xs space-y-1 text-left">
+                  <span className="text-[10px] font-bold text-brandBlue-400 uppercase tracking-widest">{inquiryPart.category}</span>
+                  <h4 className="font-bold text-slate-200 text-sm">{inquiryPart.name}</h4>
+                  <p className="text-[10px] font-mono text-slate-500">SKU: {inquiryPart.sku} | OEM: {inquiryPart.oem}</p>
+                </div>
+
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Requested Quantity *</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    required
+                    value={inquiryQty}
+                    onChange={(e) => setInquiryQty(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+                  />
+                </div>
+
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Additional Request Details</label>
+                  <textarea 
+                    placeholder="E.g., transport lead time, packaging requirements, custom specifications..."
+                    rows="3"
+                    value={inquiryMsg}
+                    onChange={(e) => setInquiryMsg(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 p-5 border-t border-slate-800 bg-slate-900/60">
+                <button 
+                  type="button" 
+                  onClick={() => setIsInquiryModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700/50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-100 text-xs font-bold rounded-xl shadow-lg border border-brandBlue-700/40 transition-all"
+                >
+                  Submit Inquiry
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Inquiry Success Modal */}
+      {inquirySuccess && inquiryPart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl p-6 space-y-6 text-center animate-scaleUp">
+            <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
+              <CheckCircle2 className="w-9 h-9" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-white font-outfit">Inquiry Received!</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Quote request submitted successfully. The warehouse team will email or call you regarding **{inquiryPart.name}**.
+              </p>
+            </div>
+
+            <button 
+              onClick={() => setInquirySuccess(false)}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+            >
+              Okay
+            </button>
           </div>
         </div>
       )}

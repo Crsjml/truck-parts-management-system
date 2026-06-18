@@ -18,6 +18,7 @@ import Dashboard from './components/Dashboard';
 import PartsCatalog from './components/PartsCatalog';
 import TransactionPOS from './components/TransactionPOS';
 import Analytics from './components/Analytics';
+import CustomerDashboard from './components/CustomerDashboard';
 
 // Initial Data
 import { 
@@ -28,6 +29,7 @@ import {
 } from './mockData';
 
 export default function App() {
+  const [viewMode, setViewMode] = useState('admin'); // 'admin' or 'customer'
   const [page, setPage] = useState('dashboard');
   const [parts, setParts] = useState(INITIAL_PARTS);
   const [categories] = useState(INITIAL_CATEGORIES);
@@ -37,6 +39,11 @@ export default function App() {
   
   // Mobile responsive sidebar toggle
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    setPage('dashboard');
+  };
 
   // Helper to add activity logs
   const addLog = (type, message) => {
@@ -115,69 +122,126 @@ export default function App() {
           </div>
           
           <nav className="space-y-1">
-            <button 
-              onClick={() => setPage('dashboard')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'dashboard' 
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
-              }`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              Dashboard Overview
-            </button>
+            {viewMode === 'admin' ? (
+              <>
+                <button 
+                  onClick={() => setPage('dashboard')}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'dashboard' 
+                      ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
+                      : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  }`}
+                >
+                  <LayoutDashboard className="w-5 h-5" />
+                  Dashboard Overview
+                </button>
 
-            <button 
-              onClick={() => setPage('catalog')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'catalog' 
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
-              }`}
-            >
-              <Package className="w-5 h-5" />
-              Parts Inventory
-            </button>
+                <button 
+                  onClick={() => setPage('catalog')}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'catalog' 
+                      ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
+                      : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  }`}
+                >
+                  <Package className="w-5 h-5" />
+                  Parts Inventory
+                </button>
 
-            <button 
-              onClick={() => setPage('pos')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'pos' 
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
-              }`}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Sales POS Entry
-            </button>
+                <button 
+                  onClick={() => setPage('pos')}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'pos' 
+                      ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
+                      : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  }`}
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  Sales POS Entry
+                </button>
 
-            <button 
-              onClick={() => setPage('analytics')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'analytics' 
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
-              }`}
-            >
-              <BarChart3 className="w-5 h-5" />
-              Sales Analytics
-            </button>
+                <button 
+                  onClick={() => setPage('analytics')}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'analytics' 
+                      ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5' 
+                      : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  }`}
+                >
+                  <BarChart3 className="w-5 h-5" />
+                  Sales Analytics
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setPage('dashboard')}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'dashboard' 
+                      ? 'bg-brandBlue-900/30 text-brandBlue-400 border-l-4 border-brandBlue-500 shadow-md shadow-brandBlue-500/5 font-bold' 
+                      : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  }`}
+                >
+                  <LayoutDashboard className="w-5 h-5" />
+                  Customer Dashboard
+                </button>
+
+                <button 
+                  onClick={() => setPage('catalog')}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'catalog' 
+                      ? 'bg-brandBlue-900/30 text-brandBlue-400 border-l-4 border-brandBlue-500 shadow-md shadow-brandBlue-500/5 font-bold' 
+                      : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  }`}
+                >
+                  <Package className="w-5 h-5" />
+                  Parts Catalog
+                </button>
+              </>
+            )}
           </nav>
         </div>
 
-        {/* User context footer */}
-        <div className="pt-4 border-t border-slate-900/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 text-sm font-bold shadow-inner">
-              <User2 className="w-5 h-5" />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-200">Cris Dela Cruz</span>
-              <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">System Admin</span>
-            </div>
+        {/* User context footer with viewMode switcher */}
+        <div className="pt-4 border-t border-slate-900/80 space-y-4">
+          <div className="flex flex-col gap-1.5 text-left">
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Active Workspace Portal</span>
+            <select
+              value={viewMode}
+              onChange={(e) => handleViewModeChange(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-805/85 rounded-xl px-3 py-2 text-xs text-slate-300 font-bold focus:outline-none focus:border-red-600 transition-all cursor-pointer"
+            >
+              <option value="admin">System Admin Mode</option>
+              <option value="customer">Customer Portal Mode</option>
+            </select>
           </div>
-          <div className="p-1.5 bg-emerald-950/30 border border-emerald-800/30 text-emerald-400 rounded-lg" title="Active Connection secure">
-            <ShieldCheck className="w-4.5 h-4.5" />
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-950">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 text-sm font-bold shadow-inner shrink-0">
+                {viewMode === 'admin' ? (
+                  <User2 className="w-5 h-5" />
+                ) : (
+                  <span className="text-brandBlue-400 text-xs font-black">BFL</span>
+                )}
+              </div>
+              <div className="flex flex-col text-left">
+                {viewMode === 'admin' ? (
+                  <>
+                    <span className="text-xs font-bold text-slate-200 truncate max-w-[120px]">Cris Dela Cruz</span>
+                    <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">System Admin</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs font-bold text-slate-200 truncate max-w-[120px] leading-tight">Batangas Freight</span>
+                    <span className="text-[9px] text-brandBlue-400 font-bold uppercase tracking-wider">VIP Customer</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="p-1.5 bg-emerald-950/30 border border-emerald-800/30 text-emerald-400 rounded-lg" title="Active Connection secure">
+              <ShieldCheck className="w-4.5 h-4.5" />
+            </div>
           </div>
         </div>
       </aside>
@@ -198,57 +262,113 @@ export default function App() {
               </div>
               
               <nav className="space-y-1">
-                <button 
-                  onClick={() => { setPage('dashboard'); setIsSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
-                  }`}
-                >
-                  <LayoutDashboard className="w-5 h-5" />
-                  Dashboard Overview
-                </button>
-                <button 
-                  onClick={() => { setPage('catalog'); setIsSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
-                  }`}
-                >
-                  <Package className="w-5 h-5" />
-                  Parts Inventory
-                </button>
-                <button 
-                  onClick={() => { setPage('pos'); setIsSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
-                  }`}
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  Sales POS Entry
-                </button>
-                <button 
-                  onClick={() => { setPage('analytics'); setIsSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
-                  }`}
-                >
-                  <BarChart3 className="w-5 h-5" />
-                  Sales Analytics
-                </button>
+                {viewMode === 'admin' ? (
+                  <>
+                    <button 
+                      onClick={() => { setPage('dashboard'); setIsSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                        page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                      }`}
+                    >
+                      <LayoutDashboard className="w-5 h-5" />
+                      Dashboard Overview
+                    </button>
+                    <button 
+                      onClick={() => { setPage('catalog'); setIsSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                        page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                      }`}
+                    >
+                      <Package className="w-5 h-5" />
+                      Parts Inventory
+                    </button>
+                    <button 
+                      onClick={() => { setPage('pos'); setIsSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                        page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                      }`}
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                      Sales POS Entry
+                    </button>
+                    <button 
+                      onClick={() => { setPage('analytics'); setIsSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                        page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                      }`}
+                    >
+                      <BarChart3 className="w-5 h-5" />
+                      Sales Analytics
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => { setPage('dashboard'); setIsSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                        page === 'dashboard' ? 'bg-brandBlue-900/30 text-brandBlue-400 border-l-4 border-brandBlue-500 font-bold' : 'text-slate-400'
+                      }`}
+                    >
+                      <LayoutDashboard className="w-5 h-5" />
+                      Customer Dashboard
+                    </button>
+                    <button 
+                      onClick={() => { setPage('catalog'); setIsSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                        page === 'catalog' ? 'bg-brandBlue-900/30 text-brandBlue-400 border-l-4 border-brandBlue-500 font-bold' : 'text-slate-400'
+                      }`}
+                    >
+                      <Package className="w-5 h-5" />
+                      Parts Catalog
+                    </button>
+                  </>
+                )}
               </nav>
             </div>
 
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 text-xs font-bold">
-                  <User2 className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-slate-200">Cris Dela Cruz</span>
-                  <span className="text-[9px] text-slate-500 uppercase font-semibold">System Admin</span>
-                </div>
+            {/* Mobile Switcher & User Footer */}
+            <div className="pt-4 border-t border-slate-800 space-y-4">
+              <div className="flex flex-col gap-1.5 text-left">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Active Workspace Portal</span>
+                <select
+                  value={viewMode}
+                  onChange={(e) => {
+                    handleViewModeChange(e.target.value);
+                    setIsSidebarOpen(false);
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-slate-300 font-bold focus:outline-none focus:border-red-600 transition-all cursor-pointer"
+                >
+                  <option value="admin">System Admin Mode</option>
+                  <option value="customer">Customer Portal Mode</option>
+                </select>
               </div>
-              <div className="p-1 px-2 bg-emerald-950 text-emerald-400 text-[10px] rounded border border-emerald-800/30">
-                Secure
+
+              <div className="flex items-center justify-between pt-1 border-t border-slate-950">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 text-xs font-bold">
+                    {viewMode === 'admin' ? (
+                      <User2 className="w-4 h-4" />
+                    ) : (
+                      <span className="text-brandBlue-400 text-[10px] font-black">BFL</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col text-left">
+                    {viewMode === 'admin' ? (
+                      <>
+                        <span className="text-xs font-bold text-slate-200">Cris Dela Cruz</span>
+                        <span className="text-[9px] text-slate-500 uppercase font-semibold">System Admin</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs font-bold text-slate-200">Batangas Logistics</span>
+                        <span className="text-[9px] text-brandBlue-400 font-bold uppercase tracking-wider">VIP Customer</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="p-1 px-2 bg-emerald-950 text-emerald-400 text-[10px] rounded border border-emerald-800/30">
+                  Secure
+                </div>
               </div>
             </div>
           </aside>
@@ -306,13 +426,23 @@ export default function App() {
         {/* Dynamic Page Scroll viewport */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           {page === 'dashboard' && (
-            <Dashboard 
-              parts={parts} 
-              transactions={transactions} 
-              logs={logs} 
-              setPage={setPage}
-              setSelectedCategory={setSelectedCategory}
-            />
+            viewMode === 'admin' ? (
+              <Dashboard 
+                parts={parts} 
+                transactions={transactions} 
+                logs={logs} 
+                setPage={setPage}
+                setSelectedCategory={setSelectedCategory}
+              />
+            ) : (
+              <CustomerDashboard 
+                customerName="Batangas Freight Logistics"
+                customerContact="0917-555-0192"
+                transactions={transactions}
+                parts={parts}
+                onAddLog={addLog}
+              />
+            )
           )}
 
           {page === 'catalog' && (
@@ -325,6 +455,8 @@ export default function App() {
               onEditPart={handleEditPart}
               onDeletePart={handleDeletePart}
               onRestockPart={handleRestockPart}
+              isReadOnly={viewMode === 'customer'}
+              onAddLog={addLog}
             />
           )}
 
