@@ -13,22 +13,6 @@ A web-based Truck Parts Management System designed to streamline inventory track
 
 ---
 
-## 📂 Project Structure
-
-```
-truck-parts-management-system/
-├── frontend/               # React + Vite + Tailwind CSS Application
-│   ├── src/
-│   │   ├── components/     # App views (Dashboard, POS, Catalog, Analytics)
-│   │   ├── App.jsx         # Main router and controller
-│   │   ├── index.css       # Style foundations & HSL root colors
-│   │   └── mockData.js     # Shared data layer
-│   ├── index.html          # HTML Entry and web font attachments
-│   ├── tailwind.config.js  # Styling variables
-│   └── package.json        # Frontend dependencies
-├── docs/                   # Backlog, Sprint plans, and user stories
-└── README.md               # Main instructions (This file)
-```
 
 ---
 
