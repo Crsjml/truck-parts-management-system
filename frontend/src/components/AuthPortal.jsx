@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Lock, LoaderCircle, MailCheck, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, LoaderCircle, MailCheck, ShieldCheck, Truck, BadgePercent, User2 } from 'lucide-react';
 import Logo from './Logo';
 import {
   getVerificationNotice,
@@ -33,7 +33,8 @@ export default function AuthPortal({
   onCustomerAuthenticated,
   onAdminAuthenticated
 }) {
-  const isCustomerMode = mode === 'customer';
+  const [currentRole, setCurrentRole] = useState(mode);
+  const isCustomerMode = currentRole === 'customer';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [registerForm, setRegisterForm] = useState(customerRegisterDefaults);
   const [loginForm, setLoginForm] = useState(customerLoginDefaults);
@@ -45,6 +46,7 @@ export default function AuthPortal({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    setCurrentRole(mode);
     setActiveTab(initialTab);
   }, [initialTab, mode]);
 
@@ -196,30 +198,51 @@ export default function AuthPortal({
 
             <div className="max-w-xl space-y-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-red-300">
-                {isCustomerMode ? 'Customer Access' : 'Admin Portal'}
+                Premium Truck Spare Parts
               </span>
               <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-                {isCustomerMode ? 'A retail catalog built for truck parts buyers.' : 'Secure admin access for inventory control.'}
+                Tarlac Truck Parts
               </h1>
               <p className="max-w-lg text-sm leading-6 text-slate-300 sm:text-base">
-                {isCustomerMode
-                  ? 'Browse the catalog like a modern e-commerce storefront, register an account, verify your email, and keep your login active with remember-me.'
-                  : 'Admin credentials stay out of public registration. Login happens through this dedicated portal with lockout protection after repeated failures.'}
+                We specialize in sourcing and distributing premium grade, heavy-duty truck accessories and spare components. Offering wholesale and retail solutions across Tarlac City and regional logistics networks.
               </p>
             </div>
           </div>
 
-          <div className="relative grid gap-3 sm:grid-cols-3">
-            {[
-              { label: 'Catalog', value: 'Retail style' },
-              { label: 'Auth', value: 'Mock JWT' },
-              { label: 'Security', value: 'Lockout ready' }
-            ].map((item) => (
-              <div key={item.label} className="rounded-2xl border border-white/8 bg-white/5 p-4 backdrop-blur">
-                <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-slate-500">{item.label}</p>
-                <p className="mt-2 text-sm font-semibold text-slate-100">{item.value}</p>
+          <div className="relative space-y-4 my-8 lg:my-0">
+            <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
+              <div className="p-2.5 bg-brandBlue-900/30 border border-brandBlue-800/30 text-brandBlue-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+                <Truck className="w-5 h-5" />
               </div>
-            ))}
+              <div>
+                <h4 className="font-bold text-white text-sm">Wide Compatibility</h4>
+                <p className="text-xs text-slate-400 mt-1">Tailored replacement components for Isuzu, Hino, Fuso, and Toyota Dyna models.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
+              <div className="p-2.5 bg-emerald-950/40 border border-emerald-800/30 text-emerald-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+                <BadgePercent className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">VIP Wholesale Pricing</h4>
+                <p className="text-xs text-slate-400 mt-1">Bulk volume deductibles and quotation rates directly mapped for freight operators.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
+              <div className="p-2.5 bg-slate-900/60 border border-slate-800 text-slate-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">OEM Certified Sourcing</h4>
+                <p className="text-xs text-slate-400 mt-1">All inventory matches exact manufacturer OEM specifications to guarantee reliability.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative text-xs text-slate-500 font-semibold pt-4 border-t border-slate-900/60 flex items-center gap-2">
+            <span>© 2026 Tarlac Truck Parts.</span>
           </div>
         </section>
 
@@ -232,34 +255,65 @@ export default function AuthPortal({
                   {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : 'Customer login') : 'Admin login'}
                 </h2>
               </div>
+            </div>
 
-              {!isCustomerMode && (
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-right text-[11px] font-semibold text-emerald-300">
-                  Separate portal
-                </div>
-              )}
+            {/* Role Switcher */}
+            <div className="mb-6 flex rounded-2xl border border-slate-800 bg-slate-950/60 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentRole('customer');
+                  setActiveTab('login');
+                  resetFeedback();
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${isCustomerMode ? 'bg-accent text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <User2 className="w-4.5 h-4.5" />
+                Customer Access
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentRole('admin');
+                  setActiveTab('login');
+                  resetFeedback();
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${!isCustomerMode ? 'bg-accent text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <ShieldCheck className="w-4.5 h-4.5" />
+                Admin login
+              </button>
             </div>
 
             {isCustomerMode && (
-              <div className="mb-6 flex rounded-2xl border border-slate-800 bg-slate-950/60 p-1">
+              <div className="mb-6 flex rounded-2xl border border-slate-800 bg-slate-950/40 p-1">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('login')}
-                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${activeTab === 'login' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  onClick={() => {
+                    setActiveTab('login');
+                    resetFeedback();
+                  }}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'login' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   Login
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('register')}
-                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${activeTab === 'register' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  onClick={() => {
+                    setActiveTab('register');
+                    resetFeedback();
+                  }}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'register' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   Register
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('verify')}
-                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${activeTab === 'verify' ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  onClick={() => {
+                    setActiveTab('verify');
+                    resetFeedback();
+                  }}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'verify' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   Verify
                 </button>
@@ -460,7 +514,7 @@ export default function AuthPortal({
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  Enter admin portal
+                  Enter admin login
                 </button>
               </form>
             )}

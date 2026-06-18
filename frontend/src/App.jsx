@@ -19,6 +19,7 @@ import TransactionPOS from './components/TransactionPOS';
 import Analytics from './components/Analytics';
 import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
+import CustomerDashboard from './components/CustomerDashboard';
 
 import {
   INITIAL_PARTS,
@@ -49,13 +50,14 @@ export default function App() {
       setAdminSession(session);
       setCustomerSession(null);
       setActiveView('admin-app');
-    } else if (session?.user?.role === 'customer') {
-      setCustomerSession(session);
-      setAdminSession(null);
-      setActiveView('storefront');
     } else {
+      // Always start on the storefront for customers (even if session exists).
+      // The session is available so the storefront can show them as logged in,
+      // but they are NOT auto-redirected into the dashboard on page load.
+      if (session?.user?.role === 'customer') {
+        setCustomerSession(session);
+      }
       setAdminSession(null);
-      setCustomerSession(null);
       setActiveView('storefront');
     }
 
@@ -127,10 +129,10 @@ export default function App() {
   };
 
   const handleCustomerAuthenticated = (session) => {
-    setCustomerSession(session);
-    setAdminSession(null);
-    setActiveView('storefront');
-  };
+  setCustomerSession(session);
+  setAdminSession(null);
+  setActiveView('customer-dashboard');
+};
 
   const handleAdminAuthenticated = (session) => {
     setAdminSession(session);
@@ -197,6 +199,22 @@ export default function App() {
     );
   }
 
+
+  if (activeView === 'customer-dashboard') {
+  return (
+    <CustomerDashboard
+      customerName={customerSession?.user?.fullName || ''}
+      customerContact={customerSession?.user?.contactNumber || ''}
+      transactions={transactions}
+      parts={parts}
+      onAddLog={addLog}
+      onCheckout={handleCheckout}
+      onLogout={() => handleLogout('customer')}
+    />
+  );
+}
+
+
   if (activeView === 'storefront') {
     return (
       <CustomerStorefront
@@ -209,6 +227,7 @@ export default function App() {
       />
     );
   }
+
 
   return (
     <div className="h-full flex overflow-hidden bg-slate-950 font-sans">
