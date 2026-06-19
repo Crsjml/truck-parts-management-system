@@ -1,0 +1,48 @@
+# docker-compose version removed (Compose V2 infers version)
+
+services:
+  # ------------------------------------------------------------
+  # Backend – Node/Express API
+  # ------------------------------------------------------------
+  backend:
+    container_name: truck-system-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:5000"
+    env_file:
+      - ./atlas-credentials.env
+    restart: unless-stopped
+    depends_on: []
+
+  # ------------------------------------------------------------
+  # Frontend – Vite / React
+  # ------------------------------------------------------------
+  frontend:
+    container_name: truck-system-frontend
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_BACKEND_URL=http://localhost:3001
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ------------------------------------------------------------
+  # (Optional) Local MongoDB for testing – keep commented if you prefer Atlas
+  # ------------------------------------------------------------
+  # mongo:
+  #   container_name: truck-system-mongo
+  #   image: mongo:7
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo-data:/data/db
+  #   environment:
+  #     MONGO_INITDB_DATABASE: truck_parts
+
+volumes: {}
