@@ -6,6 +6,8 @@ import {
   loginAdmin,
   loginCustomer,
   registerCustomer,
+  requestPasswordReset,
+  resetPassword,
   resendVerificationCode,
   validateLoginFields,
   validateRegistrationFields,
@@ -44,6 +46,11 @@ export default function AuthPortal({
   const [notice, setNotice] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotToken, setForgotToken] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotStep, setForgotStep] = useState(1);
 
   useEffect(() => {
     setCurrentRole(mode);
@@ -85,7 +92,7 @@ export default function AuthPortal({
     setLoading(false);
   };
 
-  const handleVerificationSubmit = (event) => {
+  const handleVerificationSubmit = async (event) => {
     event.preventDefault();
     resetFeedback();
 
@@ -95,7 +102,10 @@ export default function AuthPortal({
       return;
     }
 
-    const result = verifyCustomerEmail({ email: verificationEmail, code: verificationInput });
+    setLoading(true);
+    const result = await verifyCustomerEmail({ email: verificationEmail, code: verificationInput });
+    setLoading(false);
+
     if (!result.ok) {
       setErrors({ verificationInput: result.error });
       return;
@@ -106,11 +116,14 @@ export default function AuthPortal({
     setLoginForm((current) => ({ ...current, email: verificationEmail }));
   };
 
-  const handleResendCode = () => {
+  const handleResendCode = async () => {
     const targetEmail = verificationEmail || registerForm.email || loginForm.email;
     if (!targetEmail) return;
 
-    const result = resendVerificationCode(targetEmail);
+    setLoading(true);
+    const result = await resendVerificationCode(targetEmail);
+    setLoading(false);
+
     if (!result.ok) {
       setNotice(result.error);
       return;
@@ -153,6 +166,51 @@ export default function AuthPortal({
     onCustomerAuthenticated(result.session);
     setNotice('Customer login successful.');
     setLoading(false);
+  };
+
+  const handleForgotRequest = async (e) => {
+    e.preventDefault();
+    resetFeedback();
+    if (!forgotEmail) {
+      setErrors({ forgotEmail: 'Email is required' });
+      return;
+    }
+    setLoading(true);
+    const result = await requestPasswordReset(forgotEmail);
+    setLoading(false);
+    if (!result.ok) {
+      setNotice(result.error);
+      return;
+    }
+    setNotice(result.message + (result.resetToken ? ` (Demo token: ${result.resetToken})` : ''));
+    if (result.resetToken) setForgotToken(result.resetToken);
+    setForgotStep(2);
+  };
+
+  const handleForgotReset = async (e) => {
+    e.preventDefault();
+    resetFeedback();
+    if (!forgotToken || !forgotNewPassword) {
+      setErrors({ form: 'All fields are required.' });
+      return;
+    }
+    if (forgotNewPassword.length < 8) {
+      setErrors({ newPassword: 'Password must be at least 8 characters.' });
+      return;
+    }
+    setLoading(true);
+    const result = await resetPassword({ token: forgotToken, password: forgotNewPassword });
+    setLoading(false);
+    if (!result.ok) {
+      setNotice(result.error);
+      return;
+    }
+    setNotice('Password updated successfully. You can now log in.');
+    setForgotStep(1);
+    setForgotEmail('');
+    setForgotToken('');
+    setForgotNewPassword('');
+    setActiveTab('login');
   };
 
   const handleAdminLogin = async (event) => {
@@ -252,7 +310,7 @@ export default function AuthPortal({
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">{isCustomerMode ? 'Customer account' : 'Admin sign-in'}</p>
                 <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-                  {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : 'Customer login') : 'Admin login'}
+                  {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
                 </h2>
               </div>
             </div>
@@ -316,6 +374,17 @@ export default function AuthPortal({
                   className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'verify' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                   Verify
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('forgot');
+                    setForgotStep(1);
+                    resetFeedback();
+                  }}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'forgot' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  Reset
                 </button>
               </div>
             )}
@@ -457,15 +526,31 @@ export default function AuthPortal({
                   {errors.password && <p className="text-xs text-red-400">{errors.password}</p>}
                 </div>
 
-                <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={loginForm.rememberMe}
-                    onChange={(event) => setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-accent focus:ring-accent"
-                  />
-                  Remember me on this device
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-300 w-full">
+                    <input
+                      type="checkbox"
+                      checked={loginForm.rememberMe}
+                      onChange={(event) => setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))}
+                      className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-accent focus:ring-accent"
+                    />
+                    Remember me on this device
+                  </label>
+                </div>
+
+                <div className="flex justify-end mt-1">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setActiveTab('forgot');
+                      setForgotStep(1);
+                      resetFeedback();
+                    }}
+                    className="text-xs text-accent hover:text-accent/80 transition font-bold"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
 
                 <button
                   type="submit"
@@ -476,6 +561,73 @@ export default function AuthPortal({
                   Sign in
                 </button>
               </form>
+            )}
+
+            {isCustomerMode && activeTab === 'forgot' && (
+              <div className="space-y-4">
+                {forgotStep === 1 ? (
+                  <form onSubmit={handleForgotRequest} className="space-y-4">
+                    <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                      Enter your email to request a password reset link.
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Email</label>
+                      <input
+                        type="email"
+                        className={inputClass}
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="customer@domain.com"
+                      />
+                      {errors.forgotEmail && <p className="text-xs text-red-400">{errors.forgotEmail}</p>}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+                      Request Reset Link
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleForgotReset} className="space-y-4">
+                     <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                      Enter the reset token you received and your new password.
+                    </div>
+                    {errors.form && <p className="text-xs text-red-400">{errors.form}</p>}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Reset Token</label>
+                      <input
+                        type="text"
+                        className={inputClass}
+                        value={forgotToken}
+                        onChange={(e) => setForgotToken(e.target.value)}
+                        placeholder="Paste your reset token here"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">New Password</label>
+                      <input
+                        type="password"
+                        className={inputClass}
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        placeholder="Minimum 8 characters"
+                      />
+                      {errors.newPassword && <p className="text-xs text-red-400">{errors.newPassword}</p>}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      Reset Password
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
 
             {!isCustomerMode && (
