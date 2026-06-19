@@ -23,7 +23,11 @@ import {
   Minus,
   Trash2,
   CreditCard,
+  Lock,
+  Settings,
+  LoaderCircle,
 } from 'lucide-react';
+import { changePassword } from '../authStore';
 import Logo from './Logo';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -957,6 +961,121 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
   );
 }
 
+/* ── 5. Settings / Security Page ─────────────── */
+function SettingsPage({ customerEmail }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setNotice('');
+    setError('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('All fields are required.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    const result = await changePassword({ email: customerEmail, currentPassword, newPassword });
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error);
+    } else {
+      setNotice(result.message);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-accent">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+        <h1 className="text-3xl font-extrabold text-white font-outfit">Account Security</h1>
+        <p className="text-slate-400 text-sm mt-1">Manage your password and security preferences.</p>
+      </div>
+
+      <div className="glass-panel p-6 md:p-8 rounded-2xl">
+        <div className="flex items-center gap-2 pb-4 border-b border-slate-800 mb-6">
+          <Lock className="w-5 h-5 text-brandBlue-400" />
+          <h3 className="text-lg font-bold text-white font-outfit">Change Password</h3>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5 max-w-md">
+          {notice && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
+              {notice}
+            </div>
+          )}
+          {error && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Password</label>
+            <input
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">New Password</label>
+            <input
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Confirm New Password</label>
+            <input
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 px-4 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2 transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {loading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+            Update Password
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 /* ─────────────────────────────────────────────
    MAIN CustomerDashboard SHELL
    ───────────────────────────────────────────── */
@@ -982,11 +1101,11 @@ export default function CustomerDashboard({
     },
   ]);
 
-  const navItems = [
     { key: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
     { key: 'shop',      label: 'Shop / Order Parts', icon: ShoppingCart    },
     { key: 'orders',    label: 'My Orders',          icon: FileText         },
     { key: 'quote',     label: 'Request Quote',      icon: Send             },
+    { key: 'settings',  label: 'Security Settings',  icon: Settings         },
   ];
 
   const NavButton = ({ item, onClick }) => {
@@ -1147,6 +1266,9 @@ export default function CustomerDashboard({
               setInquiries={setInquiries}
               onAddLog={onAddLog}
             />
+          )}
+          {page === 'settings' && (
+            <SettingsPage customerEmail={transactions.length > 0 ? transactions[0].customerEmail || 'demo@example.com' : 'demo@example.com'} />
           )}
         </main>
       </div>
