@@ -20,14 +20,13 @@ import Analytics from './components/Analytics';
 import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import CustomerDashboard from './components/CustomerDashboard';
+import StatusBar from './components/StatusBar';
 
 import {
-  INITIAL_PARTS,
-  INITIAL_CATEGORIES,
   INITIAL_TRANSACTIONS,
   INITIAL_LOGS
 } from './mockData';
-import { clearSession, getActiveSession } from './authStore';
+import { clearSession, getActiveSession, fetchParts, fetchCategories } from './authStore';
 
 export default function App() {
   const [activeView, setActiveView] = useState('storefront');
@@ -36,8 +35,8 @@ export default function App() {
   const [adminSession, setAdminSession] = useState(null);
   const [authTab, setAuthTab] = useState('login');
   const [page, setPage] = useState('dashboard');
-  const [parts, setParts] = useState(INITIAL_PARTS);
-  const [categories] = useState(INITIAL_CATEGORIES);
+  const [parts, setParts] = useState([]);
+  const [categories, setCategories] = useState(['All']);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
   const [logs, setLogs] = useState(INITIAL_LOGS);
@@ -61,7 +60,15 @@ export default function App() {
       setActiveView('storefront');
     }
 
-    setAuthReady(true);
+    const loadData = async () => {
+      const fetchedParts = await fetchParts();
+      const fetchedCategories = await fetchCategories();
+      setParts(fetchedParts);
+      setCategories(fetchedCategories);
+      setAuthReady(true);
+    };
+
+    loadData();
   }, []);
 
   const addLog = (type, message) => {
@@ -169,62 +176,77 @@ export default function App() {
 
   if (!authReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
-        Loading storefront...
-      </div>
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
+          Loading storefront...
+        </div>
+        <StatusBar />
+      </>
     );
   }
 
   if (activeView === 'customer-auth') {
     return (
-      <AuthPortal
-        mode="customer"
-        initialTab={authTab}
-        onBackToStore={() => setActiveView('storefront')}
-        onCustomerAuthenticated={handleCustomerAuthenticated}
-        onAdminAuthenticated={handleAdminAuthenticated}
-      />
+      <>
+        <AuthPortal
+          mode="customer"
+          initialTab={authTab}
+          onBackToStore={() => setActiveView('storefront')}
+          onCustomerAuthenticated={handleCustomerAuthenticated}
+          onAdminAuthenticated={handleAdminAuthenticated}
+        />
+        <StatusBar />
+      </>
     );
   }
 
   if (activeView === 'admin-auth') {
     return (
-      <AuthPortal
-        mode="admin"
-        initialTab="login"
-        onBackToStore={() => setActiveView('storefront')}
-        onCustomerAuthenticated={handleCustomerAuthenticated}
-        onAdminAuthenticated={handleAdminAuthenticated}
-      />
+      <>
+        <AuthPortal
+          mode="admin"
+          initialTab="login"
+          onBackToStore={() => setActiveView('storefront')}
+          onCustomerAuthenticated={handleCustomerAuthenticated}
+          onAdminAuthenticated={handleAdminAuthenticated}
+        />
+        <StatusBar />
+      </>
     );
   }
 
 
   if (activeView === 'customer-dashboard') {
-  return (
-    <CustomerDashboard
-      customerName={customerSession?.user?.fullName || ''}
-      customerContact={customerSession?.user?.contactNumber || ''}
-      transactions={transactions}
-      parts={parts}
-      onAddLog={addLog}
-      onCheckout={handleCheckout}
-      onLogout={() => handleLogout('customer')}
-    />
-  );
-}
+    return (
+      <>
+        <CustomerDashboard
+          customerName={customerSession?.user?.fullName || ''}
+          customerContact={customerSession?.user?.contactNumber || ''}
+          transactions={transactions}
+          parts={parts}
+          onAddLog={addLog}
+          onCheckout={handleCheckout}
+          onLogout={() => handleLogout('customer')}
+        />
+        <StatusBar />
+      </>
+    );
+  }
 
 
   if (activeView === 'storefront') {
     return (
-      <CustomerStorefront
-        parts={parts}
-        categories={categories}
-        customerSession={customerSession}
-        onOpenCustomerAuth={handleOpenCustomerAuth}
-        onOpenAdminAuth={handleOpenAdminAuth}
-        onLogoutCustomer={() => handleLogout('customer')}
-      />
+      <>
+        <CustomerStorefront
+          parts={parts}
+          categories={categories}
+          customerSession={customerSession}
+          onOpenCustomerAuth={handleOpenCustomerAuth}
+          onOpenAdminAuth={handleOpenAdminAuth}
+          onLogoutCustomer={() => handleLogout('customer')}
+        />
+        <StatusBar />
+      </>
     );
   }
 
@@ -462,6 +484,7 @@ export default function App() {
           {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
         </main>
       </div>
+      <StatusBar />
     </div>
   );
 }
