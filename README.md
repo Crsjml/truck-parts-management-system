@@ -62,27 +62,28 @@ truck-parts-management-system/
 ## 🐳 Running with Docker (recommended)
 
 1. **Prerequisite** – Docker Desktop (or Docker Engine) installed.
-2. From the project root, build and start everything:
+2. **Setup Credentials** – Copy the example environment file and fill in your MongoDB connection string and secrets:
    ```bash
-   docker compose up --build
+   cp atlas-credentials.env.example atlas-credentials.env
+   # Edit atlas-credentials.env with your actual MongoDB URI and secure JWT_SECRET
    ```
-   - Backend container is named **`truck-system`** and will automatically select a free port (default 5000). The log prints something like:
+3. From the project root, build and start everything in the background:
+   ```bash
+   docker compose up -d --build
+   ```
+   - Backend container is named **`truck-system-backend`** and is mapped to port **3001** on your host.
      ```
-     🚀 Backend listening on http://localhost:5000
+     🚀 Backend listening on http://localhost:5000 (accessible via http://localhost:3001)
      ```
-   - Frontend dev server runs on **`http://localhost:5173`**.
-3. The containers will keep running until you stop them:
+   - Frontend container is named **`truck-system-frontend`** and runs on **`http://localhost:5173`**.
+4. To view logs for the backend:
+   ```bash
+   docker logs -f truck-system-backend
+   ```
+5. The containers will keep running until you stop them:
    ```bash
    docker compose down
    ```
-4. **Environment variables** – the `atlas-credentials.env` file is mounted into the backend container at runtime. Ensure it contains:
-   ```dotenv
-   MONGODB_URI=mongodb+srv://<user>:<pwd>@<cluster>.mongodb.net/truck_parts?retryWrites=true&w=majority
-   ADMIN_EMAIL=admin@tarlactruckparts.local
-   ADMIN_PASSWORD=Admin@12345
-   JWT_SECRET=your‑super‑secret‑key
-   ```
-   *Never commit this file; it is already ignored.*
 
 ---
 
