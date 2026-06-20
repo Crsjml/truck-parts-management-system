@@ -27,11 +27,11 @@ function Chip({ label, state, detail }) {
   const { color, dot } = INDICATORS[state] ?? INDICATORS.checking;
 
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10">
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted/60 border border-border/50">
       <span style={{ color }} className="text-[10px] leading-none">{dot}</span>
-      <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">{label}</span>
+      <span className="text-[11px] text-foreground/80 font-medium">{label}</span>
       {detail && (
-        <span className="text-[10px] text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-white/10 pl-1.5 ml-0.5">
+        <span className="text-[10px] text-muted-foreground border-l border-border/40 pl-1.5 ml-0.5">
           {detail}
         </span>
       )}
@@ -93,10 +93,10 @@ export default function StatusBar() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-8 bg-slate-100/90 dark:bg-slate-900/92 backdrop-blur-md border-t border-slate-300/50 dark:border-white/5 flex items-center justify-between px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400 z-[9999] select-none" role="status" aria-label="System status">
+    <div className="fixed bottom-0 left-0 right-0 h-8 bg-background/90 backdrop-blur-md border-t border-border/80 flex items-center justify-between px-4 font-mono text-[11px] text-muted-foreground z-[9999] select-none" role="status" aria-label="System status">
       {/* Left: service chips */}
       <div className="flex items-center gap-3">
-        <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-bold mr-1">⚙ System</span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold mr-1">⚙ System</span>
         <Chip label="Frontend" state="ok" />
         <Chip
           label="Backend API"
@@ -112,10 +112,10 @@ export default function StatusBar() {
           <span className="text-[10px] text-red-500 font-bold" title={status.error}>⚠ {status.error}</span>
         )}
         {status.lastChecked && (
-          <span className="text-[10px] text-slate-500 dark:text-slate-500">Last checked {status.lastChecked}</span>
+          <span className="text-[10px] text-muted-foreground/70">Last checked {status.lastChecked}</span>
         )}
         <button
-          className="bg-transparent border-none text-slate-400 hover:text-foreground transition-colors cursor-pointer text-sm leading-none px-1"
+          className="bg-transparent border-none text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer text-sm leading-none px-1"
           onClick={check}
           title="Re-check status now"
           aria-label="Refresh status"

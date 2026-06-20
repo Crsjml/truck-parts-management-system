@@ -20,6 +20,7 @@
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
+    "@rolldown/binding-darwin-arm64": "^1.0.3",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.2",

@@ -76,11 +76,43 @@ function decode_jwt(token) {
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
+function getAuthHeaders() {
+  const session = readSession(ADMIN_SESSION_KEY) || readSession(CUSTOMER_SESSION_KEY);
+  if (session && session.token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+}
+
 async function api_post(path, body, timeout_ms = 8000) {
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body:    JSON.stringify(body),
+    signal:  AbortSignal.timeout(timeout_ms),
+  });
+  const data = await res.json();
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function api_put(path, body, timeout_ms = 8000) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method:  'PUT',
+    headers: getAuthHeaders(),
+    body:    JSON.stringify(body),
+    signal:  AbortSignal.timeout(timeout_ms),
+  });
+  const data = await res.json();
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function api_delete(path, timeout_ms = 8000) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method:  'DELETE',
+    headers: getAuthHeaders(),
     signal:  AbortSignal.timeout(timeout_ms),
   });
   const data = await res.json();
@@ -90,7 +122,7 @@ async function api_post(path, body, timeout_ms = 8000) {
 export async function api_get(path, timeout_ms = 8000) {
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     signal:  AbortSignal.timeout(timeout_ms),
   });
   const data = await res.json();
@@ -404,3 +436,71 @@ export const changePassword = async ({ email, currentPassword, newPassword }) =>
 
 export const getVerificationNotice = (email, code) =>
   `Verification code sent to ${email}. Demo code: ${code}`;
+
+// ── Categories CRUD ──────────────────────────────────────────────────────────
+
+export const fetchCategoriesList = async () => {
+  try {
+    const { ok, data } = await api_get('/api/categories');
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch categories list:', err);
+    return [];
+  }
+};
+
+export const createCategory = async ({ name, parentCategory }) => {
+  try {
+    const { ok, data } = await api_post('/api/categories', { name, parentCategory });
+    return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to create category.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updateCategory = async (id, { name, parentCategory }) => {
+  try {
+    const { ok, data } = await api_put(`/api/categories/${id}`, { name, parentCategory });
+    return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to update category.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const deleteCategory = async (id) => {
+  try {
+    const { ok, data } = await api_delete(`/api/categories/${id}`);
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete category.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+// ── Parts CRUD ───────────────────────────────────────────────────────────────
+
+export const createPart = async (partData) => {
+  try {
+    const { ok, data } = await api_post('/api/parts', partData);
+    return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to create part.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updatePart = async (id, partData) => {
+  try {
+    const { ok, data } = await api_put(`/api/parts/${id}`, partData);
+    return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to update part.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const deletePart = async (id) => {
+  try {
+    const { ok, data } = await api_delete(`/api/parts/${id}`);
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete part.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};

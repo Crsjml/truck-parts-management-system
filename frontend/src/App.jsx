@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import Dashboard from './components/Dashboard';
@@ -10,12 +10,15 @@ import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import CustomerDashboard from './components/CustomerDashboard';
 import StatusBar from './components/StatusBar';
+import Footer from './components/Footer';
+import VerificationSimulator from './components/VerificationSimulator';
+import CategoryManagement from './components/CategoryManagement';
 
 import {
   INITIAL_TRANSACTIONS,
   INITIAL_LOGS
 } from './mockData';
-import { clearSession, getActiveSession, fetchParts, fetchCategories } from './authStore';
+import { clearSession, getActiveSession, fetchParts, fetchCategories, verifyCustomerEmail, createPart, updatePart, deletePart } from './authStore';
 
 export default function App() {
   const [activeView, setActiveView] = useState('storefront');
@@ -38,6 +41,49 @@ export default function App() {
     }
     return false;
   });
+
+  const [simulatedEmail, setSimulatedEmail] = useState(null);
+  const [showEmailNotification, setShowEmailNotification] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [initialNotice, setInitialNotice] = useState('');
+
+  const handleRegisterSuccess = ({ email, code }) => {
+    setSimulatedEmail({ email, code });
+    setShowEmailNotification(true);
+  };
+
+  const handleAutoVerify = async (email, code) => {
+    try {
+      const result = await verifyCustomerEmail({ email, code });
+      if (result.ok) {
+        setInitialNotice('Email verified successfully. You can now log in.');
+        setAuthTab('login');
+        setShowEmailModal(false);
+        setShowEmailNotification(false);
+        return { ok: true };
+      } else {
+        return { ok: false, error: result.error || 'Verification failed.' };
+      }
+    } catch (err) {
+      console.error('Auto verify failed:', err);
+      return { ok: false, error: 'Could not connect to the server.' };
+    }
+  };
+
+  const renderVerificationSimulator = () => {
+    return (
+      <VerificationSimulator
+        email={simulatedEmail?.email}
+        code={simulatedEmail?.code}
+        showNotification={showEmailNotification}
+        setShowNotification={setShowEmailNotification}
+        showModal={showEmailModal}
+        setShowModal={setShowEmailModal}
+        onAutoVerify={handleAutoVerify}
+      />
+    );
+  };
+
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -89,24 +135,35 @@ export default function App() {
     setLogs((prev) => [newLog, ...prev]);
   };
 
-  const handleAddPart = (partData) => {
-    const newPart = {
-      id: (parts.length + 1).toString(),
-      ...partData
-    };
-    setParts((prev) => [...prev, newPart]);
-    addLog('stock', `New part catalog item '${newPart.name}' added with SKU: ${newPart.sku}.`);
+  const handleAddPart = async (partData) => {
+    const result = await createPart(partData);
+    if (result.ok) {
+      setParts((prev) => [...prev, result.part]);
+      addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`);
+    } else {
+      alert(`Error adding part: ${result.error}`);
+    }
   };
 
-  const handleEditPart = (id, updatedData) => {
-    setParts((prev) => prev.map((part) => (part.id === id ? { ...part, ...updatedData } : part)));
-    addLog('stock', `Part item (ID: ${id}) SKU '${updatedData.sku}' details updated.`);
+  const handleEditPart = async (id, updatedData) => {
+    const result = await updatePart(id, updatedData);
+    if (result.ok) {
+      setParts((prev) => prev.map((part) => (part.id === id ? result.part : part)));
+      addLog('stock', `Part item (ID: ${id}) SKU '${result.part.sku}' details updated.`);
+    } else {
+      alert(`Error updating part: ${result.error}`);
+    }
   };
 
-  const handleDeletePart = (id) => {
+  const handleDeletePart = async (id) => {
     const part = parts.find((item) => item.id === id);
-    setParts((prev) => prev.filter((item) => item.id !== id));
-    addLog('stock', `Part item '${part ? part.name : id}' removed from catalog.`);
+    const result = await deletePart(id);
+    if (result.ok) {
+      setParts((prev) => prev.filter((item) => item.id !== id));
+      addLog('stock', `Part item '${part ? part.name : id}' removed from catalog.`);
+    } else {
+      alert(`Error deleting part: ${result.error}`);
+    }
   };
 
   const handleRestockPart = (id, quantity) => {
@@ -157,11 +214,13 @@ export default function App() {
   };
 
   const handleOpenCustomerAuth = (initialTab = 'login') => {
+    setInitialNotice('');
     setAuthTab(initialTab);
     setActiveView('customer-auth');
   };
 
   const handleOpenAdminAuth = () => {
+    setInitialNotice('');
     setAuthTab('login');
     setActiveView('admin-auth');
   };
@@ -199,10 +258,16 @@ export default function App() {
         <AuthPortal
           mode="customer"
           initialTab={authTab}
-          onBackToStore={() => setActiveView('storefront')}
+          initialNotice={initialNotice}
+          onBackToStore={() => {
+            setInitialNotice('');
+            setActiveView('storefront');
+          }}
           onCustomerAuthenticated={handleCustomerAuthenticated}
           onAdminAuthenticated={handleAdminAuthenticated}
+          onRegisterSuccess={handleRegisterSuccess}
         />
+        {renderVerificationSimulator()}
         <StatusBar />
       </>
     );
@@ -214,10 +279,16 @@ export default function App() {
         <AuthPortal
           mode="admin"
           initialTab="login"
-          onBackToStore={() => setActiveView('storefront')}
+          initialNotice={initialNotice}
+          onBackToStore={() => {
+            setInitialNotice('');
+            setActiveView('storefront');
+          }}
           onCustomerAuthenticated={handleCustomerAuthenticated}
           onAdminAuthenticated={handleAdminAuthenticated}
+          onRegisterSuccess={handleRegisterSuccess}
         />
+        {renderVerificationSimulator()}
         <StatusBar />
       </>
     );
@@ -238,6 +309,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
         />
+        {renderVerificationSimulator()}
         <StatusBar />
       </>
     );
@@ -257,6 +329,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
         />
+        {renderVerificationSimulator()}
         <StatusBar />
       </>
     );
@@ -318,6 +391,18 @@ export default function App() {
             >
               <ChartBar weight="duotone" className="w-5 h-5" />
               Sales Analytics
+            </button>
+
+            <button
+              onClick={() => setPage('categories')}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                page === 'categories'
+                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+              }`}
+            >
+              <Tag weight="duotone" className="w-5 h-5" />
+              Category Management
             </button>
           </nav>
         </div>
@@ -400,6 +485,18 @@ export default function App() {
                 >
                   <ChartBar weight="duotone" className="w-5 h-5" />
                   Sales Analytics
+                </button>
+                <button
+                  onClick={() => {
+                    setPage('categories');
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'categories' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <Tag weight="duotone" className="w-5 h-5" />
+                  Category Management
                 </button>
               </nav>
             </div>
@@ -503,8 +600,12 @@ export default function App() {
           {page === 'pos' && <TransactionPOS parts={parts} onCheckout={handleCheckout} />}
 
           {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
+
+          {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
         </main>
+        <Footer className="px-6 md:px-8 mt-6" />
       </div>
+      {renderVerificationSimulator()}
       <StatusBar />
     </div>
   );

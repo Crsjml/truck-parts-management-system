@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, User } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, User, Warning, Bell } from '@phosphor-icons/react';
 import Logo from './Logo';
+import Footer from './Footer';
 import {
   getVerificationNotice,
   loginAdmin,
@@ -31,9 +32,11 @@ const customerLoginDefaults = {
 export default function AuthPortal({
   mode = 'customer',
   initialTab = 'login',
+  initialNotice = '',
   onBackToStore,
   onCustomerAuthenticated,
-  onAdminAuthenticated
+  onAdminAuthenticated,
+  onRegisterSuccess
 }) {
   const [currentRole, setCurrentRole] = useState(mode);
   const isCustomerMode = currentRole === 'customer';
@@ -47,6 +50,60 @@ export default function AuthPortal({
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  const [shake, setShake] = useState(false);
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (lockoutTimeLeft <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutTimeLeft]);
+
+  const formatLockoutTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
+  const renderNoticeBanner = () => {
+    if (!notice) return null;
+
+    const isError = /fail|incorrect|locked|invalid|error|cannot|wrong/i.test(notice);
+    const isSuccess = /success|verified|successfully|sent|created/i.test(notice);
+
+    let cardClasses = "mb-5 rounded-2xl border p-4 text-sm flex gap-3 items-start animate-scaleUp ";
+    let Icon = Bell;
+    let iconClass = "";
+
+    if (isError) {
+      cardClasses += "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400";
+      Icon = Warning;
+      iconClass = "text-red-500 shrink-0 mt-0.5 w-5 h-5";
+    } else if (isSuccess) {
+      cardClasses += "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+      Icon = CheckCircle;
+      iconClass = "text-emerald-500 shrink-0 mt-0.5 w-5 h-5";
+    } else {
+      cardClasses += "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400";
+      Icon = Bell;
+      iconClass = "text-sky-500 shrink-0 mt-0.5 w-5 h-5";
+    }
+
+    return (
+      <div className={cardClasses}>
+        <Icon className={iconClass} weight="duotone" />
+        <div className="leading-snug">{notice}</div>
+      </div>
+    );
+  };
+
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotToken, setForgotToken] = useState('');
   const [forgotNewPassword, setForgotNewPassword] = useState('');
@@ -58,7 +115,10 @@ export default function AuthPortal({
     setLoginForm(customerLoginDefaults);
     setRegisterForm(customerRegisterDefaults);
     resetFeedback();
-  }, [initialTab, mode]);
+    if (initialNotice) {
+      setNotice(initialNotice);
+    }
+  }, [initialTab, mode, initialNotice]);
 
   const resetFeedback = () => {
     setNotice('');
@@ -76,6 +136,7 @@ export default function AuthPortal({
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       setLoading(false);
+      triggerShake();
       return;
     }
 
@@ -84,6 +145,7 @@ export default function AuthPortal({
       setErrors(result.errors || {});
       setNotice(result.error || 'Registration failed.');
       setLoading(false);
+      triggerShake();
       return;
     }
 
@@ -93,6 +155,7 @@ export default function AuthPortal({
     setNotice(getVerificationNotice(result.email, result.verificationCode));
     setActiveTab('verify');
     setLoading(false);
+    onRegisterSuccess?.({ email: result.email, code: result.verificationCode });
   };
 
   const handleVerificationSubmit = async (event) => {
@@ -102,6 +165,7 @@ export default function AuthPortal({
     const codeError = validateVerificationCode(verificationInput);
     if (codeError) {
       setErrors({ verificationInput: codeError });
+      triggerShake();
       return;
     }
 
@@ -111,6 +175,7 @@ export default function AuthPortal({
 
     if (!result.ok) {
       setErrors({ verificationInput: result.error });
+      triggerShake();
       return;
     }
 
@@ -135,6 +200,7 @@ export default function AuthPortal({
     if (result.verificationCode) {
       setVerificationCode(result.verificationCode);
       setNotice(getVerificationNotice(targetEmail, result.verificationCode));
+      onRegisterSuccess?.({ email: targetEmail, code: result.verificationCode });
     } else {
       setNotice(result.message);
     }
@@ -149,6 +215,14 @@ export default function AuthPortal({
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       setLoading(false);
+      triggerShake();
+      return;
+    }
+
+    if (lockoutTimeLeft > 0) {
+      setNotice(`Account is temporarily locked. Try again in ${formatLockoutTime(lockoutTimeLeft)}.`);
+      setLoading(false);
+      triggerShake();
       return;
     }
 
@@ -156,6 +230,11 @@ export default function AuthPortal({
     if (!result.ok) {
       setErrors(result.errors || {});
       setNotice(result.error || 'Login failed.');
+      triggerShake();
+
+      if (result.locked) {
+        setLockoutTimeLeft(15 * 60); // 15 min lock
+      }
 
       if (result.needsVerification) {
         setVerificationEmail(loginForm.email);
@@ -225,6 +304,14 @@ export default function AuthPortal({
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       setLoading(false);
+      triggerShake();
+      return;
+    }
+
+    if (lockoutTimeLeft > 0) {
+      setNotice(`Admin portal is temporarily locked. Try again in ${formatLockoutTime(lockoutTimeLeft)}.`);
+      setLoading(false);
+      triggerShake();
       return;
     }
 
@@ -232,6 +319,12 @@ export default function AuthPortal({
     if (!result.ok) {
       setErrors(result.errors || {});
       setNotice(result.error || 'Admin login failed.');
+      triggerShake();
+
+      if (result.locked) {
+        setLockoutTimeLeft(15 * 60); // 15 min lock
+      }
+
       setLoading(false);
       return;
     }
@@ -242,9 +335,16 @@ export default function AuthPortal({
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
-        <section className="relative flex w-full flex-col justify-between overflow-hidden border-b border-slate-900/80 bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.18),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.18),_transparent_28%),linear-gradient(160deg,_rgba(15,23,42,0.98),_rgba(2,6,23,1))] px-6 py-8 lg:min-h-screen lg:w-[44%] lg:border-b-0 lg:border-r lg:px-10 lg:py-10">
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 lg:p-12 relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.06),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.06),_transparent_35%),linear-gradient(160deg,_rgba(248,250,252,1),_rgba(241,245,249,1))] dark:bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.15),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.15),_transparent_35%),linear-gradient(160deg,_rgba(9,15,30,1),_rgba(2,6,23,1))] text-foreground font-sans">
+      {/* Visual background ambient details */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600/5 rounded-full filter blur-[100px] animate-pulse pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brandBlue-600/5 rounded-full filter blur-[100px] animate-pulse pointer-events-none" />
+
+      {/* Main Glass Container */}
+      <div className="w-full max-w-5xl rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-slate-100/40 dark:bg-slate-900/30 backdrop-blur-2xl shadow-2xl flex flex-col lg:flex-row overflow-hidden min-h-[750px] animate-scaleUp">
+        
+        {/* Left Side: Brand Panel */}
+        <section className="relative flex lg:w-[45%] flex-col justify-between overflow-hidden p-8 lg:p-12 bg-gradient-to-b from-slate-200/30 to-slate-100/10 dark:from-slate-950/40 dark:to-slate-950/20 border-b lg:border-b-0 lg:border-r border-slate-200/50 dark:border-white/5">
           <div className="relative space-y-8">
             <button
               type="button"
@@ -258,10 +358,10 @@ export default function AuthPortal({
             <Logo className="w-16 h-16" showText={true} />
 
             <div className="max-w-xl space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-red-300">
+              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-red-600 dark:text-red-300">
                 Premium Truck Spare Parts
               </span>
-              <h1 className="text-4xl font-black tracking-tight text-foreground sm:text-5xl">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
                 Tarlac Truck Pitstop
               </h1>
               <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
@@ -270,9 +370,10 @@ export default function AuthPortal({
             </div>
           </div>
 
-          <div className="relative space-y-4 my-8 lg:my-0">
-            <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
-              <div className="p-2.5 bg-brandBlue-900/30 border border-brandBlue-800/30 text-brandBlue-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+          <div className="relative space-y-2.5 my-8 lg:my-0">
+            {/* Compatibility */}
+            <div className="flex gap-4 p-4 rounded-2xl border border-transparent border-l-2 hover:border-l-brandBlue-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
+              <div className="p-2.5 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/20 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                 <Truck weight="duotone" className="w-5 h-5" />
               </div>
               <div>
@@ -281,8 +382,9 @@ export default function AuthPortal({
               </div>
             </div>
 
-            <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
-              <div className="p-2.5 bg-emerald-950/40 border border-emerald-800/30 text-emerald-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+            {/* Wholesale Pricing */}
+            <div className="flex gap-4 p-4 rounded-2xl border border-transparent border-l-2 hover:border-l-emerald-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
+              <div className="p-2.5 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                 <Percent weight="duotone" className="w-5 h-5" />
               </div>
               <div>
@@ -291,8 +393,9 @@ export default function AuthPortal({
               </div>
             </div>
 
-            <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
-              <div className="p-2.5 bg-secondary border border-border text-muted-foreground rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+            {/* OEM Certified Sourcing */}
+            <div className="flex gap-4 p-4 rounded-2xl border border-transparent border-l-2 hover:border-l-rose-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
+              <div className="p-2.5 bg-rose-500/10 dark:bg-rose-900/30 border border-rose-500/20 dark:border-rose-800/30 text-rose-600 dark:text-rose-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                 <ShieldCheck weight="duotone" className="w-5 h-5" />
               </div>
               <div>
@@ -302,25 +405,24 @@ export default function AuthPortal({
             </div>
           </div>
 
-          <div className="relative text-xs text-muted-foreground font-semibold pt-4 border-t border-slate-900/60 flex items-center gap-2">
-            <span>© 2026 Tarlac Truck Pitstop.</span>
-          </div>
+          <Footer className="w-full mt-4" />
         </section>
 
-        <section className="flex w-full items-center justify-center px-4 py-8 sm:px-6 lg:w-[56%] lg:px-10 lg:py-10">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-border bg-secondary p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
-            <div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-5">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground">{isCustomerMode ? 'Customer account' : 'Admin sign-in'}</p>
-                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-                  {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
-                </h2>
-              </div>
+        {/* Right Side: Form Panel */}
+        <section className="flex-1 flex flex-col justify-center p-8 lg:p-12 bg-white/5 dark:bg-slate-900/5">
+          <div className="w-full max-w-md mx-auto space-y-6">
+            
+            <div className="border-b border-border pb-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+                {isCustomerMode ? 'Customer account' : 'Admin sign-in'}
+              </p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
+              </h2>
             </div>
 
-
             {isCustomerMode && (
-              <div className="mb-6 flex rounded-2xl border border-border bg-background p-1">
+              <div className="flex rounded-2xl border border-border bg-background p-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -365,35 +467,31 @@ export default function AuthPortal({
               </div>
             )}
 
-            {notice && (
-              <div className="mb-5 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                {notice}
-              </div>
-            )}
+            {renderNoticeBanner()}
 
-            {isCustomerMode && activeTab === 'register' && (
-              <form onSubmit={handleCustomerRegister} className="space-y-4">
+             {isCustomerMode && activeTab === 'register' && (
+              <form onSubmit={handleCustomerRegister} className={`space-y-4 ${shake && activeTab === 'register' ? 'animate-shake' : ''}`}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Full name</label>
                     <input
-                      className={inputClass}
+                      className={`${inputClass} ${errors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                       value={registerForm.fullName}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, fullName: event.target.value }))}
                       placeholder="Juan Dela Cruz"
                     />
-                    {errors.fullName && <p className="text-xs text-red-400">{errors.fullName}</p>}
+                    {errors.fullName && <p className="text-xs text-red-400 font-semibold">{errors.fullName}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Contact number</label>
                     <input
-                      className={inputClass}
+                      className={`${inputClass} ${errors.contactNumber ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                       value={registerForm.contactNumber}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, contactNumber: event.target.value }))}
                       placeholder="09171234567"
                     />
-                    {errors.contactNumber && <p className="text-xs text-red-400">{errors.contactNumber}</p>}
+                    {errors.contactNumber && <p className="text-xs text-red-400 font-semibold">{errors.contactNumber}</p>}
                   </div>
                 </div>
 
@@ -402,24 +500,24 @@ export default function AuthPortal({
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                     <input
                       type="email"
-                      className={inputClass}
+                      className={`${inputClass} ${errors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                       value={registerForm.email}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, email: event.target.value }))}
                       placeholder="customer@domain.com"
                     />
-                    {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+                    {errors.email && <p className="text-xs text-red-400 font-semibold">{errors.email}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                     <input
                       type="password"
-                      className={inputClass}
+                      className={`${inputClass} ${errors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                       value={registerForm.password}
                       onChange={(event) => setRegisterForm((current) => ({ ...current, password: event.target.value }))}
                       placeholder="Minimum 8 characters"
                     />
-                    {errors.password && <p className="text-xs text-red-400">{errors.password}</p>}
+                    {errors.password && <p className="text-xs text-red-400 font-semibold">{errors.password}</p>}
                   </div>
                 </div>
 
@@ -434,8 +532,8 @@ export default function AuthPortal({
               </form>
             )}
 
-            {isCustomerMode && activeTab === 'verify' && (
-              <form onSubmit={handleVerificationSubmit} className="space-y-4">
+             {isCustomerMode && activeTab === 'verify' && (
+              <form onSubmit={handleVerificationSubmit} className={`space-y-4 ${shake && activeTab === 'verify' ? 'animate-shake' : ''}`}>
                 <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
                   Email verification is required before login. The code is sent to the address used during registration.
                 </div>
@@ -449,12 +547,12 @@ export default function AuthPortal({
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Verification code</label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${errors.verificationInput ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                     value={verificationInput}
                     onChange={(event) => setVerificationInput(event.target.value)}
                     placeholder="6-digit code"
                   />
-                  {errors.verificationInput && <p className="text-xs text-red-400">{errors.verificationInput}</p>}
+                  {errors.verificationInput && <p className="text-xs text-red-400 font-semibold">{errors.verificationInput}</p>}
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -476,73 +574,90 @@ export default function AuthPortal({
               </form>
             )}
 
-            {isCustomerMode && activeTab === 'login' && (
-              <form onSubmit={handleCustomerLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
-                  <input
-                    type="email"
-                    className={inputClass}
-                    value={loginForm.email}
-                    onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
-                    placeholder="customer@domain.com"
-                  />
-                  {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
-                </div>
+             {isCustomerMode && activeTab === 'login' && (
+              <form onSubmit={handleCustomerLogin} className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
+                {lockoutTimeLeft > 0 ? (
+                  <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
+                    <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
+                    <div>
+                      <h4 className="font-bold text-red-600 dark:text-red-400 text-lg">Login Access Locked</h4>
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                        Too many failed login attempts. For your account security, login capability has been temporarily locked. Please try again after the timer below:
+                      </p>
+                    </div>
+                    <div className="font-mono font-black text-3xl text-red-500 tracking-wider">
+                      {formatLockoutTime(lockoutTimeLeft)}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
+                      <input
+                        type="email"
+                        className={`${inputClass} ${errors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        value={loginForm.email}
+                        onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                        placeholder="customer@domain.com"
+                      />
+                      {errors.email && <p className="text-xs text-red-400 font-semibold">{errors.email}</p>}
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
-                  <input
-                    type="password"
-                    className={inputClass}
-                    value={loginForm.password}
-                    onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
-                    placeholder="Enter your password"
-                  />
-                  {errors.password && <p className="text-xs text-red-400">{errors.password}</p>}
-                </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
+                      <input
+                        type="password"
+                        className={`${inputClass} ${errors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        value={loginForm.password}
+                        onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                        placeholder="Enter your password"
+                      />
+                      {errors.password && <p className="text-xs text-red-400 font-semibold">{errors.password}</p>}
+                    </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground w-full">
-                    <input
-                      type="checkbox"
-                      checked={loginForm.rememberMe}
-                      onChange={(event) => setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))}
-                      className="h-4 w-4 rounded border-border bg-background text-accent focus:ring-accent"
-                    />
-                    Remember me on this device
-                  </label>
-                </div>
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground w-full cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={loginForm.rememberMe}
+                          onChange={(event) => setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))}
+                          className="h-4 w-4 rounded border-border bg-background text-accent focus:ring-accent"
+                        />
+                        Remember me on this device
+                      </label>
+                    </div>
 
-                <div className="flex justify-end mt-1">
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setActiveTab('forgot');
-                      setForgotStep(1);
-                      resetFeedback();
-                    }}
-                    className="text-xs text-accent hover:text-accent/80 transition font-bold"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
+                    <div className="flex justify-end mt-1">
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setActiveTab('forgot');
+                          setForgotStep(1);
+                          resetFeedback();
+                        }}
+                        className="text-xs text-accent hover:text-accent/80 transition font-bold"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <LockKey weight="duotone" className="h-4 w-4" />}
-                  Sign in
-                </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <LockKey weight="duotone" className="h-4 w-4" />}
+                      Sign in
+                    </button>
+                  </>
+                )}
               </form>
             )}
 
             {isCustomerMode && activeTab === 'forgot' && (
               <div className="space-y-4">
                 {forgotStep === 1 ? (
-                  <form onSubmit={handleForgotRequest} className="space-y-4">
+                  <form onSubmit={handleForgotRequest} className={`space-y-4 ${shake && activeTab === 'forgot' ? 'animate-shake' : ''}`}>
                     <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
                       Enter your email to request a password reset link.
                     </div>
@@ -550,12 +665,12 @@ export default function AuthPortal({
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                       <input
                         type="email"
-                        className={inputClass}
+                        className={`${inputClass} ${errors.forgotEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
                         placeholder="customer@domain.com"
                       />
-                      {errors.forgotEmail && <p className="text-xs text-red-400">{errors.forgotEmail}</p>}
+                      {errors.forgotEmail && <p className="text-xs text-red-400 font-semibold">{errors.forgotEmail}</p>}
                     </div>
                     <button
                       type="submit"
@@ -567,11 +682,11 @@ export default function AuthPortal({
                     </button>
                   </form>
                 ) : (
-                  <form onSubmit={handleForgotReset} className="space-y-4">
+                  <form onSubmit={handleForgotReset} className={`space-y-4 ${shake && activeTab === 'forgot' ? 'animate-shake' : ''}`}>
                      <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
                       Enter the reset token you received and your new password.
                     </div>
-                    {errors.form && <p className="text-xs text-red-400">{errors.form}</p>}
+                    {errors.form && <p className="text-xs text-red-400 font-semibold">{errors.form}</p>}
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Reset Token</label>
                       <input
@@ -586,12 +701,12 @@ export default function AuthPortal({
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">New Password</label>
                       <input
                         type="password"
-                        className={inputClass}
+                        className={`${inputClass} ${errors.newPassword ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                         value={forgotNewPassword}
                         onChange={(e) => setForgotNewPassword(e.target.value)}
                         placeholder="Minimum 8 characters"
                       />
-                      {errors.newPassword && <p className="text-xs text-red-400">{errors.newPassword}</p>}
+                      {errors.newPassword && <p className="text-xs text-red-400 font-semibold">{errors.newPassword}</p>}
                     </div>
                     <button
                       type="submit"
@@ -606,44 +721,61 @@ export default function AuthPortal({
               </div>
             )}
 
-            {!isCustomerMode && (
-              <form onSubmit={handleAdminLogin} className="space-y-4">
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
-                  Admin accounts are not publicly registered. Use this separate portal for privileged access.
-                </div>
+             {!isCustomerMode && (
+              <form onSubmit={handleAdminLogin} className={`space-y-4 ${shake && !isCustomerMode ? 'animate-shake' : ''}`}>
+                {lockoutTimeLeft > 0 ? (
+                  <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
+                    <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
+                    <div>
+                      <h4 className="font-bold text-red-600 dark:text-red-400 text-lg">Admin Access Locked</h4>
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                        Too many failed admin login attempts. For security access control, admin capability has been temporarily locked. Please try again after the timer below:
+                      </p>
+                    </div>
+                    <div className="font-mono font-black text-3xl text-red-500 tracking-wider">
+                      {formatLockoutTime(lockoutTimeLeft)}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                      Admin accounts are not publicly registered. Use this separate portal for privileged access.
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Admin email</label>
-                  <input
-                    type="email"
-                    className={inputClass}
-                    value={loginForm.email}
-                    onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
-                    placeholder="admin@tarlactruckparts.local"
-                  />
-                  {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
-                </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Admin email</label>
+                      <input
+                        type="email"
+                        className={`${inputClass} ${errors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        value={loginForm.email}
+                        onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                        placeholder="admin@tarlactruckparts.local"
+                      />
+                      {errors.email && <p className="text-xs text-red-400 font-semibold">{errors.email}</p>}
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
-                  <input
-                    type="password"
-                    className={inputClass}
-                    value={loginForm.password}
-                    onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
-                    placeholder="Enter admin password"
-                  />
-                  {errors.password && <p className="text-xs text-red-400">{errors.password}</p>}
-                </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
+                      <input
+                        type="password"
+                        className={`${inputClass} ${errors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        value={loginForm.password}
+                        onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                        placeholder="Enter admin password"
+                      />
+                      {errors.password && <p className="text-xs text-red-400 font-semibold">{errors.password}</p>}
+                    </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <ShieldCheck weight="duotone" className="h-4 w-4" />}
-                  Enter admin login
-                </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <ShieldCheck weight="duotone" className="h-4 w-4" />}
+                      Enter admin login
+                    </button>
+                  </>
+                )}
               </form>
             )}
           </div>

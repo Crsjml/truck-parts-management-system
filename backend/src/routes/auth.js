@@ -3,6 +3,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -319,6 +320,30 @@ router.post('/change-password', async (req, res) => {
   } catch (err) {
     console.error('[change-password]', err);
     res.status(500).json({ msg: 'Server error changing password.' });
+  }
+});
+
+// ── Verify active token ────────────────────────────────────────────────────────
+router.get('/verify-token', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password_hash');
+    if (!user) {
+      return res.status(404).json({ msg: 'User session invalid.' });
+    }
+    res.json({
+      valid: true,
+      user: {
+        id: user._id,
+        role: user.role,
+        email: user.email,
+        full_name: user.full_name,
+        contact_number: user.contact_number,
+        verified: user.verified
+      }
+    });
+  } catch (err) {
+    console.error('[verify token endpoint]', err);
+    res.status(500).json({ msg: 'Server error verifying token.' });
   }
 });
 

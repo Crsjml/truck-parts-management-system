@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldWarning, User, Buildings, Truck, Package, Percent, ArrowRight, ShieldCheck, Wrench, ChartLineUp } from '@phosphor-icons/react';
 import Logo from './Logo';
+import Footer from './Footer';
 
 export default function WelcomePortal({ onSelectRole }) {
   return (
@@ -29,7 +30,7 @@ export default function WelcomePortal({ onSelectRole }) {
             <span className="px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-wider inline-block">
               Premium Truck Spare Parts
             </span>
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-foreground font-display leading-tight">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground font-display leading-tight">
               Tarlac Truck Pitstop
             </h1>
             <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
@@ -132,13 +133,7 @@ export default function WelcomePortal({ onSelectRole }) {
       </main>
 
       {/* Footer Branding info */}
-      <footer className="max-w-7xl w-full mx-auto pt-6 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-muted-foreground shrink-0 font-semibold">
-        <p>© 2026 Tarlac Truck Pitstop. All rights reserved.</p>
-        <div className="flex gap-4">
-          <span className="flex items-center gap-1"><Wrench weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" /> Wholesale Spare Parts</span>
-          <span className="flex items-center gap-1"><ChartLineUp weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" /> Logistics Intelligence</span>
-        </div>
-      </footer>
+      <Footer className="max-w-7xl" />
     </div>
   );
 }

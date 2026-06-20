@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SquaresFour, FileText, PaperPlaneRight, CalendarBlank, Bell, List, X, User, ShieldCheck, CurrencyDollar, TrendUp, Package, Question, Download, Clock, CheckCircle, ArrowRight, ShoppingCart, MagnifyingGlass, Plus, Minus, Trash, CreditCard, LockKey, Gear, CircleNotch, Moon, Sun } from '@phosphor-icons/react';
 import { changePassword } from '../authStore';
 import Logo from './Logo';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import Footer from './Footer';
 
 /* ─────────────────────────────────────────────
    INNER PAGE COMPONENTS
@@ -26,7 +27,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground font-display">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground font-display">
             Customer Overview
           </h1>
           <p className="text-muted-foreground max-w-xl text-sm md:text-base leading-relaxed">
@@ -63,7 +64,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-brandBlue-400 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">My Invoices</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">{totalOrders}</h3>
+            <h3 className="text-3xl font-bold text-foreground font-display">{totalOrders}</h3>
             <p className="text-xs text-muted-foreground">Completed orders</p>
           </div>
           <div className="p-3 bg-brandBlue-900/40 text-brandBlue-400 rounded-xl border border-brandBlue-700/30">
@@ -74,7 +75,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-emerald-500/30 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Spent</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">
+            <h3 className="text-3xl font-bold text-foreground font-display">
               ₱{totalSpent.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </h3>
             <p className="text-xs text-emerald-400 flex items-center gap-1">
@@ -89,7 +90,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-indigo-500/30 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Avg. Invoice</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">
+            <h3 className="text-3xl font-bold text-foreground font-display">
               ₱{avgOrder.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </h3>
             <p className="text-xs text-muted-foreground">Per checkout</p>
@@ -102,7 +103,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-accent/50 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pending Quotes</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">{pendingInq}</h3>
+            <h3 className="text-3xl font-bold text-foreground font-display">{pendingInq}</h3>
             <p className="text-xs text-muted-foreground">Awaiting response</p>
           </div>
           <div className="p-3 bg-accent/15 text-accent rounded-xl border border-accent/20">
@@ -272,7 +273,7 @@ function MyOrders({ customerName, transactions }) {
     <div className="space-y-6 animate-fadeIn">
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-brandBlue-400">
         <div className="absolute top-0 right-0 w-72 h-72 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <h1 className="text-3xl font-extrabold text-foreground font-display">My Purchase History</h1>
+        <h1 className="text-3xl font-bold text-foreground font-display">My Purchase History</h1>
         <p className="text-muted-foreground text-sm mt-1">All invoices processed under your account. Download duplicates anytime.</p>
       </div>
 
@@ -367,7 +368,7 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
     <div className="space-y-6 animate-fadeIn">
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-72 h-72 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <h1 className="text-3xl font-extrabold text-foreground font-display">Request a Quote</h1>
+        <h1 className="text-3xl font-bold text-foreground font-display">Request a Quote</h1>
         <p className="text-muted-foreground text-sm mt-1">Submit a wholesale parts inquiry to our warehouse team for volume pricing.</p>
       </div>
 
@@ -502,6 +503,31 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [lastTx, setLastTx] = useState(null);
 
+  // Autocomplete, pagination, and sorting states
+  const [sortOrder, setSortOrder] = useState('recommended');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const itemsPerPage = 12;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory, sortOrder]);
+
+  const suggestions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return [];
+    const candidates = new Set();
+    parts.forEach(part => {
+      if (part.name.toLowerCase().includes(term)) candidates.add(part.name);
+      if (part.sku.toLowerCase().includes(term)) candidates.add(part.sku);
+      if (part.oem.toLowerCase().includes(term)) candidates.add(part.oem);
+      if (part.compatibility && part.compatibility.toLowerCase().includes(term)) {
+        candidates.add(part.compatibility);
+      }
+    });
+    return Array.from(candidates).slice(0, 6);
+  }, [search, parts]);
+
   // Dynamic Categories from catalog
   const categories = ['All', ...new Set(parts.map((p) => p.category))];
 
@@ -515,6 +541,22 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
     const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const sortedParts = useMemo(() => {
+    const result = [...filteredParts];
+    if (sortOrder === 'price-asc') result.sort((a, b) => a.price - b.price);
+    else if (sortOrder === 'price-desc') result.sort((a, b) => b.price - a.price);
+    else if (sortOrder === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
+    else if (sortOrder === 'stock-desc') result.sort((a, b) => b.stock - a.stock);
+    else if (sortOrder === 'stock-asc') result.sort((a, b) => a.stock - b.stock);
+    return result;
+  }, [filteredParts, sortOrder]);
+
+  const paginatedParts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedParts.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedParts, currentPage]);
 
   const addToCart = (part) => {
     const existing = cart.find((item) => item.id === part.id);
@@ -685,28 +727,58 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
       <div className="xl:col-span-2 space-y-6">
         <div className="relative overflow-hidden rounded-2xl glass-panel p-6 border-l-4 border-l-brandBlue-400">
           <div className="absolute top-0 right-0 w-72 h-72 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-          <h1 className="text-3xl font-extrabold text-foreground font-display">Parts Shop</h1>
+          <h1 className="text-3xl font-bold text-foreground font-display">Parts Shop</h1>
           <p className="text-muted-foreground text-sm mt-1">Select from our warehouse stock. Logged-in VIP customer discount applied automatically.</p>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl space-y-4 font-sans">
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center pb-3 border-b border-border">
-            <h3 className="text-lg font-bold text-foreground font-display">Browse & Order</h3>
-            <span className="text-xs text-muted-foreground">Add parts to your dashboard checkout cart.</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="relative md:col-span-2">
-              <MagnifyingGlass weight="duotone" className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search catalog by SKU, name, OEM, fitment..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
-              />
+          <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
+            <div className="flex items-center gap-3 w-full lg:max-w-xl">
+              <div className="relative w-full">
+                <MagnifyingGlass weight="duotone" className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search catalog by SKU, name, OEM, fitment..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-border bg-secondary p-2 shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto">
+                    {suggestions.map((s, idx) => (
+                      <li key={idx}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch(s);
+                            setShowSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                        >
+                          {s}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <select 
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="h-9 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-muted-foreground outline-none focus:border-brandBlue-500 transition w-full md:w-auto shrink-0"
+              >
+                <option value="recommended">Sort By</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="name-asc">Name: A to Z</option>
+                <option value="name-desc">Name: Z to A</option>
+                <option value="stock-desc">Stock: High to Low</option>
+                <option value="stock-asc">Stock: Low to High</option>
+              </select>
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full lg:max-w-xs xl:max-w-none">
               {categories.map((cat) => (
                 <button
                   key={cat}
@@ -726,8 +798,9 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
           {filteredParts.length === 0 ? (
             <div className="py-16 text-center text-muted-foreground text-sm">No items found matching your filters.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[520px] overflow-y-auto pr-1">
-              {filteredParts.map((part) => {
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[520px] overflow-y-auto pr-1">
+              {paginatedParts.map((part) => {
                 const cartItem = cart.find((item) => item.id === part.id);
                 const remaining = part.stock - (cartItem ? cartItem.quantity : 0);
 
@@ -766,7 +839,44 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                 );
               })}
             </div>
-          )}
+
+            {/* Pagination Controls */}
+            {Math.ceil(filteredParts.length / itemsPerPage) > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-slate-200/20 dark:border-slate-800/40">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-xl border border-border text-[10px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: Math.ceil(filteredParts.length / itemsPerPage) }, (_, i) => i + 1).map(pageNumber => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNumber)}
+                    className={`w-7 h-7 rounded-xl text-[10px] font-bold transition-all ${
+                      currentPage === pageNumber
+                        ? 'bg-accent text-white font-extrabold shadow-md shadow-accent/20'
+                        : 'border border-border text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredParts.length / itemsPerPage)))}
+                  disabled={currentPage === Math.ceil(filteredParts.length / itemsPerPage)}
+                  className="px-3 py-1.5 rounded-xl border border-border text-[10px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
         </div>
       </div>
 
@@ -979,7 +1089,7 @@ function SettingsPage({ customerEmail }) {
     <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-72 h-72 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <h1 className="text-3xl font-extrabold text-foreground font-display">Account Security</h1>
+        <h1 className="text-3xl font-bold text-foreground font-display">Account Security</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your password and security preferences.</p>
       </div>
 
@@ -1254,6 +1364,7 @@ export default function CustomerDashboard({
             <SettingsPage customerEmail={transactions.length > 0 ? transactions[0].customerEmail || 'demo@example.com' : 'demo@example.com'} />
           )}
         </main>
+        <Footer className="px-6" />
       </div>
     </div>
   );

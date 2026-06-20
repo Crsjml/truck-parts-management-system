@@ -142,7 +142,7 @@ export default function Analytics({ parts, transactions }) {
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Net Sales</span>
-            <h3 className="text-2xl font-extrabold text-foreground font-display">
+            <h3 className="text-2xl font-bold text-foreground font-display">
               ₱{totalInvoicedAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </h3>
             <p className="text-[10px] text-emerald-400 flex items-center gap-1">
@@ -157,7 +157,7 @@ export default function Analytics({ parts, transactions }) {
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Processed Invoices</span>
-            <h3 className="text-2xl font-extrabold text-foreground font-display">{totalSales}</h3>
+            <h3 className="text-2xl font-bold text-foreground font-display">{totalSales}</h3>
             <p className="text-[10px] text-muted-foreground">Customer payments complete</p>
           </div>
           <div className="p-3 bg-brandBlue-900/40 text-brandBlue-400 rounded-xl border border-brandBlue-700/30">
@@ -168,7 +168,7 @@ export default function Analytics({ parts, transactions }) {
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Invoice</span>
-            <h3 className="text-2xl font-extrabold text-foreground font-display">
+            <h3 className="text-2xl font-bold text-foreground font-display">
               ₱{averageInvoiceValue.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </h3>
             <p className="text-[10px] text-muted-foreground">Value per customer checkout</p>
@@ -181,7 +181,7 @@ export default function Analytics({ parts, transactions }) {
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Items Dispatched</span>
-            <h3 className="text-2xl font-extrabold text-foreground font-display">{totalItemsSold} units</h3>
+            <h3 className="text-2xl font-bold text-foreground font-display">{totalItemsSold} units</h3>
             <p className="text-[10px] text-muted-foreground">Truck parts sold out of warehouse</p>
           </div>
           <div className="p-3 bg-violet-950/40 text-violet-400 rounded-xl border border-violet-800/35">

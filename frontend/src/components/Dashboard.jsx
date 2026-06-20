@@ -14,7 +14,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground font-display">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground font-display">
             System Overview
           </h1>
           <p className="text-muted-foreground max-w-xl text-sm md:text-base leading-relaxed">
@@ -50,7 +50,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-brandBlue-400 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Catalog Parts</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">{totalParts}</h3>
+            <h3 className="text-3xl font-bold text-foreground font-display">{totalParts}</h3>
             <p className="text-xs text-muted-foreground">Listed components</p>
           </div>
           <div className="p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl border border-brandBlue-500/30 dark:border-brandBlue-700/30">
@@ -62,7 +62,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-emerald-500/30 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Asset Value</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">
+            <h3 className="text-3xl font-bold text-foreground font-display">
               ₱{inventoryValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
             <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -78,7 +78,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         <div className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 ${lowStockItems.length > 0 ? 'border-t-accent/50' : 'border-t-border'}`}>
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Stock Warnings</span>
-            <h3 className={`text-3xl font-extrabold font-display ${lowStockItems.length > 0 ? 'text-red-500 glow-text-red' : 'text-muted-foreground'}`}>
+            <h3 className={`text-3xl font-bold font-display ${lowStockItems.length > 0 ? 'text-red-500 glow-text-red' : 'text-muted-foreground'}`}>
               {lowStockItems.length}
             </h3>
             <p className="text-xs text-muted-foreground">
@@ -94,7 +94,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-amber-500/30 transition-all duration-300">
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Invoiced Sales</span>
-            <h3 className="text-3xl font-extrabold text-foreground font-display">
+            <h3 className="text-3xl font-bold text-foreground font-display">
               ₱{totalRevenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
             <p className="text-xs text-muted-foreground">{transactions.length} invoices generated</p>

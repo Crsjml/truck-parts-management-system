@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders } from '@phosphor-icons/react';
 import Logo from './Logo';
+import Footer from './Footer';
 
 export default function CustomerStorefront({
   parts,
@@ -22,6 +23,30 @@ export default function CustomerStorefront({
   const [showFilters, setShowFilters] = useState(false);
   const [compatibilityFilter, setCompatibilityFilter] = useState('All');
   const [stockStatus, setStockStatus] = useState('All');
+
+  // Autocomplete, Pagination, Stock sorting states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const itemsPerPage = 12;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter]);
+
+  const suggestions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return [];
+    const candidates = new Set();
+    parts.forEach(part => {
+      if (part.name.toLowerCase().includes(term)) candidates.add(part.name);
+      if (part.sku.toLowerCase().includes(term)) candidates.add(part.sku);
+      if (part.oem.toLowerCase().includes(term)) candidates.add(part.oem);
+      if (part.compatibility && part.compatibility.toLowerCase().includes(term)) {
+        candidates.add(part.compatibility);
+      }
+    });
+    return Array.from(candidates).slice(0, 6);
+  }, [search, parts]);
 
   const TRUCK_BRANDS = [
     { id: 'All', label: 'All Brands' },
@@ -75,9 +100,16 @@ export default function CustomerStorefront({
     else if (sortOrder === 'price-desc') result.sort((a, b) => b.price - a.price);
     else if (sortOrder === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
+    else if (sortOrder === 'stock-desc') result.sort((a, b) => b.stock - a.stock);
+    else if (sortOrder === 'stock-asc') result.sort((a, b) => a.stock - b.stock);
 
     return result;
   }, [parts, search, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter]);
+
+  const paginatedParts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredParts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredParts, currentPage]);
 
   const spotlightParts = useMemo(() => {
     return [...parts]
@@ -191,7 +223,7 @@ export default function CustomerStorefront({
                       premium truck parts marketplace
                     </span>
                     <div className="space-y-4">
-                      <h1 className="max-w-3xl text-4xl font-black tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+                      <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                         Browse truck parts like a modern retail store.
                       </h1>
                       <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
@@ -247,7 +279,7 @@ export default function CustomerStorefront({
                         {/* Label + Name — full width, no competition */}
                         <div className="space-y-1 mb-3">
                           <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-brandBlue-500 dark:text-brandBlue-300">Featured</p>
-                          <h3 className="text-xl font-extrabold leading-tight text-foreground">{part.name}</h3>
+                          <h3 className="text-xl font-bold leading-tight text-foreground">{part.name}</h3>
                         </div>
 
                         {/* Category badge */}
@@ -282,7 +314,7 @@ export default function CustomerStorefront({
                     <span className="p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/30 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-2xl inline-block mb-4">
                       <Truck weight="duotone" className="w-6 h-6" />
                     </span>
-                    <h3 className="text-lg font-extrabold text-foreground">Browse Full Catalog</h3>
+                    <h3 className="text-lg font-bold text-foreground">Browse Full Catalog</h3>
                     <p className="text-muted-foreground text-xs mt-2 leading-relaxed">
                       Search through hundreds of parts matching various truck models. Find immediate filter controls by type and compatibility tags.
                     </p>
@@ -297,7 +329,7 @@ export default function CustomerStorefront({
                     <span className="p-3 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-2xl inline-block mb-4">
                       <Sparkle weight="duotone" className="w-6 h-6" />
                     </span>
-                    <h3 className="text-lg font-extrabold text-foreground">Learn About Us</h3>
+                    <h3 className="text-lg font-bold text-foreground">Learn About Us</h3>
                     <p className="text-muted-foreground text-xs mt-2 leading-relaxed">
                       Tarlac Truck Pitstop delivers premium truck spares citywide. Find out more about our warranty, wholesale rates, and location details.
                     </p>
@@ -312,7 +344,7 @@ export default function CustomerStorefront({
                     <span className="p-3 bg-secondary border border-border text-muted-foreground rounded-2xl inline-block mb-4">
                       <UserPlus weight="duotone" className="w-6 h-6" />
                     </span>
-                    <h3 className="text-lg font-extrabold text-foreground">Customer Account</h3>
+                    <h3 className="text-lg font-bold text-foreground">Customer Account</h3>
                     <p className="text-muted-foreground text-xs mt-2 leading-relaxed">
                       Register a secure login to check parts inventories, save truck models, and secure priority wholesale reservations.
                     </p>
@@ -335,9 +367,29 @@ export default function CustomerStorefront({
                       <input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                         placeholder="Search by part name, SKU, OEM, or fitment"
                         className="w-full rounded-2xl border border-border bg-background py-3.5 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-accent focus:ring-2 focus:ring-accent/20"
                       />
+                      {showSuggestions && suggestions.length > 0 && (
+                        <ul className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-border bg-secondary p-2 shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto">
+                          {suggestions.map((s, idx) => (
+                            <li key={idx}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearch(s);
+                                  setShowSuggestions(false);
+                                }}
+                                className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                              >
+                                {s}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                     <button 
                       onClick={() => setShowFilters(!showFilters)}
@@ -434,6 +486,8 @@ export default function CustomerStorefront({
                           <option value="price-desc">Price: High to Low</option>
                           <option value="name-asc">Name: A to Z</option>
                           <option value="name-desc">Name: Z to A</option>
+                          <option value="stock-desc">Stock: High to Low</option>
+                          <option value="stock-asc">Stock: Low to High</option>
                         </select>
                       </div>
 
@@ -457,7 +511,7 @@ export default function CustomerStorefront({
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground font-display">Shop catalog</p>
-                      <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground font-display">Popular parts for customer browsing</h2>
+                      <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground font-display">Popular parts for customer browsing</h2>
                     </div>
                     <div className="rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground">
                       {filteredParts.length} results
@@ -465,7 +519,7 @@ export default function CustomerStorefront({
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {filteredParts.map((part) => {
+                    {paginatedParts.map((part) => {
                       const { icon: CatIcon, color, bg } = getCategoryStyles(part.category);
                       return (
                         <article
@@ -486,7 +540,7 @@ export default function CustomerStorefront({
 
                           <div className="flex flex-col flex-1 p-5 gap-4">
                             <div>
-                              <h3 className="text-lg font-extrabold text-foreground">{part.name}</h3>
+                              <h3 className="text-lg font-bold text-foreground">{part.name}</h3>
                               <p className="mt-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">SKU {part.sku}</p>
                             </div>
 
@@ -515,6 +569,42 @@ export default function CustomerStorefront({
                       );
                     })}
                   </div>
+
+                  {/* Pagination Controls */}
+                  {Math.ceil(filteredParts.length / itemsPerPage) > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-8 pt-4 border-t border-slate-200/20 dark:border-slate-800/40">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
+                      >
+                        Previous
+                      </button>
+                      {Array.from({ length: Math.ceil(filteredParts.length / itemsPerPage) }, (_, i) => i + 1).map(pageNumber => (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                            currentPage === pageNumber
+                              ? 'bg-accent text-white font-extrabold shadow-md shadow-accent/20'
+                              : 'border border-border text-muted-foreground hover:text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredParts.length / itemsPerPage)))}
+                        disabled={currentPage === Math.ceil(filteredParts.length / itemsPerPage)}
+                        className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
             </>
@@ -527,7 +617,7 @@ export default function CustomerStorefront({
                 <span className="px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-wider inline-block">
                   Premium Truck Spare Parts
                 </span>
-                <h2 className="text-4xl font-extrabold tracking-tight text-foreground font-display">
+                <h2 className="text-4xl font-bold tracking-tight text-foreground font-display">
                   Tarlac Truck Pitstop
                 </h2>
                 <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
@@ -568,7 +658,7 @@ export default function CustomerStorefront({
               </div>
 
               <div className="relative z-10 mt-12 rounded-3xl border border-border bg-secondary p-6 lg:p-8">
-                <h3 className="text-xl font-extrabold text-foreground">Our Mission & Values</h3>
+                <h3 className="text-xl font-bold text-foreground">Our Mission & Values</h3>
                 <div className="grid gap-6 mt-6 md:grid-cols-2">
                   <div>
                     <h4 className="font-bold text-accent text-sm uppercase tracking-wider">Unmatched Reliability</h4>
@@ -591,7 +681,7 @@ export default function CustomerStorefront({
             <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="space-y-6">
                 <div className="rounded-[1.75rem] border border-border bg-secondary p-6">
-                  <h3 className="text-xl font-extrabold text-foreground">Get in Touch</h3>
+                  <h3 className="text-xl font-bold text-foreground">Get in Touch</h3>
                   <p className="text-xs text-muted-foreground mt-1">Have compatibility questions or wholesale catalog inquiries? Contact our team directly.</p>
 
                   <div className="mt-6 space-y-4 text-sm">
@@ -646,7 +736,7 @@ export default function CustomerStorefront({
               </div>
 
               <div className="rounded-[2rem] border border-border bg-secondary p-6 sm:p-8">
-                <h3 className="text-xl font-extrabold text-foreground">Send an Inquiry</h3>
+                <h3 className="text-xl font-bold text-foreground">Send an Inquiry</h3>
                 <p className="text-xs text-muted-foreground mt-1">Fill out the quick template below and our sales desk will email or call you back.</p>
 
                 <form onSubmit={(e) => { e.preventDefault(); alert('Your inquiry has been sent! Our representative will contact you shortly.'); }} className="mt-6 space-y-4">
@@ -689,6 +779,7 @@ export default function CustomerStorefront({
             </section>
           )}
         </main>
+        <Footer />
       </div>
 
       {selectedPart && (
@@ -697,7 +788,7 @@ export default function CustomerStorefront({
             <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-brandBlue-500 dark:text-brandBlue-300">Product detail</p>
-                <h3 className="mt-2 text-2xl font-black text-foreground">{selectedPart.name}</h3>
+                <h3 className="mt-2 text-2xl font-bold text-foreground">{selectedPart.name}</h3>
               </div>
               <button onClick={() => setSelectedPart(null)} className="rounded-full border border-border p-2 text-muted-foreground transition hover:border-border hover:text-foreground">
                 <X weight="duotone" className="h-5 w-5" />

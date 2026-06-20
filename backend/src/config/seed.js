@@ -1,9 +1,11 @@
 // backend/src/config/seed.js
-// Auto-seeds the admin user and demo customer accounts into MongoDB on startup.
+// Auto-seeds the admin user, demo categories, customer accounts, and parts into MongoDB on startup.
 // All seed operations are idempotent — they check before inserting.
 
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import Category from '../models/Category.js';
+import Part from '../models/Part.js';
 
 // ── Admin seed ─────────────────────────────────────────────────────────────────
 
@@ -44,18 +46,15 @@ const DEMO_CUSTOMERS = [
   { full_name: 'Vinicius Junior',  contact_number: '+5521987654321', email: 'vinicius.junior@example.com'  },
 ];
 
-// All demo accounts share the same password for convenience: Player@12345
 const DEMO_PASSWORD = 'Player@12345';
 
 export async function seedCustomers() {
   const password_hash = await bcrypt.hash(DEMO_PASSWORD, 10);
-
   let seeded = 0;
 
   for (const customer of DEMO_CUSTOMERS) {
     const existing = await User.findOne({ email: customer.email });
     if (existing) {
-      console.log(`ℹ️  Customer already exists — skipping: ${customer.email}`);
       continue;
     }
 
@@ -63,28 +62,61 @@ export async function seedCustomers() {
       ...customer,
       password_hash,
       role:     'customer',
-      verified: true, // pre-verified so they can log in immediately
+      verified: true,
     });
 
-    console.log(`✅ Customer seeded: ${customer.full_name} <${customer.email}>`);
     seeded++;
   }
 
   if (seeded > 0) {
-    console.log(`\n🎮 ${seeded} demo customer(s) seeded. Password for all: ${DEMO_PASSWORD}\n`);
+    console.log(`🎮 ${seeded} demo customer(s) seeded. Password for all: ${DEMO_PASSWORD}`);
+  }
+}
+
+// ── Categories seed ────────────────────────────────────────────────────────────
+
+export async function seedCategories() {
+  const DEFAULT_CATEGORIES = [
+    { name: 'Engine', subcategories: ['Pistons & Cylinders', 'Cooling System', 'Turbochargers'] },
+    { name: 'Brakes', subcategories: ['Brake Pads & Linings', 'Valves & Calipers'] },
+    { name: 'Electrical', subcategories: ['Starter Motors', 'Lighting'] },
+    { name: 'Transmission', subcategories: [] },
+    { name: 'Suspension', subcategories: [] },
+    { name: 'Body & Exterior', subcategories: [] }
+  ];
+
+  let seeded = 0;
+  for (const catData of DEFAULT_CATEGORIES) {
+    let parentCat = await Category.findOne({ name: catData.name });
+    if (!parentCat) {
+      parentCat = await Category.create({ name: catData.name, parentCategory: null });
+      seeded++;
+    }
+
+    for (const subName of catData.subcategories) {
+      let subCat = await Category.findOne({ name: subName });
+      if (!subCat) {
+        await Category.create({ name: subName, parentCategory: parentCat._id });
+        seeded++;
+      }
+    }
+  }
+
+  if (seeded > 0) {
+    console.log(`✅ ${seeded} categories/subcategories seeded.`);
+  } else {
+    console.log('ℹ️  Categories already exist in MongoDB — skipping seed.');
   }
 }
 
 // ── Parts Seed (10 accurate truck parts) ──────────────────────────────────────
-
-import Part from '../models/Part.js';
 
 const DEMO_PARTS = [
   {
     name: "Heavy-Duty Piston Ring Set (4HF1)",
     sku: "PST-4HF1-009",
     oem: "8-97105807-0",
-    category: "Engine",
+    category: "Pistons & Cylinders",
     price: 3850.00,
     stock: 12,
     min_stock: 5,
@@ -95,7 +127,7 @@ const DEMO_PARTS = [
     name: "Front Brake Lining Kit",
     sku: "BRK-LN-F80",
     oem: "1-87810076-1",
-    category: "Brakes",
+    category: "Brake Pads & Linings",
     price: 1850.00,
     stock: 4,
     min_stock: 8,
@@ -128,7 +160,7 @@ const DEMO_PARTS = [
     name: "Starter Motor Assembly (24V 4.5KW)",
     sku: "ELC-STR-24V",
     oem: "0-23000-7010",
-    category: "Electrical",
+    category: "Starter Motors",
     price: 7200.00,
     stock: 3,
     min_stock: 3,
@@ -150,7 +182,7 @@ const DEMO_PARTS = [
     name: "Turbocharger Unit (6D16-T)",
     sku: "TRB-6D16-T",
     oem: "ME088840",
-    category: "Engine",
+    category: "Turbochargers",
     price: 24500.00,
     stock: 2,
     min_stock: 2,
@@ -161,7 +193,7 @@ const DEMO_PARTS = [
     name: "Air Brake Master Valve",
     sku: "BRK-MST-VLV",
     oem: "47160-2260",
-    category: "Brakes",
+    category: "Valves & Calipers",
     price: 6400.00,
     stock: 18,
     min_stock: 5,
@@ -172,7 +204,7 @@ const DEMO_PARTS = [
     name: "Water Pump Assembly",
     sku: "WTP-4HK1",
     oem: "8-97333361-1",
-    category: "Engine",
+    category: "Cooling System",
     price: 4200.00,
     stock: 10,
     min_stock: 4,
@@ -183,7 +215,7 @@ const DEMO_PARTS = [
     name: "LED Tail Light Unit (24V)",
     sku: "ELC-TL-LED24",
     oem: "81550-37080",
-    category: "Electrical",
+    category: "Lighting",
     price: 1250.00,
     stock: 25,
     min_stock: 10,
@@ -199,14 +231,25 @@ export async function seedParts() {
     if (existing) {
       continue;
     }
-    await Part.create(part);
+
+    // Resolve category name to Category document ObjectId
+    const categoryDoc = await Category.findOne({ name: part.category });
+    if (!categoryDoc) {
+      console.warn(`⚠️ Mapped category "${part.category}" not found for "${part.name}" — skipping part seed.`);
+      continue;
+    }
+
+    await Part.create({
+      ...part,
+      category: categoryDoc._id,
+      image: "" // default empty
+    });
     seeded++;
   }
-  
+
   if (seeded > 0) {
     console.log(`✅ ${seeded} demo parts seeded.`);
   } else {
     console.log('ℹ️  Parts already exist in MongoDB — skipping seed.');
   }
 }
-

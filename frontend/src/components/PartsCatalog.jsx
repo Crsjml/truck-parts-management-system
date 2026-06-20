@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag } from '@phosphor-icons/react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image } from '@phosphor-icons/react';
+import { fetchCategoriesList } from '../authStore';
 
 export default function PartsCatalog({ 
   parts, 
@@ -14,6 +15,43 @@ export default function PartsCatalog({
   onAddLog
 }) {
   const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState('recommended');
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const itemsPerPage = 12;
+
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [formImage, setFormImage] = useState('');
+  const [formErrors, setFormErrors] = useState({});
+
+  useEffect(() => {
+    const loadCats = async () => {
+      const list = await fetchCategoriesList();
+      setCategoriesList(list);
+    };
+    loadCats();
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory, showLowStockOnly, sortOrder]);
+
+  const suggestions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return [];
+    const candidates = new Set();
+    parts.forEach(part => {
+      if (part.name.toLowerCase().includes(term)) candidates.add(part.name);
+      if (part.sku.toLowerCase().includes(term)) candidates.add(part.sku);
+      if (part.oem.toLowerCase().includes(term)) candidates.add(part.oem);
+      if (part.compatibility && part.compatibility.toLowerCase().includes(term)) {
+        candidates.add(part.compatibility);
+      }
+    });
+    return Array.from(candidates).slice(0, 6);
+  }, [search, parts]);
 
   const getCategoryStyles = (cat) => {
     switch (cat) {
@@ -27,8 +65,6 @@ export default function PartsCatalog({
       default: return { icon: Tag, color: 'text-slate-500' };
     }
   };
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [activeTab, setActiveTab] = useState('All');
   
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,17 +115,35 @@ export default function PartsCatalog({
     return matchesSearch && matchesCategory && matchesLowStock;
   });
 
+  const sortedParts = useMemo(() => {
+    const result = [...filteredParts];
+    if (sortOrder === 'price-asc') result.sort((a, b) => a.price - b.price);
+    else if (sortOrder === 'price-desc') result.sort((a, b) => b.price - a.price);
+    else if (sortOrder === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
+    else if (sortOrder === 'stock-desc') result.sort((a, b) => b.stock - a.stock);
+    else if (sortOrder === 'stock-asc') result.sort((a, b) => a.stock - b.stock);
+    return result;
+  }, [filteredParts, sortOrder]);
+
+  const paginatedParts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedParts.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedParts, currentPage]);
+
   const openAddModal = () => {
     setModalType('add');
     setFormName('');
     setFormSku('');
     setFormOem('');
-    setFormCategory(categories[1] || 'Engine'); // avoid 'All'
+    setFormCategory('');
     setFormPrice('');
     setFormStock('');
     setFormMinStock('');
     setFormCompatibility('');
     setFormDescription('');
+    setFormImage('');
+    setFormErrors({});
     setIsModalOpen(true);
   };
 
@@ -99,12 +153,14 @@ export default function PartsCatalog({
     setFormName(part.name);
     setFormSku(part.sku);
     setFormOem(part.oem);
-    setFormCategory(part.category);
+    setFormCategory(part.category_id || '');
     setFormPrice(part.price.toString());
     setFormStock(part.stock.toString());
     setFormMinStock(part.minStock.toString());
     setFormCompatibility(part.compatibility || '');
     setFormDescription(part.description || '');
+    setFormImage(part.image || '');
+    setFormErrors({});
     setIsModalOpen(true);
   };
 
@@ -116,16 +172,47 @@ export default function PartsCatalog({
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+    
+    // Client-side validation
+    const errors = {};
+    if (!formName.trim() || formName.trim().length < 3) {
+      errors.name = 'Part name must be at least 3 characters.';
+    }
+    if (!formSku.trim()) {
+      errors.sku = 'SKU is required.';
+    }
+    if (!formOem.trim()) {
+      errors.oem = 'OEM number is required.';
+    }
+    if (!formCategory) {
+      errors.category = 'Category selection is required.';
+    }
+    if (formPrice === '' || isNaN(Number(formPrice)) || Number(formPrice) < 0) {
+      errors.price = 'Price must be a valid positive number.';
+    }
+    if (formStock === '' || isNaN(Number(formStock)) || Number(formStock) < 0) {
+      errors.stock = 'Stock must be a non-negative number.';
+    }
+    if (formMinStock === '' || isNaN(Number(formMinStock)) || Number(formMinStock) < 0) {
+      errors.minStock = 'Safety min stock must be a non-negative number.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     const partData = {
-      name: formName,
-      sku: formSku,
-      oem: formOem,
-      category: formCategory,
-      price: parseFloat(formPrice) || 0,
-      stock: parseInt(formStock) || 0,
-      minStock: parseInt(formMinStock) || 0,
-      compatibility: formCompatibility,
-      description: formDescription
+      name: formName.trim(),
+      sku: formSku.trim(),
+      oem: formOem.trim(),
+      category_id: formCategory,
+      price: parseFloat(formPrice),
+      stock: parseInt(formStock),
+      minStock: parseInt(formMinStock),
+      compatibility: formCompatibility.trim(),
+      description: formDescription.trim(),
+      image: formImage
     };
 
     if (modalType === 'add') {
@@ -155,12 +242,46 @@ export default function PartsCatalog({
             placeholder="Search by part name, SKU, OEM, or compatibility..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-foreground placeholder-slate-500"
           />
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-border bg-secondary p-2 shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto">
+              {suggestions.map((s, idx) => (
+                <li key={idx}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch(s);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                  >
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Categories Tab selector */}
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
+          <select 
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="h-10 text-xs font-semibold rounded-xl border border-border bg-secondary px-3 text-foreground outline-none focus:border-red-600 transition"
+          >
+            <option value="recommended">Recommended Sort</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="name-asc">Name: A to Z</option>
+            <option value="name-desc">Name: Z to A</option>
+            <option value="stock-desc">Stock: High to Low</option>
+            <option value="stock-asc">Stock: Low to High</option>
+          </select>
+
           {!isReadOnly && (
             <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-border cursor-pointer select-none">
               <input 
@@ -218,8 +339,9 @@ export default function PartsCatalog({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredParts.map((part) => {
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {paginatedParts.map((part) => {
             const isLowStock = part.stock <= part.minStock;
             return (
               <div 
@@ -230,11 +352,20 @@ export default function PartsCatalog({
               >
                 {/* Low Stock Warning Badge */}
                 {isLowStock && (
-                  <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-[10px] font-extrabold text-red-500 animate-pulse">
+                  <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-[10px] font-extrabold text-red-500 animate-pulse z-10">
                     <Warning weight="duotone" className="w-3 h-3" />
                     LOW STOCK
                   </div>
                 )}
+
+                {/* Part Image */}
+                <div className="h-40 rounded-xl overflow-hidden bg-slate-900/60 border border-border/10 mb-4 flex items-center justify-center relative select-none">
+                  {part.image ? (
+                    <img src={part.image} alt={part.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Package weight="duotone" className="w-10 h-10 text-muted-foreground/30" />
+                  )}
+                </div>
 
                 {/* Card Top */}
                 <div className="space-y-3">
@@ -348,7 +479,44 @@ export default function PartsCatalog({
             );
           })}
         </div>
-      )}
+
+        {/* Pagination Controls */}
+        {Math.ceil(filteredParts.length / itemsPerPage) > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8 pt-4 border-t border-slate-200/20 dark:border-slate-800/40">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
+            >
+              Previous
+            </button>
+            {Array.from({ length: Math.ceil(filteredParts.length / itemsPerPage) }, (_, i) => i + 1).map(pageNumber => (
+              <button
+                key={pageNumber}
+                type="button"
+                onClick={() => setCurrentPage(pageNumber)}
+                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                  currentPage === pageNumber
+                    ? 'bg-accent text-white font-extrabold shadow-md shadow-accent/20'
+                    : 'border border-border text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredParts.length / itemsPerPage)))}
+              disabled={currentPage === Math.ceil(filteredParts.length / itemsPerPage)}
+              className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </>
+    )}
 
       {/* Main Dialog Modal */}
       {isModalOpen && (
@@ -372,9 +540,18 @@ export default function PartsCatalog({
             {/* Body */}
             {modalType === 'details' ? (
               <div className="p-6 space-y-5">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart?.category}</span>
-                  <h2 className="text-xl font-extrabold text-foreground font-display leading-tight">{selectedPart?.name}</h2>
+                <div className="space-y-1 bg-background p-4 rounded-xl border border-border flex items-center gap-4">
+                  <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
+                    {selectedPart?.image ? (
+                      <img src={selectedPart.image} alt={selectedPart.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package weight="duotone" className="w-8 h-8 text-muted-foreground/30" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart?.category}</span>
+                    <h2 className="text-lg font-bold text-foreground font-display leading-tight">{selectedPart?.name}</h2>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 bg-background p-4 rounded-xl border border-border">
@@ -444,7 +621,7 @@ export default function PartsCatalog({
             ) : (
               // Add / Pencil Form
               <form onSubmit={handleFormSubmit}>
-                <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto pr-2 text-left">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground uppercase">Part Name / Component Title *</label>
                     <input 
@@ -453,8 +630,9 @@ export default function PartsCatalog({
                       placeholder="e.g. Starter Motor Assembly (24V)"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                      className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                     />
+                    {formErrors.name && <p className="text-[10px] text-red-400 font-semibold">{formErrors.name}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -466,8 +644,9 @@ export default function PartsCatalog({
                         placeholder="e.g. ELC-STR-24V"
                         value={formSku}
                         onChange={(e) => setFormSku(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                       />
+                      {formErrors.sku && <p className="text-[10px] text-red-400 font-semibold">{formErrors.sku}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase">OEM Part Number *</label>
@@ -477,23 +656,35 @@ export default function PartsCatalog({
                         placeholder="e.g. 0-23000-7010"
                         value={formOem}
                         onChange={(e) => setFormOem(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                       />
+                      {formErrors.oem && <p className="text-[10px] text-red-400 font-semibold">{formErrors.oem}</p>}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1.5 col-span-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Category *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Category / Subcategory *</label>
                       <select 
                         value={formCategory}
                         onChange={(e) => setFormCategory(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        required
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.category ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                       >
-                        {categories.filter(c => c !== 'All').map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
+                        <option value="" disabled>-- Select Category / Subcategory --</option>
+                        {categoriesList.filter(c => !c.parentCategory).map(parent => {
+                          const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory._id === parent._id);
+                          return (
+                            <optgroup key={parent._id} label={parent.name}>
+                              <option value={parent._id}>{parent.name} (Main)</option>
+                              {subs.map(sub => (
+                                <option key={sub._id} value={sub._id}>{sub.name}</option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
                       </select>
+                      {formErrors.category && <p className="text-[10px] text-red-400 font-semibold">{formErrors.category}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase">Unit Price (₱) *</label>
@@ -505,8 +696,9 @@ export default function PartsCatalog({
                         placeholder="0.00"
                         value={formPrice}
                         onChange={(e) => setFormPrice(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                       />
+                      {formErrors.price && <p className="text-[10px] text-red-400 font-semibold">{formErrors.price}</p>}
                     </div>
                   </div>
 
@@ -520,8 +712,9 @@ export default function PartsCatalog({
                         placeholder="0"
                         value={formStock}
                         onChange={(e) => setFormStock(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                       />
+                      {formErrors.stock && <p className="text-[10px] text-red-400 font-semibold">{formErrors.stock}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase">Safety Min Stock *</label>
@@ -532,8 +725,9 @@ export default function PartsCatalog({
                         placeholder="5"
                         value={formMinStock}
                         onChange={(e) => setFormMinStock(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
                       />
+                      {formErrors.minStock && <p className="text-[10px] text-red-400 font-semibold">{formErrors.minStock}</p>}
                     </div>
                   </div>
 
@@ -552,11 +746,56 @@ export default function PartsCatalog({
                     <label className="text-xs font-semibold text-muted-foreground uppercase">Item Description & Specifications</label>
                     <textarea 
                       placeholder="Enter manufacturer details, dimensions, and gear tooth spacing details..."
-                      rows="3"
+                      rows="2"
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
                       className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground resize-none"
                     />
+                  </div>
+
+                  {/* Upload Image Section */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Part Product Image</label>
+                    <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-3.5">
+                      <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
+                        {formImage ? (
+                          <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <Image className="w-6 h-6 text-muted-foreground/30" weight="duotone" />
+                        )}
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("Image size must be smaller than 2MB.");
+                                return;
+                              }
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setFormImage(reader.result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-secondary file:text-foreground file:hover:bg-slate-700 transition file:cursor-pointer"
+                        />
+                        <p className="text-[9px] text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
+                      </div>
+                      {formImage && (
+                        <button 
+                          type="button"
+                          onClick={() => setFormImage('')}
+                          className="text-[10px] font-bold text-red-500 hover:text-red-400 px-2 py-1 bg-red-950/20 rounded border border-red-900/30"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
