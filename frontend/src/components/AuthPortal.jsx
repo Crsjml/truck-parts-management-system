@@ -55,6 +55,9 @@ export default function AuthPortal({
   useEffect(() => {
     setCurrentRole(mode);
     setActiveTab(initialTab);
+    setLoginForm(customerLoginDefaults);
+    setRegisterForm(customerRegisterDefaults);
+    resetFeedback();
   }, [initialTab, mode]);
 
   const resetFeedback = () => {

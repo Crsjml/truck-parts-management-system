@@ -28,11 +28,17 @@ router.post('/admin/login', async (req, res) => {
       return res.status(400).json({ msg: 'Email and password are required.' });
     }
 
-    if (email.toLowerCase() !== (process.env.ADMIN_EMAIL || '').toLowerCase()) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingCustomer = await User.findOne({ email: normalizedEmail, role: 'customer' });
+    if (existingCustomer) {
+      return res.status(403).json({ msg: 'Customer accounts cannot log in through the admin portal.' });
+    }
+
+    if (normalizedEmail !== (process.env.ADMIN_EMAIL || '').toLowerCase()) {
       return res.status(403).json({ msg: 'Invalid admin credentials.' });
     }
 
-    const admin = await User.findOne({ email: email.toLowerCase(), role: 'admin' });
+    const admin = await User.findOne({ email: normalizedEmail, role: 'admin' });
     if (!admin) return res.status(404).json({ msg: 'Admin account not found.' });
 
     const ok = await bcrypt.compare(password, admin.password_hash);
@@ -162,7 +168,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ msg: 'Email and password are required.' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim(), role: 'customer' });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingAdmin = await User.findOne({ email: normalizedEmail, role: 'admin' });
+    if (existingAdmin) {
+      return res.status(403).json({ msg: 'Admin accounts cannot log in through the customer portal.' });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail, role: 'customer' });
     if (!user) return res.status(404).json({ msg: 'Invalid email or password.' });
 
     // Account lockout check
