@@ -1,13 +1,22 @@
-# Sprint 1 Plan: Frontend Design & Interactive POS
+# Sprint 1 Plan
 
 ## Sprint Goal
-Design and build a responsive, high-fidelity React + Vite + Tailwind CSS dashboard and checkout billing system for Tarlac Truck Parts.
+Build the foundation of the Truck Parts Management System through authentication, catalog management, and inventory tracking.
 
-## Scope & Deliverables
-- [x] Initial React scaffolding matching the `ccapdev-mp` styling theme.
-- [x] Customized HSL color palette and modern Outfit/Inter typography.
-- [x] Custom vector SVG Logo matching brand colors.
-- [x] Dashboard KPI cards (Asset value, Warnings, Revenue summaries).
-- [x] Parts Catalog containing search bars, category selectors, detail modals, and restock actions.
-- [x] Points of Sale checkout interface with automated PDF invoice downloads (`jspdf`).
-- [x] Analytics view showing sales distributions and transaction log lists.
+## Features
+
+### User Management
+- Customer Registration
+- Customer Login
+- Admin Login
+- Password Reset
+- Roles and Permissions
+
+### Parts Catalog
+- Product Listing
+- Search and Filter Parts
+- Parts Category Management
+
+### Inventory Management
+- Add/Edit Parts Record
+- Real-Time Stock Tracking
