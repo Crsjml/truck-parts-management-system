@@ -315,33 +315,6 @@ export default function AuthPortal({
               </div>
             </div>
 
-            {/* Role Switcher */}
-            <div className="mb-6 flex rounded-2xl border border-border bg-background p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentRole('customer');
-                  setActiveTab('login');
-                  resetFeedback();
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${isCustomerMode ? 'bg-accent text-white font-bold' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <User weight="duotone" className="w-4.5 h-4.5" />
-                Customer Access
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentRole('admin');
-                  setActiveTab('login');
-                  resetFeedback();
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${!isCustomerMode ? 'bg-accent text-white font-bold' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
-                Admin login
-              </button>
-            </div>
 
             {isCustomerMode && (
               <div className="mb-6 flex rounded-2xl border border-border bg-background p-1">

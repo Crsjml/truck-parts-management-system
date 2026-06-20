@@ -14,7 +14,8 @@ services:
     env_file:
       - ./atlas-credentials.env
     restart: unless-stopped
-    depends_on: []
+    depends_on:
+      - mongo
 
   # ------------------------------------------------------------
   # Frontend – Vite / React
@@ -40,15 +41,16 @@ services:
   # ------------------------------------------------------------
   # (Optional) Local MongoDB for testing – keep commented if you prefer Atlas
   # ------------------------------------------------------------
-  # mongo:
-  #   container_name: truck-system-mongo
-  #   image: mongo:7
-  #   ports:
-  #     - "27017:27017"
-  #   volumes:
-  #     - mongo-data:/data/db
-  #   environment:
-  #     MONGO_INITDB_DATABASE: truck_parts
+  mongo:
+    container_name: truck-system-mongo
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: truck_parts
 
 volumes:
   frontend_node_modules:
+  mongo-data:
