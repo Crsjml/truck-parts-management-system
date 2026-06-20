@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Lock, LoaderCircle, MailCheck, ShieldCheck, Truck, BadgePercent, User2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, User } from '@phosphor-icons/react';
 import Logo from './Logo';
 import {
   getVerificationNotice,
@@ -62,7 +62,7 @@ export default function AuthPortal({
     setErrors({});
   };
 
-  const inputClass = 'w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20';
+  const inputClass = 'w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20';
 
   const handleCustomerRegister = async (event) => {
     event.preventDefault();
@@ -239,16 +239,16 @@ export default function AuthPortal({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
         <section className="relative flex w-full flex-col justify-between overflow-hidden border-b border-slate-900/80 bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.18),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.18),_transparent_28%),linear-gradient(160deg,_rgba(15,23,42,0.98),_rgba(2,6,23,1))] px-6 py-8 lg:min-h-screen lg:w-[44%] lg:border-b-0 lg:border-r lg:px-10 lg:py-10">
           <div className="relative space-y-8">
             <button
               type="button"
               onClick={onBackToStore}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate-300 transition hover:border-slate-700 hover:text-white"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:border-border hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft weight="duotone" className="h-4 w-4" />
               Back to store
             </button>
 
@@ -258,10 +258,10 @@ export default function AuthPortal({
               <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-red-300">
                 Premium Truck Spare Parts
               </span>
-              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+              <h1 className="text-4xl font-black tracking-tight text-foreground sm:text-5xl">
                 Tarlac Truck Parts
               </h1>
-              <p className="max-w-lg text-sm leading-6 text-slate-300 sm:text-base">
+              <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
                 We specialize in sourcing and distributing premium grade, heavy-duty truck accessories and spare components. Offering wholesale and retail solutions across Tarlac City and regional logistics networks.
               </p>
             </div>
@@ -270,53 +270,53 @@ export default function AuthPortal({
           <div className="relative space-y-4 my-8 lg:my-0">
             <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
               <div className="p-2.5 bg-brandBlue-900/30 border border-brandBlue-800/30 text-brandBlue-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
-                <Truck className="w-5 h-5" />
+                <Truck weight="duotone" className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-white text-sm">Wide Compatibility</h4>
-                <p className="text-xs text-slate-400 mt-1">Tailored replacement components for Isuzu, Hino, Fuso, and Toyota Dyna models.</p>
+                <h4 className="font-bold text-foreground text-sm">Wide Compatibility</h4>
+                <p className="text-xs text-muted-foreground mt-1">Tailored replacement components for Isuzu, Hino, Fuso, and Toyota Dyna models.</p>
               </div>
             </div>
 
             <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
               <div className="p-2.5 bg-emerald-950/40 border border-emerald-800/30 text-emerald-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
-                <BadgePercent className="w-5 h-5" />
+                <Percent weight="duotone" className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-white text-sm">VIP Wholesale Pricing</h4>
-                <p className="text-xs text-slate-400 mt-1">Bulk volume deductibles and quotation rates directly mapped for freight operators.</p>
+                <h4 className="font-bold text-foreground text-sm">VIP Wholesale Pricing</h4>
+                <p className="text-xs text-muted-foreground mt-1">Bulk volume deductibles and quotation rates directly mapped for freight operators.</p>
               </div>
             </div>
 
             <div className="flex gap-4 p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md">
-              <div className="p-2.5 bg-slate-900/60 border border-slate-800 text-slate-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5" />
+              <div className="p-2.5 bg-secondary border border-border text-muted-foreground rounded-xl h-10 w-10 shrink-0 flex items-center justify-center">
+                <ShieldCheck weight="duotone" className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-white text-sm">OEM Certified Sourcing</h4>
-                <p className="text-xs text-slate-400 mt-1">All inventory matches exact manufacturer OEM specifications to guarantee reliability.</p>
+                <h4 className="font-bold text-foreground text-sm">OEM Certified Sourcing</h4>
+                <p className="text-xs text-muted-foreground mt-1">All inventory matches exact manufacturer OEM specifications to guarantee reliability.</p>
               </div>
             </div>
           </div>
 
-          <div className="relative text-xs text-slate-500 font-semibold pt-4 border-t border-slate-900/60 flex items-center gap-2">
+          <div className="relative text-xs text-muted-foreground font-semibold pt-4 border-t border-slate-900/60 flex items-center gap-2">
             <span>© 2026 Tarlac Truck Parts.</span>
           </div>
         </section>
 
         <section className="flex w-full items-center justify-center px-4 py-8 sm:px-6 lg:w-[56%] lg:px-10 lg:py-10">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
-            <div className="mb-6 flex items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div className="w-full max-w-2xl rounded-[2rem] border border-border bg-secondary p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
+            <div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-5">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500">{isCustomerMode ? 'Customer account' : 'Admin sign-in'}</p>
-                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground">{isCustomerMode ? 'Customer account' : 'Admin sign-in'}</p>
+                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
                   {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
                 </h2>
               </div>
             </div>
 
             {/* Role Switcher */}
-            <div className="mb-6 flex rounded-2xl border border-slate-800 bg-slate-950/60 p-1">
+            <div className="mb-6 flex rounded-2xl border border-border bg-background p-1">
               <button
                 type="button"
                 onClick={() => {
@@ -324,9 +324,9 @@ export default function AuthPortal({
                   setActiveTab('login');
                   resetFeedback();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${isCustomerMode ? 'bg-accent text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${isCustomerMode ? 'bg-accent text-white font-bold' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <User2 className="w-4.5 h-4.5" />
+                <User weight="duotone" className="w-4.5 h-4.5" />
                 Customer Access
               </button>
               <button
@@ -336,22 +336,22 @@ export default function AuthPortal({
                   setActiveTab('login');
                   resetFeedback();
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${!isCustomerMode ? 'bg-accent text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${!isCustomerMode ? 'bg-accent text-white font-bold' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <ShieldCheck className="w-4.5 h-4.5" />
+                <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
                 Admin login
               </button>
             </div>
 
             {isCustomerMode && (
-              <div className="mb-6 flex rounded-2xl border border-slate-800 bg-slate-950/40 p-1">
+              <div className="mb-6 flex rounded-2xl border border-border bg-background p-1">
                 <button
                   type="button"
                   onClick={() => {
                     setActiveTab('login');
                     resetFeedback();
                   }}
-                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'login' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'login' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   Login
                 </button>
@@ -361,7 +361,7 @@ export default function AuthPortal({
                     setActiveTab('register');
                     resetFeedback();
                   }}
-                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'register' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'register' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   Register
                 </button>
@@ -371,7 +371,7 @@ export default function AuthPortal({
                     setActiveTab('verify');
                     resetFeedback();
                   }}
-                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'verify' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'verify' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   Verify
                 </button>
@@ -382,7 +382,7 @@ export default function AuthPortal({
                     setForgotStep(1);
                     resetFeedback();
                   }}
-                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'forgot' ? 'bg-slate-800 text-white border border-slate-700/50' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'forgot' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   Reset
                 </button>
@@ -390,7 +390,7 @@ export default function AuthPortal({
             )}
 
             {notice && (
-              <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
+              <div className="mb-5 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                 {notice}
               </div>
             )}
@@ -399,7 +399,7 @@ export default function AuthPortal({
               <form onSubmit={handleCustomerRegister} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Full name</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Full name</label>
                     <input
                       className={inputClass}
                       value={registerForm.fullName}
@@ -410,7 +410,7 @@ export default function AuthPortal({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Contact number</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Contact number</label>
                     <input
                       className={inputClass}
                       value={registerForm.contactNumber}
@@ -423,7 +423,7 @@ export default function AuthPortal({
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Email</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                     <input
                       type="email"
                       className={inputClass}
@@ -435,7 +435,7 @@ export default function AuthPortal({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Password</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                     <input
                       type="password"
                       className={inputClass}
@@ -452,7 +452,7 @@ export default function AuthPortal({
                   disabled={loading}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <CheckCircle weight="duotone" className="h-4 w-4" />}
                   Create account
                 </button>
               </form>
@@ -471,7 +471,7 @@ export default function AuthPortal({
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Verification code</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Verification code</label>
                   <input
                     className={inputClass}
                     value={verificationInput}
@@ -486,13 +486,13 @@ export default function AuthPortal({
                     type="submit"
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90"
                   >
-                    <MailCheck className="h-4 w-4" />
+                    <EnvelopeOpen weight="duotone" className="h-4 w-4" />
                     Verify email
                   </button>
                   <button
                     type="button"
                     onClick={handleResendCode}
-                    className="rounded-xl border border-slate-800 px-4 py-3.5 text-sm font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-950/60"
+                    className="rounded-xl border border-border px-4 py-3.5 text-sm font-semibold text-foreground transition hover:border-border hover:bg-background"
                   >
                     Resend code
                   </button>
@@ -503,7 +503,7 @@ export default function AuthPortal({
             {isCustomerMode && activeTab === 'login' && (
               <form onSubmit={handleCustomerLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Email</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                   <input
                     type="email"
                     className={inputClass}
@@ -515,7 +515,7 @@ export default function AuthPortal({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Password</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                   <input
                     type="password"
                     className={inputClass}
@@ -527,12 +527,12 @@ export default function AuthPortal({
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-300 w-full">
+                  <label className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground w-full">
                     <input
                       type="checkbox"
                       checked={loginForm.rememberMe}
                       onChange={(event) => setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))}
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-accent focus:ring-accent"
+                      className="h-4 w-4 rounded border-border bg-background text-accent focus:ring-accent"
                     />
                     Remember me on this device
                   </label>
@@ -557,7 +557,7 @@ export default function AuthPortal({
                   disabled={loading}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                  {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <LockKey weight="duotone" className="h-4 w-4" />}
                   Sign in
                 </button>
               </form>
@@ -571,7 +571,7 @@ export default function AuthPortal({
                       Enter your email to request a password reset link.
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Email</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                       <input
                         type="email"
                         className={inputClass}
@@ -586,7 +586,7 @@ export default function AuthPortal({
                       disabled={loading}
                       className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+                      {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <EnvelopeOpen weight="duotone" className="h-4 w-4" />}
                       Request Reset Link
                     </button>
                   </form>
@@ -597,7 +597,7 @@ export default function AuthPortal({
                     </div>
                     {errors.form && <p className="text-xs text-red-400">{errors.form}</p>}
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Reset Token</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Reset Token</label>
                       <input
                         type="text"
                         className={inputClass}
@@ -607,7 +607,7 @@ export default function AuthPortal({
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">New Password</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">New Password</label>
                       <input
                         type="password"
                         className={inputClass}
@@ -622,7 +622,7 @@ export default function AuthPortal({
                       disabled={loading}
                       className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <CheckCircle weight="duotone" className="h-4 w-4" />}
                       Reset Password
                     </button>
                   </form>
@@ -637,7 +637,7 @@ export default function AuthPortal({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Admin email</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Admin email</label>
                   <input
                     type="email"
                     className={inputClass}
@@ -649,7 +649,7 @@ export default function AuthPortal({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Password</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                   <input
                     type="password"
                     className={inputClass}
@@ -665,7 +665,7 @@ export default function AuthPortal({
                   disabled={loading}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <ShieldCheck weight="duotone" className="h-4 w-4" />}
                   Enter admin login
                 </button>
               </form>
