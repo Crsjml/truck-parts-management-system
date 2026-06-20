@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Activity, Lightning, CarProfile, Tag } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag } from '@phosphor-icons/react';
 
 export default function PartsCatalog({ 
   parts, 
@@ -20,7 +20,7 @@ export default function PartsCatalog({
       case 'Engine': return { icon: Gear, color: 'text-red-500' };
       case 'Transmission': return { icon: Gear, color: 'text-orange-500' };
       case 'Brakes': return { icon: ShieldCheck, color: 'text-amber-500' };
-      case 'Suspension': return { icon: Activity, color: 'text-blue-500' };
+      case 'Suspension': return { icon: Pulse, color: 'text-blue-500' };
       case 'Electrical': return { icon: Lightning, color: 'text-emerald-500' };
       case 'Body & Exterior': return { icon: CarProfile, color: 'text-purple-500' };
       case 'All': return { icon: SquaresFour, color: 'text-slate-500' };
@@ -244,7 +244,7 @@ export default function PartsCatalog({
                     </span>
                     <h4 
                       onClick={() => openDetailsModal(part)}
-                      className="font-bold text-foreground hover:text-red-400 cursor-pointer transition-colors line-clamp-2 leading-snug font-display"
+                      className="font-bold text-foreground hover:text-red-400 cursor-pointer transition-colors leading-snug font-display"
                     >
                       {part.name}
                     </h4>
@@ -266,7 +266,7 @@ export default function PartsCatalog({
                       <span className="text-muted-foreground flex items-center gap-1 font-semibold">
                         <Truck weight="duotone" className="w-3 h-3 text-red-500" /> Fits
                       </span>
-                      <p className="text-muted-foreground line-clamp-1">{part.compatibility}</p>
+                      <p className="text-muted-foreground">{part.compatibility}</p>
                     </div>
                   )}
                 </div>
