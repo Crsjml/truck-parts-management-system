@@ -27,10 +27,14 @@ function Chip({ label, state, detail }) {
   const { color, dot } = INDICATORS[state] ?? INDICATORS.checking;
 
   return (
-    <span style={styles.chip}>
-      <span style={{ color, fontSize: '10px', lineHeight: 1 }}>{dot}</span>
-      <span style={styles.chipLabel}>{label}</span>
-      {detail && <span style={styles.chipDetail}>{detail}</span>}
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10">
+      <span style={{ color }} className="text-[10px] leading-none">{dot}</span>
+      <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">{label}</span>
+      {detail && (
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-white/10 pl-1.5 ml-0.5">
+          {detail}
+        </span>
+      )}
     </span>
   );
 }
@@ -123,18 +127,3 @@ export default function StatusBar() {
   );
 }
 
-function Chip({ label, state, detail }) {
-  const { color, dot } = INDICATORS[state] ?? INDICATORS.checking;
-
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10">
-      <span style={{ color }} className="text-[10px] leading-none">{dot}</span>
-      <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">{label}</span>
-      {detail && (
-        <span className="text-[10px] text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-white/10 pl-1.5 ml-0.5">
-          {detail}
-        </span>
-      )}
-    </span>
-  );
-}
