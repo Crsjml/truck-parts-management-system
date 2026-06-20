@@ -259,7 +259,7 @@ export default function AuthPortal({
                 Premium Truck Spare Parts
               </span>
               <h1 className="text-4xl font-black tracking-tight text-foreground sm:text-5xl">
-                Tarlac Truck Parts
+                Tarlac Truck Pitstop
               </h1>
               <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
                 We specialize in sourcing and distributing premium grade, heavy-duty truck accessories and spare components. Offering wholesale and retail solutions across Tarlac City and regional logistics networks.
@@ -300,7 +300,7 @@ export default function AuthPortal({
           </div>
 
           <div className="relative text-xs text-muted-foreground font-semibold pt-4 border-t border-slate-900/60 flex items-center gap-2">
-            <span>© 2026 Tarlac Truck Parts.</span>
+            <span>© 2026 Tarlac Truck Pitstop.</span>
           </div>
         </section>
 

@@ -27,10 +27,14 @@ function Chip({ label, state, detail }) {
   const { color, dot } = INDICATORS[state] ?? INDICATORS.checking;
 
   return (
-    <span style={styles.chip}>
-      <span style={{ color, fontSize: '10px', lineHeight: 1 }}>{dot}</span>
-      <span style={styles.chipLabel}>{label}</span>
-      {detail && <span style={styles.chipDetail}>{detail}</span>}
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10">
+      <span style={{ color }} className="text-[10px] leading-none">{dot}</span>
+      <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">{label}</span>
+      {detail && (
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-white/10 pl-1.5 ml-0.5">
+          {detail}
+        </span>
+      )}
     </span>
   );
 }
@@ -89,10 +93,10 @@ export default function StatusBar() {
   };
 
   return (
-    <div style={styles.bar} role="status" aria-label="System status">
+    <div className="fixed bottom-0 left-0 right-0 h-8 bg-slate-100/90 dark:bg-slate-900/92 backdrop-blur-md border-t border-slate-300/50 dark:border-white/5 flex items-center justify-between px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400 z-[9999] select-none" role="status" aria-label="System status">
       {/* Left: service chips */}
-      <div style={styles.left}>
-        <span style={styles.sysLabel}>⚙ System</span>
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-bold mr-1">⚙ System</span>
         <Chip label="Frontend" state="ok" />
         <Chip
           label="Backend API"
@@ -103,15 +107,15 @@ export default function StatusBar() {
       </div>
 
       {/* Right: meta info */}
-      <div style={styles.right}>
+      <div className="flex items-center gap-2.5">
         {status.error && (
-          <span style={styles.errorText} title={status.error}>⚠ {status.error}</span>
+          <span className="text-[10px] text-red-500 font-bold" title={status.error}>⚠ {status.error}</span>
         )}
         {status.lastChecked && (
-          <span style={styles.meta}>Last checked {status.lastChecked}</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-500">Last checked {status.lastChecked}</span>
         )}
         <button
-          style={styles.refreshBtn}
+          className="bg-transparent border-none text-slate-400 hover:text-foreground transition-colors cursor-pointer text-sm leading-none px-1"
           onClick={check}
           title="Re-check status now"
           aria-label="Refresh status"
@@ -123,80 +127,3 @@ export default function StatusBar() {
   );
 }
 
-// ── Inline styles (no external deps required) ─────────────────────────────────
-const styles = {
-  bar: {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '32px',
-    background: 'rgba(15, 23, 42, 0.92)',
-    backdropFilter: 'blur(8px)',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 16px',
-    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-    fontSize: '11px',
-    color: '#94a3b8',
-    zIndex: 9999,
-    userSelect: 'none',
-  },
-  left: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  right: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  sysLabel: {
-    color: '#475569',
-    fontSize: '10px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginRight: '4px',
-  },
-  chip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '5px',
-    padding: '2px 8px',
-    borderRadius: '4px',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.07)',
-  },
-  chipLabel: {
-    color: '#cbd5e1',
-    fontSize: '11px',
-  },
-  chipDetail: {
-    color: '#64748b',
-    fontSize: '10px',
-    borderLeft: '1px solid rgba(255,255,255,0.1)',
-    paddingLeft: '6px',
-    marginLeft: '2px',
-  },
-  meta: {
-    color: '#475569',
-    fontSize: '10px',
-  },
-  errorText: {
-    color: '#f87171',
-    fontSize: '10px',
-  },
-  refreshBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#475569',
-    cursor: 'pointer',
-    fontSize: '14px',
-    padding: '0 4px',
-    lineHeight: 1,
-    transition: 'color 0.2s',
-  },
-};

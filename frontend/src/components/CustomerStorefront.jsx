@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile } from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders } from '@phosphor-icons/react';
 import Logo from './Logo';
 
 export default function CustomerStorefront({
@@ -19,7 +19,17 @@ export default function CustomerStorefront({
   const [sortOrder, setSortOrder] = useState('recommended');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [compatibilityFilter, setCompatibilityFilter] = useState('All');
+  const [stockStatus, setStockStatus] = useState('All');
+
+  const TRUCK_BRANDS = [
+    { id: 'All', label: 'All Brands' },
+    { id: 'ISZ', label: 'Isuzu' },
+    { id: 'HNO', label: 'Hino' },
+    { id: 'MIT', label: 'Mitsubishi Fuso' },
+    { id: 'TOY', label: 'Toyota Dyna' }
+  ];
 
   const getCategoryStyles = (cat) => {
     switch (cat) {
@@ -46,9 +56,19 @@ export default function CustomerStorefront({
       const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
       const matchesMinPrice = minPrice === '' || part.price >= parseFloat(minPrice);
       const matchesMaxPrice = maxPrice === '' || part.price <= parseFloat(maxPrice);
-      const matchesStock = !inStockOnly || part.stock > 0;
+      
+      let matchesStock = true;
+      if (stockStatus === 'In Stock') matchesStock = part.stock > 0;
+      else if (stockStatus === 'Low Stock') matchesStock = part.stock > 0 && part.stock <= part.minStock;
 
-      return matchesSearch && matchesCategory && matchesMinPrice && matchesMaxPrice && matchesStock;
+      let matchesBrand = true;
+      if (compatibilityFilter !== 'All') {
+        const brandObj = TRUCK_BRANDS.find(b => b.id === compatibilityFilter);
+        const brandName = brandObj ? brandObj.label.split(' ')[0].toLowerCase() : '';
+        matchesBrand = (part.compatibility || '').toLowerCase().includes(brandName);
+      }
+
+      return matchesSearch && matchesCategory && matchesMinPrice && matchesMaxPrice && matchesStock && matchesBrand;
     });
 
     if (sortOrder === 'price-asc') result.sort((a, b) => a.price - b.price);
@@ -57,7 +77,7 @@ export default function CustomerStorefront({
     else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
 
     return result;
-  }, [parts, search, selectedCategory, sortOrder, minPrice, maxPrice, inStockOnly]);
+  }, [parts, search, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter]);
 
   const spotlightParts = useMemo(() => {
     return [...parts]
@@ -80,7 +100,7 @@ export default function CustomerStorefront({
                 <button onClick={() => onOpenCustomerAuth('login')} className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
                   Login
                 </button>
-                <button onClick={() => onOpenCustomerAuth('register')} className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-white">
+                <button onClick={() => onOpenCustomerAuth('register')} className="rounded-full border border-accent/30 bg-accent/10 dark:bg-accent/20 px-3 py-2 text-xs font-semibold text-accent dark:text-red-300 transition hover:bg-accent/20 dark:hover:bg-accent/30">
                   Register
                 </button>
               </div>
@@ -98,7 +118,7 @@ export default function CustomerStorefront({
                   onClick={() => setStorefrontTab(item.id)}
                   className={`rounded-full border px-4 py-2 transition-all duration-250 ${
                     storefrontTab === item.id
-                      ? 'border-accent bg-accent/10 text-white font-bold'
+                      ? 'border-accent/30 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300 font-bold'
                       : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'
                   }`}
                 >
@@ -132,7 +152,7 @@ export default function CustomerStorefront({
                   </button>
                   <button
                     onClick={() => onOpenCustomerAuth('register')}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-accent/30 bg-accent/10 dark:bg-accent/20 px-4 py-2 text-sm font-semibold text-accent dark:text-red-300 transition hover:bg-accent/20 dark:hover:bg-accent/30"
                   >
                     <UserPlus weight="duotone" className="h-4 w-4" />
                     Register
@@ -182,7 +202,7 @@ export default function CustomerStorefront({
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={() => onOpenCustomerAuth('register')}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-3 text-sm font-bold text-white transition hover:bg-accent/90"
+                        className="inline-flex items-center gap-2 rounded-2xl border border-accent/30 bg-accent/10 dark:bg-accent/20 px-5 py-3 text-sm font-bold text-accent dark:text-red-300 transition hover:bg-accent/20 dark:hover:bg-accent/30"
                       >
                         <UserPlus weight="duotone" className="h-4 w-4" />
                         Customer registration
@@ -279,7 +299,7 @@ export default function CustomerStorefront({
                     </span>
                     <h3 className="text-lg font-extrabold text-foreground">Learn About Us</h3>
                     <p className="text-muted-foreground text-xs mt-2 leading-relaxed">
-                      Tarlac Truck Parts delivers premium truck spares citywide. Find out more about our warranty, wholesale rates, and location details.
+                      Tarlac Truck Pitstop delivers premium truck spares citywide. Find out more about our warranty, wholesale rates, and location details.
                     </p>
                   </div>
                   <button onClick={() => setStorefrontTab('about')} className="mt-6 flex items-center gap-2 text-xs font-bold text-accent hover:underline">
@@ -307,36 +327,133 @@ export default function CustomerStorefront({
 
           {storefrontTab === 'catalog' && (
             <>
-              <section className="grid gap-4 rounded-[1.75rem] border border-border bg-secondary p-4 backdrop-blur sm:p-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-                <div className="relative w-full">
-                  <MagnifyingGlass weight="duotone" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search by part name, SKU, OEM number, or fitment"
-                    className="w-full rounded-2xl border border-border bg-background py-3.5 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+              <section className="rounded-[1.75rem] border border-border bg-secondary p-4 backdrop-blur sm:p-5 space-y-4">
+                <div className="flex flex-col xl:flex-row gap-4 xl:items-center justify-between">
+                  <div className="flex items-center gap-3 w-full xl:max-w-xl">
+                    <div className="relative w-full">
+                      <MagnifyingGlass weight="duotone" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search by part name, SKU, OEM, or fitment"
+                        className="w-full rounded-2xl border border-border bg-background py-3.5 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`shrink-0 flex items-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-bold transition ${showFilters ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-foreground hover:bg-background/80'}`}
+                    >
+                      <Faders weight="duotone" className="w-4 h-4" />
+                      Filters
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {categories.map((category) => {
+                      const { icon: CatIcon, color, bg } = getCategoryStyles(category);
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => setSelectedCategory(category)}
+                          className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${selectedCategory === category ? 'border-accent/40 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300' : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'}`}
+                        >
+                          {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === category ? 'text-accent dark:text-red-300' : color}`} />}
+                          {category}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => {
-                    const { icon: CatIcon, color, bg } = getCategoryStyles(category);
-                    return (
-                      <button
-                        key={category}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${selectedCategory === category ? `border-accent bg-accent text-white` : `border-border bg-background text-muted-foreground hover:border-border hover:text-foreground`}`}
-                      >
-                        {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === category ? 'text-white' : color}`} />}
-                        {category}
-                      </button>
-                    )
-                  })}
-                </div>
+                {showFilters && (
+                  <div className="flex flex-col lg:flex-row gap-6 pt-6 border-t border-border mt-4">
+                    <div className="lg:w-48 shrink-0 space-y-1 mt-1">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-foreground">Advanced Filters</p>
+                    </div>
+
+                    <div className="flex-1 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Truck Brand</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {TRUCK_BRANDS.slice(1).map(brand => (
+                            <button
+                              key={brand.id}
+                              onClick={() => setCompatibilityFilter(brand.id)}
+                              className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[10px] font-bold transition ${compatibilityFilter === brand.id ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-muted-foreground hover:border-accent/30 hover:text-foreground'}`}
+                            >
+                              <Truck weight={compatibilityFilter === brand.id ? "fill" : "duotone"} className="w-4 h-4 mb-1" />
+                              {brand.id}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Price Range (₱)</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="number" 
+                            placeholder="Min" 
+                            value={minPrice}
+                            onChange={(e) => setMinPrice(e.target.value)}
+                            className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                          />
+                          <span className="text-muted-foreground">-</span>
+                          <input 
+                            type="number" 
+                            placeholder="Max" 
+                            value={maxPrice}
+                            onChange={(e) => setMaxPrice(e.target.value)}
+                            className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Stock Availability</label>
+                        <select 
+                          value={stockStatus}
+                          onChange={(e) => setStockStatus(e.target.value)}
+                          className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                        >
+                          <option value="All">All Items</option>
+                          <option value="In Stock">In Stock Only</option>
+                          <option value="Low Stock">Low Stock Alert</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort By</label>
+                        <select 
+                          value={sortOrder}
+                          onChange={(e) => setSortOrder(e.target.value)}
+                          className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                        >
+                          <option value="recommended">Recommended</option>
+                          <option value="price-asc">Price: Low to High</option>
+                          <option value="price-desc">Price: High to Low</option>
+                          <option value="name-asc">Name: A to Z</option>
+                          <option value="name-desc">Name: Z to A</option>
+                        </select>
+                      </div>
+
+                      {(minPrice || maxPrice || stockStatus !== 'All' || sortOrder !== 'recommended' || compatibilityFilter !== 'All') && (
+                        <div className="sm:col-span-2 lg:col-span-4 pt-2 flex justify-end border-t border-border mt-2">
+                          <button 
+                            onClick={() => { setMinPrice(''); setMaxPrice(''); setStockStatus('All'); setSortOrder('recommended'); setCompatibilityFilter('All'); }}
+                            className="text-[10px] uppercase tracking-[0.1em] font-bold text-red-500 hover:text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-2 rounded-xl transition"
+                          >
+                            Clear Filters
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </section>
 
               <section className="grid gap-5 lg:grid-cols-12">
-                <div className="lg:col-span-8">
+                <div className="lg:col-span-12">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground font-display">Shop catalog</p>
@@ -355,8 +472,8 @@ export default function CustomerStorefront({
                           key={part.id}
                           className="group overflow-hidden rounded-[1.75rem] border border-border bg-secondary transition hover:-translate-y-1 hover:border-red-500/30 flex flex-col h-full"
                         >
-                          <div className="relative h-40 shrink-0 overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.25),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.35),_transparent_38%),linear-gradient(135deg,rgba(15,23,42,1),rgba(2,6,23,1))]">
-                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
+                          <div className="relative h-40 shrink-0 overflow-hidden bg-slate-200 dark:bg-slate-950 bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.15),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.15),_transparent_40%)]">
+                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.2)_100%)] dark:bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
                             <div className={`absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] shadow-lg backdrop-blur-md ${bg} ${color}`}>
                               {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5" />}
                               {part.category}
@@ -399,96 +516,26 @@ export default function CustomerStorefront({
                     })}
                   </div>
                 </div>
-
-                <aside className="space-y-4 lg:col-span-4">
-                  <div className="rounded-[1.75rem] border border-border bg-secondary p-5 sticky top-32">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-foreground">Advanced Filters</p>
-                      {(minPrice || maxPrice || inStockOnly || sortOrder !== 'recommended') && (
-                        <button 
-                          onClick={() => { setMinPrice(''); setMaxPrice(''); setInStockOnly(false); setSortOrder('recommended'); }}
-                          className="text-[10px] uppercase font-bold text-red-500 hover:text-red-400"
-                        >
-                          Clear All
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort By</label>
-                        <select 
-                          value={sortOrder}
-                          onChange={(e) => setSortOrder(e.target.value)}
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent"
-                        >
-                          <option value="recommended">Recommended</option>
-                          <option value="price-asc">Price: Low to High</option>
-                          <option value="price-desc">Price: High to Low</option>
-                          <option value="name-asc">Name: A to Z</option>
-                          <option value="name-desc">Name: Z to A</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Price Range (₱)</label>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" 
-                            placeholder="Min" 
-                            value={minPrice}
-                            onChange={(e) => setMinPrice(e.target.value)}
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-                          />
-                          <span className="text-muted-foreground">-</span>
-                          <input 
-                            type="number" 
-                            placeholder="Max" 
-                            value={maxPrice}
-                            onChange={(e) => setMaxPrice(e.target.value)}
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2">
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                          <div className="relative flex items-center justify-center w-5 h-5">
-                            <input 
-                              type="checkbox" 
-                              checked={inStockOnly}
-                              onChange={(e) => setInStockOnly(e.target.checked)}
-                              className="peer appearance-none w-5 h-5 border border-border rounded bg-background checked:bg-accent checked:border-accent transition-all cursor-pointer"
-                            />
-                            <svg className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                          <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition">Show in-stock only</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </aside>
               </section>
             </>
           )}
 
           {storefrontTab === 'about' && (
-            <section className="relative overflow-hidden rounded-[2rem] border border-border bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.12),_transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] p-6 sm:p-8 lg:p-10">
-              <div className="max-w-3xl space-y-6">
+            <section className="relative overflow-hidden rounded-[2rem] border border-border bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-950 p-6 sm:p-8 lg:p-10">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.12),_transparent_30%)] pointer-events-none" />
+              <div className="relative z-10 max-w-3xl space-y-6">
                 <span className="px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-wider inline-block">
                   Premium Truck Spare Parts
                 </span>
                 <h2 className="text-4xl font-extrabold tracking-tight text-foreground font-display">
-                  Tarlac Truck Parts
+                  Tarlac Truck Pitstop
                 </h2>
                 <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-                  Tarlac Truck Parts is the region's trusted supplier of high-quality replacement parts, accessories, and maintenance solutions for heavy commercial trucks and cargo transport fleets. Based in the heart of Tarlac City, we support individual operators and corporate logistics networks across the province and surrounding regions.
+                  Tarlac Truck Pitstop is the region's trusted supplier of high-quality replacement parts, accessories, and maintenance solutions for heavy commercial trucks and cargo transport fleets. Based in the heart of Tarlac City, we support individual operators and corporate logistics networks across the province and surrounding regions.
                 </p>
               </div>
 
-              <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="relative z-10 mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-2xl border border-border bg-background p-6">
                   <div className="p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/30 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl inline-block mb-4">
                     <Truck weight="duotone" className="w-6 h-6" />
@@ -520,7 +567,7 @@ export default function CustomerStorefront({
                 </div>
               </div>
 
-              <div className="mt-12 rounded-3xl border border-border bg-secondary p-6 lg:p-8">
+              <div className="relative z-10 mt-12 rounded-3xl border border-border bg-secondary p-6 lg:p-8">
                 <h3 className="text-xl font-extrabold text-foreground">Our Mission & Values</h3>
                 <div className="grid gap-6 mt-6 md:grid-cols-2">
                   <div>
@@ -555,7 +602,7 @@ export default function CustomerStorefront({
                       <div>
                         <h4 className="font-bold text-foreground text-xs">Store Address</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Tarlac Truck Parts Building, McArthur Highway,<br />
+                          Tarlac Truck Pitstop Building, McArthur Highway,<br />
                           Tarlac City, 2300 Tarlac, Philippines
                         </p>
                       </div>
@@ -606,17 +653,17 @@ export default function CustomerStorefront({
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Name</label>
-                      <input required className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none focus:border-accent" placeholder="Dela Cruz, Juan" />
+                      <input required className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-accent" placeholder="Prime, Optimus" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact Number</label>
-                      <input className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none focus:border-accent" placeholder="0917xxxxxxx" />
+                      <input className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-accent" placeholder="09-AUTOBOTS" />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
-                    <input required type="email" className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none focus:border-accent" placeholder="juan.dc@domain.com" />
+                    <input required type="email" className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-accent" placeholder="leader@autobots.cybertron" />
                   </div>
 
                   <div className="space-y-2">
@@ -631,10 +678,10 @@ export default function CustomerStorefront({
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Message details</label>
-                    <textarea required rows={4} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none focus:border-accent resize-none" placeholder="Provide part description, SKU, OEM, or compatibility question..." />
+                    <textarea required rows={4} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-accent resize-none" placeholder="Do you have a replacement Matrix of Leadership in stock? It broke again..." />
                   </div>
 
-                  <button type="submit" className="w-full py-3 bg-accent text-white font-bold rounded-xl hover:bg-accent/90 transition text-sm">
+                  <button type="submit" className="w-full py-3 rounded-xl border border-accent/30 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300 font-bold hover:bg-accent/20 dark:hover:bg-accent/30 transition text-sm">
                     Submit Inquiry Template
                   </button>
                 </form>
