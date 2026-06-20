@@ -1,32 +1,5 @@
 import React, { useState } from 'react';
-import {
-  LayoutDashboard,
-  FileText,
-  Send,
-  CalendarDays,
-  Bell,
-  Menu,
-  X,
-  User2,
-  ShieldCheck,
-  DollarSign,
-  TrendingUp,
-  Package,
-  HelpCircle,
-  Download,
-  Clock,
-  CheckCircle2,
-  ArrowRight,
-  ShoppingCart,
-  Search,
-  Plus,
-  Minus,
-  Trash2,
-  CreditCard,
-  Lock,
-  Settings,
-  LoaderCircle,
-} from 'lucide-react';
+import { SquaresFour, FileText, PaperPlaneRight, CalendarBlank, Bell, List, X, User, ShieldCheck, CurrencyDollar, TrendUp, Package, Question, Download, Clock, CheckCircle, ArrowRight, ShoppingCart, MagnifyingGlass, Plus, Minus, Trash, CreditCard, LockKey, Gear, CircleNotch, Moon, Sun } from '@phosphor-icons/react';
 import { changePassword } from '../authStore';
 import Logo from './Logo';
 import { jsPDF } from 'jspdf';
@@ -53,11 +26,11 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white font-outfit">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground font-display">
             Customer Overview
           </h1>
-          <p className="text-slate-400 max-w-xl text-sm md:text-base leading-relaxed">
-            Welcome back, <span className="text-white font-semibold">{customerName}</span>. View your purchase history, download invoices, shop for replacement parts, and submit custom quotes.
+          <p className="text-muted-foreground max-w-xl text-sm md:text-base leading-relaxed">
+            Welcome back, <span className="text-foreground font-semibold">{customerName}</span>. View your purchase history, download invoices, shop for replacement parts, and submit custom quotes.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 shrink-0">
@@ -65,21 +38,21 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
             onClick={() => setPage('shop')}
             className="flex items-center gap-2 px-5 py-3 rounded-xl bg-accent hover:bg-accent/90 text-white font-semibold transition-all duration-300 transform hover:scale-[1.03] shadow-lg shadow-accent/20"
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingCart weight="duotone" className="w-5 h-5" />
             Shop / Order Parts
           </button>
           <button
             onClick={() => setPage('orders')}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition-all duration-300"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-secondary hover:bg-slate-700 text-foreground border border-border font-semibold transition-all duration-300"
           >
-            <FileText className="w-5 h-5" />
+            <FileText weight="duotone" className="w-5 h-5" />
             My Orders
           </button>
           <button
             onClick={() => setPage('quote')}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition-all duration-300"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-secondary hover:bg-slate-700 text-foreground border border-border font-semibold transition-all duration-300"
           >
-            <Send className="w-5 h-5" />
+            <PaperPlaneRight weight="duotone" className="w-5 h-5" />
             Request Quote
           </button>
         </div>
@@ -89,51 +62,51 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-brandBlue-400 transition-all duration-300">
           <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">My Invoices</span>
-            <h3 className="text-3xl font-extrabold text-white font-outfit">{totalOrders}</h3>
-            <p className="text-xs text-slate-500">Completed orders</p>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">My Invoices</span>
+            <h3 className="text-3xl font-extrabold text-foreground font-display">{totalOrders}</h3>
+            <p className="text-xs text-muted-foreground">Completed orders</p>
           </div>
           <div className="p-3 bg-brandBlue-900/40 text-brandBlue-400 rounded-xl border border-brandBlue-700/30">
-            <FileText className="w-6 h-6" />
+            <FileText weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-emerald-500/30 transition-all duration-300">
           <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Spent</span>
-            <h3 className="text-3xl font-extrabold text-white font-outfit">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Spent</span>
+            <h3 className="text-3xl font-extrabold text-foreground font-display">
               ₱{totalSpent.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </h3>
             <p className="text-xs text-emerald-400 flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" /> Wholesale pricing
+              <TrendUp weight="duotone" className="w-3.5 h-3.5" /> Wholesale pricing
             </p>
           </div>
           <div className="p-3 bg-emerald-900/20 text-emerald-400 rounded-xl border border-emerald-500/20">
-            <DollarSign className="w-6 h-6" />
+            <CurrencyDollar weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-indigo-500/30 transition-all duration-300">
           <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Avg. Invoice</span>
-            <h3 className="text-3xl font-extrabold text-white font-outfit">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Avg. Invoice</span>
+            <h3 className="text-3xl font-extrabold text-foreground font-display">
               ₱{avgOrder.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </h3>
-            <p className="text-xs text-slate-500">Per checkout</p>
+            <p className="text-xs text-muted-foreground">Per checkout</p>
           </div>
           <div className="p-3 bg-indigo-950/40 text-indigo-400 rounded-xl border border-indigo-800/30">
-            <Package className="w-6 h-6" />
+            <Package weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/10 hover:border-t-accent/50 transition-all duration-300">
           <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Pending Quotes</span>
-            <h3 className="text-3xl font-extrabold text-white font-outfit">{pendingInq}</h3>
-            <p className="text-xs text-slate-500">Awaiting response</p>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pending Quotes</span>
+            <h3 className="text-3xl font-extrabold text-foreground font-display">{pendingInq}</h3>
+            <p className="text-xs text-muted-foreground">Awaiting response</p>
           </div>
           <div className="p-3 bg-accent/15 text-accent rounded-xl border border-accent/20">
-            <HelpCircle className="w-6 h-6" />
+            <Question weight="duotone" className="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -142,23 +115,23 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
         <div className="glass-panel p-5 rounded-2xl lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-white font-outfit">Recent Orders</h3>
-              <p className="text-xs text-slate-400">Your latest purchase invoices.</p>
+              <h3 className="text-lg font-bold text-foreground font-display">Recent Orders</h3>
+              <p className="text-xs text-muted-foreground">Your latest purchase invoices.</p>
             </div>
             <button onClick={() => setPage('orders')} className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 font-semibold transition-colors">
-              View all <ArrowRight className="w-3.5 h-3.5" />
+              View all <ArrowRight weight="duotone" className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {customerTx.length === 0 ? (
-            <div className="py-8 text-center text-slate-500 text-sm">No purchase records found. Orders placed in shop or at the counter will appear here.</div>
+            <div className="py-8 text-center text-muted-foreground text-sm">No purchase records found. Orders placed in shop or at the counter will appear here.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
-                  <tr className="text-slate-400 text-xs font-semibold uppercase border-b border-slate-800/80">
+                  <tr className="text-muted-foreground text-xs font-semibold uppercase border-b border-border">
                     <th className="py-3 px-2">Invoice</th>
                     <th className="py-3 px-2">Date</th>
                     <th className="py-3 px-2 text-right">Total</th>
@@ -166,12 +139,12 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {customerTx.slice(0, 5).map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-900/50 transition-colors">
-                      <td className="py-3 px-2 font-mono text-xs text-slate-200 font-bold">{tx.invoiceNumber}</td>
-                      <td className="py-3 px-2 text-xs text-slate-400">
+                    <tr key={tx.id} className="hover:bg-secondary transition-colors">
+                      <td className="py-3 px-2 font-mono text-xs text-foreground font-bold">{tx.invoiceNumber}</td>
+                      <td className="py-3 px-2 text-xs text-muted-foreground">
                         {new Date(tx.transactionDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                       </td>
-                      <td className="py-3 px-2 text-right font-semibold text-white">
+                      <td className="py-3 px-2 text-right font-semibold text-foreground">
                         ₱{tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
@@ -184,18 +157,18 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
 
         {/* Quote Requests */}
         <div className="glass-panel p-5 rounded-2xl flex flex-col space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
-            <Clock className="w-5 h-5 text-brandBlue-400" />
-            <h3 className="text-lg font-bold text-white font-outfit">Quote Requests</h3>
+          <div className="flex items-center gap-2 pb-3 border-b border-border">
+            <Clock weight="duotone" className="w-5 h-5 text-brandBlue-400" />
+            <h3 className="text-lg font-bold text-foreground font-display">Quote Requests</h3>
           </div>
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {inquiries.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-4">No inquiries submitted yet.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No inquiries submitted yet.</p>
             ) : inquiries.map((inq) => (
-              <div key={inq.id} className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/60 hover:border-slate-700/60 transition-all">
+              <div key={inq.id} className="flex justify-between items-center p-3 bg-secondary rounded-xl border border-border hover:border-border transition-all">
                 <div className="space-y-1 text-xs">
-                  <span className="font-bold text-slate-200 block truncate max-w-[150px]">{inq.partName}</span>
-                  <span className="text-[9px] text-slate-500 font-mono">{new Date(inq.date).toLocaleString()}</span>
+                  <span className="font-bold text-foreground block truncate max-w-[150px]">{inq.partName}</span>
+                  <span className="text-[9px] text-muted-foreground font-mono">{new Date(inq.date).toLocaleString()}</span>
                 </div>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
                   inq.status === 'Responded'
@@ -205,9 +178,9 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
               </div>
             ))}
           </div>
-          <div className="pt-2 border-t border-slate-800">
-            <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800/60 text-slate-400 text-xs">
-              <span className="font-bold text-slate-300">Quick Tip:</span> Use <span className="font-mono text-slate-300">Request Quote</span> to get wholesale pricing for bulk parts orders.
+          <div className="pt-2 border-t border-border">
+            <div className="p-3 bg-secondary rounded-xl border border-border text-muted-foreground text-xs">
+              <span className="font-bold text-muted-foreground">Quick Tip:</span> Use <span className="font-mono text-muted-foreground">Request Quote</span> to get wholesale pricing for bulk parts orders.
             </div>
           </div>
         </div>
@@ -299,27 +272,27 @@ function MyOrders({ customerName, transactions }) {
     <div className="space-y-6 animate-fadeIn">
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-brandBlue-400">
         <div className="absolute top-0 right-0 w-72 h-72 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <h1 className="text-3xl font-extrabold text-white font-outfit">My Purchase History</h1>
-        <p className="text-slate-400 text-sm mt-1">All invoices processed under your account. Download duplicates anytime.</p>
+        <h1 className="text-3xl font-extrabold text-foreground font-display">My Purchase History</h1>
+        <p className="text-muted-foreground text-sm mt-1">All invoices processed under your account. Download duplicates anytime.</p>
       </div>
 
       <div className="glass-panel p-5 rounded-2xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 className="text-lg font-bold text-white font-outfit">All Orders</h3>
-          <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
+          <h3 className="text-lg font-bold text-foreground font-display">All Orders</h3>
+          <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-secondary text-muted-foreground border border-border">
             {customerTx.length} {customerTx.length === 1 ? 'invoice' : 'invoices'}
           </span>
         </div>
 
         {customerTx.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 text-sm">
+          <div className="py-12 text-center text-muted-foreground text-sm">
             No purchase records found. Orders placed in the Shop tab or counter will appear here.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="text-slate-400 text-xs font-semibold uppercase border-b border-slate-800/80">
+                <tr className="text-muted-foreground text-xs font-semibold uppercase border-b border-border">
                   <th className="py-3 px-3">Invoice No</th>
                   <th className="py-3 px-3">Date</th>
                   <th className="py-3 px-3">Items</th>
@@ -329,15 +302,15 @@ function MyOrders({ customerName, transactions }) {
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {customerTx.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-slate-900/40 transition-colors">
-                    <td className="py-3.5 px-3 font-mono text-xs text-slate-200 font-bold">{tx.invoiceNumber}</td>
-                    <td className="py-3.5 px-3 text-xs text-slate-400">
+                  <tr key={tx.id} className="hover:bg-secondary transition-colors">
+                    <td className="py-3.5 px-3 font-mono text-xs text-foreground font-bold">{tx.invoiceNumber}</td>
+                    <td className="py-3.5 px-3 text-xs text-muted-foreground">
                       {new Date(tx.transactionDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                     </td>
-                    <td className="py-3.5 px-3 text-xs text-slate-300 max-w-[220px] truncate">
+                    <td className="py-3.5 px-3 text-xs text-muted-foreground max-w-[220px] truncate">
                       {tx.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-semibold text-white">
+                    <td className="py-3.5 px-3 text-right font-semibold text-foreground">
                       ₱{tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-3.5 px-3 text-center">
@@ -346,7 +319,7 @@ function MyOrders({ customerName, transactions }) {
                         className="p-1.5 hover:bg-emerald-950/40 text-emerald-400 border border-transparent hover:border-emerald-800/30 rounded-lg transition-all"
                         title="Download PDF Invoice"
                       >
-                        <Download className="w-4 h-4" />
+                        <Download weight="duotone" className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -394,26 +367,26 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
     <div className="space-y-6 animate-fadeIn">
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-72 h-72 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <h1 className="text-3xl font-extrabold text-white font-outfit">Request a Quote</h1>
-        <p className="text-slate-400 text-sm mt-1">Submit a wholesale parts inquiry to our warehouse team for volume pricing.</p>
+        <h1 className="text-3xl font-extrabold text-foreground font-display">Request a Quote</h1>
+        <p className="text-muted-foreground text-sm mt-1">Submit a wholesale parts inquiry to our warehouse team for volume pricing.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quote Form */}
         <div className="lg:col-span-2 glass-panel p-6 rounded-2xl">
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="flex items-center gap-2 pb-4 border-b border-slate-800">
-              <Send className="w-5 h-5 text-brandBlue-400" />
-              <h3 className="text-lg font-bold text-white font-outfit">New Inquiry Form</h3>
+            <div className="flex items-center gap-2 pb-4 border-b border-border">
+              <PaperPlaneRight weight="duotone" className="w-5 h-5 text-brandBlue-400" />
+              <h3 className="text-lg font-bold text-foreground font-display">New Inquiry Form</h3>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Catalog Part *</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Select Catalog Part *</label>
               <select
                 value={selectedPartId}
                 onChange={(e) => setSelectedPartId(e.target.value)}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+                className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
               >
                 <option value="" disabled>-- Select Truck Component --</option>
                 {parts.map((p) => (
@@ -423,25 +396,25 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Request Quantity *</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Request Quantity *</label>
               <input
                 type="number"
                 min="1"
                 required
                 value={inquiryQty}
                 onChange={(e) => setInquiryQty(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+                className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notes & Special Instructions</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Notes & Special Instructions</label>
               <textarea
                 placeholder="Provide details such as transport timeline, packaging preference, or fleet requirements..."
                 rows="5"
                 value={inquiryMsg}
                 onChange={(e) => setInquiryMsg(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200 resize-none"
+                className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground resize-none"
               />
             </div>
 
@@ -449,32 +422,32 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
               type="submit"
               className="w-full py-3 px-4 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2 transform hover:scale-[1.02]"
             >
-              <Send className="w-4 h-4" /> Send Inquiry to Warehouse
+              <PaperPlaneRight weight="duotone" className="w-4 h-4" /> PaperPlaneRight Inquiry to Warehouse
             </button>
           </form>
         </div>
 
         {/* Submitted Inquiries */}
         <div className="glass-panel p-5 rounded-2xl space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
-            <Clock className="w-5 h-5 text-brandBlue-400" />
-            <h3 className="text-base font-bold text-white font-outfit">My Inquiries</h3>
+          <div className="flex items-center gap-2 pb-3 border-b border-border">
+            <Clock weight="duotone" className="w-5 h-5 text-brandBlue-400" />
+            <h3 className="text-base font-bold text-foreground font-display">My Inquiries</h3>
           </div>
           <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
             {inquiries.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">No inquiries yet. Submit your first quote request!</p>
+              <p className="text-xs text-muted-foreground text-center py-6">No inquiries yet. Submit your first quote request!</p>
             ) : inquiries.map((inq) => (
-              <div key={inq.id} className="p-3 bg-slate-900/40 rounded-xl border border-slate-800/60 hover:border-slate-700/60 transition-all space-y-2">
+              <div key={inq.id} className="p-3 bg-secondary rounded-xl border border-border hover:border-border transition-all space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-200 text-xs truncate max-w-[160px]">{inq.partName}</span>
+                  <span className="font-bold text-foreground text-xs truncate max-w-[160px]">{inq.partName}</span>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
                     inq.status === 'Responded'
                       ? 'bg-emerald-950/30 text-emerald-400 border-emerald-800/30'
                       : 'bg-amber-950/30 text-amber-500 border-amber-800/30 animate-pulse'
                   }`}>{inq.status}</span>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">"{inq.message}"</p>
-                <span className="text-[9px] text-slate-500 font-mono block">Qty: {inq.quantity} pcs · {new Date(inq.date).toLocaleString()}</span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">"{inq.message}"</p>
+                <span className="text-[9px] text-muted-foreground font-mono block">Qty: {inq.quantity} pcs · {new Date(inq.date).toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -483,28 +456,28 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
 
       {/* Success Modal */}
       {showSuccess && submitted && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800/80 rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
-              <CheckCircle2 className="w-9 h-9" />
+              <CheckCircle weight="duotone" className="w-9 h-9" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white font-outfit">Inquiry Received!</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">Your quote request <strong>{submitted.id}</strong> was submitted. Our warehouse team has been notified.</p>
+              <h3 className="text-lg font-bold text-foreground font-display">Inquiry Received!</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">Your quote request <strong>{submitted.id}</strong> was submitted. Our warehouse team has been notified.</p>
             </div>
-            <div className="bg-slate-950 p-4 rounded-xl text-left border border-slate-800 text-xs space-y-1 font-mono">
+            <div className="bg-background p-4 rounded-xl text-left border border-border text-xs space-y-1 font-mono">
               <div className="flex justify-between">
-                <span className="text-slate-500">Part:</span>
-                <span className="text-slate-300 truncate max-w-[150px]">{submitted.partName}</span>
+                <span className="text-muted-foreground">Part:</span>
+                <span className="text-muted-foreground truncate max-w-[150px]">{submitted.partName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Quantity:</span>
-                <span className="text-slate-300 font-bold">{submitted.quantity} pcs</span>
+                <span className="text-muted-foreground">Quantity:</span>
+                <span className="text-muted-foreground font-bold">{submitted.quantity} pcs</span>
               </div>
             </div>
             <button
               onClick={() => setShowSuccess(false)}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+              className="w-full py-2.5 bg-secondary hover:bg-slate-700 border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
             >
               Close
             </button>
@@ -712,25 +685,25 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
       <div className="xl:col-span-2 space-y-6">
         <div className="relative overflow-hidden rounded-2xl glass-panel p-6 border-l-4 border-l-brandBlue-400">
           <div className="absolute top-0 right-0 w-72 h-72 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-          <h1 className="text-3xl font-extrabold text-white font-outfit">Parts Shop</h1>
-          <p className="text-slate-400 text-sm mt-1">Select from our warehouse stock. Logged-in VIP customer discount applied automatically.</p>
+          <h1 className="text-3xl font-extrabold text-foreground font-display">Parts Shop</h1>
+          <p className="text-muted-foreground text-sm mt-1">Select from our warehouse stock. Logged-in VIP customer discount applied automatically.</p>
         </div>
 
         <div className="glass-panel p-5 rounded-2xl space-y-4 font-sans">
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center pb-3 border-b border-slate-800">
-            <h3 className="text-lg font-bold text-white font-outfit">Browse & Order</h3>
-            <span className="text-xs text-slate-400">Add parts to your dashboard checkout cart.</span>
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center pb-3 border-b border-border">
+            <h3 className="text-lg font-bold text-foreground font-display">Browse & Order</h3>
+            <span className="text-xs text-muted-foreground">Add parts to your dashboard checkout cart.</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="relative md:col-span-2">
-              <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+              <MagnifyingGlass weight="duotone" className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search catalog by SKU, name, OEM, fitment..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+                className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
               />
             </div>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
@@ -741,7 +714,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                   className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all shrink-0 ${
                     selectedCategory === cat
                       ? 'bg-accent/20 text-accent border-accent/40'
-                      : 'bg-slate-950/40 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                      : 'bg-background text-muted-foreground border-border hover:border-border hover:text-foreground'
                   }`}
                 >
                   {cat}
@@ -751,7 +724,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
           </div>
 
           {filteredParts.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 text-sm">No items found matching your filters.</div>
+            <div className="py-16 text-center text-muted-foreground text-sm">No items found matching your filters.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[520px] overflow-y-auto pr-1">
               {filteredParts.map((part) => {
@@ -764,28 +737,28 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                     onClick={() => remaining > 0 && addToCart(part)}
                     className={`p-4 rounded-xl border transition-all text-left flex flex-col justify-between space-y-3 relative group ${
                       remaining > 0
-                        ? 'bg-slate-900/40 border-slate-800 hover:border-accent/40 hover:bg-slate-900/70 cursor-pointer'
-                        : 'bg-slate-950/20 border-slate-900 opacity-60 cursor-not-allowed'
+                        ? 'bg-secondary border-border hover:border-accent/40 hover:bg-secondary cursor-pointer'
+                        : 'bg-background border-slate-900 opacity-60 cursor-not-allowed'
                     }`}
                   >
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-start gap-2">
                         <span className="text-[9px] font-bold text-brandBlue-400 uppercase tracking-wider">{part.category}</span>
-                        <span className="text-xs font-bold text-white">₱{part.price.toLocaleString('en-PH')}</span>
+                        <span className="text-xs font-bold text-foreground">₱{part.price.toLocaleString('en-PH')}</span>
                       </div>
-                      <h5 className="font-bold text-slate-200 text-xs line-clamp-1 group-hover:text-white transition-colors">
+                      <h5 className="font-bold text-foreground text-xs line-clamp-1 group-hover:text-foreground transition-colors">
                         {part.name}
                       </h5>
-                      <div className="flex gap-2 text-[9px] text-slate-500 font-mono">
+                      <div className="flex gap-2 text-[9px] text-muted-foreground font-mono">
                         <span>SKU: {part.sku}</span>
                         <span>| OEM: {part.oem}</span>
                       </div>
-                      <p className="text-[10px] text-slate-400 leading-normal line-clamp-2">{part.description}</p>
+                      <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">{part.description}</p>
                     </div>
 
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-800/40">
-                      <span className="text-[9px] text-slate-500 max-w-[60%] truncate">Fits: {part.compatibility}</span>
-                      <span className={`text-[10px] font-semibold ${remaining <= 3 ? 'text-red-400 font-bold' : 'text-slate-400'}`}>
+                    <div className="flex justify-between items-center pt-2 border-t border-border">
+                      <span className="text-[9px] text-muted-foreground max-w-[60%] truncate">Fits: {part.compatibility}</span>
+                      <span className={`text-[10px] font-semibold ${remaining <= 3 ? 'text-red-400 font-bold' : 'text-muted-foreground'}`}>
                         {remaining > 0 ? `${remaining} in stock` : 'Out of stock'}
                       </span>
                     </div>
@@ -801,9 +774,9 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
       <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between space-y-4 font-sans">
         <form onSubmit={handleCheckoutSubmit} className="flex flex-col h-full justify-between space-y-4">
           <div className="space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800 font-outfit">
-              <ShoppingCart className="w-5 h-5 text-accent" />
-              <h3 className="text-lg font-bold text-white">My Cart</h3>
+            <div className="flex items-center gap-2 pb-3 border-b border-border font-display">
+              <ShoppingCart weight="duotone" className="w-5 h-5 text-accent" />
+              <h3 className="text-lg font-bold text-foreground">My Cart</h3>
               {cart.length > 0 && (
                 <span className="ml-auto px-2 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-extrabold border border-accent/20">
                   {cart.reduce((sum, i) => sum + i.quantity, 0)} Items
@@ -813,44 +786,44 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
 
             {/* Cart list */}
             {cart.length === 0 ? (
-              <div className="py-20 text-center text-slate-500 space-y-3">
-                <ShoppingCart className="w-8 h-8 mx-auto opacity-30 text-slate-400" />
+              <div className="py-20 text-center text-muted-foreground space-y-3">
+                <ShoppingCart weight="duotone" className="w-8 h-8 mx-auto opacity-30 text-muted-foreground" />
                 <p className="text-xs leading-normal">Your ordering cart is empty.<br />Click catalog items on the left to add them here.</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-800/60">
+                  <div key={item.id} className="flex justify-between items-center bg-secondary p-3 rounded-xl border border-border">
                     <div className="space-y-1 max-w-[60%] font-sans">
-                      <h6 className="font-semibold text-white text-xs truncate">{item.name}</h6>
-                      <span className="text-[10px] text-slate-400 font-mono">₱{item.price.toLocaleString('en-PH')}</span>
+                      <h6 className="font-semibold text-foreground text-xs truncate">{item.name}</h6>
+                      <span className="text-[10px] text-muted-foreground font-mono">₱{item.price.toLocaleString('en-PH')}</span>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 bg-slate-950 rounded-lg p-1 border border-slate-800">
+                      <div className="flex items-center gap-1 bg-background rounded-lg p-1 border border-border">
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors"
+                          className="p-1 hover:bg-secondary text-muted-foreground hover:text-foreground rounded transition-colors"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus weight="duotone" className="w-3 h-3" />
                         </button>
-                        <span className="text-xs text-slate-200 font-bold w-5 text-center">{item.quantity}</span>
+                        <span className="text-xs text-foreground font-bold w-5 text-center">{item.quantity}</span>
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors"
+                          className="p-1 hover:bg-secondary text-muted-foreground hover:text-foreground rounded transition-colors"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus weight="duotone" className="w-3 h-3" />
                         </button>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => removeFromCart(item.id)}
-                        className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors"
+                        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash weight="duotone" className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -859,8 +832,8 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
             )}
 
             {/* Delivery / Session Info details */}
-            <div className="space-y-3 pt-3 border-t border-slate-800">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Customer Delivery/Billing Info</span>
+            <div className="space-y-3 pt-3 border-t border-border">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Customer Delivery/Billing Info</span>
               <div className="space-y-2">
                 <input
                   type="text"
@@ -868,7 +841,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                   placeholder="Customer Name"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200 placeholder-slate-700"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground placeholder-slate-700"
                 />
                 <input
                   type="text"
@@ -876,28 +849,28 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                   placeholder="Contact Number"
                   value={contactInput}
                   onChange={(e) => setContactInput(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200 placeholder-slate-700"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground placeholder-slate-700"
                 />
               </div>
             </div>
           </div>
 
           {/* Checkout Math */}
-          <div className="space-y-4 pt-4 border-t border-slate-800 font-sans">
+          <div className="space-y-4 pt-4 border-t border-border font-sans">
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
                 <span>₱{subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-muted-foreground">
                 <span>VIP Discount (5%)</span>
                 <span>- ₱{discountVal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-muted-foreground">
                 <span>VAT (12%)</span>
                 <span>₱{taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-base font-bold text-white border-t border-slate-800/60 pt-2.5 font-outfit">
+              <div className="flex justify-between text-base font-bold text-foreground border-t border-border pt-2.5 font-display">
                 <span>Total Due</span>
                 <span className="text-accent font-extrabold">₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
@@ -908,7 +881,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
               disabled={cart.length === 0}
               className="w-full py-3 px-4 bg-accent hover:bg-accent/90 disabled:bg-slate-850 disabled:text-slate-600 disabled:shadow-none disabled:border-slate-850 text-white font-bold rounded-xl transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
             >
-              <CreditCard className="w-4 h-4" /> Place Dashboard Order
+              <CreditCard weight="duotone" className="w-4 h-4" /> Place Dashboard Order
             </button>
           </div>
         </form>
@@ -916,26 +889,26 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
 
       {/* Success Modal Overlay */}
       {checkoutSuccess && lastTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800/80 rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
-              <CheckCircle2 className="w-9 h-9" />
+              <CheckCircle weight="duotone" className="w-9 h-9" />
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white font-outfit">Order Placed Successfully!</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <h3 className="text-lg font-bold text-foreground font-display">Order Placed Successfully!</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Your order is being prepared by our logistics team. Download a duplicate copy of your sales invoice below.
               </p>
             </div>
 
-            <div className="bg-slate-950 p-4 rounded-xl text-left border border-slate-850 text-xs space-y-1.5 font-mono">
+            <div className="bg-background p-4 rounded-xl text-left border border-slate-850 text-xs space-y-1.5 font-mono">
               <div className="flex justify-between">
-                <span className="text-slate-500">Invoice No:</span>
-                <span className="text-slate-200 font-semibold">{lastTx.invoiceNumber}</span>
+                <span className="text-muted-foreground">Invoice No:</span>
+                <span className="text-foreground font-semibold">{lastTx.invoiceNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Net Total:</span>
+                <span className="text-muted-foreground">Net Total:</span>
                 <span className="text-emerald-400 font-bold">₱{lastTx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
@@ -943,13 +916,13 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleDownloadPDF(lastTx)}
-                className="flex items-center justify-center gap-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors"
+                className="flex items-center justify-center gap-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-foreground font-bold rounded-xl text-xs transition-colors"
               >
-                <Download className="w-3.5 h-3.5" /> Download PDF
+                <Download weight="duotone" className="w-3.5 h-3.5" /> Download PDF
               </button>
               <button
                 onClick={() => setCheckoutSuccess(false)}
-                className="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                className="py-2.5 bg-secondary hover:bg-slate-700 border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
               >
                 Close Cart
               </button>
@@ -961,7 +934,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
   );
 }
 
-/* ── 5. Settings / Security Page ─────────────── */
+/* ── 5. Gear / Security Page ─────────────── */
 function SettingsPage({ customerEmail }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -1006,14 +979,14 @@ function SettingsPage({ customerEmail }) {
     <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-accent">
         <div className="absolute top-0 right-0 w-72 h-72 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <h1 className="text-3xl font-extrabold text-white font-outfit">Account Security</h1>
-        <p className="text-slate-400 text-sm mt-1">Manage your password and security preferences.</p>
+        <h1 className="text-3xl font-extrabold text-foreground font-display">Account Security</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage your password and security preferences.</p>
       </div>
 
       <div className="glass-panel p-6 md:p-8 rounded-2xl">
-        <div className="flex items-center gap-2 pb-4 border-b border-slate-800 mb-6">
-          <Lock className="w-5 h-5 text-brandBlue-400" />
-          <h3 className="text-lg font-bold text-white font-outfit">Change Password</h3>
+        <div className="flex items-center gap-2 pb-4 border-b border-border mb-6">
+          <LockKey weight="duotone" className="w-5 h-5 text-brandBlue-400" />
+          <h3 className="text-lg font-bold text-foreground font-display">Change Password</h3>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 max-w-md">
@@ -1029,35 +1002,35 @@ function SettingsPage({ customerEmail }) {
           )}
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Password</label>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Current Password</label>
             <input
               type="password"
               required
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+              className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">New Password</label>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">New Password</label>
             <input
               type="password"
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+              className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Confirm New Password</label>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Confirm New Password</label>
             <input
               type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+              className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
             />
           </div>
 
@@ -1066,7 +1039,7 @@ function SettingsPage({ customerEmail }) {
             disabled={loading}
             className="w-full py-3 px-4 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2 transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {loading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+            {loading ? <CircleNotch weight="duotone" className="w-4 h-4 animate-spin" /> : <ShieldCheck weight="duotone" className="w-4 h-4" />}
             Update Password
           </button>
         </form>
@@ -1087,6 +1060,8 @@ export default function CustomerDashboard({
   onAddLog        = () => {},
   onCheckout      = () => {},
   onLogout        = () => {},
+  isDarkMode,
+  setIsDarkMode
 }) {
   const [page, setPage]               = useState('dashboard');
   const [isSidebarOpen, setSidebar]   = useState(false);
@@ -1101,11 +1076,12 @@ export default function CustomerDashboard({
     },
   ]);
 
-    { key: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
+  const navItems = [
+    { key: 'dashboard', label: 'Dashboard Overview', icon: SquaresFour },
     { key: 'shop',      label: 'Shop / Order Parts', icon: ShoppingCart    },
     { key: 'orders',    label: 'My Orders',          icon: FileText         },
-    { key: 'quote',     label: 'Request Quote',      icon: Send             },
-    { key: 'settings',  label: 'Security Settings',  icon: Settings         },
+    { key: 'quote',     label: 'Request Quote',      icon: PaperPlaneRight             },
+    { key: 'settings',  label: 'Security Gear',  icon: Gear         },
   ];
 
   const NavButton = ({ item, onClick }) => {
@@ -1117,7 +1093,7 @@ export default function CustomerDashboard({
         className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
           active
             ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-            : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+            : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
         }`}
       >
         <Icon className="w-5 h-5" />
@@ -1129,7 +1105,7 @@ export default function CustomerDashboard({
   const initials = customerName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
-    <div className="h-full flex overflow-hidden bg-slate-950 font-sans w-full">
+    <div className="h-full flex overflow-hidden bg-background font-sans w-full">
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 glass-panel border-r border-slate-900/60 p-5 justify-between">
@@ -1148,28 +1124,28 @@ export default function CustomerDashboard({
               {initials}
             </div>
             <div className="flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-200 truncate max-w-[130px]">{customerName}</span>
-              <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Verified Customer</span>
+              <span className="text-xs font-bold text-foreground truncate max-w-[130px]">{customerName}</span>
+              <span className="text-[10px] text-muted-foreground font-semibold tracking-wider uppercase">Verified Customer</span>
             </div>
           </div>
           <div className="p-1.5 bg-emerald-950/30 border border-emerald-800/30 text-emerald-400 rounded-lg" title="Session secure">
-            <ShieldCheck className="w-4 h-4" />
+            <ShieldCheck weight="duotone" className="w-4 h-4" />
           </div>
         </div>
       </aside>
 
       {/* ── Mobile Sidebar Overlay ── */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden bg-slate-950/80 backdrop-blur-sm">
-          <aside className="w-72 bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between animate-slideRight">
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-background backdrop-blur-sm">
+          <aside className="w-72 bg-secondary border-r border-border p-5 flex flex-col justify-between animate-slideRight">
             <div className="space-y-8">
-              <div className="flex items-center justify-between py-2 border-b border-slate-800">
+              <div className="flex items-center justify-between py-2 border-b border-border">
                 <Logo className="w-12 h-12" showText={true} />
                 <button
                   onClick={() => setSidebar(false)}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors"
+                  className="p-1.5 bg-secondary hover:bg-slate-700 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X weight="duotone" className="w-5 h-5" />
                 </button>
               </div>
               <nav className="space-y-1">
@@ -1177,14 +1153,14 @@ export default function CustomerDashboard({
               </nav>
             </div>
 
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+            <div className="pt-4 border-t border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-brandBlue-900/40 border border-brandBlue-700/30 flex items-center justify-center text-brandBlue-300 text-xs font-bold">
                   {initials}
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-slate-200 truncate max-w-[120px]">{customerName}</span>
-                  <span className="text-[9px] text-slate-500 uppercase font-semibold">Verified Customer</span>
+                  <span className="text-xs font-bold text-foreground truncate max-w-[120px]">{customerName}</span>
+                  <span className="text-[9px] text-muted-foreground uppercase font-semibold">Verified Customer</span>
                 </div>
               </div>
               <div className="p-1 px-2 bg-emerald-950 text-emerald-400 text-[10px] rounded border border-emerald-800/30">Secure</div>
@@ -1202,32 +1178,39 @@ export default function CustomerDashboard({
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebar(true)}
-              className="lg:hidden p-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 rounded-xl text-slate-400 hover:text-white transition-colors"
+              className="lg:hidden p-1.5 bg-secondary border border-border hover:bg-slate-850 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Menu className="w-5 h-5" />
+              <List weight="duotone" className="w-5 h-5" />
             </button>
-            <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 font-semibold bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-900/50">
-              <CalendarDays className="w-3.5 h-3.5 text-slate-500" />
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground font-semibold bg-background px-3 py-1.5 rounded-lg border border-slate-900/50">
+              <CalendarBlank weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setPage('orders')}
-              className="relative p-2 hover:bg-slate-900/60 rounded-xl border border-slate-900/60 text-slate-400 hover:text-slate-100 transition-all"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="relative p-2 hover:bg-secondary rounded-xl border border-slate-900/60 text-muted-foreground hover:text-foreground transition-all"
+              aria-label="Toggle Dark Mode"
             >
-              <Bell className="w-4 h-4" />
+              {isDarkMode ? <Sun weight="duotone" className="w-4 h-4" /> : <Moon weight="duotone" className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => setPage('orders')}
+              className="relative p-2 hover:bg-secondary rounded-xl border border-slate-900/60 text-muted-foreground hover:text-foreground transition-all"
+            >
+              <Bell weight="duotone" className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 border border-slate-800/80 rounded-xl text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="font-mono text-slate-400 text-[10px]">TTP-SERVER: ACTIVE</span>
+              <span className="font-mono text-muted-foreground text-[10px]">TTP-SERVER: ACTIVE</span>
             </div>
 
             <button
               onClick={onLogout}
-              className="hidden md:inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-slate-700 hover:bg-slate-900/60 hover:text-white"
+              className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-border hover:bg-secondary hover:text-foreground"
             >
               Logout
             </button>
