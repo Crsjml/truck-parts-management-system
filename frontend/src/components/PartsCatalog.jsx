@@ -1,19 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  AlertTriangle, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Truck, 
-  Wrench, 
-  PackageCheck,
-  X,
-  FileCode2,
-  Send,
-  CheckCircle2
-} from 'lucide-react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Activity, Lightning, CarProfile, Tag } from '@phosphor-icons/react';
 
 export default function PartsCatalog({ 
   parts, 
@@ -28,6 +14,19 @@ export default function PartsCatalog({
   onAddLog
 }) {
   const [search, setSearch] = useState('');
+
+  const getCategoryStyles = (cat) => {
+    switch (cat) {
+      case 'Engine': return { icon: Gear, color: 'text-red-500' };
+      case 'Transmission': return { icon: Gear, color: 'text-orange-500' };
+      case 'Brakes': return { icon: ShieldCheck, color: 'text-amber-500' };
+      case 'Suspension': return { icon: Activity, color: 'text-blue-500' };
+      case 'Electrical': return { icon: Lightning, color: 'text-emerald-500' };
+      case 'Body & Exterior': return { icon: CarProfile, color: 'text-purple-500' };
+      case 'All': return { icon: SquaresFour, color: 'text-slate-500' };
+      default: return { icon: Tag, color: 'text-slate-500' };
+    }
+  };
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [activeTab, setActiveTab] = useState('All');
   
@@ -66,7 +65,7 @@ export default function PartsCatalog({
   const [formCompatibility, setFormCompatibility] = useState('');
   const [formDescription, setFormDescription] = useState('');
 
-  // Filter logic
+  // Funnel logic
   const filteredParts = parts.filter(part => {
     const matchesSearch = 
       part.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -150,28 +149,28 @@ export default function PartsCatalog({
       {/* Search and Action Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96">
-          <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+          <MagnifyingGlass weight="duotone" className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
           <input 
             type="text" 
             placeholder="Search by part name, SKU, OEM, or compatibility..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-slate-200 placeholder-slate-500"
+            className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-foreground placeholder-slate-500"
           />
         </div>
 
         {/* Categories Tab selector */}
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
           {!isReadOnly && (
-            <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-800/80 cursor-pointer select-none">
+            <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-border cursor-pointer select-none">
               <input 
                 type="checkbox" 
                 checked={showLowStockOnly} 
                 onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-                className="rounded text-red-600 focus:ring-red-600 border-slate-800 bg-slate-950 w-4 h-4"
+                className="rounded text-red-600 focus:ring-red-600 border-border bg-background w-4 h-4"
               />
-              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> Low Stock Warning
+              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Warning weight="duotone" className="w-3.5 h-3.5 text-red-500" /> Low Stock Warning
               </span>
             </label>
           )}
@@ -181,7 +180,7 @@ export default function PartsCatalog({
               onClick={openAddModal}
               className="flex items-center gap-1.5 px-4.5 py-2.5 bg-accent hover:bg-accent/90 text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
             >
-              <Plus className="w-4 h-4" />
+              <Plus weight="duotone" className="w-4 h-4" />
               Add New Part
             </button>
           )}
@@ -190,27 +189,31 @@ export default function PartsCatalog({
 
       {/* Category Tabs */}
       <div className="flex border-b border-slate-900 overflow-x-auto pb-px">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap ${
-              selectedCategory === cat 
-                ? 'border-accent text-accent glow-text-red' 
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+        {categories.map((cat) => {
+          const { icon: CatIcon, color } = getCategoryStyles(cat);
+          return (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap ${
+                selectedCategory === cat 
+                  ? 'border-accent text-accent glow-text-red' 
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === cat ? '' : color}`} />}
+              {cat}
+            </button>
+          );
+        })}
       </div>
 
       {/* Parts Grid */}
       {filteredParts.length === 0 ? (
         <div className="glass-panel p-12 text-center rounded-2xl">
-          <PackageCheck className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-white mb-1">No Parts Found</h3>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto">
+          <Package weight="duotone" className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-foreground mb-1">No Parts Found</h3>
+          <p className="text-muted-foreground text-sm max-w-sm mx-auto">
             We couldn't find any truck parts matching your search or filters. Try adjusting your query.
           </p>
         </div>
@@ -228,7 +231,7 @@ export default function PartsCatalog({
                 {/* Low Stock Warning Badge */}
                 {isLowStock && (
                   <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-[10px] font-extrabold text-red-500 animate-pulse">
-                    <AlertTriangle className="w-3 h-3" />
+                    <Warning weight="duotone" className="w-3 h-3" />
                     LOW STOCK
                   </div>
                 )}
@@ -241,7 +244,7 @@ export default function PartsCatalog({
                     </span>
                     <h4 
                       onClick={() => openDetailsModal(part)}
-                      className="font-bold text-slate-100 hover:text-red-400 cursor-pointer transition-colors line-clamp-2 leading-snug font-outfit"
+                      className="font-bold text-foreground hover:text-red-400 cursor-pointer transition-colors line-clamp-2 leading-snug font-display"
                     >
                       {part.name}
                     </h4>
@@ -249,21 +252,21 @@ export default function PartsCatalog({
 
                   <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-xs border-y border-slate-900 py-2">
                     <div>
-                      <span className="text-slate-500 block">SKU</span>
-                      <span className="font-mono text-slate-300 font-semibold">{part.sku}</span>
+                      <span className="text-muted-foreground block">SKU</span>
+                      <span className="font-mono text-muted-foreground font-semibold">{part.sku}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">OEM Part No.</span>
-                      <span className="font-mono text-slate-300 font-semibold truncate block">{part.oem}</span>
+                      <span className="text-muted-foreground block">OEM Part No.</span>
+                      <span className="font-mono text-muted-foreground font-semibold truncate block">{part.oem}</span>
                     </div>
                   </div>
 
                   {part.compatibility && (
                     <div className="text-xs space-y-0.5">
-                      <span className="text-slate-500 flex items-center gap-1 font-semibold">
-                        <Truck className="w-3 h-3 text-red-500" /> Fits
+                      <span className="text-muted-foreground flex items-center gap-1 font-semibold">
+                        <Truck weight="duotone" className="w-3 h-3 text-red-500" /> Fits
                       </span>
-                      <p className="text-slate-300 line-clamp-1">{part.compatibility}</p>
+                      <p className="text-muted-foreground line-clamp-1">{part.compatibility}</p>
                     </div>
                   )}
                 </div>
@@ -272,14 +275,14 @@ export default function PartsCatalog({
                 <div className="space-y-4 pt-4 mt-4 border-t border-slate-900">
                   <div className="flex items-end justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Unit Price</span>
-                      <span className="text-xl font-bold text-slate-200">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Unit Price</span>
+                      <span className="text-xl font-bold text-foreground">
                         ₱{part.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
-                      <span className={`text-base font-extrabold ${isLowStock && !isReadOnly ? 'text-red-500' : 'text-slate-300'}`}>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
+                      <span className={`text-base font-extrabold ${isLowStock && !isReadOnly ? 'text-red-500' : 'text-muted-foreground'}`}>
                         {isReadOnly ? (part.stock > 0 ? `${part.stock} available` : 'Out of Stock') : `${part.stock} / ${part.minStock} min`}
                       </span>
                     </div>
@@ -293,9 +296,9 @@ export default function PartsCatalog({
                         setInquiryMsg('');
                         setIsInquiryModalOpen(true);
                       }}
-                      className="w-full py-2 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-700/30 transition-all flex items-center justify-center gap-1.5"
+                      className="w-full py-2 bg-brandBlue-500/10 dark:bg-brandBlue-900 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 text-brandBlue-600 dark:text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-500/30 dark:border-brandBlue-700/30 transition-all flex items-center justify-center gap-1.5"
                     >
-                      <Send className="w-3.5 h-3.5" /> Request Quote
+                      <PaperPlaneRight weight="duotone" className="w-3.5 h-3.5" /> Request Quote
                     </button>
                   ) : (
                     <>
@@ -307,24 +310,24 @@ export default function PartsCatalog({
                           min="1"
                           value={restockAmount[part.id] || ''}
                           onChange={(e) => setRestockAmount({ ...restockAmount, [part.id]: e.target.value })}
-                          className="w-16 bg-slate-950 border border-slate-800/80 rounded-lg text-xs py-1.5 text-center focus:outline-none focus:border-red-600 text-slate-300 font-bold"
+                          className="w-16 bg-background border border-border rounded-lg text-xs py-1.5 text-center focus:outline-none focus:border-red-600 text-muted-foreground font-bold"
                         />
                         <button 
                           onClick={() => handleRestockSubmit(part.id)}
-                          className="flex-1 py-1.5 px-3 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-700/30 transition-all flex items-center justify-center gap-1"
+                          className="flex-1 py-1.5 px-3 bg-brandBlue-500/10 dark:bg-brandBlue-900 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 text-brandBlue-600 dark:text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-500/30 dark:border-brandBlue-700/30 transition-all flex items-center justify-center gap-1"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Restock
+                          <Plus weight="duotone" className="w-3.5 h-3.5" /> Restock
                         </button>
                       </div>
 
-                      {/* Edit/Delete Actions */}
+                      {/* Pencil/Delete Actions */}
                       <div className="flex gap-2 justify-end">
                         <button 
                           onClick={() => openEditModal(part)}
-                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors border border-slate-800/40"
-                          title="Edit Part Details"
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors border border-border"
+                          title="Pencil Part Details"
                         >
-                          <Edit className="w-3.5 h-3.5" />
+                          <Pencil weight="duotone" className="w-3.5 h-3.5" />
                         </button>
                         <button 
                           onClick={() => {
@@ -332,10 +335,10 @@ export default function PartsCatalog({
                               onDeletePart(part.id);
                             }
                           }}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors border border-slate-800/40"
+                          className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors border border-border"
                           title="Delete Part"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash weight="duotone" className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </>
@@ -349,20 +352,20 @@ export default function PartsCatalog({
 
       {/* Main Dialog Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-xl bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+          <div className="w-full max-w-xl bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white font-outfit">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground font-display">
                 {modalType === 'add' && 'Add New Truck Part'}
-                {modalType === 'edit' && 'Edit Part details'}
+                {modalType === 'edit' && 'Pencil Part details'}
                 {modalType === 'details' && 'Part Details Overview'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X weight="duotone" className="w-5 h-5" />
               </button>
             </div>
 
@@ -371,24 +374,24 @@ export default function PartsCatalog({
               <div className="p-6 space-y-5">
                 <div className="space-y-1">
                   <span className="text-xs font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart?.category}</span>
-                  <h2 className="text-xl font-extrabold text-white font-outfit leading-tight">{selectedPart?.name}</h2>
+                  <h2 className="text-xl font-extrabold text-foreground font-display leading-tight">{selectedPart?.name}</h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 bg-slate-950/45 p-4 rounded-xl border border-slate-800/40">
+                <div className="grid grid-cols-2 gap-4 bg-background p-4 rounded-xl border border-border">
                   <div>
-                    <span className="text-xs text-slate-500 uppercase">SKU / Warehouse Stock Code</span>
-                    <p className="font-mono font-bold text-slate-300 mt-0.5">{selectedPart?.sku}</p>
+                    <span className="text-xs text-muted-foreground uppercase">SKU / Warehouse Stock Code</span>
+                    <p className="font-mono font-bold text-muted-foreground mt-0.5">{selectedPart?.sku}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-500 uppercase">OEM Part Identification</span>
-                    <p className="font-mono font-bold text-slate-300 mt-0.5">{selectedPart?.oem}</p>
+                    <span className="text-xs text-muted-foreground uppercase">OEM Part Identification</span>
+                    <p className="font-mono font-bold text-muted-foreground mt-0.5">{selectedPart?.oem}</p>
                   </div>
                   <div className="mt-2">
-                    <span className="text-xs text-slate-500 uppercase">Unit Retail Price</span>
-                    <p className="font-semibold text-lg text-white mt-0.5">₱{selectedPart?.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                    <span className="text-xs text-muted-foreground uppercase">Unit Retail Price</span>
+                    <p className="font-semibold text-lg text-foreground mt-0.5">₱{selectedPart?.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div className="mt-2">
-                    <span className="text-xs text-slate-500 uppercase">Inventory Quantity</span>
+                    <span className="text-xs text-muted-foreground uppercase">Inventory Quantity</span>
                     <p className={`font-extrabold text-lg mt-0.5 ${selectedPart?.stock <= selectedPart?.minStock ? 'text-red-500' : 'text-emerald-400'}`}>
                       {selectedPart?.stock} units (min: {selectedPart?.minStock})
                     </p>
@@ -396,18 +399,18 @@ export default function PartsCatalog({
                 </div>
 
                 {selectedPart?.compatibility && (
-                  <div className="space-y-1 bg-slate-950/20 p-4 rounded-xl border border-slate-800/30">
-                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-red-500" /> Compatible Models
+                  <div className="space-y-1 bg-background p-4 rounded-xl border border-border">
+                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Truck weight="duotone" className="w-4 h-4 text-red-500" /> Compatible Models
                     </span>
-                    <p className="text-slate-300 text-sm leading-relaxed">{selectedPart.compatibility}</p>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{selectedPart.compatibility}</p>
                   </div>
                 )}
 
                 {selectedPart?.description && (
                   <div className="space-y-1.5">
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Technical Description</span>
-                    <p className="text-slate-400 text-sm leading-relaxed">{selectedPart.description}</p>
+                    <span className="text-xs text-muted-foreground uppercase font-semibold">Technical Description</span>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{selectedPart.description}</p>
                   </div>
                 )}
 
@@ -421,9 +424,9 @@ export default function PartsCatalog({
                         setInquiryMsg('');
                         setIsInquiryModalOpen(true);
                       }}
-                      className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-900 text-brandBlue-300 border border-brandBlue-700/30 hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
+                      className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-500/10 dark:bg-brandBlue-900 text-brandBlue-600 dark:text-brandBlue-300 border border-brandBlue-500/30 dark:border-brandBlue-700/30 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
                     >
-                      <Send className="w-3.5 h-3.5" /> Request Quote
+                      <PaperPlaneRight weight="duotone" className="w-3.5 h-3.5" /> Request Quote
                     </button>
                   ) : (
                     <button 
@@ -431,61 +434,61 @@ export default function PartsCatalog({
                         setIsModalOpen(false);
                         openEditModal(selectedPart);
                       }}
-                      className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-900 text-brandBlue-300 border border-brandBlue-700/30 hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
+                      className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-500/10 dark:bg-brandBlue-900 text-brandBlue-600 dark:text-brandBlue-300 border border-brandBlue-500/30 dark:border-brandBlue-700/30 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
                     >
-                      <Edit className="w-3.5 h-3.5" /> Edit Details
+                      <Pencil weight="duotone" className="w-3.5 h-3.5" /> Pencil Details
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              // Add / Edit Form
+              // Add / Pencil Form
               <form onSubmit={handleFormSubmit}>
                 <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto pr-2">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase">Part Name / Component Title *</label>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Part Name / Component Title *</label>
                     <input 
                       type="text" 
                       required
                       placeholder="e.g. Starter Motor Assembly (24V)"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-400 uppercase">SKU / Code *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">SKU / Code *</label>
                       <input 
                         type="text" 
                         required
                         placeholder="e.g. ELC-STR-24V"
                         value={formSku}
                         onChange={(e) => setFormSku(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-400 uppercase">OEM Part Number *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">OEM Part Number *</label>
                       <input 
                         type="text" 
                         required
                         placeholder="e.g. 0-23000-7010"
                         value={formOem}
                         onChange={(e) => setFormOem(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1.5 col-span-2">
-                      <label className="text-xs font-semibold text-slate-400 uppercase">Category *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Category *</label>
                       <select 
                         value={formCategory}
                         onChange={(e) => setFormCategory(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       >
                         {categories.filter(c => c !== 'All').map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -493,7 +496,7 @@ export default function PartsCatalog({
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-400 uppercase">Unit Price (₱) *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Unit Price (₱) *</label>
                       <input 
                         type="number" 
                         required
@@ -502,14 +505,14 @@ export default function PartsCatalog({
                         placeholder="0.00"
                         value={formPrice}
                         onChange={(e) => setFormPrice(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-400 uppercase">Initial Stock *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Initial Stock *</label>
                       <input 
                         type="number" 
                         required
@@ -517,11 +520,11 @@ export default function PartsCatalog({
                         placeholder="0"
                         value={formStock}
                         onChange={(e) => setFormStock(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-400 uppercase">Safety Min Stock *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Safety Min Stock *</label>
                       <input 
                         type="number" 
                         required
@@ -529,40 +532,40 @@ export default function PartsCatalog({
                         placeholder="5"
                         value={formMinStock}
                         onChange={(e) => setFormMinStock(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase">Vehicle Compatibility Models</label>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Vehicle Compatibility Models</label>
                     <input 
                       type="text" 
                       placeholder="e.g. Isuzu ELF NPR, Forward, Hino 300"
                       value={formCompatibility}
                       onChange={(e) => setFormCompatibility(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase">Item Description & Specifications</label>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Item Description & Specifications</label>
                     <textarea 
                       placeholder="Enter manufacturer details, dimensions, and gear tooth spacing details..."
                       rows="3"
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-slate-200 resize-none"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground resize-none"
                     />
                   </div>
                 </div>
 
                 {/* Footer buttons */}
-                <div className="flex justify-end gap-3 p-5 border-t border-slate-800 bg-slate-900/60">
+                <div className="flex justify-end gap-3 p-5 border-t border-border bg-secondary">
                   <button 
                     type="button" 
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl border border-slate-700/50 transition-all"
+                    className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all"
                   >
                     Cancel
                   </button>
@@ -581,64 +584,64 @@ export default function PartsCatalog({
 
       {/* Inquiry Form Modal for Customer Mode */}
       {isInquiryModalOpen && inquiryPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+          <div className="w-full max-w-md bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white font-outfit">Parts Quote Request</h3>
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground font-display">Parts Quote Request</h3>
               <button 
                 onClick={() => setIsInquiryModalOpen(false)}
-                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X weight="duotone" className="w-5 h-5" />
               </button>
             </div>
 
             {/* Body Form */}
             <form onSubmit={handleRequestQuoteSubmit}>
               <div className="p-6 space-y-4">
-                <div className="bg-slate-950/45 p-3.5 rounded-xl border border-slate-850 text-xs space-y-1 text-left">
+                <div className="bg-background p-3.5 rounded-xl border border-slate-850 text-xs space-y-1 text-left">
                   <span className="text-[10px] font-bold text-brandBlue-400 uppercase tracking-widest">{inquiryPart.category}</span>
-                  <h4 className="font-bold text-slate-200 text-sm">{inquiryPart.name}</h4>
-                  <p className="text-[10px] font-mono text-slate-500">SKU: {inquiryPart.sku} | OEM: {inquiryPart.oem}</p>
+                  <h4 className="font-bold text-foreground text-sm">{inquiryPart.name}</h4>
+                  <p className="text-[10px] font-mono text-muted-foreground">SKU: {inquiryPart.sku} | OEM: {inquiryPart.oem}</p>
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Requested Quantity *</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Requested Quantity *</label>
                   <input 
                     type="number" 
                     min="1"
                     required
                     value={inquiryQty}
                     onChange={(e) => setInquiryQty(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200"
+                    className="w-full bg-background border border-slate-850 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
                   />
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Additional Request Details</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Additional Request Details</label>
                   <textarea 
                     placeholder="E.g., transport lead time, packaging requirements, custom specifications..."
                     rows="3"
                     value={inquiryMsg}
                     onChange={(e) => setInquiryMsg(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-slate-200 resize-none"
+                    className="w-full bg-background border border-slate-850 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground resize-none"
                   />
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end gap-3 p-5 border-t border-slate-800 bg-slate-900/60">
+              <div className="flex justify-end gap-3 p-5 border-t border-border bg-secondary">
                 <button 
                   type="button" 
                   onClick={() => setIsInquiryModalOpen(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700/50 transition-all"
+                  className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-xs font-semibold rounded-xl border border-border transition-all"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-brandBlue-900 hover:bg-brandBlue-800 text-brandBlue-100 text-xs font-bold rounded-xl shadow-lg border border-brandBlue-700/40 transition-all"
+                  className="px-5 py-2 bg-brandBlue-500/10 dark:bg-brandBlue-900 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 text-brandBlue-600 dark:text-brandBlue-100 text-xs font-bold rounded-xl shadow-lg border border-brandBlue-500/30 dark:border-brandBlue-700/40 transition-all"
                 >
                   Submit Inquiry
                 </button>
@@ -650,22 +653,22 @@ export default function PartsCatalog({
 
       {/* Inquiry Success Modal */}
       {inquirySuccess && inquiryPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl p-6 space-y-6 text-center animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl p-6 space-y-6 text-center animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
-              <CheckCircle2 className="w-9 h-9" />
+              <CheckCircle weight="duotone" className="w-9 h-9" />
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white font-outfit">Inquiry Received!</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <h3 className="text-lg font-bold text-foreground font-display">Inquiry Received!</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Quote request submitted successfully. The warehouse team will email or call you regarding **{inquiryPart.name}**.
               </p>
             </div>
 
             <button 
               onClick={() => setInquirySuccess(false)}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+              className="w-full py-2.5 bg-secondary hover:bg-slate-700 border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
             >
               Okay
             </button>
