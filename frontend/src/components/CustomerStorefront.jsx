@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Activity, Lightning, CarProfile } from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile } from '@phosphor-icons/react';
 import Logo from './Logo';
 
 export default function CustomerStorefront({
@@ -16,13 +16,17 @@ export default function CustomerStorefront({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPart, setSelectedPart] = useState(null);
   const [storefrontTab, setStorefrontTab] = useState('home');
+  const [sortOrder, setSortOrder] = useState('recommended');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [inStockOnly, setInStockOnly] = useState(false);
 
   const getCategoryStyles = (cat) => {
     switch (cat) {
       case 'Engine': return { icon: Gear, color: 'text-red-500', bg: 'bg-red-500/10' };
       case 'Transmission': return { icon: Gear, color: 'text-orange-500', bg: 'bg-orange-500/10' };
       case 'Brakes': return { icon: ShieldCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' };
-      case 'Suspension': return { icon: Activity, color: 'text-blue-500', bg: 'bg-blue-500/10' };
+      case 'Suspension': return { icon: Pulse, color: 'text-blue-500', bg: 'bg-blue-500/10' };
       case 'Electrical': return { icon: Lightning, color: 'text-emerald-500', bg: 'bg-emerald-500/10' };
       case 'Body & Exterior': return { icon: CarProfile, color: 'text-purple-500', bg: 'bg-purple-500/10' };
       case 'All': return { icon: SquaresFour, color: 'text-slate-500', bg: 'bg-slate-500/10' };
@@ -31,7 +35,7 @@ export default function CustomerStorefront({
   };
 
   const filteredParts = useMemo(() => {
-    return parts.filter((part) => {
+    let result = parts.filter((part) => {
       const searchValue = search.trim().toLowerCase();
       const matchesSearch =
         !searchValue ||
@@ -40,10 +44,20 @@ export default function CustomerStorefront({
         part.oem.toLowerCase().includes(searchValue) ||
         (part.compatibility || '').toLowerCase().includes(searchValue);
       const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
+      const matchesMinPrice = minPrice === '' || part.price >= parseFloat(minPrice);
+      const matchesMaxPrice = maxPrice === '' || part.price <= parseFloat(maxPrice);
+      const matchesStock = !inStockOnly || part.stock > 0;
 
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory && matchesMinPrice && matchesMaxPrice && matchesStock;
     });
-  }, [parts, search, selectedCategory]);
+
+    if (sortOrder === 'price-asc') result.sort((a, b) => a.price - b.price);
+    else if (sortOrder === 'price-desc') result.sort((a, b) => b.price - a.price);
+    else if (sortOrder === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
+
+    return result;
+  }, [parts, search, selectedCategory, sortOrder, minPrice, maxPrice, inStockOnly]);
 
   const spotlightParts = useMemo(() => {
     return [...parts]
@@ -213,7 +227,7 @@ export default function CustomerStorefront({
                         {/* Label + Name — full width, no competition */}
                         <div className="space-y-1 mb-3">
                           <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-brandBlue-500 dark:text-brandBlue-300">Featured</p>
-                          <h3 className="text-xl font-extrabold leading-tight text-foreground line-clamp-2">{part.name}</h3>
+                          <h3 className="text-xl font-extrabold leading-tight text-foreground">{part.name}</h3>
                         </div>
 
                         {/* Category badge */}
@@ -334,29 +348,32 @@ export default function CustomerStorefront({
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {filteredParts.map((part) => (
-                      <article
-                        key={part.id}
-                        className="group overflow-hidden rounded-[1.75rem] border border-border bg-secondary transition hover:-translate-y-1 hover:border-red-500/30 flex flex-col h-full"
-                      >
-                        <div className="relative h-40 overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.25),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.35),_transparent_38%),linear-gradient(135deg,rgba(15,23,42,1),rgba(2,6,23,1))]">
-                          <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
-                          <div className="absolute left-4 top-4 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-foreground">
-                            {part.category}
-                          </div>
-                          <div className="absolute bottom-4 right-4 rounded-2xl border border-border bg-background px-3 py-2 text-right shadow-sm">
-                            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Price</p>
-                            <p className="text-lg font-black text-foreground">₱{part.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col flex-1 p-5 gap-4">
-                          <div>
-                            <h3 className="line-clamp-2 text-lg font-extrabold text-foreground">{part.name}</h3>
-                            <p className="mt-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">SKU {part.sku}</p>
+                    {filteredParts.map((part) => {
+                      const { icon: CatIcon, color, bg } = getCategoryStyles(part.category);
+                      return (
+                        <article
+                          key={part.id}
+                          className="group overflow-hidden rounded-[1.75rem] border border-border bg-secondary transition hover:-translate-y-1 hover:border-red-500/30 flex flex-col h-full"
+                        >
+                          <div className="relative h-40 shrink-0 overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.25),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.35),_transparent_38%),linear-gradient(135deg,rgba(15,23,42,1),rgba(2,6,23,1))]">
+                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
+                            <div className={`absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] shadow-lg backdrop-blur-md ${bg} ${color}`}>
+                              {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5" />}
+                              {part.category}
+                            </div>
+                            <div className="absolute bottom-4 right-4 rounded-2xl border border-border bg-background px-3 py-2 text-right shadow-sm">
+                              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Price</p>
+                              <p className="text-lg font-black text-foreground">₱{part.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                            </div>
                           </div>
 
-                          <p className="line-clamp-2 text-sm leading-6 text-muted-foreground flex-1">{part.description}</p>
+                          <div className="flex flex-col flex-1 p-5 gap-4">
+                            <div>
+                              <h3 className="text-lg font-extrabold text-foreground">{part.name}</h3>
+                              <p className="mt-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">SKU {part.sku}</p>
+                            </div>
+
+                            <p className="text-sm leading-6 text-muted-foreground flex-1">{part.description}</p>
 
                           <div className="flex items-center justify-between text-sm text-muted-foreground pt-2">
                             <span className="inline-flex items-center gap-1">
@@ -377,37 +394,80 @@ export default function CustomerStorefront({
                             <ArrowRight weight="duotone" className="h-4 w-4" />
                           </button>
                         </div>
+                        </div>
                       </article>
                     ))}
                   </div>
                 </div>
 
                 <aside className="space-y-4 lg:col-span-4">
-                  <div className="rounded-[1.75rem] border border-border bg-secondary p-5">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Customer access</p>
-                    <h3 className="mt-2 text-2xl font-black text-foreground">Register, verify, then keep your session</h3>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      Customer registration stays on the frontend for now, but the flow already validates email, password, verification code, and remember-me sessions.
-                    </p>
-                    <div className="mt-4 flex flex-col gap-3">
-                      <button onClick={() => onOpenCustomerAuth('register')} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-white transition hover:bg-accent/90">
-                        <UserPlus weight="duotone" className="h-4 w-4" />
-                        Register or login
-                      </button>
-                      <button onClick={onOpenAdminAuth} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-secondary">
-                        <ShieldCheck weight="duotone" className="h-4 w-4" />
-                        Admin portal
-                      </button>
+                  <div className="rounded-[1.75rem] border border-border bg-secondary p-5 sticky top-32">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-foreground">Advanced Filters</p>
+                      {(minPrice || maxPrice || inStockOnly || sortOrder !== 'recommended') && (
+                        <button 
+                          onClick={() => { setMinPrice(''); setMaxPrice(''); setInStockOnly(false); setSortOrder('recommended'); }}
+                          className="text-[10px] uppercase font-bold text-red-500 hover:text-red-400"
+                        >
+                          Clear All
+                        </button>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="rounded-[1.75rem] border border-border bg-secondary p-5">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground">What customers see</p>
-                    <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
-                      <li>• Searchable parts catalog with retail-style layout</li>
-                      <li>• Product cards with pricing, fitment, and stock info</li>
-                      <li>• Optional customer account for verification and login</li>
-                    </ul>
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort By</label>
+                        <select 
+                          value={sortOrder}
+                          onChange={(e) => setSortOrder(e.target.value)}
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent"
+                        >
+                          <option value="recommended">Recommended</option>
+                          <option value="price-asc">Price: Low to High</option>
+                          <option value="price-desc">Price: High to Low</option>
+                          <option value="name-asc">Name: A to Z</option>
+                          <option value="name-desc">Name: Z to A</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Price Range (₱)</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="number" 
+                            placeholder="Min" 
+                            value={minPrice}
+                            onChange={(e) => setMinPrice(e.target.value)}
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+                          />
+                          <span className="text-muted-foreground">-</span>
+                          <input 
+                            type="number" 
+                            placeholder="Max" 
+                            value={maxPrice}
+                            onChange={(e) => setMaxPrice(e.target.value)}
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <div className="relative flex items-center justify-center w-5 h-5">
+                            <input 
+                              type="checkbox" 
+                              checked={inStockOnly}
+                              onChange={(e) => setInStockOnly(e.target.checked)}
+                              className="peer appearance-none w-5 h-5 border border-border rounded bg-background checked:bg-accent checked:border-accent transition-all cursor-pointer"
+                            />
+                            <svg className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                          <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition">Show in-stock only</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </aside>
               </section>
