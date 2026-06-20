@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  BarChart3,
-  Bell,
-  User2,
-  CalendarDays,
-  ShieldCheck,
-  Menu,
-  X
-} from 'lucide-react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import Dashboard from './components/Dashboard';
@@ -41,6 +30,25 @@ export default function App() {
   const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
   const [logs, setLogs] = useState(INITIAL_LOGS);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return false; // Default to light mode
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const session = getActiveSession();
@@ -177,7 +185,7 @@ export default function App() {
   if (!authReady) {
     return (
       <>
-        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
+        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
           Loading storefront...
         </div>
         <StatusBar />
@@ -227,6 +235,8 @@ export default function App() {
           onAddLog={addLog}
           onCheckout={handleCheckout}
           onLogout={() => handleLogout('customer')}
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
         />
         <StatusBar />
       </>
@@ -244,6 +254,8 @@ export default function App() {
           onOpenCustomerAuth={handleOpenCustomerAuth}
           onOpenAdminAuth={handleOpenAdminAuth}
           onLogoutCustomer={() => handleLogout('customer')}
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
         />
         <StatusBar />
       </>
@@ -252,8 +264,8 @@ export default function App() {
 
 
   return (
-    <div className="h-full flex overflow-hidden bg-slate-950 font-sans">
-      <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 glass-panel border-r border-slate-900/60 p-5 justify-between">
+    <div className="h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300">
+      <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 glass-panel border-r border-border p-5 justify-between">
         <div className="space-y-8">
           <div className="flex items-center px-2 py-4">
             <Logo className="w-14 h-14" showText={true} />
@@ -265,10 +277,10 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'dashboard'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <LayoutDashboard className="w-5 h-5" />
+              <SquaresFour weight="duotone" className="w-5 h-5" />
               Dashboard Overview
             </button>
 
@@ -277,10 +289,10 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'catalog'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <Package className="w-5 h-5" />
+              <Package weight="duotone" className="w-5 h-5" />
               Parts Inventory
             </button>
 
@@ -289,10 +301,10 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'pos'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart weight="duotone" className="w-5 h-5" />
               Sales POS Entry
             </button>
 
@@ -301,42 +313,42 @@ export default function App() {
               className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'analytics'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border-l-4 border-transparent'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <BarChart3 className="w-5 h-5" />
+              <ChartBar weight="duotone" className="w-5 h-5" />
               Sales Analytics
             </button>
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-slate-900/80 flex items-center justify-between">
+        <div className="pt-4 border-t border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 text-sm font-bold shadow-inner">
-              <User2 className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
+              <User weight="duotone" className="w-5 h-5" />
             </div>
             <div className="flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-200">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-              <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">System Admin</span>
+              <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+              <span className="text-[10px] text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
             </div>
           </div>
-          <div className="p-1.5 bg-emerald-950/30 border border-emerald-800/30 text-emerald-400 rounded-lg" title="Active Connection secure">
-            <ShieldCheck className="w-4.5 h-4.5" />
+          <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg" title="Active Connection secure">
+            <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
           </div>
         </div>
       </aside>
 
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden bg-slate-950/80 backdrop-blur-sm">
-          <aside className="w-72 bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between animate-slideRight">
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-background/80 backdrop-blur-sm">
+          <aside className="w-72 bg-background border-r border-border p-5 flex flex-col justify-between animate-slideRight">
             <div className="space-y-8">
-              <div className="flex items-center justify-between py-2 border-b border-slate-800">
+              <div className="flex items-center justify-between py-2 border-b border-border">
                 <Logo className="w-12 h-12" showText={true} />
                 <button
                   onClick={() => setIsSidebarOpen(false)}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors"
+                  className="p-1.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X weight="duotone" className="w-5 h-5" />
                 </button>
               </div>
 
@@ -347,10 +359,10 @@ export default function App() {
                     setIsSidebarOpen(false);
                   }}
                   className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                    page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
-                  <LayoutDashboard className="w-5 h-5" />
+                  <SquaresFour weight="duotone" className="w-5 h-5" />
                   Dashboard Overview
                 </button>
                 <button
@@ -359,10 +371,10 @@ export default function App() {
                     setIsSidebarOpen(false);
                   }}
                   className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                    page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
-                  <Package className="w-5 h-5" />
+                  <Package weight="duotone" className="w-5 h-5" />
                   Parts Inventory
                 </button>
                 <button
@@ -371,10 +383,10 @@ export default function App() {
                     setIsSidebarOpen(false);
                   }}
                   className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                    page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
-                  <ShoppingCart className="w-5 h-5" />
+                  <ShoppingCart weight="duotone" className="w-5 h-5" />
                   Sales POS Entry
                 </button>
                 <button
@@ -383,26 +395,26 @@ export default function App() {
                     setIsSidebarOpen(false);
                   }}
                   className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-slate-400'
+                    page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
-                  <BarChart3 className="w-5 h-5" />
+                  <ChartBar weight="duotone" className="w-5 h-5" />
                   Sales Analytics
                 </button>
               </nav>
             </div>
 
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+            <div className="pt-4 border-t border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 text-xs font-bold">
-                  <User2 className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground text-xs font-bold">
+                  <User weight="duotone" className="w-4 h-4" />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-slate-200">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                  <span className="text-[9px] text-slate-500 uppercase font-semibold">System Admin</span>
+                  <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                  <span className="text-[9px] text-muted-foreground uppercase font-semibold">System Admin</span>
                 </div>
               </div>
-              <div className="p-1 px-2 bg-emerald-950 text-emerald-400 text-[10px] rounded border border-emerald-800/30">Secure</div>
+              <div className="p-1 px-2 bg-emerald-500/10 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-[10px] rounded border border-emerald-500/30 dark:border-emerald-800/30">Secure</div>
             </div>
           </aside>
 
@@ -411,17 +423,17 @@ export default function App() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 shrink-0 glass-panel border-b border-slate-900/60 px-6 flex items-center justify-between relative">
+        <header className="h-16 shrink-0 glass-panel border-b border-border px-6 flex items-center justify-between relative">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 rounded-xl text-slate-400 hover:text-white transition-colors"
+              className="lg:hidden p-1.5 bg-secondary border border-border hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Menu className="w-5 h-5" />
+              <List weight="duotone" className="w-5 h-5" />
             </button>
 
-            <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 font-semibold bg-slate-900/40 px-3 py-1.5 rounded-lg border border-slate-900/50">
-              <CalendarDays className="w-3.5 h-3.5 text-slate-500" />
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground font-semibold bg-secondary px-3 py-1.5 rounded-lg border border-border">
+              <CalendarBlank weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
           </div>
@@ -432,9 +444,9 @@ export default function App() {
                 setSelectedCategory('All');
                 setPage('catalog');
               }}
-              className="relative p-2 hover:bg-slate-900/60 rounded-xl border border-slate-900/60 text-slate-400 hover:text-slate-100 transition-all group"
+              className="relative p-2 hover:bg-secondary rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all group"
             >
-              <Bell className="w-4.5 h-4.5" />
+              <Bell weight="duotone" className="w-4.5 h-4.5" />
               {lowStockCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-[9px] font-extrabold text-white rounded-full flex items-center justify-center animate-bounce shadow-md shadow-accent/35">
                   {lowStockCount}
@@ -442,13 +454,22 @@ export default function App() {
               )}
             </button>
 
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 border border-slate-800/80 rounded-xl text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="font-mono text-slate-400 text-[10px]">TTP-SERVER: ACTIVE</span>
+              <span className="font-mono text-muted-foreground text-[10px]">TTP-SERVER: ACTIVE</span>
             </div>
+            
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 rounded-xl border border-border bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+              aria-label="Toggle Dark Mode"
+            >
+              {isDarkMode ? <Sun weight="duotone" className="w-4 h-4" /> : <Moon weight="duotone" className="w-4 h-4" />}
+            </button>
+
             <button
               onClick={() => handleLogout('admin')}
-              className="hidden md:inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-slate-700 hover:bg-slate-900/60 hover:text-white"
+              className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-border hover:bg-secondary hover:text-foreground"
             >
               Logout
             </button>
