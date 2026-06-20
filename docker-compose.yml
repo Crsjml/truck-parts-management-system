@@ -28,6 +28,11 @@ services:
       - "5173:5173"
     environment:
       - VITE_BACKEND_URL=http://localhost:3001
+    volumes:
+      # Live mount — edits hot-reload instantly via Vite HMR (no rebuild needed)
+      - ./frontend:/app
+      # Use the image's node_modules, not the host's
+      - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     restart: unless-stopped
@@ -45,4 +50,5 @@ services:
   #   environment:
   #     MONGO_INITDB_DATABASE: truck_parts
 
-volumes: {}
+volumes:
+  frontend_node_modules:

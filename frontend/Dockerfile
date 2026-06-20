@@ -1,17 +1,15 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
-# Set working directory inside the container
 WORKDIR /app
 
-# Install dependencies (package.json and lock file)
+# 1. Copy ONLY package files first — Docker caches this layer.
+#    npm ci only re-runs when package.json / package-lock.json changes.
 COPY frontend/package*.json ./
 RUN npm ci
 
-# Copy the rest of the source code
+# 2. Copy source (overridden at runtime by the volume mount in dev)
 COPY frontend/ .
 
-# Expose the Vite dev server port
 EXPOSE 5173
 
-# Run the development server (hot reload)
 CMD ["npm", "run", "dev"]
