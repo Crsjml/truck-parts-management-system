@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile } from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders } from '@phosphor-icons/react';
 import Logo from './Logo';
 
 export default function CustomerStorefront({
@@ -19,7 +19,17 @@ export default function CustomerStorefront({
   const [sortOrder, setSortOrder] = useState('recommended');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [compatibilityFilter, setCompatibilityFilter] = useState('All');
+  const [stockStatus, setStockStatus] = useState('All');
+
+  const TRUCK_BRANDS = [
+    { id: 'All', label: 'All Brands' },
+    { id: 'ISZ', label: 'Isuzu' },
+    { id: 'HNO', label: 'Hino' },
+    { id: 'MIT', label: 'Mitsubishi Fuso' },
+    { id: 'TOY', label: 'Toyota Dyna' }
+  ];
 
   const getCategoryStyles = (cat) => {
     switch (cat) {
@@ -46,9 +56,19 @@ export default function CustomerStorefront({
       const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
       const matchesMinPrice = minPrice === '' || part.price >= parseFloat(minPrice);
       const matchesMaxPrice = maxPrice === '' || part.price <= parseFloat(maxPrice);
-      const matchesStock = !inStockOnly || part.stock > 0;
+      
+      let matchesStock = true;
+      if (stockStatus === 'In Stock') matchesStock = part.stock > 0;
+      else if (stockStatus === 'Low Stock') matchesStock = part.stock > 0 && part.stock <= part.minStock;
 
-      return matchesSearch && matchesCategory && matchesMinPrice && matchesMaxPrice && matchesStock;
+      let matchesBrand = true;
+      if (compatibilityFilter !== 'All') {
+        const brandObj = TRUCK_BRANDS.find(b => b.id === compatibilityFilter);
+        const brandName = brandObj ? brandObj.label.split(' ')[0].toLowerCase() : '';
+        matchesBrand = (part.compatibility || '').toLowerCase().includes(brandName);
+      }
+
+      return matchesSearch && matchesCategory && matchesMinPrice && matchesMaxPrice && matchesStock && matchesBrand;
     });
 
     if (sortOrder === 'price-asc') result.sort((a, b) => a.price - b.price);
@@ -57,7 +77,7 @@ export default function CustomerStorefront({
     else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
 
     return result;
-  }, [parts, search, selectedCategory, sortOrder, minPrice, maxPrice, inStockOnly]);
+  }, [parts, search, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter]);
 
   const spotlightParts = useMemo(() => {
     return [...parts]
@@ -307,36 +327,127 @@ export default function CustomerStorefront({
 
           {storefrontTab === 'catalog' && (
             <>
-              <section className="grid gap-4 rounded-[1.75rem] border border-border bg-secondary p-4 backdrop-blur sm:p-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-                <div className="relative w-full">
-                  <MagnifyingGlass weight="duotone" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search by part name, SKU, OEM number, or fitment"
-                    className="w-full rounded-2xl border border-border bg-background py-3.5 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  />
+              <section className="rounded-[1.75rem] border border-border bg-secondary p-4 backdrop-blur sm:p-5 space-y-4">
+                <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-full">
+                      <MagnifyingGlass weight="duotone" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search by part name, SKU, OEM number, or fitment"
+                        className="w-full rounded-2xl border border-border bg-background py-3.5 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`shrink-0 flex items-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-bold transition ${showFilters ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-foreground hover:bg-background/80'}`}
+                    >
+                      <Faders weight="duotone" className="w-4 h-4" />
+                      Filters
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((category) => {
+                      const { icon: CatIcon, color, bg } = getCategoryStyles(category);
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => setSelectedCategory(category)}
+                          className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${selectedCategory === category ? 'border-accent/40 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300' : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'}`}
+                        >
+                          {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === category ? 'text-accent dark:text-red-300' : color}`} />}
+                          {category}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => {
-                    const { icon: CatIcon, color, bg } = getCategoryStyles(category);
-                    return (
-                      <button
-                        key={category}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${selectedCategory === category ? `border-accent/40 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300` : `border-border bg-background text-muted-foreground hover:border-border hover:text-foreground`}`}
+                {showFilters && (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-4 border-t border-border mt-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Truck Brand</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {TRUCK_BRANDS.slice(1).map(brand => (
+                          <button
+                            key={brand.id}
+                            onClick={() => setCompatibilityFilter(brand.id)}
+                            className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[10px] font-bold transition ${compatibilityFilter === brand.id ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-muted-foreground hover:border-accent/30 hover:text-foreground'}`}
+                          >
+                            <Truck weight={compatibilityFilter === brand.id ? "fill" : "duotone"} className="w-4 h-4 mb-1" />
+                            {brand.id}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Price Range (₱)</label>
+                      <div className="flex items-center gap-2 h-full">
+                        <input 
+                          type="number" 
+                          placeholder="Min" 
+                          value={minPrice}
+                          onChange={(e) => setMinPrice(e.target.value)}
+                          className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                        />
+                        <span className="text-muted-foreground">-</span>
+                        <input 
+                          type="number" 
+                          placeholder="Max" 
+                          value={maxPrice}
+                          onChange={(e) => setMaxPrice(e.target.value)}
+                          className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Stock Availability</label>
+                      <select 
+                        value={stockStatus}
+                        onChange={(e) => setStockStatus(e.target.value)}
+                        className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
                       >
-                        {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === category ? 'text-accent dark:text-red-300' : color}`} />}
-                        {category}
-                      </button>
-                    )
-                  })}
-                </div>
+                        <option value="All">All Items</option>
+                        <option value="In Stock">In Stock Only</option>
+                        <option value="Low Stock">Low Stock Alert</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort By</label>
+                      <select 
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value)}
+                        className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                      >
+                        <option value="recommended">Recommended</option>
+                        <option value="price-asc">Price: Low to High</option>
+                        <option value="price-desc">Price: High to Low</option>
+                        <option value="name-asc">Name: A to Z</option>
+                        <option value="name-desc">Name: Z to A</option>
+                      </select>
+                    </div>
+
+                    {(minPrice || maxPrice || stockStatus !== 'All' || sortOrder !== 'recommended' || compatibilityFilter !== 'All') && (
+                      <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                        <button 
+                          onClick={() => { setMinPrice(''); setMaxPrice(''); setStockStatus('All'); setSortOrder('recommended'); setCompatibilityFilter('All'); }}
+                          className="text-xs uppercase tracking-wider font-bold text-red-500 hover:text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-2 rounded-xl transition"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
 
               <section className="grid gap-5 lg:grid-cols-12">
-                <div className="lg:col-span-8">
+                <div className="lg:col-span-12">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground font-display">Shop catalog</p>
@@ -399,77 +510,6 @@ export default function CustomerStorefront({
                     })}
                   </div>
                 </div>
-
-                <aside className="space-y-4 lg:col-span-4">
-                  <div className="rounded-[1.75rem] border border-border bg-secondary p-5 sticky top-32">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-foreground">Advanced Filters</p>
-                      {(minPrice || maxPrice || inStockOnly || sortOrder !== 'recommended') && (
-                        <button 
-                          onClick={() => { setMinPrice(''); setMaxPrice(''); setInStockOnly(false); setSortOrder('recommended'); }}
-                          className="text-[10px] uppercase font-bold text-red-500 hover:text-red-400"
-                        >
-                          Clear All
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort By</label>
-                        <select 
-                          value={sortOrder}
-                          onChange={(e) => setSortOrder(e.target.value)}
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent"
-                        >
-                          <option value="recommended">Recommended</option>
-                          <option value="price-asc">Price: Low to High</option>
-                          <option value="price-desc">Price: High to Low</option>
-                          <option value="name-asc">Name: A to Z</option>
-                          <option value="name-desc">Name: Z to A</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Price Range (₱)</label>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" 
-                            placeholder="Min" 
-                            value={minPrice}
-                            onChange={(e) => setMinPrice(e.target.value)}
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-                          />
-                          <span className="text-muted-foreground">-</span>
-                          <input 
-                            type="number" 
-                            placeholder="Max" 
-                            value={maxPrice}
-                            onChange={(e) => setMaxPrice(e.target.value)}
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2">
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                          <div className="relative flex items-center justify-center w-5 h-5">
-                            <input 
-                              type="checkbox" 
-                              checked={inStockOnly}
-                              onChange={(e) => setInStockOnly(e.target.checked)}
-                              className="peer appearance-none w-5 h-5 border border-border rounded bg-background checked:bg-accent checked:border-accent transition-all cursor-pointer"
-                            />
-                            <svg className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                          <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition">Show in-stock only</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </aside>
               </section>
             </>
           )}
