@@ -4,7 +4,7 @@ export default function Logo({ className = "w-12 h-12", showText = true }) {
   return (
     <div className="flex items-center gap-3">
       <div className={`relative ${className} shrink-0`}>
-        {/* Vector SVG Representation of Tarlac Truck Parts Logo */}
+        {/* Vector SVG Representation of Tarlac Truck Pitstop Logo */}
         <svg viewBox="0 0 300 300" className="w-full h-full filter drop-shadow-[0_0_8px_rgba(220,38,38,0.2)]">
           {/* Background Pistons (Crossed) */}
           <g stroke="#1e3a8a" strokeWidth="6" fill="#0f172a">

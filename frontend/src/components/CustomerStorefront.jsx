@@ -299,7 +299,7 @@ export default function CustomerStorefront({
                     </span>
                     <h3 className="text-lg font-extrabold text-foreground">Learn About Us</h3>
                     <p className="text-muted-foreground text-xs mt-2 leading-relaxed">
-                      Tarlac Truck Parts delivers premium truck spares citywide. Find out more about our warranty, wholesale rates, and location details.
+                      Tarlac Truck Pitstop delivers premium truck spares citywide. Find out more about our warranty, wholesale rates, and location details.
                     </p>
                   </div>
                   <button onClick={() => setStorefrontTab('about')} className="mt-6 flex items-center gap-2 text-xs font-bold text-accent hover:underline">
@@ -522,10 +522,10 @@ export default function CustomerStorefront({
                   Premium Truck Spare Parts
                 </span>
                 <h2 className="text-4xl font-extrabold tracking-tight text-foreground font-display">
-                  Tarlac Truck Parts
+                  Tarlac Truck Pitstop
                 </h2>
                 <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-                  Tarlac Truck Parts is the region's trusted supplier of high-quality replacement parts, accessories, and maintenance solutions for heavy commercial trucks and cargo transport fleets. Based in the heart of Tarlac City, we support individual operators and corporate logistics networks across the province and surrounding regions.
+                  Tarlac Truck Pitstop is the region's trusted supplier of high-quality replacement parts, accessories, and maintenance solutions for heavy commercial trucks and cargo transport fleets. Based in the heart of Tarlac City, we support individual operators and corporate logistics networks across the province and surrounding regions.
                 </p>
               </div>
 
@@ -596,7 +596,7 @@ export default function CustomerStorefront({
                       <div>
                         <h4 className="font-bold text-foreground text-xs">Store Address</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Tarlac Truck Parts Building, McArthur Highway,<br />
+                          Tarlac Truck Pitstop Building, McArthur Highway,<br />
                           Tarlac City, 2300 Tarlac, Philippines
                         </p>
                       </div>

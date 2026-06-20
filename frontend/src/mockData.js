@@ -162,5 +162,5 @@ export const INITIAL_LOGS = [
   { id: "L2", timestamp: "2026-06-17T09:12:00Z", type: "stock", message: "Restocked 'Air Brake Master Valve': added 10 units (current stock: 18)." },
   { id: "L3", timestamp: "2026-06-16T14:20:00Z", type: "sale", message: "Sale transaction TX-1002 completed: TTP-2026-0002 generated for Cabanatuan Sand & Gravel." },
   { id: "L4", timestamp: "2026-06-15T10:35:00Z", type: "sale", message: "Sale transaction TX-1001 completed: TTP-2026-0001 generated for Batangas Freight Logistics." },
-  { id: "L5", timestamp: "2026-06-14T16:00:00Z", type: "system", message: "Tarlac Truck Parts Management System initialized successfully." }
+  { id: "L5", timestamp: "2026-06-14T16:00:00Z", type: "system", message: "Tarlac Truck Pitstop Management System initialized successfully." }
 ];

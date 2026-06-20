@@ -18,7 +18,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             System Overview
           </h1>
           <p className="text-muted-foreground max-w-xl text-sm md:text-base leading-relaxed">
-            Welcome to the Tarlac Truck Parts Management System. Monitor warehouse inventory levels, log customer transactions, and track sales revenue here.
+            Welcome to the Tarlac Truck Pitstop Management System. Monitor warehouse inventory levels, log customer transactions, and track sales revenue here.
           </p>
         </div>
         
