@@ -80,7 +80,7 @@ export default function CustomerStorefront({
                 <button onClick={() => onOpenCustomerAuth('login')} className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
                   Login
                 </button>
-                <button onClick={() => onOpenCustomerAuth('register')} className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-white">
+                <button onClick={() => onOpenCustomerAuth('register')} className="rounded-full border border-accent/30 bg-accent/10 dark:bg-accent/20 px-3 py-2 text-xs font-semibold text-accent dark:text-red-300 transition hover:bg-accent/20 dark:hover:bg-accent/30">
                   Register
                 </button>
               </div>
@@ -98,7 +98,7 @@ export default function CustomerStorefront({
                   onClick={() => setStorefrontTab(item.id)}
                   className={`rounded-full border px-4 py-2 transition-all duration-250 ${
                     storefrontTab === item.id
-                      ? 'border-accent bg-accent/10 text-white font-bold'
+                      ? 'border-accent/30 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300 font-bold'
                       : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'
                   }`}
                 >
@@ -132,7 +132,7 @@ export default function CustomerStorefront({
                   </button>
                   <button
                     onClick={() => onOpenCustomerAuth('register')}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-accent/30 bg-accent/10 dark:bg-accent/20 px-4 py-2 text-sm font-semibold text-accent dark:text-red-300 transition hover:bg-accent/20 dark:hover:bg-accent/30"
                   >
                     <UserPlus weight="duotone" className="h-4 w-4" />
                     Register
@@ -182,7 +182,7 @@ export default function CustomerStorefront({
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={() => onOpenCustomerAuth('register')}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-3 text-sm font-bold text-white transition hover:bg-accent/90"
+                        className="inline-flex items-center gap-2 rounded-2xl border border-accent/30 bg-accent/10 dark:bg-accent/20 px-5 py-3 text-sm font-bold text-accent dark:text-red-300 transition hover:bg-accent/20 dark:hover:bg-accent/30"
                       >
                         <UserPlus weight="duotone" className="h-4 w-4" />
                         Customer registration
@@ -325,9 +325,9 @@ export default function CustomerStorefront({
                       <button
                         key={category}
                         onClick={() => setSelectedCategory(category)}
-                        className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${selectedCategory === category ? `border-accent bg-accent text-white` : `border-border bg-background text-muted-foreground hover:border-border hover:text-foreground`}`}
+                        className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${selectedCategory === category ? `border-accent/40 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300` : `border-border bg-background text-muted-foreground hover:border-border hover:text-foreground`}`}
                       >
-                        {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === category ? 'text-white' : color}`} />}
+                        {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === category ? 'text-accent dark:text-red-300' : color}`} />}
                         {category}
                       </button>
                     )
@@ -355,8 +355,8 @@ export default function CustomerStorefront({
                           key={part.id}
                           className="group overflow-hidden rounded-[1.75rem] border border-border bg-secondary transition hover:-translate-y-1 hover:border-red-500/30 flex flex-col h-full"
                         >
-                          <div className="relative h-40 shrink-0 overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.25),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.35),_transparent_38%),linear-gradient(135deg,rgba(15,23,42,1),rgba(2,6,23,1))]">
-                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
+                          <div className="relative h-40 shrink-0 overflow-hidden bg-slate-200 dark:bg-slate-950 bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.15),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.15),_transparent_40%)]">
+                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.2)_100%)] dark:bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
                             <div className={`absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] shadow-lg backdrop-blur-md ${bg} ${color}`}>
                               {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5" />}
                               {part.category}
@@ -475,8 +475,9 @@ export default function CustomerStorefront({
           )}
 
           {storefrontTab === 'about' && (
-            <section className="relative overflow-hidden rounded-[2rem] border border-border bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.12),_transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,1))] p-6 sm:p-8 lg:p-10">
-              <div className="max-w-3xl space-y-6">
+            <section className="relative overflow-hidden rounded-[2rem] border border-border bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-950 p-6 sm:p-8 lg:p-10">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.12),_transparent_30%)] pointer-events-none" />
+              <div className="relative z-10 max-w-3xl space-y-6">
                 <span className="px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-wider inline-block">
                   Premium Truck Spare Parts
                 </span>
@@ -488,7 +489,7 @@ export default function CustomerStorefront({
                 </p>
               </div>
 
-              <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="relative z-10 mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-2xl border border-border bg-background p-6">
                   <div className="p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/30 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl inline-block mb-4">
                     <Truck weight="duotone" className="w-6 h-6" />
@@ -520,7 +521,7 @@ export default function CustomerStorefront({
                 </div>
               </div>
 
-              <div className="mt-12 rounded-3xl border border-border bg-secondary p-6 lg:p-8">
+              <div className="relative z-10 mt-12 rounded-3xl border border-border bg-secondary p-6 lg:p-8">
                 <h3 className="text-xl font-extrabold text-foreground">Our Mission & Values</h3>
                 <div className="grid gap-6 mt-6 md:grid-cols-2">
                   <div>
@@ -634,7 +635,7 @@ export default function CustomerStorefront({
                     <textarea required rows={4} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none focus:border-accent resize-none" placeholder="Provide part description, SKU, OEM, or compatibility question..." />
                   </div>
 
-                  <button type="submit" className="w-full py-3 bg-accent text-white font-bold rounded-xl hover:bg-accent/90 transition text-sm">
+                  <button type="submit" className="w-full py-3 rounded-xl border border-accent/30 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300 font-bold hover:bg-accent/20 dark:hover:bg-accent/30 transition text-sm">
                     Submit Inquiry Template
                   </button>
                 </form>
