@@ -20,7 +20,7 @@ export default function Footer({ className = "", variant = "default" }) {
     : "text-brandBlue-600/70 dark:text-brandBlue-500/55";
 
   return (
-    <footer className={`w-full py-6 mt-12 border-t ${borderClass} flex flex-col md:flex-row justify-between items-center gap-4 text-xs ${textClass} shrink-0 font-semibold transition-colors duration-300 ${className}`}>
+    <footer className={`w-full py-4 mt-4 border-t ${borderClass} flex flex-col md:flex-row justify-between items-center gap-4 text-xs ${textClass} shrink-0 font-semibold transition-colors duration-300 ${className}`}>
       <p>© {currentYear} Tarlac Truck Pitstop. All rights reserved.</p>
       <div className="flex gap-4">
         <span className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-default">

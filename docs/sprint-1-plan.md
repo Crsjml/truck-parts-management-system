@@ -6,17 +6,17 @@ Build the foundation of the Truck Parts Management System through authentication
 ## Features
 
 ### User Management
-- Customer Registration
-- Customer Login
-- Admin Login
-- Password Reset
-- Roles and Permissions
+- [x] Customer Registration
+- [x] Customer Login
+- [x] Admin Login
+- [x] Password Reset
+- [x] Roles and Permissions
 
 ### Parts Catalog
-- Product Listing
-- Search and Filter Parts
-- Parts Category Management
+- [x] Product Listing
+- [x] Search and Filter Parts
+- [x] Parts Category Management
 
 ### Inventory Management
-- Add/Edit Parts Record
-- Real-Time Stock Tracking
+- [x] Add/Edit Parts Record
+- [x] Real-Time Stock Tracking

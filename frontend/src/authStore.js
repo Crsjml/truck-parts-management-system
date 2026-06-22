@@ -504,3 +504,54 @@ export const deletePart = async (id) => {
     return { ok: false, error: 'Server connection failed.' };
   }
 };
+
+// ── Transactions ─────────────────────────────────────────────────────────────
+
+export const createTransaction = async (txData) => {
+  try {
+    const { ok, data } = await api_post('/api/transactions', txData);
+    return ok ? { ok: true, transaction: data.transaction } : { ok: false, error: data.msg || 'Failed to create transaction.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const fetchTransactions = async () => {
+  try {
+    const { ok, data } = await api_get('/api/transactions');
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch transactions:', err);
+    return [];
+  }
+};
+
+// ── Settings & Adjustments ───────────────────────────────────────────────────
+
+export const fetchSettings = async () => {
+  try {
+    const { ok, data } = await api_get('/api/settings');
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to fetch settings:', err);
+    return null;
+  }
+};
+
+export const updateSettings = async (settingsData) => {
+  try {
+    const { ok, data } = await api_post('/api/settings', settingsData);
+    return ok ? { ok: true, settings: data } : { ok: false, error: data.msg || 'Failed to update settings.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const bulkAdjustPrices = async (percentage) => {
+  try {
+    const { ok, data } = await api_post('/api/parts/bulk-adjust', { percentage });
+    return ok ? { ok: true, message: data.msg } : { ok: false, error: data.msg || 'Failed to bulk adjust prices.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};

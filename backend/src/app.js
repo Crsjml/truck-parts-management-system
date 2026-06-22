@@ -5,6 +5,8 @@ import cors from 'cors';
 import authRouter from './routes/auth.js';
 import partsRouter from './routes/parts.js';
 import categoriesRouter from './routes/categories.js';
+import settingsRouter from './routes/settings_routes.js';
+import transactionsRouter from './routes/transactions.js';
 import mongoose from 'mongoose';
 
 const app = express();
@@ -22,6 +24,8 @@ app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/parts', partsRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/transactions', transactionsRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 

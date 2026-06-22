@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 // ── POST create category / subcategory ─────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    const { name, parentCategory } = req.body;
+    const { name, parentCategory, iconName, colorTheme } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ msg: 'Category name is required.' });
@@ -44,7 +44,9 @@ router.post('/', async (req, res) => {
 
     const category = await Category.create({
       name: normalizedName,
-      parentCategory: parentId
+      parentCategory: parentId,
+      iconName: iconName || null,
+      colorTheme: colorTheme || null
     });
 
     const populated = await category.populate('parentCategory', 'name');
@@ -58,7 +60,7 @@ router.post('/', async (req, res) => {
 // ── PUT update category / subcategory ─────────────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
-    const { name, parentCategory } = req.body;
+    const { name, parentCategory, iconName, colorTheme } = req.body;
     const { id } = req.params;
 
     if (!name || name.trim() === '') {
@@ -108,6 +110,8 @@ router.put('/:id', async (req, res) => {
 
     category.name = normalizedName;
     category.parentCategory = parentId;
+    if (iconName !== undefined) category.iconName = iconName || null;
+    if (colorTheme !== undefined) category.colorTheme = colorTheme || null;
     await category.save();
 
     const populated = await category.populate('parentCategory', 'name');

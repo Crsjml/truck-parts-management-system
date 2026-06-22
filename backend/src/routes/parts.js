@@ -233,4 +233,33 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// ── Bulk price adjustment ──────────────────────────────────────────────────────
+router.post('/bulk-adjust', async (req, res) => {
+  try {
+    const { percentage } = req.body;
+    if (percentage === undefined || isNaN(Number(percentage))) {
+      return res.status(400).json({ msg: 'A valid percentage must be provided.' });
+    }
+
+    const factor = 1 + (Number(percentage) / 100);
+
+    // Update all parts
+    // We use a MongoDB aggregation pipeline update to calculate new price natively
+    await Part.updateMany({}, [
+      {
+        $set: {
+          price: {
+            $max: [0, { $multiply: ["$price", factor] }]
+          }
+        }
+      }
+    ]);
+
+    res.json({ msg: `All part prices have been adjusted by ${percentage}%` });
+  } catch (err) {
+    console.error('[bulk adjust parts]', err);
+    res.status(500).json({ msg: 'Server error during bulk price adjustment.' });
+  }
+});
+
 export default router;

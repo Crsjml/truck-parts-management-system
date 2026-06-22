@@ -1,7 +1,9 @@
 import React from 'react';
+import { useSettings } from '../context/SettingsContext';
 import { Package, TrendUp, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText } from '@phosphor-icons/react';
 
 export default function Dashboard({ parts, transactions, logs, setPage, setSelectedCategory }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   // Calculations
   const totalParts = parts.length;
   const inventoryValue = parts.reduce((sum, item) => sum + (item.price * item.stock), 0);
@@ -63,7 +65,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Asset Value</span>
             <h3 className="text-3xl font-bold text-foreground font-display">
-              ₱{inventoryValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatCurrency(inventoryValue)}
             </h3>
             <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
               <TrendUp weight="duotone" className="w-3.5 h-3.5" /> Stable stock value
@@ -95,7 +97,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Invoiced Sales</span>
             <h3 className="text-3xl font-bold text-foreground font-display">
-              ₱{totalRevenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatCurrency(totalRevenue)}
             </h3>
             <p className="text-xs text-muted-foreground">{transactions.length} invoices generated</p>
           </div>
@@ -148,7 +150,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                         </span>
                       </td>
                       <td className="py-3 px-2 text-center text-muted-foreground">{part.minStock}</td>
-                      <td className="py-3 px-2 text-right font-medium text-foreground">₱{part.price.toLocaleString('en-PH')}</td>
+                      <td className="py-3 px-2 text-right font-medium text-foreground">{formatCurrency(part.price)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,7 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useSettings } from '../context/SettingsContext';
 import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
+import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
 
 export default function CustomerStorefront({
   parts,
@@ -13,6 +15,7 @@ export default function CustomerStorefront({
   isDarkMode,
   setIsDarkMode
 }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPart, setSelectedPart] = useState(null);
@@ -57,16 +60,8 @@ export default function CustomerStorefront({
   ];
 
   const getCategoryStyles = (cat) => {
-    switch (cat) {
-      case 'Engine': return { icon: Gear, color: 'text-red-500', bg: 'bg-red-500/10' };
-      case 'Transmission': return { icon: Gear, color: 'text-orange-500', bg: 'bg-orange-500/10' };
-      case 'Brakes': return { icon: ShieldCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' };
-      case 'Suspension': return { icon: Pulse, color: 'text-blue-500', bg: 'bg-blue-500/10' };
-      case 'Electrical': return { icon: Lightning, color: 'text-emerald-500', bg: 'bg-emerald-500/10' };
-      case 'Body & Exterior': return { icon: CarProfile, color: 'text-purple-500', bg: 'bg-purple-500/10' };
-      case 'All': return { icon: SquaresFour, color: 'text-slate-500', bg: 'bg-slate-500/10' };
-      default: return { icon: Tag, color: 'text-slate-500', bg: 'bg-slate-500/10' };
-    }
+    const { Icon, color } = getCategoryIconAndColor(cat);
+    return { icon: Icon, color, bg: '' };
   };
 
   const filteredParts = useMemo(() => {
@@ -292,7 +287,7 @@ export default function CustomerStorefront({
                         <div className="mt-auto pt-4 border-t border-border/40 flex items-center justify-between gap-2">
                           <div>
                             <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Price</p>
-                            <p className="text-base font-black leading-none text-foreground">₱{part.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-base font-black leading-none text-foreground">{formatCurrency(part.price)}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Stock</p>
@@ -526,15 +521,20 @@ export default function CustomerStorefront({
                           key={part.id}
                           className="group overflow-hidden rounded-[1.75rem] border border-border bg-secondary transition hover:-translate-y-1 hover:border-red-500/30 flex flex-col h-full"
                         >
-                          <div className="relative h-40 shrink-0 overflow-hidden bg-slate-200 dark:bg-slate-950 bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.15),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.15),_transparent_40%)]">
-                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.2)_100%)] dark:bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0.08)_100%)]" />
+                          <div className="relative h-40 shrink-0 overflow-hidden bg-slate-900 border-b border-border/10 flex items-center justify-center">
+                            {part.image ? (
+                              <img src={part.image} alt={part.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            ) : (
+                              <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" />
+                            )}
+                            <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0)_30%,rgba(0,0,0,0.4)_100%)]" />
                             <div className={`absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] shadow-lg backdrop-blur-md ${bg} ${color}`}>
                               {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5" />}
                               {part.category}
                             </div>
                             <div className="absolute bottom-4 right-4 rounded-2xl border border-border bg-background px-3 py-2 text-right shadow-sm">
                               <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Price</p>
-                              <p className="text-lg font-black text-foreground">₱{part.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                              <p className="text-lg font-black text-foreground">{formatCurrency(part.price)}</p>
                             </div>
                           </div>
 
@@ -783,7 +783,7 @@ export default function CustomerStorefront({
       </div>
 
       {selectedPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl rounded-[2rem] border border-border bg-secondary p-6 shadow-2xl shadow-black/40">
             <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
               <div>
@@ -820,7 +820,7 @@ export default function CustomerStorefront({
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span>Price</span>
-                    <span className="text-foreground">₱{selectedPart.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-foreground">{formatCurrency(selectedPart.price)}</span>
                   </div>
                 </div>
               </div>

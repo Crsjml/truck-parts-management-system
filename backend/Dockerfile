@@ -3,11 +3,11 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if present)
-COPY package*.json ./
+# Copy package.json only to avoid darwin/linux binary mismatch from lockfile
+COPY package.json ./
 
 # Install production dependencies (including dev for building)
-RUN npm ci --production
+RUN npm install --omit=dev
 
 # Copy source code
 COPY src ./src

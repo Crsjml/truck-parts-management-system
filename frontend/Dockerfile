@@ -4,8 +4,8 @@ WORKDIR /app
 
 # 1. Copy ONLY package files first — Docker caches this layer.
 #    npm ci only re-runs when package.json / package-lock.json changes.
-COPY frontend/package*.json ./
-RUN npm ci
+COPY frontend/package.json ./
+RUN npm install
 
 # 2. Copy source (overridden at runtime by the volume mount in dev)
 COPY frontend/ .

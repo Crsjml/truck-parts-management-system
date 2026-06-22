@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSettings } from '../context/SettingsContext';
 import { SquaresFour, FileText, PaperPlaneRight, CalendarBlank, Bell, List, X, User, ShieldCheck, CurrencyDollar, TrendUp, Package, Question, Download, Clock, CheckCircle, ArrowRight, ShoppingCart, MagnifyingGlass, Plus, Minus, Trash, CreditCard, LockKey, Gear, CircleNotch, Moon, Sun } from '@phosphor-icons/react';
 import { changePassword } from '../authStore';
 import Logo from './Logo';
@@ -12,6 +13,7 @@ import Footer from './Footer';
 
 /* ── 1. Customer Overview / Dashboard ───────── */
 function CustomerOverview({ customerName, customerContact, transactions, parts, inquiries, setPage }) {
+  const { formatCurrency } = useSettings();
   const customerTx = transactions.filter(
     (tx) => tx.customerName?.toLowerCase() === customerName.toLowerCase()
   );
@@ -76,7 +78,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Spent</span>
             <h3 className="text-3xl font-bold text-foreground font-display">
-              ₱{totalSpent.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              {formatCurrency(totalSpent)}
             </h3>
             <p className="text-xs text-emerald-400 flex items-center gap-1">
               <TrendUp weight="duotone" className="w-3.5 h-3.5" /> Wholesale pricing
@@ -91,7 +93,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Avg. Invoice</span>
             <h3 className="text-3xl font-bold text-foreground font-display">
-              ₱{avgOrder.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              {formatCurrency(avgOrder)}
             </h3>
             <p className="text-xs text-muted-foreground">Per checkout</p>
           </div>
@@ -146,7 +148,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
                         {new Date(tx.transactionDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                       </td>
                       <td className="py-3 px-2 text-right font-semibold text-foreground">
-                        ₱{tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        {formatCurrency(tx.total)}
                       </td>
                     </tr>
                   ))}
@@ -192,6 +194,7 @@ function CustomerOverview({ customerName, customerContact, transactions, parts, 
 
 /* ── 2. My Orders Page ───────────────────────── */
 function MyOrders({ customerName, transactions }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   const customerTx = transactions.filter(
     (tx) => tx.customerName?.toLowerCase() === customerName.toLowerCase()
   );
@@ -229,9 +232,9 @@ function MyOrders({ customerName, transactions }) {
       doc.text(`Contact Phone: ${tx.customerContact}`, 15, 68);
       const tableRows = tx.items.map((item, i) => [
         i + 1, item.name,
-        `PHP ${item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        `${displayCurrency} ${item.price}`,
         item.quantity,
-        `PHP ${(item.price * item.quantity).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        `${displayCurrency} ${(item.price * item.quantity)}`,
       ]);
       doc.autoTable({
         startY: 76,
@@ -247,17 +250,17 @@ function MyOrders({ customerName, transactions }) {
       doc.setFontSize(9.5);
       doc.setFont('Helvetica', 'normal');
       doc.text('Subtotal:', 130, finalY);
-      doc.text(`PHP ${tx.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.subtotal}`, 195, finalY, { align: 'right' });
       doc.text('Discount Deductions:', 130, finalY + 5.5);
-      doc.text(`- PHP ${tx.discount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 5.5, { align: 'right' });
+      doc.text(`-${formatCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
       doc.text('VAT Amount (12%):', 130, finalY + 11);
-      doc.text(`PHP ${tx.taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 11, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, finalY + 11, { align: 'right' });
       doc.setFillColor(27, 54, 93);
       doc.rect(128, finalY + 15, 68, 7.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('Helvetica', 'bold');
       doc.text('NET TOTAL:', 131, finalY + 20);
-      doc.text(`PHP ${tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 193, finalY + 20, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.total}`, 193, finalY + 20, { align: 'right' });
       doc.setTextColor(100, 116, 139);
       doc.setFont('Helvetica', 'italic');
       doc.setFontSize(8.5);
@@ -312,7 +315,7 @@ function MyOrders({ customerName, transactions }) {
                       {tx.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
                     </td>
                     <td className="py-3.5 px-3 text-right font-semibold text-foreground">
-                      ₱{tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      {formatCurrency(tx.total)}
                     </td>
                     <td className="py-3.5 px-3 text-center">
                       <button
@@ -457,7 +460,7 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
 
       {/* Success Modal */}
       {showSuccess && submitted && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
               <CheckCircle weight="duotone" className="w-9 h-9" />
@@ -491,6 +494,7 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
 
 /* ── 4. Shop / Order Parts Page ──────────────── */
 function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState([]);
@@ -680,9 +684,9 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
       const tableRows = tx.items.map((item, i) => [
         i + 1,
         item.name,
-        `PHP ${item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        `${displayCurrency} ${item.price}`,
         item.quantity,
-        `PHP ${(item.price * item.quantity).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        `${displayCurrency} ${(item.price * item.quantity)}`,
       ]);
       doc.autoTable({
         startY: 76,
@@ -699,17 +703,17 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
       doc.setFontSize(9.5);
       doc.setFont('Helvetica', 'normal');
       doc.text('Subtotal:', 130, finalY);
-      doc.text(`PHP ${tx.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.subtotal}`, 195, finalY, { align: 'right' });
       doc.text('Discount Deductions (5%):', 130, finalY + 5.5);
-      doc.text(`- PHP ${tx.discount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 5.5, { align: 'right' });
+      doc.text(`-${formatCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
       doc.text('VAT Amount (12%):', 130, finalY + 11);
-      doc.text(`PHP ${tx.taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 11, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, finalY + 11, { align: 'right' });
       doc.setFillColor(27, 54, 93);
       doc.rect(128, finalY + 15, 68, 7.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('Helvetica', 'bold');
       doc.text('NET TOTAL:', 131, finalY + 20);
-      doc.text(`PHP ${tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 193, finalY + 20, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.total}`, 193, finalY + 20, { align: 'right' });
       doc.setTextColor(100, 116, 139);
       doc.setFont('Helvetica', 'italic');
       doc.setFontSize(8.5);
@@ -817,7 +821,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-start gap-2">
                         <span className="text-[9px] font-bold text-brandBlue-400 uppercase tracking-wider">{part.category}</span>
-                        <span className="text-xs font-bold text-foreground">₱{part.price.toLocaleString('en-PH')}</span>
+                        <span className="text-xs font-bold text-foreground">{formatCurrency(part.price)}</span>
                       </div>
                       <h5 className="font-bold text-foreground text-xs line-clamp-1 group-hover:text-foreground transition-colors">
                         {part.name}
@@ -906,7 +910,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                   <div key={item.id} className="flex justify-between items-center bg-secondary p-3 rounded-xl border border-border">
                     <div className="space-y-1 max-w-[60%] font-sans">
                       <h6 className="font-semibold text-foreground text-xs truncate">{item.name}</h6>
-                      <span className="text-[10px] text-muted-foreground font-mono">₱{item.price.toLocaleString('en-PH')}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">{formatCurrency(item.price)}</span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -970,19 +974,19 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
             <div className="space-y-2 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span>₱{subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span>{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>VIP Discount (5%)</span>
-                <span>- ₱{discountVal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span>- {formatCurrency(discountVal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>VAT (12%)</span>
-                <span>₱{taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span>{formatCurrency(taxAmount)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-foreground border-t border-border pt-2.5 font-display">
                 <span>Total Due</span>
-                <span className="text-accent font-extrabold">₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span className="text-accent font-extrabold">{formatCurrency(grandTotal)}</span>
               </div>
             </div>
 
@@ -999,7 +1003,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
 
       {/* Success Modal Overlay */}
       {checkoutSuccess && lastTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
               <CheckCircle weight="duotone" className="w-9 h-9" />
@@ -1019,7 +1023,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Net Total:</span>
-                <span className="text-emerald-400 font-bold">₱{lastTx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span className="text-emerald-400 font-bold">{formatCurrency(lastTx.total)}</span>
               </div>
             </div>
 
@@ -1173,6 +1177,7 @@ export default function CustomerDashboard({
   isDarkMode,
   setIsDarkMode
 }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   const [page, setPage]               = useState('dashboard');
   const [isSidebarOpen, setSidebar]   = useState(false);
   const [inquiries, setInquiries]     = useState([
@@ -1246,7 +1251,7 @@ export default function CustomerDashboard({
 
       {/* ── Mobile Sidebar Overlay ── */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden bg-background backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm">
           <aside className="w-72 bg-secondary border-r border-border p-5 flex flex-col justify-between animate-slideRight">
             <div className="space-y-8">
               <div className="flex items-center justify-between py-2 border-b border-border">

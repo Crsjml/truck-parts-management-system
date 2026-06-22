@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image } from '@phosphor-icons/react';
+import { createPortal } from 'react-dom';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
+import { useSettings } from '../context/SettingsContext';
+import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
+import { z } from 'zod';
+
+const partSchema = z.object({
+  name: z.string().min(3, "Part name must be at least 3 characters."),
+  sku: z.string().min(1, "SKU is required."),
+  oem: z.string().min(1, "OEM number is required."),
+  category: z.string().min(1, "Category selection is required."),
+  price: z.number().min(0, "Price must be a valid positive number."),
+  stock: z.number().min(0, "Stock must be a non-negative number."),
+  minStock: z.number().min(0, "Safety min stock must be non-negative.")
+});
 
 export default function PartsCatalog({ 
   parts, 
@@ -14,6 +28,7 @@ export default function PartsCatalog({
   isReadOnly = false,
   onAddLog
 }) {
+  const { formatCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState('recommended');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -54,16 +69,8 @@ export default function PartsCatalog({
   }, [search, parts]);
 
   const getCategoryStyles = (cat) => {
-    switch (cat) {
-      case 'Engine': return { icon: Gear, color: 'text-red-500' };
-      case 'Transmission': return { icon: Gear, color: 'text-orange-500' };
-      case 'Brakes': return { icon: ShieldCheck, color: 'text-amber-500' };
-      case 'Suspension': return { icon: Pulse, color: 'text-blue-500' };
-      case 'Electrical': return { icon: Lightning, color: 'text-emerald-500' };
-      case 'Body & Exterior': return { icon: CarProfile, color: 'text-purple-500' };
-      case 'All': return { icon: SquaresFour, color: 'text-slate-500' };
-      default: return { icon: Tag, color: 'text-slate-500' };
-    }
+    const { Icon, color } = getCategoryIconAndColor(cat);
+    return { icon: Icon, color };
   };
   
   // Modals state
@@ -173,33 +180,25 @@ export default function PartsCatalog({
   const handleFormSubmit = (e) => {
     e.preventDefault();
     
-    // Client-side validation
-    const errors = {};
-    if (!formName.trim() || formName.trim().length < 3) {
-      errors.name = 'Part name must be at least 3 characters.';
-    }
-    if (!formSku.trim()) {
-      errors.sku = 'SKU is required.';
-    }
-    if (!formOem.trim()) {
-      errors.oem = 'OEM number is required.';
-    }
-    if (!formCategory) {
-      errors.category = 'Category selection is required.';
-    }
-    if (formPrice === '' || isNaN(Number(formPrice)) || Number(formPrice) < 0) {
-      errors.price = 'Price must be a valid positive number.';
-    }
-    if (formStock === '' || isNaN(Number(formStock)) || Number(formStock) < 0) {
-      errors.stock = 'Stock must be a non-negative number.';
-    }
-    if (formMinStock === '' || isNaN(Number(formMinStock)) || Number(formMinStock) < 0) {
-      errors.minStock = 'Safety min stock must be a non-negative number.';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
+    // Zod Validation
+    try {
+      partSchema.parse({
+        name: formName.trim(),
+        sku: formSku.trim(),
+        oem: formOem.trim(),
+        category: formCategory,
+        price: Number(formPrice),
+        stock: Number(formStock),
+        minStock: Number(formMinStock)
+      });
+      setFormErrors({});
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        const errors = {};
+        err.errors.forEach(e => { errors[e.path[0]] = e.message; });
+        setFormErrors(errors);
+        return;
+      }
     }
 
     const partData = {
@@ -363,7 +362,7 @@ export default function PartsCatalog({
                   {part.image ? (
                     <img src={part.image} alt={part.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Package weight="duotone" className="w-10 h-10 text-muted-foreground/30" />
+                    <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="w-full h-full object-cover opacity-80" />
                   )}
                 </div>
 
@@ -408,7 +407,7 @@ export default function PartsCatalog({
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Unit Price</span>
                       <span className="text-xl font-bold text-foreground">
-                        ₱{part.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        {formatCurrency(part.price)}
                       </span>
                     </div>
                     <div className="text-right">
@@ -519,9 +518,9 @@ export default function PartsCatalog({
     )}
 
       {/* Main Dialog Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
-          <div className="w-full max-w-xl bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full ${modalType === 'details' ? 'max-w-xl' : 'max-w-4xl'} bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp`}>
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="text-lg font-bold text-foreground font-display">
@@ -545,7 +544,7 @@ export default function PartsCatalog({
                     {selectedPart?.image ? (
                       <img src={selectedPart.image} alt={selectedPart.name} className="w-full h-full object-cover" />
                     ) : (
-                      <Package weight="duotone" className="w-8 h-8 text-muted-foreground/30" />
+                      <img src={getCategoryPlaceholder(selectedPart?.category)} alt={selectedPart?.name} className="w-full h-full object-cover opacity-80" />
                     )}
                   </div>
                   <div>
@@ -565,7 +564,7 @@ export default function PartsCatalog({
                   </div>
                   <div className="mt-2">
                     <span className="text-xs text-muted-foreground uppercase">Unit Retail Price</span>
-                    <p className="font-semibold text-lg text-foreground mt-0.5">₱{selectedPart?.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                    <p className="font-semibold text-lg text-foreground mt-0.5">{formatCurrency(selectedPart?.price || 0)}</p>
                   </div>
                   <div className="mt-2">
                     <span className="text-xs text-muted-foreground uppercase">Inventory Quantity</span>
@@ -619,57 +618,58 @@ export default function PartsCatalog({
                 </div>
               </div>
             ) : (
-              // Add / Pencil Form
-              <form onSubmit={handleFormSubmit}>
-                <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto pr-2 text-left">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Part Name / Component Title *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="e.g. Starter Motor Assembly (24V)"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
-                    />
-                    {formErrors.name && <p className="text-[10px] text-red-400 font-semibold">{formErrors.name}</p>}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+              // Add / Pencil Form (Bento Box Layout)
+              <form onSubmit={handleFormSubmit} className="flex flex-col max-h-[85vh]">
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 text-left overflow-y-auto custom-scrollbar">
+                  {/* Left Column: Core Identity */}
+                  <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">SKU / Code *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">Part Name / Component Title *</label>
                       <input 
                         type="text" 
                         required
-                        placeholder="e.g. ELC-STR-24V"
-                        value={formSku}
-                        onChange={(e) => setFormSku(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
+                        placeholder="e.g. Starter Motor Assembly (24V)"
+                        value={formName}
+                        onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                       />
-                      {formErrors.sku && <p className="text-[10px] text-red-400 font-semibold">{formErrors.sku}</p>}
+                      {formErrors.name && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">OEM Part Number *</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. 0-23000-7010"
-                        value={formOem}
-                        onChange={(e) => setFormOem(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
-                      />
-                      {formErrors.oem && <p className="text-[10px] text-red-400 font-semibold">{formErrors.oem}</p>}
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-1.5 col-span-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase">SKU / Code *</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. ELC-STR"
+                          value={formSku}
+                          onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        />
+                        {formErrors.sku && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase">OEM Part Number *</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. 0-23000-7010"
+                          value={formOem}
+                          onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        />
+                        {formErrors.oem && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase">Category / Subcategory *</label>
                       <select 
                         value={formCategory}
-                        onChange={(e) => setFormCategory(e.target.value)}
+                        onChange={(e) => { setFormCategory(e.target.value); setFormErrors(prev => ({...prev, category: ''})); }}
                         required
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.category ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.category ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                       >
                         <option value="" disabled>-- Select Category / Subcategory --</option>
                         {categoriesList.filter(c => !c.parentCategory).map(parent => {
@@ -684,117 +684,120 @@ export default function PartsCatalog({
                           );
                         })}
                       </select>
-                      {formErrors.category && <p className="text-[10px] text-red-400 font-semibold">{formErrors.category}</p>}
+                      {formErrors.category && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
                     </div>
+                    
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Unit Price (₱) *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Vehicle Compatibility Models</label>
                       <input 
-                        type="number" 
-                        required
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={formPrice}
-                        onChange={(e) => setFormPrice(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
+                        type="text" 
+                        placeholder="e.g. Isuzu ELF NPR, Forward, Hino 300"
+                        value={formCompatibility}
+                        onChange={(e) => setFormCompatibility(e.target.value)}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
                       />
-                      {formErrors.price && <p className="text-[10px] text-red-400 font-semibold">{formErrors.price}</p>}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Right Column: Pricing, Stock, and Media */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase">Price (₱) *</label>
+                        <input 
+                          type="number" 
+                          required
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={formPrice}
+                          onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        />
+                        {formErrors.price && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase">Initial Stock *</label>
+                        <input 
+                          type="number" 
+                          required
+                          min="0"
+                          placeholder="0"
+                          value={formStock}
+                          onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        />
+                        {formErrors.stock && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase">Min Stock *</label>
+                        <input 
+                          type="number" 
+                          required
+                          min="0"
+                          placeholder="5"
+                          value={formMinStock}
+                          onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        />
+                        {formErrors.minStock && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Initial Stock *</label>
-                      <input 
-                        type="number" 
-                        required
-                        min="0"
-                        placeholder="0"
-                        value={formStock}
-                        onChange={(e) => setFormStock(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Item Description</label>
+                      <textarea 
+                        placeholder="Enter details..."
+                        rows="2"
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground resize-none"
                       />
-                      {formErrors.stock && <p className="text-[10px] text-red-400 font-semibold">{formErrors.stock}</p>}
                     </div>
+
+                    {/* Upload Image Section */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Safety Min Stock *</label>
-                      <input 
-                        type="number" 
-                        required
-                        min="0"
-                        placeholder="5"
-                        value={formMinStock}
-                        onChange={(e) => setFormMinStock(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20' : 'border-border'}`}
-                      />
-                      {formErrors.minStock && <p className="text-[10px] text-red-400 font-semibold">{formErrors.minStock}</p>}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Vehicle Compatibility Models</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Isuzu ELF NPR, Forward, Hino 300"
-                      value={formCompatibility}
-                      onChange={(e) => setFormCompatibility(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Item Description & Specifications</label>
-                    <textarea 
-                      placeholder="Enter manufacturer details, dimensions, and gear tooth spacing details..."
-                      rows="2"
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground resize-none"
-                    />
-                  </div>
-
-                  {/* Upload Image Section */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Part Product Image</label>
-                    <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-3.5">
-                      <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
-                        {formImage ? (
-                          <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <Image className="w-6 h-6 text-muted-foreground/30" weight="duotone" />
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Part Product Image</label>
+                      <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-3.5">
+                        <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
+                          {formImage ? (
+                            <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <Image className="w-6 h-6 text-muted-foreground/30" weight="duotone" />
+                          )}
+                        </div>
+                        <div className="space-y-1 flex-1">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  alert("Image size must be smaller than 2MB.");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setFormImage(reader.result);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-secondary file:text-foreground file:hover:bg-slate-700 transition file:cursor-pointer"
+                          />
+                          <p className="text-[9px] text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
+                        </div>
+                        {formImage && (
+                          <button 
+                            type="button"
+                            onClick={() => setFormImage('')}
+                            className="text-[10px] font-bold text-red-500 hover:text-red-400 px-2 py-1 bg-red-950/20 rounded border border-red-900/30"
+                          >
+                            Remove
+                          </button>
                         )}
                       </div>
-                      <div className="space-y-1 flex-1">
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              if (file.size > 2 * 1024 * 1024) {
-                                alert("Image size must be smaller than 2MB.");
-                                return;
-                              }
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setFormImage(reader.result);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-secondary file:text-foreground file:hover:bg-slate-700 transition file:cursor-pointer"
-                        />
-                        <p className="text-[9px] text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
-                      </div>
-                      {formImage && (
-                        <button 
-                          type="button"
-                          onClick={() => setFormImage('')}
-                          className="text-[10px] font-bold text-red-500 hover:text-red-400 px-2 py-1 bg-red-950/20 rounded border border-red-900/30"
-                        >
-                          Remove
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -818,12 +821,13 @@ export default function PartsCatalog({
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Inquiry Form Modal for Customer Mode */}
-      {isInquiryModalOpen && inquiryPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+      {isInquiryModalOpen && inquiryPart && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border">
@@ -887,12 +891,13 @@ export default function PartsCatalog({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Inquiry Success Modal */}
-      {inquirySuccess && inquiryPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+      {inquirySuccess && inquiryPart && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl p-6 space-y-6 text-center animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
               <CheckCircle weight="duotone" className="w-9 h-9" />
@@ -912,7 +917,8 @@ export default function PartsCatalog({
               Okay
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

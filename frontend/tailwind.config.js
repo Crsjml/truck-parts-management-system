@@ -10,6 +10,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         display: ['Space Grotesk', 'sans-serif'],
+        mono: ['Fira Code', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border) / <alpha-value>)",

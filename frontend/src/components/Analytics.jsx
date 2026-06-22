@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export default function Analytics({ parts, transactions }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
 
   // Computations
@@ -91,9 +93,9 @@ export default function Analytics({ parts, transactions }) {
       const tableRows = tx.items.map((item, index) => [
         index + 1,
         item.name,
-        `PHP ${item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        `${displayCurrency} ${item.price}`,
         item.quantity,
-        `PHP ${(item.price * item.quantity).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+        `${displayCurrency} ${(item.price * item.quantity)}`
       ]);
 
       doc.autoTable({
@@ -112,18 +114,18 @@ export default function Analytics({ parts, transactions }) {
       doc.setFontSize(9.5);
       doc.setFont("Helvetica", "normal");
       doc.text("Subtotal:", 130, finalY);
-      doc.text(`PHP ${tx.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.subtotal}`, 195, finalY, { align: 'right' });
       doc.text("Discount Deductions:", 130, finalY + 5.5);
-      doc.text(`- PHP ${tx.discount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 5.5, { align: 'right' });
+      doc.text(`-${formatCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
       doc.text("VAT Amount (12%):", 130, finalY + 11);
-      doc.text(`PHP ${tx.taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 11, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, finalY + 11, { align: 'right' });
 
       doc.setFillColor(27, 54, 93);
       doc.rect(128, finalY + 15, 68, 7.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont("Helvetica", "bold");
       doc.text("NET TOTAL:", 131, finalY + 20);
-      doc.text(`PHP ${tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 193, finalY + 20, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.total}`, 193, finalY + 20, { align: 'right' });
 
       doc.setTextColor(100, 116, 139);
       doc.setFont("Helvetica", "italic");
@@ -143,7 +145,7 @@ export default function Analytics({ parts, transactions }) {
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Net Sales</span>
             <h3 className="text-2xl font-bold text-foreground font-display">
-              ₱{totalInvoicedAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              {formatCurrency(totalInvoicedAmount)}
             </h3>
             <p className="text-[10px] text-emerald-400 flex items-center gap-1">
               <TrendUp weight="duotone" className="w-3 h-3" /> Cumulative earnings
@@ -169,7 +171,7 @@ export default function Analytics({ parts, transactions }) {
           <div className="space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Invoice</span>
             <h3 className="text-2xl font-bold text-foreground font-display">
-              ₱{averageInvoiceValue.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              {formatCurrency(averageInvoiceValue)}
             </h3>
             <p className="text-[10px] text-muted-foreground">Value per customer checkout</p>
           </div>
@@ -212,7 +214,7 @@ export default function Analytics({ parts, transactions }) {
                   <div key={item.id} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-semibold text-muted-foreground">
                       <span className="truncate max-w-[75%]">{index + 1}. {item.name}</span>
-                      <span>{item.quantity} sold (₱{item.revenue.toLocaleString('en-PH')})</span>
+                      <span>{item.quantity} sold ({formatCurrency(item.revenue)})</span>
                     </div>
                     {/* Glowing bar */}
                     <div className="w-full bg-background rounded-full h-3.5 border border-slate-900 overflow-hidden">
@@ -312,7 +314,7 @@ export default function Analytics({ parts, transactions }) {
                       {tx.items.reduce((s, i) => s + i.quantity, 0)} items
                     </td>
                     <td className="py-3 px-3 text-right font-bold text-foreground">
-                      ₱{tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      {formatCurrency(tx.total)}
                     </td>
                     <td className="py-3 px-3 text-center">
                       <button 

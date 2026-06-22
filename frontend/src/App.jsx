@@ -13,12 +13,13 @@ import StatusBar from './components/StatusBar';
 import Footer from './components/Footer';
 import VerificationSimulator from './components/VerificationSimulator';
 import CategoryManagement from './components/CategoryManagement';
+import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 
 import {
   INITIAL_TRANSACTIONS,
   INITIAL_LOGS
 } from './mockData';
-import { clearSession, getActiveSession, fetchParts, fetchCategories, verifyCustomerEmail, createPart, updatePart, deletePart } from './authStore';
+import { clearSession, getActiveSession, fetchParts, fetchCategories, verifyCustomerEmail, createPart, updatePart, deletePart, loginCustomer, loginAdmin, deleteCategory, createTransaction, fetchTransactions } from './authStore';
 
 export default function App() {
   const [activeView, setActiveView] = useState('storefront');
@@ -166,38 +167,42 @@ export default function App() {
     }
   };
 
-  const handleRestockPart = (id, quantity) => {
-    setParts((prev) =>
-      prev.map((part) => {
-        if (part.id === id) {
-          const newStock = part.stock + quantity;
-          addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`);
-          return { ...part, stock: newStock };
-        }
+  const handleRestockPart = async (id, quantity) => {
+    const part = parts.find(p => p.id === id);
+    if (!part) return;
 
-        return part;
-      })
-    );
+    const newStock = part.stock + quantity;
+    // Optimistic UI update
+    setParts((prev) => prev.map((p) => p.id === id ? { ...p, stock: newStock } : p));
+    
+    // Backend sync
+    const res = await updatePart(id, { stock: newStock });
+    if (res.ok) {
+      addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`);
+    } else {
+      addLog('system', `Error restocking: ${res.error}`);
+      alert(`Restock failed: ${res.error}`);
+      // Revert optimistic update
+      const updatedParts = await fetchParts();
+      setParts(updatedParts);
+    }
   };
 
-  const handleCheckout = (txData) => {
+  const handleCheckout = async (txData) => {
+    // Optimistic UI update
     setTransactions((prev) => [txData, ...prev]);
 
-    setParts((prev) =>
-      prev.map((part) => {
-        const purchasedItem = txData.items.find((item) => item.partId === part.id);
-        if (purchasedItem) {
-          return {
-            ...part,
-            stock: Math.max(0, part.stock - purchasedItem.quantity)
-          };
-        }
-
-        return part;
-      })
-    );
-
-    addLog('sale', `Sale transaction completed: Invoice ${txData.invoiceNumber} processed for ${txData.customerName}.`);
+    // Backend sync
+    const res = await createTransaction(txData);
+    if (res.ok) {
+      addLog('sales', `Processed sale: ${txData.invoiceNumber} for ${txData.total}.`);
+      // Re-sync all parts from backend to ensure accurate stock
+      const updatedParts = await fetchParts();
+      setParts(updatedParts);
+    } else {
+      addLog('system', `Error processing sale: ${res.error}`);
+      alert(`Transaction failed: ${res.error}`);
+    }
   };
 
   const handleCustomerAuthenticated = (session) => {
@@ -211,6 +216,24 @@ export default function App() {
     setCustomerSession(null);
     setActiveView('admin-app');
     setPage('dashboard');
+  };
+
+  const handleAutoCustomerLogin = async () => {
+    const result = await loginCustomer({ email: 'lionel.messi@example.com', password: 'Player@12345', rememberMe: false });
+    if (result.ok) {
+      handleCustomerAuthenticated(result.session);
+    } else {
+      alert("Auto-login failed. Check if seed data is loaded. Error: " + result.error);
+    }
+  };
+
+  const handleAutoAdminLogin = async () => {
+    const result = await loginAdmin({ email: 'admin@tarlactruckparts.local', password: 'Admin@12345' });
+    if (result.ok) {
+      handleAdminAuthenticated(result.session);
+    } else {
+      alert("Admin auto-login failed. Check if seed data is loaded. Error: " + result.error);
+    }
   };
 
   const handleOpenCustomerAuth = (initialTab = 'login') => {
@@ -268,6 +291,12 @@ export default function App() {
           onRegisterSuccess={handleRegisterSuccess}
         />
         {renderVerificationSimulator()}
+      <FloatingSettingsWidget 
+        onAdminLogin={handleAutoAdminLogin}
+        onCustomerLogin={handleAutoCustomerLogin}
+        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+        isLoggedIn={!!adminSession || !!customerSession}
+      />
         <StatusBar />
       </>
     );
@@ -289,6 +318,12 @@ export default function App() {
           onRegisterSuccess={handleRegisterSuccess}
         />
         {renderVerificationSimulator()}
+      <FloatingSettingsWidget 
+        onAdminLogin={handleAutoAdminLogin}
+        onCustomerLogin={handleAutoCustomerLogin}
+        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+        isLoggedIn={!!adminSession || !!customerSession}
+      />
         <StatusBar />
       </>
     );
@@ -310,6 +345,12 @@ export default function App() {
           setIsDarkMode={setIsDarkMode}
         />
         {renderVerificationSimulator()}
+      <FloatingSettingsWidget 
+        onAdminLogin={handleAutoAdminLogin}
+        onCustomerLogin={handleAutoCustomerLogin}
+        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+        isLoggedIn={!!adminSession || !!customerSession}
+      />
         <StatusBar />
       </>
     );
@@ -330,6 +371,12 @@ export default function App() {
           setIsDarkMode={setIsDarkMode}
         />
         {renderVerificationSimulator()}
+      <FloatingSettingsWidget 
+        onAdminLogin={handleAutoAdminLogin}
+        onCustomerLogin={handleAutoCustomerLogin}
+        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+        isLoggedIn={!!adminSession || !!customerSession}
+      />
         <StatusBar />
       </>
     );
@@ -337,9 +384,9 @@ export default function App() {
 
 
   return (
-    <div className="h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300">
-      <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 glass-panel border-r border-border p-5 justify-between">
-        <div className="space-y-8">
+    <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
+      <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 glass-panel border-r border-border justify-between overflow-hidden">
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 custom-scrollbar">
           <div className="flex items-center px-2 py-4">
             <Logo className="w-14 h-14" showText={true} />
           </div>
@@ -407,7 +454,7 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-border flex items-center justify-between">
+        <div className="shrink-0 p-5 pt-4 border-t border-border flex items-center justify-between bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
               <User weight="duotone" className="w-5 h-5" />
@@ -424,9 +471,9 @@ export default function App() {
       </aside>
 
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden bg-background/80 backdrop-blur-sm">
-          <aside className="w-72 bg-background border-r border-border p-5 flex flex-col justify-between animate-slideRight">
-            <div className="space-y-8">
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm">
+          <aside className="w-72 bg-background border-r border-border flex flex-col justify-between overflow-hidden animate-slideRight">
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 custom-scrollbar">
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <Logo className="w-12 h-12" showText={true} />
                 <button
@@ -501,7 +548,7 @@ export default function App() {
               </nav>
             </div>
 
-            <div className="pt-4 border-t border-border flex items-center justify-between">
+            <div className="shrink-0 p-5 pt-4 border-t border-border flex items-center justify-between bg-secondary/30">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground text-xs font-bold">
                   <User weight="duotone" className="w-4 h-4" />
@@ -573,7 +620,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <main className="flex-1 flex flex-col overflow-y-auto px-6 pt-6 pb-2 md:px-8 md:pt-8 md:pb-2">
           {page === 'dashboard' && (
             <Dashboard
               parts={parts}
@@ -600,12 +647,16 @@ export default function App() {
           {page === 'pos' && <TransactionPOS parts={parts} onCheckout={handleCheckout} />}
 
           {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
-
           {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
         </main>
-        <Footer className="px-6 md:px-8 mt-6" />
       </div>
       {renderVerificationSimulator()}
+      <FloatingSettingsWidget 
+        onAdminLogin={handleAutoAdminLogin}
+        onCustomerLogin={handleOpenCustomerAuth}
+        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+        isLoggedIn={!!adminSession || !!customerSession}
+      />
       <StatusBar />
     </div>
   );

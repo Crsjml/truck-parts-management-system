@@ -341,11 +341,11 @@ export default function AuthPortal({
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brandBlue-600/5 rounded-full filter blur-[100px] animate-pulse pointer-events-none" />
 
       {/* Main Glass Container */}
-      <div className="w-full max-w-5xl rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-slate-100/40 dark:bg-slate-900/30 backdrop-blur-2xl shadow-2xl flex flex-col lg:flex-row overflow-hidden min-h-[750px] animate-scaleUp">
+      <div className="w-full max-w-5xl rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-slate-100/40 dark:bg-slate-900/30 backdrop-blur-2xl shadow-2xl flex flex-col lg:flex-row overflow-hidden min-h-[550px] animate-scaleUp">
         
         {/* Left Side: Brand Panel */}
-        <section className="relative flex lg:w-[45%] flex-col justify-between overflow-hidden p-8 lg:p-12 bg-gradient-to-b from-slate-200/30 to-slate-100/10 dark:from-slate-950/40 dark:to-slate-950/20 border-b lg:border-b-0 lg:border-r border-slate-200/50 dark:border-white/5">
-          <div className="relative space-y-8">
+        <section className="relative flex lg:w-[45%] flex-col justify-between overflow-hidden p-6 lg:p-8 bg-gradient-to-b from-slate-200/30 to-slate-100/10 dark:from-slate-950/40 dark:to-slate-950/20 border-b lg:border-b-0 lg:border-r border-slate-200/50 dark:border-white/5">
+          <div className="relative space-y-4">
             <button
               type="button"
               onClick={onBackToStore}
@@ -355,61 +355,61 @@ export default function AuthPortal({
               Back to store
             </button>
 
-            <Logo className="w-16 h-16" showText={true} />
+            <Logo className="w-12 h-12" showText={true} />
 
-            <div className="max-w-xl space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-red-600 dark:text-red-300">
+            <div className="max-w-xl space-y-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-red-600 dark:text-red-300">
                 Premium Truck Spare Parts
               </span>
-              <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                 Tarlac Truck Pitstop
               </h1>
-              <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
+              <p className="max-w-lg text-xs leading-5 text-muted-foreground sm:text-sm">
                 We specialize in sourcing and distributing premium grade, heavy-duty truck accessories and spare components. Offering wholesale and retail solutions across Tarlac City and regional logistics networks.
               </p>
             </div>
           </div>
 
-          <div className="relative space-y-2.5 my-8 lg:my-0">
+          <div className="relative space-y-2 my-4 lg:my-0">
             {/* Compatibility */}
-            <div className="flex gap-4 p-4 rounded-2xl border border-transparent border-l-2 hover:border-l-brandBlue-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
-              <div className="p-2.5 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/20 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <Truck weight="duotone" className="w-5 h-5" />
+            <div className="flex gap-3 p-3 rounded-2xl border border-transparent border-l-2 hover:border-l-brandBlue-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
+              <div className="p-1.5 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/20 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-lg h-8 w-8 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                <Truck weight="duotone" className="w-4 h-4" />
               </div>
               <div>
                 <h4 className="font-bold text-foreground text-sm">Wide Compatibility</h4>
-                <p className="text-xs text-muted-foreground mt-1">Tailored replacement components for Isuzu, Hino, Fuso, and Toyota Dyna models.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Tailored replacement components for Isuzu, Hino, Fuso, and Toyota Dyna models.</p>
               </div>
             </div>
 
             {/* Wholesale Pricing */}
-            <div className="flex gap-4 p-4 rounded-2xl border border-transparent border-l-2 hover:border-l-emerald-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
-              <div className="p-2.5 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <Percent weight="duotone" className="w-5 h-5" />
+            <div className="flex gap-3 p-3 rounded-2xl border border-transparent border-l-2 hover:border-l-emerald-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
+              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg h-8 w-8 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                <Percent weight="duotone" className="w-4 h-4" />
               </div>
               <div>
                 <h4 className="font-bold text-foreground text-sm">VIP Wholesale Pricing</h4>
-                <p className="text-xs text-muted-foreground mt-1">Bulk volume deductibles and quotation rates directly mapped for freight operators.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Bulk volume deductibles and quotation rates directly mapped for freight operators.</p>
               </div>
             </div>
 
             {/* OEM Certified Sourcing */}
-            <div className="flex gap-4 p-4 rounded-2xl border border-transparent border-l-2 hover:border-l-rose-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
-              <div className="p-2.5 bg-rose-500/10 dark:bg-rose-900/30 border border-rose-500/20 dark:border-rose-800/30 text-rose-600 dark:text-rose-400 rounded-xl h-10 w-10 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <ShieldCheck weight="duotone" className="w-5 h-5" />
+            <div className="flex gap-3 p-3 rounded-2xl border border-transparent border-l-2 hover:border-l-rose-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
+              <div className="p-1.5 bg-rose-500/10 dark:bg-rose-900/30 border border-rose-500/20 dark:border-rose-800/30 text-rose-600 dark:text-rose-400 rounded-lg h-8 w-8 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                <ShieldCheck weight="duotone" className="w-4 h-4" />
               </div>
               <div>
                 <h4 className="font-bold text-foreground text-sm">OEM Certified Sourcing</h4>
-                <p className="text-xs text-muted-foreground mt-1">All inventory matches exact manufacturer OEM specifications to guarantee reliability.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">All inventory matches exact manufacturer OEM specifications to guarantee reliability.</p>
               </div>
             </div>
           </div>
 
-          <Footer className="w-full mt-4" />
+          <Footer className="w-full mt-2" />
         </section>
 
         {/* Right Side: Form Panel */}
-        <section className="flex-1 flex flex-col justify-center p-8 lg:p-12 bg-white/5 dark:bg-slate-900/5">
+        <section className="flex-1 flex flex-col justify-center p-6 lg:p-8 bg-white/5 dark:bg-slate-900/5">
           <div className="w-full max-w-md mx-auto space-y-6">
             
             <div className="border-b border-border pb-5">
@@ -534,7 +534,7 @@ export default function AuthPortal({
 
              {isCustomerMode && activeTab === 'verify' && (
               <form onSubmit={handleVerificationSubmit} className={`space-y-4 ${shake && activeTab === 'verify' ? 'animate-shake' : ''}`}>
-                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
                   Email verification is required before login. The code is sent to the address used during registration.
                 </div>
 
@@ -658,7 +658,7 @@ export default function AuthPortal({
               <div className="space-y-4">
                 {forgotStep === 1 ? (
                   <form onSubmit={handleForgotRequest} className={`space-y-4 ${shake && activeTab === 'forgot' ? 'animate-shake' : ''}`}>
-                    <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                    <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
                       Enter your email to request a password reset link.
                     </div>
                     <div className="space-y-2">
@@ -683,7 +683,7 @@ export default function AuthPortal({
                   </form>
                 ) : (
                   <form onSubmit={handleForgotReset} className={`space-y-4 ${shake && activeTab === 'forgot' ? 'animate-shake' : ''}`}>
-                     <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                     <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
                       Enter the reset token you received and your new password.
                     </div>
                     {errors.form && <p className="text-xs text-red-400 font-semibold">{errors.form}</p>}
@@ -738,7 +738,7 @@ export default function AuthPortal({
                   </div>
                 ) : (
                   <>
-                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-300">
                       Admin accounts are not publicly registered. Use this separate portal for privileged access.
                     </div>
 

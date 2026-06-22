@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useSettings } from '../context/SettingsContext';
 import { MagnifyingGlass, ShoppingCart, Trash, Plus, Minus, User, Phone, Tag, Download, CheckCircle, X, CreditCard, FileCsv } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export default function TransactionPOS({ parts, onCheckout }) {
+  const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState([]);
   
@@ -169,9 +171,9 @@ export default function TransactionPOS({ parts, onCheckout }) {
       const tableRows = tx.items.map((item, index) => [
         index + 1,
         item.name,
-        `PHP ${item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        `${displayCurrency} ${item.price}`,
         item.quantity,
-        `PHP ${(item.price * item.quantity).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+        `${displayCurrency} ${(item.price * item.quantity)}`
       ]);
 
       doc.autoTable({
@@ -209,13 +211,13 @@ export default function TransactionPOS({ parts, onCheckout }) {
       doc.setFontSize(9.5);
       doc.setFont("Helvetica", "normal");
       doc.text("Subtotal:", 130, finalY);
-      doc.text(`PHP ${tx.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.subtotal}`, 195, finalY, { align: 'right' });
 
       doc.text("Discount Deductions:", 130, finalY + 5.5);
-      doc.text(`- PHP ${tx.discount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 5.5, { align: 'right' });
+      doc.text(`-${formatCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
 
       doc.text("VAT Amount (12%):", 130, finalY + 11);
-      doc.text(`PHP ${tx.taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 195, finalY + 11, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, finalY + 11, { align: 'right' });
 
       // Highlight Box for Total
       doc.setFillColor(27, 54, 93);
@@ -224,7 +226,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
       doc.setTextColor(255, 255, 255);
       doc.setFont("Helvetica", "bold");
       doc.text("NET TOTAL:", 131, finalY + 20);
-      doc.text(`PHP ${tx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 193, finalY + 20, { align: 'right' });
+      doc.text(`${displayCurrency} ${tx.total}`, 193, finalY + 20, { align: 'right' });
 
       // Terms of Sales footer
       doc.setTextColor(100, 116, 139);
@@ -283,7 +285,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
                     <p className="text-[10px] font-mono text-muted-foreground truncate">SKU: {part.sku}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-foreground block">₱{part.price.toLocaleString('en-PH')}</span>
+                    <span className="text-xs font-bold text-foreground block">{formatCurrency(part.price)}</span>
                     <span className={`text-[10px] ${remaining <= 3 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
                       {remaining > 0 ? `${remaining} in stock` : 'Out of stock'}
                     </span>
@@ -321,7 +323,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
                   <div key={item.id} className="flex justify-between items-center bg-secondary p-3 rounded-xl border border-border">
                     <div className="space-y-1 max-w-[60%]">
                       <h6 className="font-semibold text-foreground text-xs truncate">{item.name}</h6>
-                      <span className="text-[10px] text-muted-foreground font-mono">₱{item.price.toLocaleString('en-PH')} / unit</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">{formatCurrency(item.price)} / unit</span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -402,19 +404,19 @@ export default function TransactionPOS({ parts, onCheckout }) {
             <div className="space-y-2 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span>₱{subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span>{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Discount</span>
-                <span>- ₱{discountVal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span>- {formatCurrency(discountVal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>VAT (12%)</span>
-                <span>₱{taxAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span>{formatCurrency(taxAmount)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-foreground border-t border-border pt-2.5">
                 <span>Grand Total</span>
-                <span className="text-red-500 font-extrabold">₱{total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span className="text-red-500 font-extrabold">{formatCurrency(total)}</span>
               </div>
             </div>
 
@@ -432,7 +434,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
 
       {/* Checkout Success Modal Overlay */}
       {checkoutSuccess && lastTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl p-6 space-y-6 text-center animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
               <CheckCircle weight="duotone" className="w-9 h-9" />
@@ -456,7 +458,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Grand Total:</span>
-                <span className="text-emerald-400 font-bold">₱{lastTx.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span className="text-emerald-400 font-bold">{formatCurrency(lastTx.total)}</span>
               </div>
             </div>
 
