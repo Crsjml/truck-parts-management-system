@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import Dashboard from './components/Dashboard';
@@ -13,6 +13,7 @@ import StatusBar from './components/StatusBar';
 import Footer from './components/Footer';
 import VerificationSimulator from './components/VerificationSimulator';
 import CategoryManagement from './components/CategoryManagement';
+import PurchasingModule from './components/PurchasingModule';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 
 import {
@@ -451,6 +452,18 @@ export default function App() {
               <Tag weight="duotone" className="w-5 h-5" />
               Category Management
             </button>
+
+            <button
+              onClick={() => setPage('purchasing')}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                page === 'purchasing'
+                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+              }`}
+            >
+              <Buildings weight="duotone" className="w-5 h-5" />
+              Purchasing
+            </button>
           </nav>
         </div>
 
@@ -544,6 +557,18 @@ export default function App() {
                 >
                   <Tag weight="duotone" className="w-5 h-5" />
                   Category Management
+                </button>
+                <button
+                  onClick={() => {
+                    setPage('purchasing');
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'purchasing' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <Buildings weight="duotone" className="w-5 h-5" />
+                  Purchasing
                 </button>
               </nav>
             </div>
@@ -648,6 +673,21 @@ export default function App() {
 
           {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
           {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
+          {page === 'purchasing' && (
+            <PurchasingModule 
+              onAddLog={addLog} 
+              parts={parts} 
+              onPartsUpdated={async () => {
+                const updatedParts = await fetchParts();
+                setParts(updatedParts);
+              }} 
+              transactions={transactions}
+              onAddPart={handleAddPart}
+              onEditPart={handleEditPart}
+              onDeletePart={handleDeletePart}
+              categories={categories}
+            />
+          )}
         </main>
       </div>
       {renderVerificationSimulator()}

@@ -555,3 +555,115 @@ export const bulkAdjustPrices = async (percentage) => {
     return { ok: false, error: 'Server connection failed.' };
   }
 };
+
+// ── Suppliers ────────────────────────────────────────────────────────────────
+
+export const fetchSuppliers = async (archived = false) => {
+  try {
+    const { ok, data } = await api_get(`/api/suppliers${archived ? '?archived=true' : ''}`);
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch suppliers:', err);
+    return [];
+  }
+};
+
+export const createSupplier = async (supplierData) => {
+  try {
+    const { ok, data } = await api_post('/api/suppliers', supplierData);
+    return ok ? { ok: true, supplier: data } : { ok: false, error: data.msg || 'Failed to create supplier.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updateSupplier = async (id, supplierData) => {
+  try {
+    const { ok, data } = await api_put(`/api/suppliers/${id}`, supplierData);
+    return ok ? { ok: true, supplier: data } : { ok: false, error: data.msg || 'Failed to update supplier.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+// Soft delete (archive)
+export const archiveSupplier = async (id) => {
+  try {
+    const { ok, data } = await api_delete(`/api/suppliers/${id}`);
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to archive supplier.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+// Restore archived supplier
+export const restoreSupplier = async (id) => {
+  try {
+    const { ok, data } = await api_put(`/api/suppliers/${id}/restore`, {});
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to restore supplier.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+// Keep backward compat alias
+export const deleteSupplier = archiveSupplier;
+
+// ── Purchase Orders ──────────────────────────────────────────────────────────
+
+export const fetchPurchaseOrders = async () => {
+  try {
+    const { ok, data } = await api_get('/api/purchase-orders');
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch POs:', err);
+    return [];
+  }
+};
+
+export const createPurchaseOrder = async (poData) => {
+  try {
+    const { ok, data } = await api_post('/api/purchase-orders', poData);
+    return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to create Purchase Order.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updatePurchaseOrderStatus = async (id, status) => {
+  try {
+    const { ok, data } = await api_put(`/api/purchase-orders/${id}/status`, { status });
+    return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update PO status.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updatePoBillingStatus = async (id, billingStatus) => {
+  try {
+    const { ok, data } = await api_put(`/api/purchase-orders/${id}/billing`, { billingStatus });
+    return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update billing status.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+// ── Parts (extended) ─────────────────────────────────────────────────────────
+
+export const togglePartPublished = async (id, published) => {
+  try {
+    const { ok, data } = await api_put(`/api/parts/${id}/published`, { published });
+    return ok ? { ok: true, published: data.published } : { ok: false, error: data.msg };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const restorePart = async (id) => {
+  try {
+    const { ok, data } = await api_put(`/api/parts/${id}/restore`, {});
+    return ok ? { ok: true } : { ok: false, error: data.msg };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
