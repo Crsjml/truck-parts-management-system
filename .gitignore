@@ -3,3 +3,4 @@ node_modules/
 atlas-credentials.env
 dist/
 frontend/dist/
+.env.jira

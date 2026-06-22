@@ -7,6 +7,8 @@ import partsRouter from './routes/parts.js';
 import categoriesRouter from './routes/categories.js';
 import settingsRouter from './routes/settings_routes.js';
 import transactionsRouter from './routes/transactions.js';
+import suppliersRouter from './routes/suppliers.js';
+import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import mongoose from 'mongoose';
 
 const app = express();
@@ -26,6 +28,8 @@ app.use('/api/parts', partsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/transactions', transactionsRouter);
+app.use('/api/suppliers', suppliersRouter);
+app.use('/api/purchase-orders', purchaseOrdersRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 
