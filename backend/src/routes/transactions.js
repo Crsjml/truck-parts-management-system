@@ -2,7 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Transaction from '../models/Transaction.js';
 import Part from '../models/Part.js';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

@@ -9,8 +9,19 @@ const router = express.Router();
 // ── Get all parts (with search and category filtering) ───────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { search, category } = req.query;
+    const { search, category, archived, published } = req.query;
     const query = {};
+
+    // By default exclude archived parts; pass ?archived=true to include only archived
+    if (archived === 'true') {
+      query.archived = true;
+    } else {
+      query.archived = { $ne: true };
+    }
+
+    // Optional published filter
+    if (published === 'true') query.published = true;
+    if (published === 'false') query.published = false;
 
     if (category && category.toLowerCase() !== 'all') {
       const matchedCats = await Category.find({
@@ -40,7 +51,7 @@ router.get('/', async (req, res) => {
     }
 
     // Sort alphabetically by name
-    const parts = await Part.find(query).populate('category').sort({ name: 1 });
+    const parts = await Part.find(query).populate('category').sort({ name: 1 }).lean();
     
     // Convert field names if necessary for frontend (e.g. min_stock -> minStock)
     const formattedParts = parts.map(part => ({
@@ -55,7 +66,9 @@ router.get('/', async (req, res) => {
       minStock: part.min_stock,
       compatibility: part.compatibility || '',
       description: part.description || '',
-      image: part.image || ''
+      image: part.image || '',
+      published: part.published ?? true,
+      archived: part.archived ?? false
     }));
 
     res.json(formattedParts);
@@ -191,6 +204,7 @@ router.put('/:id', async (req, res) => {
     if (compatibility !== undefined) part.compatibility = compatibility.trim();
     if (description !== undefined) part.description = description.trim();
     if (image !== undefined) part.image = image;
+    if (req.body.published !== undefined) part.published = req.body.published;
 
     await part.save();
 
@@ -207,7 +221,9 @@ router.put('/:id', async (req, res) => {
       minStock: populated.min_stock,
       compatibility: populated.compatibility,
       description: populated.description,
-      image: populated.image || ''
+      image: populated.image || '',
+      published: populated.published ?? true,
+      archived: populated.archived ?? false
     });
   } catch (err) {
     console.error('[update part]', err);
@@ -215,21 +231,47 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ── Delete part record ───────────────────────────────────────────────────────
+// ── Archive part record (soft delete) ────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
     const part = await Part.findById(id);
-    if (!part) {
-      return res.status(404).json({ msg: 'Part record not found.' });
-    }
+    if (!part) return res.status(404).json({ msg: 'Part record not found.' });
 
-    await Part.findByIdAndDelete(id);
-    res.json({ msg: 'Part record deleted successfully.' });
+    part.archived = true;
+    await part.save();
+    res.json({ msg: 'Part archived successfully.' });
   } catch (err) {
-    console.error('[delete part]', err);
-    res.status(500).json({ msg: 'Server error deleting part record.' });
+    console.error('[archive part]', err);
+    res.status(500).json({ msg: 'Server error archiving part record.' });
+  }
+});
+
+// ── Toggle published status ───────────────────────────────────────────────────
+router.put('/:id/published', async (req, res) => {
+  try {
+    const part = await Part.findById(req.params.id);
+    if (!part) return res.status(404).json({ msg: 'Part not found.' });
+    part.published = req.body.published ?? !part.published;
+    await part.save();
+    res.json({ id: part._id.toString(), published: part.published });
+  } catch (err) {
+    console.error('[toggle published]', err);
+    res.status(500).json({ msg: 'Server error toggling published state.' });
+  }
+});
+
+// ── Restore archived part ─────────────────────────────────────────────────────
+router.put('/:id/restore', async (req, res) => {
+  try {
+    const part = await Part.findById(req.params.id);
+    if (!part) return res.status(404).json({ msg: 'Part not found.' });
+    part.archived = false;
+    await part.save();
+    res.json({ msg: 'Part restored successfully.' });
+  } catch (err) {
+    console.error('[restore part]', err);
+    res.status(500).json({ msg: 'Server error restoring part.' });
   }
 });
 
