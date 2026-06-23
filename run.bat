@@ -1,4 +1,8 @@
 @echo off
+echo Stopping any currently running servers...
+docker-compose down
+
+echo.
 echo Starting MongoDB silently in the background...
 docker-compose up -d mongo
 

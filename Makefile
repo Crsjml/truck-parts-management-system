@@ -25,6 +25,8 @@ build:
 
 # Run cluster with clean logs (Mongo in background, Web services attached)
 up:
+	@echo "${GREEN}Stopping any currently running servers...${NC}"
+	docker-compose down
 	@echo "${GREEN}Starting MongoDB silently in the background...${NC}"
 	docker-compose up -d mongo
 	@echo "\n${CYAN}================================================${NC}"
