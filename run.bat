@@ -5,7 +5,9 @@ docker-compose up -d mongo
 echo.
 echo ================================================
 echo 🚀 Web Application is spinning up!
-echo You will see live success/bug messages and links below.
+echo 🔗 Frontend: http://localhost:5173
+echo.
+echo You will see live success/bug messages below.
 echo Press Ctrl+C to stop the servers.
 echo ================================================
 echo.

@@ -29,7 +29,8 @@ up:
 	docker-compose up -d mongo
 	@echo "\n${CYAN}================================================${NC}"
 	@echo "${GREEN}🚀 Web Application is spinning up!${NC}"
-	@echo "You will see live success/bug messages and links below."
+	@echo "🔗 ${CYAN}Frontend:${NC} http://localhost:5173\n"
+	@echo "You will see live success/bug messages below."
 	@echo "Press Ctrl+C to stop the servers."
 	@echo "${CYAN}================================================${NC}\n"
 	docker-compose --ansi always up backend frontend
