@@ -23,18 +23,16 @@ build:
 	@echo "${GREEN}Building Docker Images...${NC}"
 	BUILDKIT_COLORS="run=green:info=cyan:error=red:warn=yellow" docker-compose build --progress=plain --parallel
 
-# Run cluster detached and open browser
+# Run cluster with clean logs (Mongo in background, Web services attached)
 up:
-	@echo "${GREEN}Starting all containers in the background...${NC}"
-	docker-compose --ansi always up -d
+	@echo "${GREEN}Starting MongoDB silently in the background...${NC}"
+	docker-compose up -d mongo
 	@echo "\n${CYAN}================================================${NC}"
-	@echo "${GREEN}🚀 Application is spinning up!${NC}"
-	@echo "🔗 ${CYAN}Frontend:${NC} http://localhost:5173"
-	@echo "🔗 ${CYAN}Backend API:${NC} http://localhost:5000"
+	@echo "${GREEN}🚀 Web Application is spinning up!${NC}"
+	@echo "You will see live success/bug messages and links below."
+	@echo "Press Ctrl+C to stop the servers."
 	@echo "${CYAN}================================================${NC}\n"
-	@echo "Opening browser in 3 seconds..."
-	@sleep 3
-	@open http://localhost:5173 2>/dev/null || echo "Started successfully!"
+	docker-compose --ansi always up backend frontend
 
 down:
 	@echo "${GREEN}Stopping containers...${NC}"

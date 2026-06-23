@@ -11,6 +11,8 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./atlas-credentials.env
+    environment:
+      - NODE_NO_WARNINGS=1
     restart: unless-stopped
     depends_on:
       - mongo
@@ -42,6 +44,7 @@ services:
   mongo:
     container_name: truck-system-mongo
     image: mongo:7
+    command: --quiet
     ports:
       - "27017:27017"
     volumes:
