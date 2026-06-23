@@ -25,16 +25,14 @@ build:
 
 # Run cluster with clean logs (Mongo in background, Web services attached)
 up:
-	@echo "${GREEN}Stopping any currently running servers...${NC}"
+	@echo "\033[1;32m🛑 Stopping any currently running servers...\033[0m"
 	docker-compose down
-	@echo "${GREEN}Starting MongoDB silently in the background...${NC}"
+	@echo "\033[1;36m🗄️  Starting MongoDB silently in the background...\033[0m"
 	docker-compose up -d mongo
-	@echo "\n${CYAN}================================================${NC}"
-	@echo "${GREEN}🚀 Web Application is spinning up!${NC}"
-	@echo "🔗 ${CYAN}Frontend:${NC} http://localhost:5173\n"
-	@echo "You will see live success/bug messages below."
-	@echo "Press Ctrl+C to stop the servers."
-	@echo "${CYAN}================================================${NC}\n"
+	@echo "\n\033[1;32m🚀 Web Application is spinning up!\033[0m"
+	@echo "\033[1;36m🔗 Frontend:\033[0m http://localhost:5173\n"
+	@echo "🟢 Live success/bug messages below..."
+	@echo "⏹️  Press Ctrl+C to stop the servers at any time.\n"
 	docker-compose --ansi always up backend frontend
 
 down:
