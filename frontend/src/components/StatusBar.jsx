@@ -12,8 +12,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle, XCircle } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_BACKEND_URL || '/api';
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 const INDICATORS = {

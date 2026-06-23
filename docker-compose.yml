@@ -10,7 +10,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "3001:5000"
+      - "3001-3010:5000"
     env_file:
       - ./atlas-credentials.env
     restart: unless-stopped
@@ -26,9 +26,9 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "5173:5173"
+      - "5173-5183:5173"
     environment:
-      - VITE_BACKEND_URL=http://localhost:3001
+      - VITE_BACKEND_URL=/api
     volumes:
       # Live mount — edits hot-reload instantly via Vite HMR (no rebuild needed)
       - ./frontend:/app

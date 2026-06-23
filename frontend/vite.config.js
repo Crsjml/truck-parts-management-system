@@ -12,6 +12,10 @@ export default defineConfig({
         target: 'https://restcountries.com/v3.1',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/countries/, '')
+      },
+      '/api': {
+        target: 'http://backend:5000',
+        changeOrigin: true
       }
     }
   }

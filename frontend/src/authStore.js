@@ -74,7 +74,7 @@ function decode_jwt(token) {
 
 // ── API base URL ─────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_BACKEND_URL || '/api';
 
 function getAuthHeaders() {
   const session = readSession(ADMIN_SESSION_KEY) || readSession(CUSTOMER_SESSION_KEY);
