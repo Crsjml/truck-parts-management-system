@@ -2,13 +2,7 @@
 import './config/env.js';
 import app from './app.js';
 import { connectDB } from './config/db.js';
-import { seedAdmin, seedCustomers, seedCategories, seedParts } from './config/seed.js';
-
 await connectDB();
-await seedAdmin();
-await seedCustomers();
-await seedCategories();
-await seedParts();
 
 // Dynamic port selection: try default, then increment until free
 const startServer = (port) =>
