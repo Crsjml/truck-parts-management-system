@@ -9,8 +9,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "${BACKEND_PORT:-3001}:5000"
     env_file:
       - ./atlas-credentials.env
     restart: unless-stopped
