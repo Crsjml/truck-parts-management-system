@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import PartsCatalog from './components/PartsCatalog';
 import TransactionPOS from './components/TransactionPOS';
 import Analytics from './components/Analytics';
+import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import CustomerDashboard from './components/CustomerDashboard';
 import StatusBar from './components/StatusBar';
@@ -207,6 +208,11 @@ export default function App() {
     setActiveView('storefront');
   };
 
+  const handleOpenCustomerAuth = () => setActiveView('customer-auth');
+  const handleOpenAdminAuth = () => setActiveView('admin-auth');
+  const handleAutoCustomerLogin = () => setActiveView('customer-auth');
+  const handleAutoAdminLogin = () => setActiveView('admin-auth');
+
   const lowStockCount = parts.filter((part) => part.stock <= part.minStock).length;
 
   if (!isLoaded) {
@@ -220,31 +226,23 @@ export default function App() {
     );
   }
 
-  if (activeView === 'customer-auth' || activeView === 'admin-auth') {
+  if (activeView === 'customer-auth' || activeView === 'admin-auth' || activeView === 'signup') {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background/50 backdrop-blur-sm relative">
-        <button 
-          onClick={() => setActiveView('storefront')}
-          className="absolute top-6 left-6 p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-        <SignIn routing="virtual" afterSignInUrl="/" />
-      </div>
-    );
-  }
-
-  if (activeView === 'signup') {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background/50 backdrop-blur-sm relative">
-        <button 
-          onClick={() => setActiveView('storefront')}
-          className="absolute top-6 left-6 p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-        <SignUp routing="virtual" afterSignUpUrl="/" />
-      </div>
+      <>
+        <AuthPortal
+          mode={activeView === 'admin-auth' ? 'admin' : 'customer'}
+          initialTab={activeView === 'signup' ? 'register' : 'login'}
+          onBackToStore={() => setActiveView('storefront')}
+        />
+        {renderVerificationSimulator()}
+        <FloatingSettingsWidget 
+          onAdminLogin={handleAutoAdminLogin}
+          onCustomerLogin={handleAutoCustomerLogin}
+          onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+          isLoggedIn={!!adminSession || !!customerSession}
+        />
+        <StatusBar />
+      </>
     );
   }
 

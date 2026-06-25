@@ -11,10 +11,9 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./atlas-credentials.env
+      - ./backend/.env
     environment:
       - NODE_NO_WARNINGS=1
-    env_file:
-      - ./backend/.env
     restart: unless-stopped
     depends_on:
       - mongo
