@@ -10,8 +10,12 @@ import transactionsRouter from './routes/transactions.js';
 import suppliersRouter from './routes/suppliers.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import mongoose from 'mongoose';
+import { clerkMiddleware } from '@clerk/express';
 
 const app = express();
+
+// Protect all routes under /api with Clerk unless explicitly public
+app.use('/api', clerkMiddleware());
 
 app.use(cors({
   origin: [

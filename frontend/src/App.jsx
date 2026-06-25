@@ -6,7 +6,6 @@ import Dashboard from './components/Dashboard';
 import PartsCatalog from './components/PartsCatalog';
 import TransactionPOS from './components/TransactionPOS';
 import Analytics from './components/Analytics';
-import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import CustomerDashboard from './components/CustomerDashboard';
 import StatusBar from './components/StatusBar';
@@ -20,14 +19,14 @@ import {
   INITIAL_TRANSACTIONS,
   INITIAL_LOGS
 } from './mockData';
-import { clearSession, getActiveSession, fetchParts, fetchCategories, verifyCustomerEmail, createPart, updatePart, deletePart, loginCustomer, loginAdmin, deleteCategory, createTransaction, fetchTransactions } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions } from './authStore';
+import { useUser, useAuth, SignIn, SignUp, ClerkLoading, ClerkLoaded } from '@clerk/clerk-react';
 
 export default function App() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { signOut } = useAuth();
+
   const [activeView, setActiveView] = useState('storefront');
-  const [authReady, setAuthReady] = useState(false);
-  const [customerSession, setCustomerSession] = useState(null);
-  const [adminSession, setAdminSession] = useState(null);
-  const [authTab, setAuthTab] = useState('login');
   const [page, setPage] = useState('dashboard');
   const [parts, setParts] = useState([]);
   const [categories, setCategories] = useState(['All']);
@@ -98,34 +97,31 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Derive roles from Clerk
+  const clerkRole = user?.primaryEmailAddress?.emailAddress?.includes('admin') || user?.primaryEmailAddress?.emailAddress?.includes('tarlac') ? 'admin' : 'customer';
+  
+  const customerSession = isSignedIn && clerkRole === 'customer' ? {
+    user: { fullName: user.fullName || user.primaryEmailAddress?.emailAddress, contactNumber: '', role: 'customer' }
+  } : null;
+
+  const adminSession = isSignedIn && clerkRole === 'admin' ? {
+    user: { fullName: user.fullName || user.primaryEmailAddress?.emailAddress, role: 'admin' }
+  } : null;
+
   useEffect(() => {
-    const session = getActiveSession();
-
-    if (session?.user?.role === 'admin') {
-      setAdminSession(session);
-      setCustomerSession(null);
-      setActiveView('admin-app');
-    } else {
-      // Always start on the storefront for customers (even if session exists).
-      // The session is available so the storefront can show them as logged in,
-      // but they are NOT auto-redirected into the dashboard on page load.
-      if (session?.user?.role === 'customer') {
-        setCustomerSession(session);
-      }
-      setAdminSession(null);
-      setActiveView('storefront');
+    if (isLoaded && isSignedIn) {
+      if (clerkRole === 'admin') setActiveView('admin-app');
     }
-
+    
     const loadData = async () => {
       const fetchedParts = await fetchParts();
       const fetchedCategories = await fetchCategories();
       setParts(fetchedParts);
       setCategories(fetchedCategories);
-      setAuthReady(true);
     };
 
     loadData();
-  }, []);
+  }, [isLoaded, isSignedIn]);
 
   const addLog = (type, message) => {
     const newLog = {
@@ -206,66 +202,14 @@ export default function App() {
     }
   };
 
-  const handleCustomerAuthenticated = (session) => {
-  setCustomerSession(session);
-  setAdminSession(null);
-  setActiveView('customer-dashboard');
-};
-
-  const handleAdminAuthenticated = (session) => {
-    setAdminSession(session);
-    setCustomerSession(null);
-    setActiveView('admin-app');
-    setPage('dashboard');
-  };
-
-  const handleAutoCustomerLogin = async () => {
-    const result = await loginCustomer({ email: 'lionel.messi@example.com', password: 'Player@12345', rememberMe: false });
-    if (result.ok) {
-      handleCustomerAuthenticated(result.session);
-    } else {
-      alert("Auto-login failed. Check if seed data is loaded. Error: " + result.error);
-    }
-  };
-
-  const handleAutoAdminLogin = async () => {
-    const result = await loginAdmin({ email: 'admin@tarlactruckparts.local', password: 'Admin@12345' });
-    if (result.ok) {
-      handleAdminAuthenticated(result.session);
-    } else {
-      alert("Admin auto-login failed. Check if seed data is loaded. Error: " + result.error);
-    }
-  };
-
-  const handleOpenCustomerAuth = (initialTab = 'login') => {
-    setInitialNotice('');
-    setAuthTab(initialTab);
-    setActiveView('customer-auth');
-  };
-
-  const handleOpenAdminAuth = () => {
-    setInitialNotice('');
-    setAuthTab('login');
-    setActiveView('admin-auth');
-  };
-
-  const handleLogout = (role) => {
-    clearSession(role);
-
-    if (role === 'admin') {
-      setAdminSession(null);
-      setPage('dashboard');
-      setActiveView('storefront');
-      return;
-    }
-
-    setCustomerSession(null);
+  const handleLogout = async (role) => {
+    await signOut();
     setActiveView('storefront');
   };
 
   const lowStockCount = parts.filter((part) => part.stock <= part.minStock).length;
 
-  if (!authReady) {
+  if (!isLoaded) {
     return (
       <>
         <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
@@ -276,57 +220,31 @@ export default function App() {
     );
   }
 
-  if (activeView === 'customer-auth') {
+  if (activeView === 'customer-auth' || activeView === 'admin-auth') {
     return (
-      <>
-        <AuthPortal
-          mode="customer"
-          initialTab={authTab}
-          initialNotice={initialNotice}
-          onBackToStore={() => {
-            setInitialNotice('');
-            setActiveView('storefront');
-          }}
-          onCustomerAuthenticated={handleCustomerAuthenticated}
-          onAdminAuthenticated={handleAdminAuthenticated}
-          onRegisterSuccess={handleRegisterSuccess}
-        />
-        {renderVerificationSimulator()}
-      <FloatingSettingsWidget 
-        onAdminLogin={handleAutoAdminLogin}
-        onCustomerLogin={handleAutoCustomerLogin}
-        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
-        isLoggedIn={!!adminSession || !!customerSession}
-      />
-        <StatusBar />
-      </>
+      <div className="min-h-screen w-full flex items-center justify-center bg-background/50 backdrop-blur-sm relative">
+        <button 
+          onClick={() => setActiveView('storefront')}
+          className="absolute top-6 left-6 p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+        <SignIn routing="virtual" afterSignInUrl="/" />
+      </div>
     );
   }
 
-  if (activeView === 'admin-auth') {
+  if (activeView === 'signup') {
     return (
-      <>
-        <AuthPortal
-          mode="admin"
-          initialTab="login"
-          initialNotice={initialNotice}
-          onBackToStore={() => {
-            setInitialNotice('');
-            setActiveView('storefront');
-          }}
-          onCustomerAuthenticated={handleCustomerAuthenticated}
-          onAdminAuthenticated={handleAdminAuthenticated}
-          onRegisterSuccess={handleRegisterSuccess}
-        />
-        {renderVerificationSimulator()}
-      <FloatingSettingsWidget 
-        onAdminLogin={handleAutoAdminLogin}
-        onCustomerLogin={handleAutoCustomerLogin}
-        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
-        isLoggedIn={!!adminSession || !!customerSession}
-      />
-        <StatusBar />
-      </>
+      <div className="min-h-screen w-full flex items-center justify-center bg-background/50 backdrop-blur-sm relative">
+        <button 
+          onClick={() => setActiveView('storefront')}
+          className="absolute top-6 left-6 p-2 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+        <SignUp routing="virtual" afterSignUpUrl="/" />
+      </div>
     );
   }
 

@@ -9,6 +9,7 @@
     "test": "node --test src/tests/auth.test.js src/tests/parts.test.js"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.31",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

@@ -76,21 +76,24 @@ function decode_jwt(token) {
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
 
-function getAuthHeaders() {
-  const session = readSession(ADMIN_SESSION_KEY) || readSession(CUSTOMER_SESSION_KEY);
-  if (session && session.token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.token}`
-    };
+async function getAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (window.Clerk?.session) {
+    try {
+      const token = await window.Clerk.session.getToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    } catch (e) { console.warn('Clerk token error', e); }
+  } else {
+    const session = readSession(ADMIN_SESSION_KEY) || readSession(CUSTOMER_SESSION_KEY);
+    if (session && session.token) headers['Authorization'] = `Bearer ${session.token}`;
   }
-  return { 'Content-Type': 'application/json' };
+  return headers;
 }
 
 async function api_post(path, body, timeout_ms = 8000) {
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'POST',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     body:    JSON.stringify(body),
     signal:  AbortSignal.timeout(timeout_ms),
   });
@@ -101,7 +104,7 @@ async function api_post(path, body, timeout_ms = 8000) {
 async function api_put(path, body, timeout_ms = 8000) {
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'PUT',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     body:    JSON.stringify(body),
     signal:  AbortSignal.timeout(timeout_ms),
   });
@@ -112,7 +115,7 @@ async function api_put(path, body, timeout_ms = 8000) {
 async function api_delete(path, timeout_ms = 8000) {
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'DELETE',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     signal:  AbortSignal.timeout(timeout_ms),
   });
   const data = await res.json();
@@ -122,7 +125,7 @@ async function api_delete(path, timeout_ms = 8000) {
 export async function api_get(path, timeout_ms = 8000) {
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'GET',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     signal:  AbortSignal.timeout(timeout_ms),
   });
   const data = await res.json();
