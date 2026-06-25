@@ -40,6 +40,8 @@ export default function PartsCatalog({
   const [categoriesList, setCategoriesList] = useState([]);
   const [formImage, setFormImage] = useState('');
   const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState('');
 
   useEffect(() => {
     const loadCats = async () => {
@@ -151,6 +153,8 @@ export default function PartsCatalog({
     setFormDescription('');
     setFormImage('');
     setFormErrors({});
+    setServerError('');
+    setIsSubmitting(false);
     setIsModalOpen(true);
   };
 
@@ -168,6 +172,8 @@ export default function PartsCatalog({
     setFormDescription(part.description || '');
     setFormImage(part.image || '');
     setFormErrors({});
+    setServerError('');
+    setIsSubmitting(false);
     setIsModalOpen(true);
   };
 
@@ -177,8 +183,9 @@ export default function PartsCatalog({
     setIsModalOpen(true);
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
+    setServerError('');
     
     // Zod Validation
     try {
@@ -214,12 +221,27 @@ export default function PartsCatalog({
       image: formImage
     };
 
-    if (modalType === 'add') {
-      onAddPart(partData);
-    } else if (modalType === 'edit') {
-      onEditPart(selectedPart.id, partData);
+    setIsSubmitting(true);
+    try {
+      let result;
+      if (modalType === 'add') {
+        result = await onAddPart(partData);
+      } else if (modalType === 'edit') {
+        result = await onEditPart(selectedPart.id, partData);
+      }
+
+      // If the parent returned a result object, check it
+      if (result && !result.ok) {
+        setServerError(result.error || 'An error occurred. Please try again.');
+      } else {
+        // Success — close modal
+        setIsModalOpen(false);
+      }
+    } catch (err) {
+      setServerError('Unexpected error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
   };
 
   const handleRestockSubmit = (partId) => {
@@ -671,20 +693,27 @@ export default function PartsCatalog({
                         required
                         className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.category ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                       >
-                        <option value="" disabled>-- Select Category / Subcategory --</option>
-                        {categoriesList.filter(c => !c.parentCategory).map(parent => {
-                          const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory._id === parent._id);
-                          return (
-                            <optgroup key={parent._id} label={parent.name}>
-                              <option value={parent._id}>{parent.name} (Main)</option>
-                              {subs.map(sub => (
-                                <option key={sub._id} value={sub._id}>{sub.name}</option>
-                              ))}
-                            </optgroup>
-                          );
-                        })}
+                        {categoriesList.length === 0 ? (
+                          <option value="" disabled>Loading categories…</option>
+                        ) : (
+                          <>
+                            <option value="" disabled>-- Select Category / Subcategory --</option>
+                            {categoriesList.filter(c => !c.parentCategory).map(parent => {
+                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory._id?.toString() === parent._id?.toString());
+                              return (
+                                <optgroup key={parent._id} label={parent.name}>
+                                  <option value={parent._id}>{parent.name} (Main)</option>
+                                  {subs.map(sub => (
+                                    <option key={sub._id} value={sub._id}>{sub.name}</option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
+                          </>
+                        )}
                       </select>
                       {formErrors.category && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
+                      {categoriesList.length === 0 && <p className="text-[10px] text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
                     </div>
                     
                     <div className="space-y-1.5">
@@ -802,20 +831,40 @@ export default function PartsCatalog({
                   </div>
                 </div>
 
+                {/* Server-side error banner */}
+                {serverError && (
+                  <div className="mx-5 mb-1 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-300 text-sm font-semibold animate-fadeIn">
+                    <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                    <span>{serverError}</span>
+                  </div>
+                )}
+
                 {/* Footer buttons */}
                 <div className="flex justify-end gap-3 p-5 border-t border-border bg-secondary">
                   <button 
                     type="button" 
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button 
-                    type="submit" 
-                    className="px-5 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 bg-accent hover:bg-accent/90 disabled:bg-accent/60 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
                   >
-                    {modalType === 'add' ? 'Save Component' : 'Save Changes'}
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      modalType === 'add' ? 'Save Component' : 'Save Changes'
+                    )}
                   </button>
                 </div>
               </form>

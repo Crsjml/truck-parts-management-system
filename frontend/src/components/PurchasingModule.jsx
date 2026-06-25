@@ -296,7 +296,7 @@ const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favorites, o
 };
 
 // ─── Main Module ──────────────────────────────────────────────────────────────
-export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories }) {
+export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
   const [activeOrderTab, setActiveOrderTab] = useState('rfq'); // 'rfq' | 'pos' | 'vendors'
@@ -578,8 +578,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       setPurchaseOrders(prev => prev.map(p => p._id === id ? updated : p));
       setViewingPo(updated);
       onAddLog('stock', `PO ${poNumber} → ${status}`);
-      if (status === 'Received' && onPartsUpdated) onPartsUpdated();
-    } else alert(res.error);
+      if (status === 'Received') {
+        if (onPartsUpdated) onPartsUpdated();
+        const itemCount = updated?.items?.length || 0;
+        if (showToast) showToast(`📦 Stock received: ${itemCount} item${itemCount !== 1 ? 's' : ''} updated from ${poNumber}.`, 'success');
+      }
+    } else {
+      if (showToast) showToast(`Error: ${res.error}`, 'error');
+      else alert(res.error);
+    }
   };
 
   const updateBillingStatus = async (id, billingStatus) => {
@@ -612,14 +619,21 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setIsProductModalOpen(true);
   };
 
-  const saveProduct = () => {
+  const saveProduct = async () => {
     if (!productForm.name || !productForm.sku) return alert('Name and SKU required.');
+    let result;
     if (viewingPart) {
-      onEditPart(viewingPart.id, { ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
+      result = await onEditPart(viewingPart.id, { ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
     } else {
-      onAddPart({ ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
+      result = await onAddPart({ ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
     }
-    setIsProductModalOpen(false);
+    // Only close if the parent reported success (or if it returned nothing — legacy)
+    if (!result || result.ok) {
+      setIsProductModalOpen(false);
+    } else if (result.error) {
+      if (showToast) showToast(`Error: ${result.error}`, 'error');
+      else alert(result.error);
+    }
   };
 
   const doTogglePublished = async (partId, current) => {

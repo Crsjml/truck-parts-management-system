@@ -91,45 +91,105 @@ async function getAuthHeaders() {
 }
 
 async function api_post(path, body, timeout_ms = 8000) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method:  'POST',
-    headers: await getAuthHeaders(),
-    body:    JSON.stringify(body),
-    signal:  AbortSignal.timeout(timeout_ms),
-  });
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  try {
+    const headers = await getAuthHeaders();
+    console.log(`[API POST] Requesting ${path} with body:`, body, 'and headers:', headers);
+    const res = await fetch(`${API_BASE}${path}`, {
+      method:  'POST',
+      headers,
+      body:    JSON.stringify(body),
+      signal:  AbortSignal.timeout(timeout_ms),
+    });
+    let data;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { msg: text || `HTTP error ${res.status}` };
+    }
+    console.log(`[API POST] Response from ${path}:`, res.status, data);
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error(`[API POST] Request to ${path} failed:`, err);
+    throw err;
+  }
 }
 
 async function api_put(path, body, timeout_ms = 8000) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method:  'PUT',
-    headers: await getAuthHeaders(),
-    body:    JSON.stringify(body),
-    signal:  AbortSignal.timeout(timeout_ms),
-  });
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  try {
+    const headers = await getAuthHeaders();
+    console.log(`[API PUT] Requesting ${path} with body:`, body, 'and headers:', headers);
+    const res = await fetch(`${API_BASE}${path}`, {
+      method:  'PUT',
+      headers,
+      body:    JSON.stringify(body),
+      signal:  AbortSignal.timeout(timeout_ms),
+    });
+    let data;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { msg: text || `HTTP error ${res.status}` };
+    }
+    console.log(`[API PUT] Response from ${path}:`, res.status, data);
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error(`[API PUT] Request to ${path} failed:`, err);
+    throw err;
+  }
 }
 
 async function api_delete(path, timeout_ms = 8000) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method:  'DELETE',
-    headers: await getAuthHeaders(),
-    signal:  AbortSignal.timeout(timeout_ms),
-  });
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  try {
+    const headers = await getAuthHeaders();
+    console.log(`[API DELETE] Requesting ${path} with headers:`, headers);
+    const res = await fetch(`${API_BASE}${path}`, {
+      method:  'DELETE',
+      headers,
+      signal:  AbortSignal.timeout(timeout_ms),
+    });
+    let data;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { msg: text || `HTTP error ${res.status}` };
+    }
+    console.log(`[API DELETE] Response from ${path}:`, res.status, data);
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error(`[API DELETE] Request to ${path} failed:`, err);
+    throw err;
+  }
 }
 
 export async function api_get(path, timeout_ms = 8000) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method:  'GET',
-    headers: await getAuthHeaders(),
-    signal:  AbortSignal.timeout(timeout_ms),
-  });
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  try {
+    const headers = await getAuthHeaders();
+    console.log(`[API GET] Requesting ${path} with headers:`, headers);
+    const res = await fetch(`${API_BASE}${path}`, {
+      method:  'GET',
+      headers,
+      signal:  AbortSignal.timeout(timeout_ms),
+    });
+    let data;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { msg: text || `HTTP error ${res.status}` };
+    }
+    console.log(`[API GET] Response from ${path}:`, res.status, data);
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error(`[API GET] Request to ${path} failed:`, err);
+    throw err;
+  }
 }
 
 // ── Parts & Categories fetching ─────────────────────────────────────────────
@@ -485,8 +545,9 @@ export const createPart = async (partData) => {
   try {
     const { ok, data } = await api_post('/api/parts', partData);
     return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to create part.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
+  } catch (err) {
+    console.error('[createPart Error]', err);
+    return { ok: false, error: err.message || 'Server connection failed.' };
   }
 };
 
@@ -494,8 +555,9 @@ export const updatePart = async (id, partData) => {
   try {
     const { ok, data } = await api_put(`/api/parts/${id}`, partData);
     return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to update part.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
+  } catch (err) {
+    console.error('[updatePart Error]', err);
+    return { ok: false, error: err.message || 'Server connection failed.' };
   }
 };
 

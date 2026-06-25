@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, WarningCircle } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import Dashboard from './components/Dashboard';
 import PartsCatalog from './components/PartsCatalog';
 import TransactionPOS from './components/TransactionPOS';
 import Analytics from './components/Analytics';
-import AuthPortal from './components/AuthPortal';
+import AdminAuthPortal from './components/AdminAuthPortal';
+import CustomerAuthPortal from './components/CustomerAuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import CustomerDashboard from './components/CustomerDashboard';
 import StatusBar from './components/StatusBar';
@@ -15,24 +16,22 @@ import VerificationSimulator from './components/VerificationSimulator';
 import CategoryManagement from './components/CategoryManagement';
 import PurchasingModule from './components/PurchasingModule';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
+import ToastNotification, { useToast } from './components/ToastNotification';
 
 import {
-  INITIAL_TRANSACTIONS,
   INITIAL_LOGS
 } from './mockData';
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions } from './authStore';
-import { useUser, useAuth, SignIn, SignUp, ClerkLoading, ClerkLoaded } from '@clerk/clerk-react';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, clearSession, getActiveSession, verifyCustomerEmail, api_get } from './authStore';
 
 export default function App() {
-  const { isLoaded, isSignedIn, user } = useUser();
-  const { signOut } = useAuth();
+  const { toasts, showToast, dismissToast } = useToast();
 
   const [activeView, setActiveView] = useState('storefront');
   const [page, setPage] = useState('dashboard');
   const [parts, setParts] = useState([]);
   const [categories, setCategories] = useState(['All']);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
+  const [transactions, setTransactions] = useState([]);
   const [logs, setLogs] = useState(INITIAL_LOGS);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -44,10 +43,25 @@ export default function App() {
     return false;
   });
 
+  // Manual admin session (from custom backend login, not Clerk)
+  const [manualAdminSession, setManualAdminSession] = useState(() => {
+    // Restore from localStorage if exists
+    const stored = getActiveSession();
+    return stored && stored.user?.role === 'admin' ? stored : null;
+  });
+
+  // Manual customer session (from custom backend login)
+  const [manualCustomerSession, setManualCustomerSession] = useState(() => {
+    const stored = getActiveSession();
+    return stored && stored.user?.role === 'customer' ? stored : null;
+  });
+
   const [simulatedEmail, setSimulatedEmail] = useState(null);
   const [showEmailNotification, setShowEmailNotification] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [initialNotice, setInitialNotice] = useState('');
+  
+  const [loadError, setLoadError] = useState(null);
 
   const handleRegisterSuccess = ({ email, code }) => {
     setSimulatedEmail({ email, code });
@@ -98,31 +112,53 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Derive roles from Clerk
-  const clerkRole = user?.primaryEmailAddress?.emailAddress?.includes('admin') || user?.primaryEmailAddress?.emailAddress?.includes('tarlac') ? 'admin' : 'customer';
-  
-  const customerSession = isSignedIn && clerkRole === 'customer' ? {
-    user: { fullName: user.fullName || user.primaryEmailAddress?.emailAddress, contactNumber: '', role: 'customer' }
-  } : null;
-
-  const adminSession = isSignedIn && clerkRole === 'admin' ? {
-    user: { fullName: user.fullName || user.primaryEmailAddress?.emailAddress, role: 'admin' }
-  } : null;
+  const customerSession = manualCustomerSession;
+  const adminSession = manualAdminSession;
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      if (clerkRole === 'admin') setActiveView('admin-app');
+    if (manualAdminSession) {
+      setActiveView('admin-app');
+    } else if (manualCustomerSession) {
+      setActiveView('customer-dashboard');
+    } else {
+      // If we logout, make sure we go back to storefront if we were on a dashboard
+      if (activeView === 'admin-app' || activeView === 'customer-dashboard') {
+        setActiveView('storefront');
+      }
     }
-    
+  }, [manualAdminSession, manualCustomerSession]);
+
+  useEffect(() => {
     const loadData = async () => {
-      const fetchedParts = await fetchParts();
-      const fetchedCategories = await fetchCategories();
-      setParts(fetchedParts);
-      setCategories(fetchedCategories);
+      setLoadError(null);
+      try {
+        const [partsRes, catsRes, txRes] = await Promise.all([
+          api_get('/api/parts'),
+          api_get('/api/parts/categories'),
+          api_get('/api/transactions'),
+        ]);
+
+        if (partsRes.ok) {
+          setParts(partsRes.data);
+        } else {
+          const errMsg = partsRes.data?.msg || `HTTP ${partsRes.status}`;
+          setLoadError(`Failed to load parts catalog: ${errMsg}`);
+        }
+
+        if (catsRes.ok) {
+          setCategories(['All', ...catsRes.data.filter(c => c !== 'All')]);
+        }
+
+        if (txRes.ok) {
+          setTransactions(txRes.data);
+        }
+      } catch (err) {
+        setLoadError(`Could not connect to backend server: ${err.message || 'Connection failed'}`);
+      }
     };
 
     loadData();
-  }, [isLoaded, isSignedIn]);
+  }, []);
 
   const addLog = (type, message) => {
     const newLog = {
@@ -134,23 +170,35 @@ export default function App() {
     setLogs((prev) => [newLog, ...prev]);
   };
 
+  // Returns { ok, error } so PartsCatalog can surface server errors inline
   const handleAddPart = async (partData) => {
     const result = await createPart(partData);
     if (result.ok) {
-      setParts((prev) => [...prev, result.part]);
+      const updatedParts = await fetchParts();
+      setParts(updatedParts);
+      const updatedCategories = await fetchCategories();
+      setCategories(updatedCategories);
       addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`);
+      showToast(`✅ "${result.part.name}" added to catalog.`, 'success');
+      return { ok: true };
     } else {
-      alert(`Error adding part: ${result.error}`);
+      return { ok: false, error: result.error };
     }
   };
 
+  // Returns { ok, error } so PartsCatalog can surface server errors inline
   const handleEditPart = async (id, updatedData) => {
     const result = await updatePart(id, updatedData);
     if (result.ok) {
-      setParts((prev) => prev.map((part) => (part.id === id ? result.part : part)));
+      const updatedParts = await fetchParts();
+      setParts(updatedParts);
+      const updatedCategories = await fetchCategories();
+      setCategories(updatedCategories);
       addLog('stock', `Part item (ID: ${id}) SKU '${result.part.sku}' details updated.`);
+      showToast(`✅ "${result.part.name}" updated successfully.`, 'success');
+      return { ok: true };
     } else {
-      alert(`Error updating part: ${result.error}`);
+      return { ok: false, error: result.error };
     }
   };
 
@@ -158,10 +206,12 @@ export default function App() {
     const part = parts.find((item) => item.id === id);
     const result = await deletePart(id);
     if (result.ok) {
-      setParts((prev) => prev.filter((item) => item.id !== id));
+      const updatedParts = await fetchParts();
+      setParts(updatedParts);
       addLog('stock', `Part item '${part ? part.name : id}' removed from catalog.`);
+      showToast(`🗑️ "${part ? part.name : 'Part'}" archived.`, 'info');
     } else {
-      alert(`Error deleting part: ${result.error}`);
+      showToast(`Error: ${result.error}`, 'error');
     }
   };
 
@@ -177,9 +227,10 @@ export default function App() {
     const res = await updatePart(id, { stock: newStock });
     if (res.ok) {
       addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`);
+      showToast(`📦 +${quantity} units added to "${part.name}". Stock: ${newStock}`, 'success');
     } else {
       addLog('system', `Error restocking: ${res.error}`);
-      alert(`Restock failed: ${res.error}`);
+      showToast(`Restock failed: ${res.error}`, 'error');
       // Revert optimistic update
       const updatedParts = await fetchParts();
       setParts(updatedParts);
@@ -187,25 +238,50 @@ export default function App() {
   };
 
   const handleCheckout = async (txData) => {
-    // Optimistic UI update
+    // Optimistic UI update so the customer sees their order immediately
     setTransactions((prev) => [txData, ...prev]);
 
     // Backend sync
     const res = await createTransaction(txData);
     if (res.ok) {
       addLog('sales', `Processed sale: ${txData.invoiceNumber} for ${txData.total}.`);
-      // Re-sync all parts from backend to ensure accurate stock
-      const updatedParts = await fetchParts();
+      showToast(`💳 Sale ${txData.invoiceNumber} processed. Stock updated.`, 'success');
+      // Re-fetch transactions from backend so order count is accurate
+      const [updatedParts, updatedTx] = await Promise.all([
+        fetchParts(),
+        api_get('/api/transactions'),
+      ]);
       setParts(updatedParts);
+      if (updatedTx.ok) setTransactions(updatedTx.data);
     } else {
+      // Revert optimistic update on failure
+      setTransactions((prev) => prev.filter(t => t.id !== txData.id));
       addLog('system', `Error processing sale: ${res.error}`);
-      alert(`Transaction failed: ${res.error}`);
+      showToast(`Transaction failed: ${res.error}`, 'error');
     }
   };
 
   const handleLogout = async (role) => {
-    await signOut();
+    // Clear manual admin session
+    if (manualAdminSession) {
+      clearSession('admin');
+      setManualAdminSession(null);
+    }
+    if (manualCustomerSession) {
+      clearSession('customer');
+      setManualCustomerSession(null);
+    }
     setActiveView('storefront');
+  };
+
+  const handleAdminLoginSuccess = (session) => {
+    setManualAdminSession(session);
+    setActiveView('admin-app');
+  };
+
+  const handleCustomerLoginSuccess = (session) => {
+    setManualCustomerSession(session);
+    setActiveView('customer-dashboard');
   };
 
   const handleOpenCustomerAuth = () => setActiveView('customer-auth');
@@ -215,25 +291,22 @@ export default function App() {
 
   const lowStockCount = parts.filter((part) => part.stock <= part.minStock).length;
 
-  if (!isLoaded) {
-    return (
-      <>
-        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-          Loading storefront...
-        </div>
-        <StatusBar />
-      </>
-    );
-  }
-
   if (activeView === 'customer-auth' || activeView === 'admin-auth' || activeView === 'signup') {
     return (
       <>
-        <AuthPortal
-          mode={activeView === 'admin-auth' ? 'admin' : 'customer'}
-          initialTab={activeView === 'signup' ? 'register' : 'login'}
-          onBackToStore={() => setActiveView('storefront')}
-        />
+        {activeView === 'admin-auth' ? (
+        <AdminAuthPortal
+            onBackToStore={() => setActiveView('storefront')}
+            onAdminLoginSuccess={handleAdminLoginSuccess}
+          />
+        ) : (
+          <CustomerAuthPortal
+            initialTab={activeView === 'signup' ? 'register' : 'login'}
+            onBackToStore={() => setActiveView('storefront')}
+            onCustomerLoginSuccess={handleCustomerLoginSuccess}
+            onRegisterSuccess={handleRegisterSuccess}
+          />
+        )}
         {renderVerificationSimulator()}
         <FloatingSettingsWidget 
           onAdminLogin={handleAutoAdminLogin}
@@ -562,6 +635,16 @@ export default function App() {
         </header>
 
         <main className="flex-1 flex flex-col overflow-y-auto px-6 pt-6 pb-2 md:px-8 md:pt-8 md:pb-2">
+          {loadError && (
+            <div className="mb-6 flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-950/60 border border-red-800/40 text-red-200 text-xs font-semibold animate-fadeIn text-left">
+              <WarningCircle weight="duotone" className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />
+              <div>
+                <span className="font-bold text-red-100 block mb-0.5">Sync Error</span>
+                <span>{loadError}</span>
+              </div>
+            </div>
+          )}
+
           {page === 'dashboard' && (
             <Dashboard
               parts={parts}
@@ -602,6 +685,7 @@ export default function App() {
               onEditPart={handleEditPart}
               onDeletePart={handleDeletePart}
               categories={categories}
+              showToast={showToast}
             />
           )}
         </main>
@@ -614,6 +698,7 @@ export default function App() {
         isLoggedIn={!!adminSession || !!customerSession}
       />
       <StatusBar />
+      <ToastNotification toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

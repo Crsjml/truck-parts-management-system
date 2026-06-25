@@ -23,23 +23,6 @@ router.get('/', async (req, res) => {
     if (published === 'true') query.published = true;
     if (published === 'false') query.published = false;
 
-    if (category && category.toLowerCase() !== 'all') {
-      const matchedCats = await Category.find({
-        name: { $regex: new RegExp(`^${category}$`, 'i') }
-      });
-
-      if (matchedCats.length > 0) {
-        const catIds = matchedCats.map(c => c._id);
-        // Also fetch subcategories that belong to these matched categories
-        const subCats = await Category.find({ parentCategory: { $in: catIds } });
-        const allCatIds = [...catIds, ...subCats.map(c => c._id)];
-        query.category = { $in: allCatIds };
-      } else {
-        // If no matching category doc exists, return empty query result
-        query.category = new mongoose.Types.ObjectId();
-      }
-    }
-
     if (search) {
       const searchRegex = new RegExp(search, 'i');
       query.$or = [
@@ -50,26 +33,69 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    // Sort alphabetically by name
-    const parts = await Part.find(query).populate('category').sort({ name: 1 }).lean();
-    
-    // Convert field names if necessary for frontend (e.g. min_stock -> minStock)
-    const formattedParts = parts.map(part => ({
-      id: part._id.toString(),
-      name: part.name,
-      sku: part.sku,
-      oem: part.oem || '',
-      category: part.category ? part.category.name : 'Uncategorized',
-      category_id: part.category ? part.category._id.toString() : null,
-      price: part.price,
-      stock: part.stock,
-      minStock: part.min_stock,
-      compatibility: part.compatibility || '',
-      description: part.description || '',
-      image: part.image || '',
-      published: part.published ?? true,
-      archived: part.archived ?? false
-    }));
+    // Fetch all parts WITHOUT populate to avoid CastErrors from legacy data
+    const parts = await Part.find(query).sort({ name: 1 }).lean();
+
+    // Build category map manually — safe even if some refs are missing or malformed
+    let categoryFilter = null;
+    if (category && category.toLowerCase() !== 'all') {
+      const matchedCats = await Category.find({
+        name: { $regex: new RegExp(`^${category}$`, 'i') }
+      }).lean();
+      if (matchedCats.length > 0) {
+        const catIds = matchedCats.map(c => c._id.toString());
+        const subCats = await Category.find({
+          parentCategory: { $in: matchedCats.map(c => c._id) }
+        }).lean();
+        categoryFilter = new Set([...catIds, ...subCats.map(c => c._id.toString())]);
+      } else {
+        // No matching category — return empty
+        return res.json([]);
+      }
+    }
+
+    // Build a lookup map for all referenced category IDs
+    const rawCatIds = [...new Set(
+      parts
+        .map(p => p.category)
+        .filter(c => c && mongoose.isValidObjectId(c))
+        .map(c => c.toString())
+    )];
+    const categoryDocs = rawCatIds.length > 0
+      ? await Category.find({ _id: { $in: rawCatIds } }).lean()
+      : [];
+    const categoryMap = {};
+    categoryDocs.forEach(c => { categoryMap[c._id.toString()] = c; });
+
+    // Format parts and apply category filter
+    const formattedParts = parts
+      .filter(part => {
+        if (!categoryFilter) return true;
+        const catId = part.category ? part.category.toString() : null;
+        return catId && categoryFilter.has(catId);
+      })
+      .map(part => {
+        const catId = part.category && mongoose.isValidObjectId(part.category)
+          ? part.category.toString()
+          : null;
+        const cat = catId ? categoryMap[catId] : null;
+        return {
+          id: part._id.toString(),
+          name: part.name,
+          sku: part.sku,
+          oem: part.oem || '',
+          category: cat ? cat.name : 'Uncategorized',
+          category_id: cat ? cat._id.toString() : null,
+          price: part.price,
+          stock: part.stock,
+          minStock: part.min_stock,
+          compatibility: part.compatibility || '',
+          description: part.description || '',
+          image: part.image || '',
+          published: part.published ?? true,
+          archived: part.archived ?? false
+        };
+      });
 
     res.json(formattedParts);
   } catch (err) {
