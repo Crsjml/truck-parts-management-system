@@ -23,4 +23,9 @@ We use the **GitHub for Jira** integration.
 ## 🛠️ Code Style & Rules
 - **No Hardcoded URLs**: Do NOT hardcode backend URLs (`http://localhost:5000`) in the frontend. Always use relative paths (`/api/health`) because Vite proxies it natively.
 - **Clean Terminals**: Keep terminal logs clean. We suppress Mongo/Mongoose warnings by default in our compose file.
-- **Aesthetics**: Follow modern UI guidelines. Avoid plain colors; use curated color palettes and smooth animations.
+- **Premium UI/UX System**:
+  - **Color Harmony**: Avoid default raw HTML colors. Use curated HSL palettes. For accents, use glowing drop shadows (e.g., `box-shadow` or `ring` classes with 10-20% opacity).
+  - **Glassmorphism & Depth**: Favor translucent overlays over solid panels. Combine `rgba` backgrounds with `backdrop-filter: blur()`, subtle white borders, and heavy soft shadows (`box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15)`) to create depth.
+  - **Micro-Interactions**: All interactive elements must feel alive. Use cubic-bezier transitions (`transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)`). Implement scale-ups (`scale: 1.02`), group-hover effects, and icon nudges.
+  - **Animations**: Components should gracefully enter the screen using keyframe animations like `fadeIn` and `scaleUp`.
+  - **Icons**: Standardize on `lucide-react` for clean, modern vector icons.
