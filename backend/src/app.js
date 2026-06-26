@@ -11,6 +11,7 @@ import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import checkoutRouter from './routes/checkout.js';
 import mongoose from 'mongoose';
 const app = express();
+// CORS configuration
 app.use(cors({
   origin: [
     'http://localhost:5173',   // Vite dev server (host)

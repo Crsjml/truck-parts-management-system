@@ -2,12 +2,12 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Transaction from '../models/Transaction.js';
 import Part from '../models/Part.js';
-import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
+import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// POST /api/transactions (Admin only)
-router.post('/', requireAuth, requireAdmin, async (req, res) => {
+// POST /api/transactions — requires login (admin via POS or verified customer via dashboard)
+router.post('/', requireAuth, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 

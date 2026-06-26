@@ -15,6 +15,7 @@ import VerificationSimulator from './components/VerificationSimulator';
 import CategoryManagement from './components/CategoryManagement';
 import PurchasingModule from './components/PurchasingModule';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
+import ToastNotification, { useToast } from './components/ToastNotification';
 
 import {
   INITIAL_TRANSACTIONS,
@@ -25,6 +26,7 @@ import { auth } from './firebaseConfig';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function App() {
+  const { toasts, showToast, dismissToast } = useToast();
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -587,6 +589,7 @@ export default function App() {
               onEditPart={handleEditPart}
               onDeletePart={handleDeletePart}
               categories={categories}
+              showToast={showToast}
             />
           )}
         </main>
@@ -599,6 +602,7 @@ export default function App() {
         isLoggedIn={!!adminSession || !!customerSession}
       />
       <StatusBar />
+      <ToastNotification toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
