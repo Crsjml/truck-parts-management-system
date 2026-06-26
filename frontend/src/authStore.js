@@ -168,8 +168,11 @@ export const validateFullName = (value) => {
 };
 
 export const validateContactNumber = (value) => {
-  if (!value || !/^\+?[0-9]{7,15}$/.test(value.trim()))
-    return 'Contact number must contain 7 to 15 digits.';
+  if (!value) return 'Contact number is required.';
+  const stripped = value.replace(/\s+/g, '');
+  if (!/^(\+63|0)[0-9]{10}$/.test(stripped)) {
+    return 'Must be a valid PH number (e.g., 0917 123 4567 or +63 917 123 4567).';
+  }
   return '';
 };
 

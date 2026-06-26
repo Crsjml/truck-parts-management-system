@@ -21,11 +21,13 @@ import {
   INITIAL_LOGS
 } from './mockData';
 import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions } from './authStore';
-import { useUser, useAuth, SignIn, SignUp, ClerkLoading, ClerkLoaded } from '@clerk/clerk-react';
+import { auth } from './firebaseConfig';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function App() {
-  const { isLoaded, isSignedIn, user } = useUser();
-  const { signOut } = useAuth();
+  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   const [activeView, setActiveView] = useState('storefront');
   const [page, setPage] = useState('dashboard');
@@ -44,48 +46,7 @@ export default function App() {
     return false;
   });
 
-  const [simulatedEmail, setSimulatedEmail] = useState(null);
-  const [showEmailNotification, setShowEmailNotification] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
   const [initialNotice, setInitialNotice] = useState('');
-
-  const handleRegisterSuccess = ({ email, code }) => {
-    setSimulatedEmail({ email, code });
-    setShowEmailNotification(true);
-  };
-
-  const handleAutoVerify = async (email, code) => {
-    try {
-      const result = await verifyCustomerEmail({ email, code });
-      if (result.ok) {
-        setInitialNotice('Email verified successfully. You can now log in.');
-        setAuthTab('login');
-        setShowEmailModal(false);
-        setShowEmailNotification(false);
-        return { ok: true };
-      } else {
-        return { ok: false, error: result.error || 'Verification failed.' };
-      }
-    } catch (err) {
-      console.error('Auto verify failed:', err);
-      return { ok: false, error: 'Could not connect to the server.' };
-    }
-  };
-
-  const renderVerificationSimulator = () => {
-    return (
-      <VerificationSimulator
-        email={simulatedEmail?.email}
-        code={simulatedEmail?.code}
-        showNotification={showEmailNotification}
-        setShowNotification={setShowEmailNotification}
-        showModal={showEmailModal}
-        setShowModal={setShowEmailModal}
-        onAutoVerify={handleAutoVerify}
-      />
-    );
-  };
-
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -98,21 +59,48 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Derive roles from Clerk
-  const clerkRole = user?.primaryEmailAddress?.emailAddress?.includes('admin') || user?.primaryEmailAddress?.emailAddress?.includes('tarlac') ? 'admin' : 'customer';
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        // Enforce email verification (unless it's a seed test user or admin bypass if needed)
+        // For security, if they aren't verified, we don't log them in.
+        if (!currentUser.emailVerified && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com')) {
+          // We don't call signOut() here directly to avoid infinite loops in some edge cases,
+          // but we just treat them as NOT signed in for the app state.
+          setFirebaseUser(null);
+          setIsSignedIn(false);
+          setIsLoaded(true);
+          return;
+        }
+
+        setFirebaseUser(currentUser);
+        setIsSignedIn(true);
+        // Automatically set view based on role
+        const email = currentUser.email || '';
+        const role = email.includes('admin') || email.includes('tarlac') ? 'admin' : 'customer';
+        if (role === 'admin') setActiveView('admin-app');
+        else setActiveView('storefront');
+      } else {
+        setFirebaseUser(null);
+        setIsSignedIn(false);
+      }
+      setIsLoaded(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Derive roles from Firebase user
+  const role = firebaseUser?.email?.includes('admin') || firebaseUser?.email?.includes('tarlac') ? 'admin' : 'customer';
   
-  const customerSession = isSignedIn && clerkRole === 'customer' ? {
-    user: { fullName: user.fullName || user.primaryEmailAddress?.emailAddress, contactNumber: '', role: 'customer' }
+  const customerSession = isSignedIn && role === 'customer' ? {
+    user: { fullName: firebaseUser.displayName || firebaseUser.email, role: 'customer' }
   } : null;
 
-  const adminSession = isSignedIn && clerkRole === 'admin' ? {
-    user: { fullName: user.fullName || user.primaryEmailAddress?.emailAddress, role: 'admin' }
+  const adminSession = isSignedIn && role === 'admin' ? {
+    user: { fullName: firebaseUser.displayName || firebaseUser.email, role: 'admin' }
   } : null;
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      if (clerkRole === 'admin') setActiveView('admin-app');
-    }
     
     const loadData = async () => {
       const fetchedParts = await fetchParts();
@@ -204,7 +192,7 @@ export default function App() {
   };
 
   const handleLogout = async (role) => {
-    await signOut();
+    await signOut(auth);
     setActiveView('storefront');
   };
 
@@ -234,7 +222,6 @@ export default function App() {
           initialTab={activeView === 'signup' ? 'register' : 'login'}
           onBackToStore={() => setActiveView('storefront')}
         />
-        {renderVerificationSimulator()}
         <FloatingSettingsWidget 
           onAdminLogin={handleAutoAdminLogin}
           onCustomerLogin={handleAutoCustomerLogin}
@@ -261,7 +248,6 @@ export default function App() {
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
         />
-        {renderVerificationSimulator()}
       <FloatingSettingsWidget 
         onAdminLogin={handleAutoAdminLogin}
         onCustomerLogin={handleAutoCustomerLogin}
@@ -287,7 +273,6 @@ export default function App() {
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
         />
-        {renderVerificationSimulator()}
       <FloatingSettingsWidget 
         onAdminLogin={handleAutoAdminLogin}
         onCustomerLogin={handleAutoCustomerLogin}

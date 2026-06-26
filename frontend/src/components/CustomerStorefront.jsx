@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders } from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders, ShoppingCart, Plus, Minus, Trash } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
-
+import { stripePromise } from '../stripe';
+import { auth } from '../firebaseConfig';
 export default function CustomerStorefront({
   parts,
   categories,
@@ -31,6 +32,71 @@ export default function CustomerStorefront({
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const itemsPerPage = 12;
+
+  // Cart States
+  const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  const cartTotalAmount = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
+
+  const addToCart = (part) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === part.id);
+      if (existing) {
+        if (existing.quantity >= part.stock) return prev;
+        return prev.map(item => item.id === part.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...part, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (partId) => {
+    setCart(prev => prev.filter(item => item.id !== partId));
+  };
+
+  const updateCartQuantity = (partId, delta, stock) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === partId) {
+        const newQty = item.quantity + delta;
+        if (newQty > 0 && newQty <= stock) {
+          return { ...item, quantity: newQty };
+        }
+      }
+      return item;
+    }));
+  };
+
+  const handleCheckout = async () => {
+    if (!customerSession) {
+      onOpenCustomerAuth('login');
+      return;
+    }
+    if (cart.length === 0) return;
+
+    setIsCheckingOut(true);
+    try {
+      const response = await fetch('/api/checkout/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({ items: cart }),
+      });
+      
+      const session = await response.json();
+      if (session.error) throw new Error(session.error);
+
+      const stripe = await stripePromise;
+      await stripe.redirectToCheckout({ sessionId: session.id });
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Failed to initiate checkout. Please try again.');
+      setIsCheckingOut(false);
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -186,6 +252,19 @@ export default function CustomerStorefront({
                   </button>
                 </>
               )}
+              
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2 rounded-2xl border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-all ml-2"
+                aria-label="View Cart"
+              >
+                <ShoppingCart weight="duotone" className="w-5 h-5" />
+                {cartTotalItems > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {cartTotalItems}
+                  </span>
+                )}
+              </button>
               
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
@@ -556,14 +635,25 @@ export default function CustomerStorefront({
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPart(part)}
-                            className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-secondary"
-                          >
-                            View details
-                            <ArrowRight weight="duotone" className="h-4 w-4" />
-                          </button>
+                          <div className="mt-auto flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => addToCart(part)}
+                              disabled={part.stock === 0}
+                              className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brandBlue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-brandBlue-500 disabled:opacity-50"
+                            >
+                              <ShoppingCart weight="fill" className="h-4 w-4" />
+                              {part.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPart(part)}
+                              className="inline-flex items-center justify-center rounded-2xl border border-border bg-background p-3 text-foreground transition hover:bg-secondary"
+                              aria-label="View details"
+                            >
+                              <ArrowRight weight="bold" className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
                       </article>
                       );
@@ -825,6 +915,77 @@ export default function CustomerStorefront({
                 </div>
               </div>
             </div>
+            <div className="mt-5 border-t border-border pt-5">
+              <button
+                type="button"
+                onClick={() => { addToCart(selectedPart); setSelectedPart(null); }}
+                disabled={selectedPart.stock === 0}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brandBlue-600 px-5 py-4 text-base font-bold text-white transition hover:bg-brandBlue-500 disabled:opacity-50"
+              >
+                <ShoppingCart weight="fill" className="h-5 w-5" />
+                {selectedPart.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sliding Cart Modal */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />
+          <div className="relative w-full max-w-md bg-card shadow-2xl h-full flex flex-col border-l border-border animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between border-b border-border p-6">
+              <h2 className="text-2xl font-bold text-foreground inline-flex items-center gap-3">
+                <ShoppingCart weight="duotone" className="h-7 w-7 text-brandBlue-500" />
+                Your Cart
+              </h2>
+              <button onClick={() => setIsCartOpen(false)} className="rounded-full border border-border p-2 text-muted-foreground transition hover:text-foreground">
+                <X weight="duotone" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
+                  <ShoppingCart weight="duotone" className="h-20 w-20 text-muted-foreground" />
+                  <p className="text-muted-foreground">Your cart is empty</p>
+                </div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.id} className="flex items-center gap-4 rounded-2xl border border-border p-3 bg-background">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-bold text-foreground truncate">{item.name}</h4>
+                      <p className="text-xs text-muted-foreground">{displayCurrency} {item.price}</p>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary p-1">
+                      <button onClick={() => updateCartQuantity(item.id, -1, item.stock)} className="p-1 hover:bg-background rounded-lg"><Minus weight="bold" className="w-3 h-3"/></button>
+                      <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
+                      <button onClick={() => updateCartQuantity(item.id, 1, item.stock)} className="p-1 hover:bg-background rounded-lg"><Plus weight="bold" className="w-3 h-3"/></button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl">
+                      <Trash weight="duotone" className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="border-t border-border p-6 bg-secondary/30">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-semibold text-muted-foreground">Total ({cartTotalItems} items)</span>
+                  <span className="text-xl font-bold text-foreground">{formatCurrency(cartTotalAmount)}</span>
+                </div>
+                <button
+                  onClick={handleCheckout}
+                  disabled={isCheckingOut}
+                  className="w-full rounded-2xl bg-brandBlue-600 px-5 py-4 text-center text-sm font-bold text-white hover:bg-brandBlue-500 disabled:opacity-50 transition"
+                >
+                  {isCheckingOut ? 'Loading Stripe...' : 'Checkout securely with Stripe'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

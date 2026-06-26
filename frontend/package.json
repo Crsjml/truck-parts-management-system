@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.8",
     "@phosphor-icons/react": "^2.1.10",
+    "@stripe/stripe-js": "^9.8.0",
     "clsx": "^2.1.1",
+    "firebase": "^12.15.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.395.0",

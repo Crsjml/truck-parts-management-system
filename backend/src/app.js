@@ -2,21 +2,15 @@
 import './config/env.js';
 import express from 'express';
 import cors from 'cors';
-import authRouter from './routes/auth.js';
 import partsRouter from './routes/parts.js';
 import categoriesRouter from './routes/categories.js';
 import settingsRouter from './routes/settings_routes.js';
 import transactionsRouter from './routes/transactions.js';
 import suppliersRouter from './routes/suppliers.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
+import checkoutRouter from './routes/checkout.js';
 import mongoose from 'mongoose';
-import { clerkMiddleware } from '@clerk/express';
-
 const app = express();
-
-// Protect all routes under /api with Clerk unless explicitly public
-app.use('/api', clerkMiddleware());
-
 app.use(cors({
   origin: [
     'http://localhost:5173',   // Vite dev server (host)
@@ -25,9 +19,15 @@ app.use(cors({
   ],
   credentials: true,
 }));
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/checkout/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
-app.use('/api/auth', authRouter);
+app.use('/api/checkout', checkoutRouter);
 app.use('/api/parts', partsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/settings', settingsRouter);

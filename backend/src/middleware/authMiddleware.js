@@ -1,17 +1,35 @@
-import { requireAuth as clerkRequireAuth } from '@clerk/express';
+import admin from 'firebase-admin';
 
-// Export Clerk's requireAuth so we don't have to change all the routers
-export const requireAuth = clerkRequireAuth();
+// Initialize Firebase Admin (Only project ID needed for token verification)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: process.env.FIREBASE_PROJECT_ID || 'ttp-mgmt-sys',
+  });
+}
 
-// Named middleware: restrict to admin role only
+export const requireAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ msg: 'No token provided' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.auth = { userId: decodedToken.uid, ...decodedToken };
+    next();
+  } catch (error) {
+    console.error('Firebase token verification error:', error);
+    return res.status(401).json({ msg: 'Invalid or expired token' });
+  }
+};
+
 export function requireAdmin(req, res, next) {
-  // If Clerk didn't authenticate them, block
   if (!req.auth || !req.auth.userId) {
     return res.status(401).json({ msg: 'Not authenticated.' });
   }
-  
-  // Basic bypass for the migration since Clerk doesn't inject roles by default
-  // In a real production app, we would check req.auth.claims.metadata.role
+  // In a real app, verify admin claims here
   next();
 }
 
