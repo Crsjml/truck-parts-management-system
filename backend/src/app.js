@@ -9,6 +9,7 @@ import transactionsRouter from './routes/transactions.js';
 import suppliersRouter from './routes/suppliers.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import checkoutRouter from './routes/checkout.js';
+import reviewsRouter from './routes/reviews.js';
 import mongoose from 'mongoose';
 const app = express();
 // CORS configuration
@@ -35,6 +36,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
+app.use('/api/reviews', reviewsRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 
