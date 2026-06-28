@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart } from '@phosphor-icons/react';
+import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { getCategoryIconAndColor } from '../utils/categoryIcons';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Analytics({ parts, transactions }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
+  const [zoomedChart, setZoomedChart] = useState(null); // 'bar' | 'pie' | null
+
+  const getHexForTailwindClass = (classStr) => {
+    if (!classStr) return '#ef4444';
+    if (classStr.includes('red') || classStr.includes('rose')) return '#ef4444';
+    if (classStr.includes('orange') || classStr.includes('amber')) return '#f59e0b';
+    if (classStr.includes('yellow') || classStr.includes('lime')) return '#eab308';
+    if (classStr.includes('emerald') || classStr.includes('teal')) return '#10b981';
+    if (classStr.includes('cyan') || classStr.includes('sky')) return '#0ea5e9';
+    if (classStr.includes('blue') || classStr.includes('brandBlue')) return '#3b82f6';
+    if (classStr.includes('indigo') || classStr.includes('purple') || classStr.includes('violet')) return '#8b5cf6';
+    if (classStr.includes('pink')) return '#ec4899';
+    return '#94a3b8'; // slate/gray fallback
+  };
 
   // Computations
   const totalSales = transactions.length;
@@ -16,28 +33,80 @@ export default function Analytics({ parts, transactions }) {
     sum + tx.items.reduce((s, i) => s + i.quantity, 0), 0
   );
 
-  // Group sales quantities by part ID to find top-selling items
+  // Group sales quantities by part name to avoid "Unknown Part" if IDs mismatch
   const partSalesCounts = {};
   transactions.forEach(tx => {
     tx.items.forEach(item => {
-      partSalesCounts[item.partId] = (partSalesCounts[item.partId] || 0) + item.quantity;
+      const name = item.name || 'Unknown Part';
+      partSalesCounts[name] = (partSalesCounts[name] || 0) + item.quantity;
     });
   });
 
   // Top selling parts list
   const topSellingParts = Object.entries(partSalesCounts)
-    .map(([partId, qty]) => {
-      const part = parts.find(p => p.id === partId);
+    .map(([name, qty]) => {
+      const partObj = parts.find(p => p.name === name || (name.endsWith('...') && p.name.startsWith(name.slice(0, -3))));
       return {
-        id: partId,
-        name: part ? part.name : 'Unknown Part',
-        sku: part ? part.sku : 'N/A',
-        quantity: qty,
-        revenue: qty * (part ? part.price : 0)
+        name: name.length > 20 ? name.substring(0, 20) + '...' : name,
+        fullName: name,
+        category: partObj ? partObj.category : 'Uncategorized',
+        quantity: qty
       };
     })
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 5);
+
+  const CustomYAxisTick = (props) => {
+    const { x, y, payload } = props;
+    const item = topSellingParts.find(d => d.name === payload.value);
+    const IconProps = getCategoryIconAndColor(item?.category);
+    const IconComponent = IconProps?.icon || Package;
+    
+    // Split long names into two lines
+    const name = payload.value || '';
+    let line1 = name;
+    let line2 = '';
+    
+    if (name.length > 15 && name.includes(' ')) {
+      const splitIndex = name.lastIndexOf(' ', 15);
+      if (splitIndex !== -1) {
+        line1 = name.substring(0, splitIndex);
+        line2 = name.substring(splitIndex + 1);
+      }
+    }
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <foreignObject x="-190" y={line2 ? "-16" : "-12"} width="185" height="32">
+          <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
+            <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color}`} />
+            <div className="flex flex-col items-end leading-tight text-right">
+              <span className="text-[11px] text-slate-300 font-medium whitespace-nowrap" title={item?.fullName || name}>{line1}</span>
+              {line2 && <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap" title={item?.fullName || name}>{line2}</span>}
+            </div>
+          </div>
+        </foreignObject>
+      </g>
+    );
+  };
+
+  const CustomPieLegend = (props) => {
+    const { payload } = props;
+    return (
+      <div className="flex flex-wrap justify-center gap-4 mt-4">
+        {payload.map((entry, index) => {
+          const IconProps = getCategoryIconAndColor(entry.value);
+          const IconComponent = IconProps?.icon || Package;
+          return (
+            <div key={`legend-${index}`} className="flex items-center gap-1.5">
+              <IconComponent weight="duotone" className={`w-3.5 h-3.5 ${IconProps?.color || 'text-slate-400'}`} />
+              <span className="text-[11px] text-slate-400 font-medium">{entry.value}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   // Category counts
   const categoryCounts = {};
@@ -98,7 +167,7 @@ export default function Analytics({ parts, transactions }) {
         `${displayCurrency} ${(item.price * item.quantity)}`
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 76,
         head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
         body: tableRows,
@@ -131,6 +200,9 @@ export default function Analytics({ parts, transactions }) {
       doc.setFont("Helvetica", "italic");
       doc.setFontSize(8.5);
       doc.text("Thank you for your business!", 105, finalY + 36, { align: 'center' });
+      doc.setFontSize(7.5);
+      doc.text("THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAXES.", 105, finalY + 42, { align: 'center' });
+      doc.text("Official Sales Invoice / BIR Acknowledged Form", 105, finalY + 46, { align: 'center' });
       doc.save(`Invoice_${tx.invoiceNumber}.pdf`);
     } catch (e) {
       alert("Error printing PDF: " + e.message);
@@ -194,71 +266,98 @@ export default function Analytics({ parts, transactions }) {
 
       {/* Analytics Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products Volume */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-border">
-            <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
-            <h3 className="text-base font-bold text-foreground font-display">Top-Selling Components</h3>
+        {/* Top Products Volume (Recharts Horizontal Bar) */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
+              <h3 className="text-base font-bold text-foreground font-display">Top-Selling Components</h3>
+            </div>
+            <button onClick={() => setZoomedChart('bar')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <ArrowsOut weight="duotone" className="w-4 h-4" />
+            </button>
           </div>
           
-          <div className="space-y-4 py-2">
+          <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
             {topSellingParts.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground text-sm">No products sold yet.</div>
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
             ) : (
-              topSellingParts.map((item, index) => {
-                // Find percentage compared to the highest sold item quantity
-                const maxQty = topSellingParts[0].quantity;
-                const percentage = maxQty > 0 ? (item.quantity / maxQty) * 100 : 0;
-                
-                return (
-                  <div key={item.id} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                      <span className="truncate max-w-[75%]">{index + 1}. {item.name}</span>
-                      <span>{item.quantity} sold ({formatCurrency(item.revenue)})</span>
-                    </div>
-                    {/* Glowing bar */}
-                    <div className="w-full bg-background rounded-full h-3.5 border border-slate-900 overflow-hidden">
-                      <div 
-                        style={{ width: `${percentage}%` }}
-                        className="h-full bg-gradient-to-r from-brandBlue-600 to-accent rounded-full transition-all duration-500 relative"
-                      >
-                        <div className="absolute inset-0 bg-white/10" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={topSellingParts}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={<CustomYAxisTick />}
+                      width={180}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: '#1e293b' }}
+                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                      itemStyle={{ color: '#f8fafc' }}
+                    />
+                    <Bar dataKey="quantity" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#94a3b8', fontSize: 10 }}>
+                      {topSellingParts.map((entry, index) => {
+                        const color = getHexForTailwindClass(getCategoryIconAndColor(entry.category)?.color);
+                        return <Cell key={`cell-${index}`} fill={color || '#94a3b8'} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </>
             )}
           </div>
         </div>
 
-        {/* Categories Distribution */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-border">
-            <Stack weight="duotone" className="w-5 h-5 text-brandBlue-400" />
-            <h3 className="text-base font-bold text-foreground font-display">Inventory Catalog Allocation</h3>
+        {/* Categories Distribution (Recharts Donut) */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Stack weight="duotone" className="w-5 h-5 text-brandBlue-400" />
+              <h3 className="text-base font-bold text-foreground font-display">Inventory Catalog Allocation</h3>
+            </div>
+            <button onClick={() => setZoomedChart('pie')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <ArrowsOut weight="duotone" className="w-4 h-4" />
+            </button>
           </div>
 
-          <div className="space-y-4 py-2">
-            {categoryBreakdown.filter(c => c.name !== 'All').map((cat) => {
-              const maxCount = Math.max(...categoryBreakdown.map(c => c.count));
-              const percentage = maxCount > 0 ? (cat.count / maxCount) * 100 : 0;
-
-              return (
-                <div key={cat.name} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                    <span>{cat.name}</span>
-                    <span>{cat.count} parts listed</span>
-                  </div>
-                  <div className="w-full bg-background rounded-full h-3 border border-slate-900 overflow-hidden">
-                    <div 
-                      style={{ width: `${percentage}%` }}
-                      className="h-full bg-gradient-to-r from-slate-800 to-brandBlue-500 rounded-full transition-all duration-500"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="w-full min-h-[320px] h-80">
+            {categoryBreakdown.filter(c => c.name !== 'All').length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No categories found.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 20, right: 0, bottom: 20, left: 0 }}>
+                  <Pie
+                    data={categoryBreakdown.filter(c => c.name !== 'All')}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="count"
+                    stroke="none"
+                    label={({ percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
+                    labelLine={false}
+                  >
+                    {categoryBreakdown.filter(c => c.name !== 'All').map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getHexForTailwindClass(getCategoryIconAndColor(entry.name)?.color)} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                    itemStyle={{ color: '#f8fafc' }}
+                  />
+                  <Legend content={<CustomPieLegend />} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
@@ -332,6 +431,99 @@ export default function Analytics({ parts, transactions }) {
           )}
         </div>
       </div>
+      {/* ZOOM MODAL */}
+      <AnimatePresence>
+        {zoomedChart && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-5xl h-[80vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl flex flex-col relative"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
+                <div className="flex items-center gap-2">
+                  {zoomedChart === 'bar' ? (
+                    <ChartBar weight="duotone" className="w-6 h-6 text-accent" />
+                  ) : (
+                    <Stack weight="duotone" className="w-6 h-6 text-brandBlue-400" />
+                  )}
+                  <h3 className="text-xl font-bold text-foreground font-display">
+                    {zoomedChart === 'bar' ? 'Top-Selling Components' : 'Inventory Catalog Allocation'}
+                  </h3>
+                </div>
+                <button onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-all">
+                  <X weight="bold" className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 bg-background p-8 min-h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  {zoomedChart === 'bar' ? (
+                    <BarChart
+                      data={topSellingParts}
+                      layout="vertical"
+                      margin={{ top: 20, right: 60, left: 40, bottom: 20 }}
+                    >
+                      <XAxis type="number" hide />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        axisLine={false} 
+                        tickLine={false}
+                        tick={<CustomYAxisTick />}
+                        width={200}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: '#1e293b' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Bar dataKey="quantity" radius={[0, 6, 6, 0]} barSize={40} label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }}>
+                        {topSellingParts.map((entry, index) => {
+                          const color = getHexForTailwindClass(getCategoryIconAndColor(entry.category)?.color);
+                          return <Cell key={`cell-${index}`} fill={color || '#94a3b8'} />;
+                        })}
+                      </Bar>
+                    </BarChart>
+                  ) : (
+                    <PieChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+                      <Pie
+                        data={categoryBreakdown.filter(c => c.name !== 'All')}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={130}
+                        outerRadius={220}
+                        paddingAngle={4}
+                        dataKey="count"
+                        stroke="none"
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        labelLine={{ stroke: '#94a3b8' }}
+                      >
+                        {categoryBreakdown.filter(c => c.name !== 'All').map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={getHexForTailwindClass(getCategoryIconAndColor(entry.name)?.color)} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Legend 
+                        content={<CustomPieLegend />}
+                      />
+                    </PieChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
