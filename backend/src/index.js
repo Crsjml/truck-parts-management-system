@@ -7,7 +7,7 @@ await connectDB();
 // Dynamic port selection: try default, then increment until free
 const startServer = (port) =>
   new Promise((resolve, reject) => {
-    const server = app.listen(port, () => resolve(server));
+    const server = app.listen(port, '0.0.0.0', () => resolve(server));
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         server.close();

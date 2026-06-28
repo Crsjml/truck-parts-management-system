@@ -14,7 +14,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/countries/, '')
       },
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://backend:3000',
         changeOrigin: true
       }
     }
