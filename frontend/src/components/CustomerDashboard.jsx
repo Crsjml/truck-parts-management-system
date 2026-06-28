@@ -3,8 +3,9 @@ import { useSettings } from '../context/SettingsContext';
 import { SquaresFour, FileText, PaperPlaneRight, CalendarBlank, Bell, List, X, User, ShieldCheck, CurrencyDollar, TrendUp, Package, Question, Download, Clock, CheckCircle, ArrowRight, ShoppingCart, MagnifyingGlass, Plus, Minus, Trash, CreditCard, LockKey, Gear, CircleNotch, Moon, Sun } from '@phosphor-icons/react';
 import { changePassword } from '../authStore';
 import Logo from './Logo';
+import MyAccount from './MyAccount';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import Footer from './Footer';
 
 /* ─────────────────────────────────────────────
@@ -236,7 +237,7 @@ function MyOrders({ customerName, transactions }) {
         item.quantity,
         `${displayCurrency} ${(item.price * item.quantity)}`,
       ]);
-      doc.autoTable({
+      autoTable(doc, {
         startY: 76,
         head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
         body: tableRows,
@@ -688,7 +689,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
         item.quantity,
         `${displayCurrency} ${(item.price * item.quantity)}`,
       ]);
-      doc.autoTable({
+      autoTable(doc, {
         startY: 76,
         head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
         body: tableRows,
@@ -1196,7 +1197,8 @@ export default function CustomerDashboard({
     { key: 'shop',      label: 'Shop / Order Parts', icon: ShoppingCart    },
     { key: 'orders',    label: 'My Orders',          icon: FileText         },
     { key: 'quote',     label: 'Request Quote',      icon: PaperPlaneRight             },
-    { key: 'settings',  label: 'Security Gear',  icon: Gear         },
+    { key: 'settings',  label: 'Security',       icon: Gear         },
+    { key: 'account',   label: 'My Profile',     icon: User         },
   ];
 
   const NavButton = ({ item, onClick }) => {
@@ -1367,6 +1369,9 @@ export default function CustomerDashboard({
           )}
           {page === 'settings' && (
             <SettingsPage customerEmail={transactions.length > 0 ? transactions[0].customerEmail || 'demo@example.com' : 'demo@example.com'} />
+          )}
+          {page === 'account' && (
+            <MyAccount user={auth.currentUser} onGoBack={() => setPage('dashboard')} />
           )}
         </main>
         <Footer className="px-6" />
