@@ -20,8 +20,8 @@ export async function connectDB() {
     if (!uri) {
       console.warn(`⚠️  Warning: MONGODB_URI not defined in environment. Falling back to local MongoDB: ${defaultLocal}`);
       uri = defaultLocal;
-    } else if (/<username>|<password>|<db_username>|<db_password>/.test(uri)) {
-      console.warn("⚠️  Warning: MONGODB_URI in `atlas-credentials.env` contains placeholder credentials (<username>, <password>, etc.).");
+    } else if (/<username>|<password>|<db_username>|<db_password>|<cluster>/.test(uri)) {
+      console.warn("⚠️  Warning: MONGODB_URI in `atlas-credentials.env` contains placeholder credentials (<username>, <password>, <cluster>, etc.).");
       console.warn(`⚠️  Falling back to local MongoDB instance: ${defaultLocal}`);
       uri = defaultLocal;
     }

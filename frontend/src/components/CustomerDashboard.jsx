@@ -9,6 +9,8 @@ import autoTable from 'jspdf-autotable';
 import Footer from './Footer';
 import CompatibilityFilter from './CompatibilityFilter';
 import ReviewSection from './ReviewSection';
+import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
+import { auth } from '../firebaseConfig';
 
 /* ─────────────────────────────────────────────
    INNER PAGE COMPONENTS
