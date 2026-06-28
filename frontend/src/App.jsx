@@ -100,7 +100,7 @@ export default function App() {
         const isAdmin = email.includes('admin') || email.includes('tarlac') || email === 'rbenedict.maagma@gmail.com' || email === 'azhoraaaa@gmail.com';
         const role = isAdmin ? 'admin' : 'customer';
         if (role === 'admin') setActiveView('admin-app');
-        else setActiveView('storefront');
+        else setActiveView('customer-dashboard');
       } else {
         setFirebaseUser(null);
         setIsSignedIn(false);

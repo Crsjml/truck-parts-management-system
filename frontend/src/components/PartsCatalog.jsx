@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
+import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
 import { z } from 'zod';
@@ -35,6 +36,7 @@ export default function PartsCatalog({
   const [activeTab, setActiveTab] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
   const itemsPerPage = 12;
 
   const [categoriesList, setCategoriesList] = useState([]);
@@ -121,7 +123,17 @@ export default function PartsCatalog({
     const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
     const matchesLowStock = !showLowStockOnly || part.stock <= part.minStock;
     
-    return matchesSearch && matchesCategory && matchesLowStock;
+    // TTP-68 compatibility filter
+    const matchesVehicle = (() => {
+      if (!vehicleFilter.brand) return true;
+      const comp = part.compatibleWith || [];
+      const hasBrand = comp.some(c => c.brand === vehicleFilter.brand || c.brand === 'Universal');
+      if (!hasBrand) return false;
+      if (!vehicleFilter.series) return true;
+      return comp.some(c => (c.brand === vehicleFilter.brand || c.brand === 'Universal') && (c.series === vehicleFilter.series || !c.series));
+    })();
+    
+    return matchesSearch && matchesCategory && matchesLowStock && matchesVehicle;
   });
 
   const sortedParts = useMemo(() => {
@@ -254,6 +266,9 @@ export default function PartsCatalog({
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* TTP-68: Compatibility Filter */}
+      <CompatibilityFilter onFilterChange={setVehicleFilter} />
+
       {/* Search and Action Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96">
@@ -391,9 +406,17 @@ export default function PartsCatalog({
                 {/* Card Top */}
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-brandBlue-400">
-                      {part.category}
-                    </span>
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brandBlue-400">
+                        {part.category}
+                      </span>
+                      {part.reviewStats?.totalReviews > 0 && (
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400">
+                          <Star weight="fill" />
+                          <span>{part.reviewStats.averageRating} ({part.reviewStats.totalReviews})</span>
+                        </div>
+                      )}
+                    </div>
                     <h4 
                       onClick={() => openDetailsModal(part)}
                       className="font-bold text-foreground hover:text-red-400 cursor-pointer transition-colors leading-snug font-display"

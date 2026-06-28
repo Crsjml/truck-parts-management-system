@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { SquaresFour, FileText, PaperPlaneRight, CalendarBlank, Bell, List, X, User, ShieldCheck, CurrencyDollar, TrendUp, Package, Question, Download, Clock, CheckCircle, ArrowRight, ShoppingCart, MagnifyingGlass, Plus, Minus, Trash, CreditCard, LockKey, Gear, CircleNotch, Moon, Sun } from '@phosphor-icons/react';
+import { SquaresFour, FileText, PaperPlaneRight, CalendarBlank, Bell, List, X, User, ShieldCheck, CurrencyDollar, TrendUp, Package, Question, Download, Clock, CheckCircle, ArrowRight, ShoppingCart, MagnifyingGlass, Plus, Minus, Trash, CreditCard, LockKey, Gear, CircleNotch, Moon, Sun, Star } from '@phosphor-icons/react';
 import { changePassword } from '../authStore';
 import Logo from './Logo';
 import MyAccount from './MyAccount';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Footer from './Footer';
+import CompatibilityFilter from './CompatibilityFilter';
+import ReviewSection from './ReviewSection';
 
 /* ─────────────────────────────────────────────
    INNER PAGE COMPONENTS
@@ -494,11 +496,12 @@ function RequestQuote({ customerName, parts, inquiries, setInquiries, onAddLog }
 }
 
 /* ── 4. Shop / Order Parts Page ──────────────── */
-function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog }) {
+function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog, currentUserId }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState([]);
+  const [selectedPart, setSelectedPart] = useState(null);
   
   // Checkout customer info
   const [nameInput, setNameInput] = useState(customerName);
@@ -512,6 +515,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
   const [sortOrder, setSortOrder] = useState('recommended');
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
   const itemsPerPage = 12;
 
   useEffect(() => {
@@ -544,7 +548,18 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
       part.oem.toLowerCase().includes(term) ||
       (part.compatibility || '').toLowerCase().includes(term);
     const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+
+    // TTP-68 compatibility filter
+    const matchesVehicle = (() => {
+      if (!vehicleFilter.brand) return true;
+      const comp = part.compatibleWith || [];
+      const hasBrand = comp.some(c => c.brand === vehicleFilter.brand || c.brand === 'Universal');
+      if (!hasBrand) return false;
+      if (!vehicleFilter.series) return true;
+      return comp.some(c => (c.brand === vehicleFilter.brand || c.brand === 'Universal') && (c.series === vehicleFilter.series || !c.series));
+    })();
+
+    return matchesSearch && matchesCategory && matchesVehicle;
   });
 
   const sortedParts = useMemo(() => {
@@ -736,6 +751,8 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
           <p className="text-muted-foreground text-sm mt-1">Select from our warehouse stock. Logged-in VIP customer discount applied automatically.</p>
         </div>
 
+        <CompatibilityFilter onFilterChange={setVehicleFilter} />
+
         <div className="glass-panel p-5 rounded-2xl space-y-4 font-sans">
           <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
             <div className="flex items-center gap-3 w-full lg:max-w-xl">
@@ -812,17 +829,21 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
                 return (
                   <div
                     key={part.id}
-                    onClick={() => remaining > 0 && addToCart(part)}
-                    className={`p-4 rounded-xl border transition-all text-left flex flex-col justify-between space-y-3 relative group ${
-                      remaining > 0
-                        ? 'bg-secondary border-border hover:border-accent/40 hover:bg-secondary cursor-pointer'
-                        : 'bg-background border-slate-900 opacity-60 cursor-not-allowed'
-                    }`}
+                    onClick={() => setSelectedPart(part)}
+                    className={`p-4 rounded-xl border transition-all text-left flex flex-col justify-between space-y-3 relative group bg-secondary border-border hover:border-accent/40 hover:bg-secondary cursor-pointer`}
                   >
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-start gap-2">
                         <span className="text-[9px] font-bold text-brandBlue-400 uppercase tracking-wider">{part.category}</span>
-                        <span className="text-xs font-bold text-foreground">{formatCurrency(part.price)}</span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs font-bold text-foreground">{formatCurrency(part.price)}</span>
+                          {part.reviewStats?.totalReviews > 0 && (
+                            <div className="flex items-center gap-0.5 text-[9px] font-bold text-amber-400">
+                              <Star weight="fill" />
+                              <span>{part.reviewStats.averageRating} ({part.reviewStats.totalReviews})</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <h5 className="font-bold text-foreground text-xs line-clamp-1 group-hover:text-foreground transition-colors">
                         {part.name}
@@ -1004,7 +1025,7 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
 
       {/* Success Modal Overlay */}
       {checkoutSuccess && lastTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-secondary border border-border rounded-2xl p-6 space-y-6 text-center shadow-2xl animate-scaleUp">
             <div className="mx-auto w-16 h-16 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/35">
               <CheckCircle weight="duotone" className="w-9 h-9" />
@@ -1041,6 +1062,97 @@ function ShopParts({ customerName, customerContact, parts, onCheckout, onAddLog 
               >
                 Close Cart
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Part Details Modal */}
+      {selectedPart && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-2xl bg-secondary border border-border rounded-2xl shadow-2xl animate-scaleUp my-8">
+            <div className="sticky top-0 bg-secondary/95 backdrop-blur-sm z-10 flex items-center justify-between p-5 border-b border-border rounded-t-2xl">
+              <h3 className="text-xl font-bold text-foreground font-display">Part Details</h3>
+              <button 
+                onClick={() => setSelectedPart(null)}
+                className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X weight="duotone" className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="flex flex-col md:flex-row gap-6 mb-6">
+                <div className="w-full md:w-1/3 flex flex-col gap-4">
+                  <div className="aspect-square rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
+                    {selectedPart.image ? (
+                      <img src={selectedPart.image} alt={selectedPart.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={getCategoryPlaceholder(selectedPart.category)} alt={selectedPart.name} className="w-full h-full object-cover opacity-80" />
+                    )}
+                  </div>
+                  
+                  <div className="bg-background p-4 rounded-xl border border-border space-y-1 text-center">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider block">Price</span>
+                    <span className="text-2xl font-bold text-accent font-display">{formatCurrency(selectedPart.price)}</span>
+                  </div>
+                </div>
+                
+                <div className="w-full md:w-2/3 space-y-4">
+                  <div>
+                    <span className="text-xs font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart.category}</span>
+                    <h2 className="text-2xl font-bold text-foreground font-display leading-tight">{selectedPart.name}</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 bg-background p-4 rounded-xl border border-border">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase">SKU</span>
+                      <p className="font-mono font-bold text-foreground mt-0.5">{selectedPart.sku}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase">OEM</span>
+                      <p className="font-mono font-bold text-foreground mt-0.5">{selectedPart.oem}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedPart.compatibility && (
+                    <div className="space-y-1 bg-background p-4 rounded-xl border border-border">
+                      <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Compatible Models</span>
+                      <p className="text-foreground text-sm leading-relaxed">{selectedPart.compatibility}</p>
+                    </div>
+                  )}
+
+                  {selectedPart.description && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Description</span>
+                      <p className="text-foreground text-sm leading-relaxed">{selectedPart.description}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pb-6">
+                <button
+                  onClick={() => setSelectedPart(null)}
+                  className="px-5 py-2.5 bg-secondary hover:bg-slate-700 border border-border text-muted-foreground font-bold rounded-xl text-sm transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    addToCart(selectedPart);
+                    setSelectedPart(null);
+                  }}
+                  disabled={selectedPart.stock <= 0}
+                  className="px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-accent/20 flex items-center gap-2"
+                >
+                  <ShoppingCart weight="duotone" className="w-4 h-4" /> 
+                  {selectedPart.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                </button>
+              </div>
+
+              {/* TTP-94: Reviews Section */}
+              <ReviewSection partId={selectedPart.id} currentUserId={currentUserId} />
             </div>
           </div>
         </div>

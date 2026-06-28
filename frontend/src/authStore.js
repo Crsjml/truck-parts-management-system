@@ -194,12 +194,17 @@ export async function api_get(path, timeout_ms = 8000) {
 
 // ── Parts & Categories fetching ─────────────────────────────────────────────
 
-export const fetchParts = async (search = '', category = 'All') => {
+export const fetchParts = async (search = '', category = 'All', filters = {}) => {
   try {
     let query = '';
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (category && category !== 'All') params.append('category', category);
+    
+    // TTP-68 compatibility filters
+    if (filters.brand) params.append('brand', filters.brand);
+    if (filters.series) params.append('series', filters.series);
+    if (filters.engineCode) params.append('engineCode', filters.engineCode);
     if (params.toString()) query = `?${params.toString()}`;
     
     const { ok, data } = await api_get(`/api/parts${query}`);
@@ -217,6 +222,16 @@ export const fetchCategories = async () => {
   } catch (err) {
     console.error('Failed to fetch categories:', err);
     return ['All'];
+  }
+};
+
+export const fetchVehicleOptions = async () => {
+  try {
+    const { ok, data } = await api_get('/api/parts/vehicle-options');
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch vehicle options:', err);
+    return [];
   }
 };
 
@@ -731,6 +746,36 @@ export const restorePart = async (id) => {
   try {
     const { ok, data } = await api_put(`/api/parts/${id}/restore`, {});
     return ok ? { ok: true } : { ok: false, error: data.msg };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+// ── Reviews ──────────────────────────────────────────────────────────────────
+
+export const fetchReviews = async (partId) => {
+  try {
+    const { ok, data } = await api_get(`/api/reviews/${partId}`);
+    return ok ? data : { reviews: [], stats: { totalReviews: 0, averageRating: 0 } };
+  } catch (err) {
+    console.error('Failed to fetch reviews:', err);
+    return { reviews: [], stats: { totalReviews: 0, averageRating: 0 } };
+  }
+};
+
+export const createReview = async (reviewData) => {
+  try {
+    const { ok, data } = await api_post('/api/reviews', reviewData);
+    return ok ? { ok: true, review: data } : { ok: false, error: data.msg || 'Failed to submit review.' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const deleteReview = async (id) => {
+  try {
+    const { ok, data } = await api_delete(`/api/reviews/${id}`);
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete review.' };
   } catch {
     return { ok: false, error: 'Server connection failed.' };
   }

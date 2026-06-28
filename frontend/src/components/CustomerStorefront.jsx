@@ -1,11 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders, ShoppingCart, Plus, Minus, Trash } from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders, ShoppingCart, Plus, Minus, Trash, Star } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
 import { stripePromise } from '../stripe';
 import { auth } from '../firebaseConfig';
+import CompatibilityFilter from './CompatibilityFilter';
+import ReviewSection from './ReviewSection';
+
 export default function CustomerStorefront({
   parts,
   categories,
@@ -117,13 +120,7 @@ export default function CustomerStorefront({
     return Array.from(candidates).slice(0, 6);
   }, [search, parts]);
 
-  const TRUCK_BRANDS = [
-    { id: 'All', label: 'All Brands' },
-    { id: 'ISZ', label: 'Isuzu' },
-    { id: 'HNO', label: 'Hino' },
-    { id: 'MIT', label: 'Mitsubishi Fuso' },
-    { id: 'TOY', label: 'Toyota Dyna' }
-  ];
+  const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
 
   const getCategoryStyles = (cat) => {
     const { Icon, color } = getCategoryIconAndColor(cat);
@@ -148,10 +145,13 @@ export default function CustomerStorefront({
       else if (stockStatus === 'Low Stock') matchesStock = part.stock > 0 && part.stock <= part.minStock;
 
       let matchesBrand = true;
-      if (compatibilityFilter !== 'All') {
-        const brandObj = TRUCK_BRANDS.find(b => b.id === compatibilityFilter);
-        const brandName = brandObj ? brandObj.label.split(' ')[0].toLowerCase() : '';
-        matchesBrand = (part.compatibility || '').toLowerCase().includes(brandName);
+      if (vehicleFilter.brand) {
+        const comp = part.compatibleWith || [];
+        const hasBrand = comp.some(c => c.brand === vehicleFilter.brand || c.brand === 'Universal');
+        if (!hasBrand) matchesBrand = false;
+        else if (vehicleFilter.series) {
+          matchesBrand = comp.some(c => (c.brand === vehicleFilter.brand || c.brand === 'Universal') && (c.series === vehicleFilter.series || !c.series));
+        }
       }
 
       return matchesSearch && matchesCategory && matchesMinPrice && matchesMaxPrice && matchesStock && matchesBrand;
@@ -498,20 +498,8 @@ export default function CustomerStorefront({
                     </div>
 
                     <div className="flex-1 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Truck Brand</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {TRUCK_BRANDS.slice(1).map(brand => (
-                            <button
-                              key={brand.id}
-                              onClick={() => setCompatibilityFilter(brand.id)}
-                              className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[10px] font-bold transition ${compatibilityFilter === brand.id ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-muted-foreground hover:border-accent/30 hover:text-foreground'}`}
-                            >
-                              <Truck weight={compatibilityFilter === brand.id ? "fill" : "duotone"} className="w-4 h-4 mb-1" />
-                              {brand.id}
-                            </button>
-                          ))}
-                        </div>
+                      <div className="sm:col-span-2 lg:col-span-4 mb-2">
+                        <CompatibilityFilter onFilterChange={setVehicleFilter} />
                       </div>
 
                       <div className="space-y-2">
@@ -565,10 +553,10 @@ export default function CustomerStorefront({
                         </select>
                       </div>
 
-                      {(minPrice || maxPrice || stockStatus !== 'All' || sortOrder !== 'recommended' || compatibilityFilter !== 'All') && (
+                      {(minPrice || maxPrice || stockStatus !== 'All' || sortOrder !== 'recommended' || vehicleFilter.brand) && (
                         <div className="sm:col-span-2 lg:col-span-4 pt-2 flex justify-end border-t border-border mt-2">
                           <button 
-                            onClick={() => { setMinPrice(''); setMaxPrice(''); setStockStatus('All'); setSortOrder('recommended'); setCompatibilityFilter('All'); }}
+                            onClick={() => { setMinPrice(''); setMaxPrice(''); setStockStatus('All'); setSortOrder('recommended'); setVehicleFilter({brand: null, series: null}); }}
                             className="text-[10px] uppercase tracking-[0.1em] font-bold text-red-500 hover:text-red-400 border border-red-500/30 bg-red-500/10 px-4 py-2 rounded-xl transition"
                           >
                             Clear Filters
@@ -611,9 +599,17 @@ export default function CustomerStorefront({
                               {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5" />}
                               {part.category}
                             </div>
-                            <div className="absolute bottom-4 right-4 rounded-2xl border border-border bg-background px-3 py-2 text-right shadow-sm">
-                              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Price</p>
-                              <p className="text-lg font-black text-foreground">{formatCurrency(part.price)}</p>
+                            <div className="absolute bottom-4 right-4 flex flex-col items-end gap-1">
+                              {part.reviewStats?.totalReviews > 0 && (
+                                <div className="rounded-2xl border border-border bg-background px-2 py-1 text-right shadow-sm flex items-center gap-1 text-[10px] font-bold text-amber-400">
+                                  <Star weight="fill" />
+                                  <span>{part.reviewStats.averageRating}</span>
+                                </div>
+                              )}
+                              <div className="rounded-2xl border border-border bg-background px-3 py-2 text-right shadow-sm">
+                                <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Price</p>
+                                <p className="text-lg font-black text-foreground">{formatCurrency(part.price)}</p>
+                              </div>
                             </div>
                           </div>
 
@@ -915,6 +911,11 @@ export default function CustomerStorefront({
                 </div>
               </div>
             </div>
+            
+            <div className="mt-5 border-t border-border pt-5">
+              <ReviewSection partId={selectedPart.id} currentUserId={customerSession?.user?.id || customerSession?.user?.uid} />
+            </div>
+
             <div className="mt-5 border-t border-border pt-5">
               <button
                 type="button"

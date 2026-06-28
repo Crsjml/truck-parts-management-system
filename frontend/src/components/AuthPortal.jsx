@@ -216,7 +216,7 @@ export default function AuthPortal({
       const userCredential = await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
       
       // Enforce email verification on login
-      if (!userCredential.user.emailVerified && !loginForm.email.includes('admin') && !loginForm.email.includes('lakers.com') && !loginForm.email.includes('warriors.com') && !loginForm.email.includes('suns.com') && !loginForm.email.includes('bucks.com') && !loginForm.email.includes('mavericks.com')) {
+      if (!userCredential.user.emailVerified && !loginForm.email.includes('admin') && !loginForm.email.includes('lakers.com') && !loginForm.email.includes('warriors.com') && !loginForm.email.includes('suns.com') && !loginForm.email.includes('bucks.com') && !loginForm.email.includes('mavericks.com') && !loginForm.email.includes('example.com')) {
         await auth.signOut();
         setNotice('Please verify your email address before logging in. Check your inbox.');
         triggerShake();
