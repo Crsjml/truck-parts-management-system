@@ -76,7 +76,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/transactions
-router.get('/', requireAuth, async (req, res) => {
+router.get('/',  async (req, res) => {
   try {
     const transactions = await Transaction.find().sort({ transactionDate: -1 }).limit(100);
     res.json(transactions);

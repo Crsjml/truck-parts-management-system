@@ -16,7 +16,7 @@ const partSchema = new mongoose.Schema(
     published:     { type: Boolean, default: true },  // visible on customer storefront
     archived:      { type: Boolean, default: false }   // soft-delete flag
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
 // Search optimization indices
