@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CaretDown, CaretUp } from '@phosphor-icons/react';
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
@@ -44,7 +44,9 @@ export default function StatusBar() {
   // Only render in dev mode — remove this condition if you want it in prod too
   if (!import.meta.env.DEV) return null;
 
+  const [isExpanded, setIsExpanded] = useState(true);
   const [status, setStatus] = useState({
+    firebase: 'ok',
     backend: 'checking',
     database: 'checking',
     uptime: null,
@@ -93,12 +95,24 @@ export default function StatusBar() {
     return `${sec}s`;
   };
 
+  if (!isExpanded) {
+    return (
+      <button 
+        onClick={() => setIsExpanded(true)} 
+        className="fixed bottom-0 right-0 p-1 px-2 bg-background/90 backdrop-blur-md border border-border/80 rounded-tl-lg text-muted-foreground hover:text-foreground z-[9999] shadow-sm flex items-center gap-1 text-[10px]"
+      >
+        ⚙ System <CaretUp className="w-3 h-3" />
+      </button>
+    );
+  }
+
   return (
     <div className="fixed bottom-0 left-0 right-0 h-8 bg-background/90 backdrop-blur-md border-t border-border/80 flex items-center justify-between px-4 font-mono text-[11px] text-muted-foreground z-[9999] select-none" role="status" aria-label="System status">
       {/* Left: service chips */}
       <div className="flex items-center gap-3">
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold mr-1">⚙ System</span>
         <Chip label="Frontend" state="ok" />
+        <Chip label="Firebase" state={status.firebase} />
         <Chip
           label="Backend API"
           state={status.backend}
@@ -123,8 +137,15 @@ export default function StatusBar() {
         >
           ↻
         </button>
+        <div className="w-px h-3 bg-border/80 mx-1"></div>
+        <button 
+          onClick={() => setIsExpanded(false)}
+          className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded hover:bg-secondary"
+          title="Hide status bar"
+        >
+          <CaretDown className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );
 }
-
