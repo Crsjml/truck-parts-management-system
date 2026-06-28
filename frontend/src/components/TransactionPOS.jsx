@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { MagnifyingGlass, ShoppingCart, Trash, Plus, Minus, User, Phone, Tag, Download, CheckCircle, X, CreditCard, FileCsv } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function TransactionPOS({ parts, onCheckout }) {
   const { formatCurrency, displayCurrency } = useSettings();
@@ -79,36 +79,43 @@ export default function TransactionPOS({ parts, onCheckout }) {
   const taxAmount = taxableAmount * 0.12;
   const total = taxableAmount + taxAmount;
 
-  const handleCheckoutSubmit = (e) => {
+  const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (cart.length === 0) {
       alert('Cart is empty!');
       return;
     }
 
-    // Generate invoice sequence
+    // Generate invoice sequence with randomness to prevent parallel test collisions
     const invoiceNum = `TTP-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const txData = {
+      id: 'tx-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
       invoiceNumber: invoiceNum,
+      transactionDate: new Date().toISOString(),
       customerName: customerName || 'Walk-in Customer',
       customerContact: customerContact || 'N/A',
       items: cart.map(item => ({
-        partId: item.id,
+        partId: item.id || item._id,
         name: item.name,
+        sku: item.sku,
         quantity: item.quantity,
-        price: item.price
+        price: item.price || 0,
+        subtotal: (item.price || 0) * item.quantity
       })),
+      subtotal,
       discount: discountVal,
       tax: 12,
-      subtotal,
       taxAmount,
       total,
-      transactionDate: new Date().toISOString()
+      paymentMethod: 'cash',
+      status: 'completed',
+      processedBy: 'Admin User'
     };
 
-    // Callback to App state
-    onCheckout(txData);
+    // Await callback to ensure backend finishes processing and frontend state syncs
+    const success = await onCheckout(txData);
+    if (!success) return;
     
     // Set success modal states
     setLastTx(txData);
@@ -176,7 +183,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
         `${displayCurrency} ${(item.price * item.quantity)}`
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 76,
         head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
         body: tableRows,
