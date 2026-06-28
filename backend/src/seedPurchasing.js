@@ -23,16 +23,16 @@ const seedPurchasingData = async () => {
     await Supplier.deleteMany({});
     
     const supplierData = [
-      { name: 'Cummins Inc.', type: 'Company', contactPerson: 'John Smith', email: 'sales@cummins.com', phone: '+1 800-286-6467', address: 'Columbus, IN', country: 'United States', paymentTerms: 'Net 30' },
-      { name: 'Volvo Trucks Global', type: 'Company', contactPerson: 'Sven Svensson', email: 'parts@volvo.com', phone: '+46 31 66 80 00', address: 'Gothenburg, Sweden', country: 'Sweden', paymentTerms: 'Net 60' },
-      { name: 'Bendix Commercial Vehicle Systems', type: 'Company', contactPerson: 'Michael Johnson', email: 'orders@bendix.com', phone: '+1 800-247-2725', address: 'Avon, OH', country: 'United States', paymentTerms: 'Net 30' },
-      { name: 'Bosch Automotive Aftermarket', type: 'Company', contactPerson: 'Klaus Müller', email: 'auto@bosch.com', phone: '+49 711 811 0', address: 'Gerlingen, Germany', country: 'Germany', paymentTerms: 'Net 45' },
-      { name: 'Meritor Heavy Vehicle Systems', type: 'Company', contactPerson: 'Sarah Davis', email: 'sales@meritor.com', phone: '+1 866-668-7221', address: 'Troy, MI', country: 'United States', paymentTerms: 'Net 30' },
-      { name: 'Daimler Truck Asia', type: 'Company', contactPerson: 'Kenji Sato', email: 'parts.asia@daimler.com', phone: '+81 44-330-7700', address: 'Kawasaki, Japan', country: 'Japan', paymentTerms: 'Net 30' },
-      { name: 'Hino Motors Parts', type: 'Company', contactPerson: 'Tanaka Hiroshi', email: 'supply@hino.co.jp', phone: '+81 42-586-5111', address: 'Hino, Tokyo', country: 'Japan', paymentTerms: 'Net 30' },
-      { name: 'WABCO Vehicle Control Systems', type: 'Company', contactPerson: 'Elena Rossi', email: 'sales@wabco.com', phone: '+32 2 663 98 00', address: 'Brussels, Belgium', country: 'Belgium', paymentTerms: 'Net 60' },
-      { name: 'Denso Commercial', type: 'Company', contactPerson: 'Yamamoto Ken', email: 'orders@denso.co.jp', phone: '+81 566-25-5511', address: 'Kariya, Aichi', country: 'Japan', paymentTerms: 'Net 45' },
-      { name: 'Allison Transmission', type: 'Company', contactPerson: 'Robert Wilson', email: 'parts@allisontransmission.com', phone: '+1 800-252-5283', address: 'Indianapolis, IN', country: 'United States', paymentTerms: 'Net 30' }
+      { name: 'Manila Heavy Duty Parts Corp.', type: 'Company', contactPerson: 'Juan Dela Cruz', email: 'sales@manilaheavyparts.ph', phone: '+63 2 8123 4567', address: 'Quezon City, Metro Manila', country: 'Philippines', paymentTerms: 'Net 30' },
+      { name: 'Cebu Truck Components Inc.', type: 'Company', contactPerson: 'Maria Santos', email: 'orders@cebutrucks.ph', phone: '+63 32 234 5678', address: 'Mandaue City, Cebu', country: 'Philippines', paymentTerms: 'Net 60' },
+      { name: 'Davao Diesel Supply', type: 'Company', contactPerson: 'Carlos Reyes', email: 'supply@davaodiesel.com.ph', phone: '+63 82 222 3333', address: 'Davao City, Davao del Sur', country: 'Philippines', paymentTerms: 'Net 30' },
+      { name: 'Luzon Commercial Vehicle Systems', type: 'Company', contactPerson: 'Grace Lim', email: 'auto@luzoncvs.ph', phone: '+63 45 322 1111', address: 'San Fernando, Pampanga', country: 'Philippines', paymentTerms: 'Net 45' },
+      { name: 'Visayas Freight Parts Solutions', type: 'Company', contactPerson: 'Pedro Garcia', email: 'sales@visayasfreight.ph', phone: '+63 33 333 4444', address: 'Iloilo City, Iloilo', country: 'Philippines', paymentTerms: 'Net 30' },
+      { name: 'Tarlac Auto & Engine Supply', type: 'Company', contactPerson: 'Jose Bautista', email: 'parts.tarlac@taes.ph', phone: '+63 45 982 7777', address: 'Tarlac City, Tarlac', country: 'Philippines', paymentTerms: 'Net 30' },
+      { name: 'Mindanao Motors & Gear', type: 'Company', contactPerson: 'Ana Fernandez', email: 'supply@mindanaomotors.ph', phone: '+63 88 856 5111', address: 'Cagayan de Oro, Misamis Oriental', country: 'Philippines', paymentTerms: 'Net 30' },
+      { name: 'PhilTruck Brake & Control Systems', type: 'Company', contactPerson: 'Elena Cruz', email: 'sales@philtruck.ph', phone: '+63 2 8663 9800', address: 'Makati City, Metro Manila', country: 'Philippines', paymentTerms: 'Net 60' },
+      { name: 'Makati Parts Hub', type: 'Company', contactPerson: 'Kenji Yamamoto', email: 'orders@makatiparts.ph', phone: '+63 2 8566 2555', address: 'Makati City, Metro Manila', country: 'Philippines', paymentTerms: 'Net 45' },
+      { name: 'Batangas Transmission Experts', type: 'Company', contactPerson: 'Roberto Wilson', email: 'parts@batangastransmission.ph', phone: '+63 43 723 5283', address: 'Batangas City, Batangas', country: 'Philippines', paymentTerms: 'Net 30' }
     ];
 
     const insertedSuppliers = await Supplier.insertMany(supplierData);

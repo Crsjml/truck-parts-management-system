@@ -14,8 +14,25 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/countries/, '')
       },
       '/api': {
-        target: 'http://backend:5000',
+        target: 'http://localhost:3000',
         changeOrigin: true
+      }
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts')) return 'vendor-recharts';
+            if (id.includes('framer-motion')) return 'vendor-framer';
+            if (id.includes('react-select')) return 'vendor-react-select';
+            if (id.includes('jspdf')) return 'vendor-pdf';
+            if (id.includes('firebase')) return 'vendor-firebase';
+            if (id.includes('@phosphor-icons')) return 'vendor-icons';
+            return 'vendor-core'; // all other dependencies go here
+          }
+        }
       }
     }
   }

@@ -49,6 +49,7 @@ router.post('/', requireAuth, async (req, res) => {
       invoiceNumber,
       customerName,
       customerContact,
+      userId: req.auth?.userId || null,
       items,
       discount,
       tax,

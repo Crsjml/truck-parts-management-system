@@ -10,8 +10,10 @@ This account provides access to the **Admin Dashboard** (Catalog management, sal
 | Role | Full Name | Email Address | Password |
 | :--- | :--- | :--- | :--- |
 | **System Admin** | System Admin | `admin@tarlactruckparts.local` | `Admin@12345` |
+| **System Admin** | Raphael Maagma | `rbenedict.maagma@gmail.com` | `Rbndct694200` |
+| **System Admin** | Azhora | `azhoraaaa@gmail.com` | `Rbndct694200` |
 
-*Note: Defined dynamically in [atlas-credentials.env](file:///Users/rbndct/ITISDEV_ISANDE1/truck-parts-management-system/atlas-credentials.env).*
+*Note: Defined dynamically in [atlas-credentials.env](file:///Users/rbndct/ITISDEV_ISANDE1/truck-parts-management-system/atlas-credentials.env) and hardcoded roles in `App.jsx`.*
 
 ---
 

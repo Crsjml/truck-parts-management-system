@@ -1,73 +1,9 @@
 // backend/src/config/seed.js
-import bcrypt from 'bcryptjs';
-import User from '../models/User.js';
 import Category from '../models/Category.js';
 import Part from '../models/Part.js';
 
 export async function seedDatabase() {
   try {
-    // 1. Seed Users (Admin + Customers)
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      console.log('🌱 Database is empty. Seeding default accounts...');
-      
-      const adminPasswordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@12345', 10);
-      const customerPasswordHash = await bcrypt.hash('Player@12345', 10);
-
-      const usersToSeed = [
-        {
-          email: (process.env.ADMIN_EMAIL || 'admin@tarlactruckparts.local').toLowerCase(),
-          password_hash: adminPasswordHash,
-          role: 'admin',
-          full_name: 'System Admin',
-          verified: true
-        },
-        {
-          email: 'lionel.messi@example.com',
-          password_hash: customerPasswordHash,
-          role: 'customer',
-          full_name: 'Lionel Messi',
-          contact_number: '+5491112345678',
-          verified: true
-        },
-        {
-          email: 'cristiano.ronaldo@example.com',
-          password_hash: customerPasswordHash,
-          role: 'customer',
-          full_name: 'Cristiano Ronaldo',
-          contact_number: '+351912345678',
-          verified: true
-        },
-        {
-          email: 'kylian.mbappe@example.com',
-          password_hash: customerPasswordHash,
-          role: 'customer',
-          full_name: 'Kylian Mbappe',
-          contact_number: '+33612345678',
-          verified: true
-        },
-        {
-          email: 'erling.haaland@example.com',
-          password_hash: customerPasswordHash,
-          role: 'customer',
-          full_name: 'Erling Haaland',
-          contact_number: '+4791234567',
-          verified: true
-        },
-        {
-          email: 'vinicius.junior@example.com',
-          password_hash: customerPasswordHash,
-          role: 'customer',
-          full_name: 'Vinicius Junior',
-          contact_number: '+5521987654321',
-          verified: true
-        }
-      ];
-
-      await User.insertMany(usersToSeed);
-      console.log('✅ Default users seeded successfully.');
-    }
-
     // 2. Seed Categories
     const categoryCount = await Category.countDocuments();
     let seededCategories = {};

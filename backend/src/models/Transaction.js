@@ -14,6 +14,10 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     default: 'N/A'
   },
+  userId: {
+    type: String,
+    default: null
+  },
   items: [{
     partId: { type: mongoose.Schema.Types.ObjectId, ref: 'Part', required: true },
     name: { type: String, required: true },

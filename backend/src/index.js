@@ -19,7 +19,7 @@ const startServer = (port) =>
   });
 
 (async () => {
-  let port = parseInt(process.env.PORT) || 5000;
+  let port = parseInt(process.env.PORT) || 3000;
   while (true) {
     try {
       const server = await startServer(port);

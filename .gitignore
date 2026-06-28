@@ -4,3 +4,8 @@ atlas-credentials.env
 dist/
 frontend/dist/
 .env.jira
+
+firebase-service-account.json
+.agents/skills/testing-qa/
+.agents/skills/webapp-testing/
+.agents/
