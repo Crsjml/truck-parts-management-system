@@ -3,13 +3,16 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Part from '../models/Part.js';
 import Category from '../models/Category.js';
+import Review from '../models/Review.js';
+import { requireAuth } from '../middleware/authMiddleware.js';
+import { parseCompatibility } from '../utils/parseCompatibility.js';
 
 const router = express.Router();
 
 // ── Get all parts (with search and category filtering) ───────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { search, category, archived, published } = req.query;
+    const { search, category, archived, published, brand, series, engineCode } = req.query;
     const query = {};
 
     // By default exclude archived parts; pass ?archived=true to include only archived
@@ -33,6 +36,23 @@ router.get('/', async (req, res) => {
       ];
     }
 
+    // Compatibility filter — brand/series/engineCode (TTP-68)
+    if (brand && brand.toLowerCase() !== 'all') {
+      const brandCondition = { 'compatibleWith.brand': { $regex: new RegExp(`^${brand}$`, 'i') } };
+      // Universal parts always show when any brand is selected
+      const universalCondition = { 'compatibleWith.brand': { $regex: /^universal$/i } };
+      query.$and = query.$and || [];
+      query.$and.push({ $or: [brandCondition, universalCondition] });
+    }
+    if (series && series.toLowerCase() !== 'all') {
+      query.$and = query.$and || [];
+      query.$and.push({ 'compatibleWith.series': { $regex: new RegExp(`^${series}$`, 'i') } });
+    }
+    if (engineCode) {
+      query.$and = query.$and || [];
+      query.$and.push({ 'compatibleWith.engineCode': { $regex: new RegExp(engineCode, 'i') } });
+    }
+
     // Fetch all parts WITHOUT populate to avoid CastErrors from legacy data
     const parts = await Part.find(query).sort({ name: 1 }).lean();
 
@@ -54,18 +74,22 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // Build a lookup map for all referenced category IDs
-    const rawCatIds = [...new Set(
-      parts
-        .map(p => p.category)
-        .filter(c => c && mongoose.isValidObjectId(c))
-        .map(c => c.toString())
-    )];
-    const categoryDocs = rawCatIds.length > 0
-      ? await Category.find({ _id: { $in: rawCatIds } }).lean()
-      : [];
+    // Fetch categories to map IDs to Names
+    const categories = await Category.find({}).lean();
     const categoryMap = {};
-    categoryDocs.forEach(c => { categoryMap[c._id.toString()] = c; });
+    categories.forEach(cat => {
+      categoryMap[cat._id.toString()] = cat;
+    });
+
+    // Fetch reviews to calculate averages
+    const reviews = await Review.find({}, 'partId rating').lean();
+    const reviewMap = {};
+    reviews.forEach(r => {
+      const pId = r.partId.toString();
+      if (!reviewMap[pId]) reviewMap[pId] = { sum: 0, count: 0 };
+      reviewMap[pId].sum += r.rating;
+      reviewMap[pId].count += 1;
+    });
 
     // Format parts and apply category filter
     const formattedParts = parts
@@ -79,6 +103,8 @@ router.get('/', async (req, res) => {
           ? part.category.toString()
           : null;
         const cat = catId ? categoryMap[catId] : null;
+        const rStats = reviewMap[part._id.toString()];
+        const averageRating = rStats ? Number((rStats.sum / rStats.count).toFixed(1)) : 0;
         return {
           id: part._id.toString(),
           name: part.name,
@@ -90,10 +116,15 @@ router.get('/', async (req, res) => {
           stock: part.stock,
           minStock: part.min_stock,
           compatibility: part.compatibility || '',
+          compatibleWith: part.compatibleWith || [],
           description: part.description || '',
           image: part.image || '',
           published: part.published ?? true,
-          archived: part.archived ?? false
+          archived: part.archived ?? false,
+          reviewStats: {
+            averageRating,
+            totalReviews: rStats ? rStats.count : 0
+          }
         };
       });
 
@@ -104,7 +135,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ── Get all unique categories ────────────────────────────────────────────────
+// ── Get all unique categories ─────────────────────────────────────────────
 router.get('/categories', async (req, res) => {
   try {
     const categories = await Category.find({}).sort({ name: 1 });
@@ -113,6 +144,31 @@ router.get('/categories', async (req, res) => {
   } catch (err) {
     console.error('[get categories]', err);
     res.status(500).json({ msg: 'Server error fetching categories.' });
+  }
+});
+
+// ── Get vehicle filter options (brands + series per brand) — TTP-68 ──────────
+router.get('/vehicle-options', async (req, res) => {
+  try {
+    const parts = await Part.find({ archived: { $ne: true }, 'compatibleWith.0': { $exists: true } }, 'compatibleWith').lean();
+    const brandMap = {};
+    parts.forEach(p => {
+      (p.compatibleWith || []).forEach(({ brand, series }) => {
+        if (!brand || brand.toLowerCase() === 'universal') return;
+        if (!brandMap[brand]) brandMap[brand] = new Set();
+        if (series) brandMap[brand].add(series);
+      });
+    });
+    const options = Object.entries(brandMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([brand, seriesSet]) => ({
+        brand,
+        series: [...seriesSet].sort()
+      }));
+    res.json(options);
+  } catch (err) {
+    console.error('[vehicle-options]', err);
+    res.status(500).json({ msg: 'Server error fetching vehicle options.' });
   }
 });
 
@@ -156,6 +212,9 @@ router.post('/', async (req, res) => {
       stock: cleanStock,
       min_stock: cleanMinStock,
       compatibility: compatibility ? compatibility.trim() : '',
+      compatibleWith: (Array.isArray(req.body.compatibleWith) && req.body.compatibleWith.length > 0) 
+        ? req.body.compatibleWith 
+        : parseCompatibility(compatibility ? compatibility.trim() : ''),
       description: description ? description.trim() : '',
       image: image || ''
     });
@@ -172,6 +231,7 @@ router.post('/', async (req, res) => {
       stock: populated.stock,
       minStock: populated.min_stock,
       compatibility: populated.compatibility,
+      compatibleWith: populated.compatibleWith || [],
       description: populated.description,
       image: populated.image || ''
     });
@@ -227,7 +287,14 @@ router.put('/:id', async (req, res) => {
     if (price !== undefined) part.price = Number(price);
     if (stock !== undefined) part.stock = Number(stock);
     if (minStock !== undefined) part.min_stock = Number(minStock);
-    if (compatibility !== undefined) part.compatibility = compatibility.trim();
+    if (compatibility !== undefined) {
+      part.compatibility = compatibility.trim();
+      // Auto-update structured data if string changed and no explicit structured data was sent
+      if (req.body.compatibleWith === undefined) {
+        part.compatibleWith = parseCompatibility(part.compatibility);
+      }
+    }
+    if (req.body.compatibleWith !== undefined) part.compatibleWith = Array.isArray(req.body.compatibleWith) ? req.body.compatibleWith : [];
     if (description !== undefined) part.description = description.trim();
     if (image !== undefined) part.image = image;
     if (req.body.published !== undefined) part.published = req.body.published;
