@@ -13,14 +13,69 @@ import {
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus,
   updatePoBillingStatus, togglePartPublished
 } from '../authStore';
+import { auth } from '../firebaseConfig';
 import { useSettings } from '../context/SettingsContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import ReactCountryFlag from 'react-country-flag';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend
+  PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend,
+  AreaChart, Area, LabelList
 } from 'recharts';
+import Select from 'react-select';
+
+// ─── Custom Styles for React-Select Glassmorphism ─────────────────────────────
+export const customSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    backgroundColor: 'var(--color-secondary)',
+    borderColor: state.isFocused ? 'var(--color-accent)' : 'var(--color-border)',
+    boxShadow: state.isFocused ? '0 0 0 1px var(--color-accent)' : 'none',
+    '&:hover': {
+      borderColor: 'var(--color-accent)'
+    },
+    color: 'var(--color-foreground)',
+    borderRadius: '0.5rem',
+    minHeight: '38px',
+    padding: '0 4px',
+  }),
+  menu: (base) => ({
+    ...base,
+    backgroundColor: '#0f172a', // Tailwind slate-900 for dark mode dropdown menu
+    border: '1px solid #1e293b',
+    borderRadius: '0.5rem',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+    zIndex: 9999
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected 
+      ? 'var(--color-accent)' 
+      : state.isFocused 
+        ? 'rgba(255, 255, 255, 0.05)' 
+        : 'transparent',
+    color: state.isSelected ? '#fff' : '#e2e8f0', // slate-200 text
+    '&:active': {
+      backgroundColor: 'var(--color-accent)'
+    },
+    padding: '8px 12px'
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: 'var(--color-foreground)'
+  }),
+  input: (base) => ({
+    ...base,
+    color: 'var(--color-foreground)'
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: 'var(--color-muted-foreground)'
+  }),
+  menuPortal: base => ({ ...base, zIndex: 9999 })
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const NOT_ACKNOWLEDGED_DAYS = 7;
@@ -84,6 +139,84 @@ const PipelineChevron = ({ currentStatus }) => {
           {i !== stages.length - 1 && <CaretRight weight="bold" className={`absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-3 h-3 ${i === idx ? 'text-accent' : 'text-border'}`} />}
         </div>
       ))}
+    </div>
+  );
+};
+
+// ─── Drag & Drop Image Uploader ─────────────────────────────────────────────
+const DragDropImageUploader = ({ image, onImageUpload }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') setIsDragging(true);
+    else if (e.type === 'dragleave' || e.type === 'drop') setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleChange = (e) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleFile = (file) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      onImageUpload(reader.result); // Base64 string
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-bold text-muted-foreground">Product Image</label>
+      <div 
+        onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+        className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden ${
+          isDragging ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:bg-secondary/80'
+        }`}
+      >
+        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+        
+        {image ? (
+          <div className="relative w-full h-32 flex items-center justify-center">
+            <img src={image} alt="Preview" className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+              <span className="text-white text-xs font-bold bg-black/60 px-3 py-1.5 rounded-md">Change Image</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center text-center">
+            <div className="w-10 h-10 bg-background rounded-full flex items-center justify-center mb-3 border border-border shadow-sm">
+              <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-foreground">Click or Drag & Drop</p>
+            <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">SVG, PNG, JPG or GIF</p>
+          </div>
+        )}
+      </div>
+      {image && (
+        <button onClick={() => onImageUpload('')} className="text-xs text-red-400 hover:text-red-300 self-start font-semibold">
+          Remove Image
+        </button>
+      )}
     </div>
   );
 };
@@ -305,6 +438,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [suppliers, setSuppliers] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [countries, setCountries] = useState([]);
+  const [countryCodes, setCountryCodes] = useState({});
   const [loading, setLoading] = useState(true);
 
   // Modal state
@@ -348,7 +482,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [poForm, setPoForm] = useState({ supplier: '', expectedDeliveryDate: '', notes: '', items: [], sourceRfq: '' });
   const [poPartSel, setPoPartSel] = useState('');
   const [poQty, setPoQty] = useState('');
-  const [productForm, setProductForm] = useState({ name: '', sku: '', oem: '', category: '', price: '', stock: '', minStock: '' });
+  const [productForm, setProductForm] = useState({ name: '', sku: '', oem: '', category: '', price: '', stock: '', minStock: '', image: '' });
 
   // ── Load data ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -366,13 +500,18 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   const loadCountries = async () => {
     try {
-      const res = await fetch('/api/countries/all?fields=name');
+      const res = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2');
       const data = await res.json();
       const names = data.map(c => c.name.common).sort();
+      const codeMap = {};
+      data.forEach(c => { codeMap[c.name.common] = c.cca2; });
+      
       setCountries(names);
+      setCountryCodes(codeMap);
     } catch (err) {
       console.error('Failed to fetch countries:', err);
       setCountries([]);
+      setCountryCodes({});
     }
   };
 
@@ -453,20 +592,54 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   // ── Reports data ─────────────────────────────────────────────────────────────
   const reportData = useMemo(() => {
-    const spendByVendor = Object.entries(
-      purchaseOrders.filter(p => p.status === 'Received').reduce((acc, po) => {
-        const name = po.supplier?.name || 'Unknown';
-        acc[name] = (acc[name] || 0) + po.totalAmount;
-        return acc;
-      }, {})
-    ).map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 8);
+    // KPI: Total Spend YTD
+    const totalSpend = purchaseOrders
+      .filter(p => p.status === 'Received')
+      .reduce((sum, po) => sum + (po.totalAmount || 0), 0);
+
+    // KPI: Capital in Transit
+    const capitalInTransit = purchaseOrders
+      .filter(p => p.status === 'Confirmed')
+      .reduce((sum, po) => sum + (po.totalAmount || 0), 0);
+
+    // KPI: Average Supplier Lead Time
+    const receivedPOs = purchaseOrders.filter(p => p.status === 'Received' && p.createdAt && p.updatedAt);
+    const avgLeadTime = receivedPOs.length > 0
+      ? Math.round(receivedPOs.reduce((sum, po) => {
+          const days = (new Date(po.updatedAt) - new Date(po.createdAt)) / (1000 * 60 * 60 * 24);
+          return sum + Math.max(0, days);
+        }, 0) / receivedPOs.length)
+      : 0;
+
+    // KPI: Pending RFQs
+    const pendingRfqs = purchaseOrders.filter(p => p.status === 'Draft' || p.status === 'RFQ Sent').length;
+
+    // Pipeline Distribution
+    const pipelineDataRaw = purchaseOrders.reduce((acc, po) => {
+      acc[po.status] = (acc[po.status] || 0) + 1;
+      return acc;
+    }, {});
+    const pipelineData = Object.entries(pipelineDataRaw).map(([name, value]) => ({ name, value }));
+
+    // Spend by Vendor (Revamped with counts)
+    const spendByVendorRaw = purchaseOrders.filter(p => p.status === 'Received').reduce((acc, po) => {
+      const name = po.supplier?.name || 'Unknown';
+      if (!acc[name]) acc[name] = { total: 0, count: 0 };
+      acc[name].total += (po.totalAmount || 0);
+      acc[name].count += 1;
+      return acc;
+    }, {});
+    
+    const spendByVendor = Object.entries(spendByVendorRaw)
+      .map(([name, data]) => ({ name, total: data.total, count: data.count }))
+      .sort((a, b) => b.total - a.total).slice(0, 8);
 
     const topParts = Object.entries(
       purchaseOrders.filter(p => p.status === 'Received').flatMap(po => po.items).reduce((acc, item) => {
         acc[item.name] = (acc[item.name] || 0) + item.quantity;
         return acc;
       }, {})
-    ).map(([name, qty]) => ({ name: name.length > 18 ? name.slice(0, 18) + '…' : name, qty }))
+    ).map(([name, qty]) => ({ name, qty }))
       .sort((a, b) => b.qty - a.qty).slice(0, 8);
 
     const totalPos = purchaseOrders.filter(p => ['Confirmed', 'Received'].includes(p.status)).length;
@@ -486,12 +659,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const soldMap = (transactions || []).flatMap(tx => tx.items)
       .reduce((acc, item) => { acc[item.name] = (acc[item.name] || 0) + item.quantity; return acc; }, {});
     const pvs = top5Parts.map(p => ({
-      name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name,
+      name: p.name,
       purchased: purchasedMap[p.name] || 0,
       sold: soldMap[p.name] || 0
     }));
 
-    return { spendByVendor, topParts, onTimeRate, poTimeline, pvs };
+    return { totalSpend, capitalInTransit, avgLeadTime, pendingRfqs, pipelineData, spendByVendor, topParts, onTimeRate, poTimeline, pvs };
   }, [purchaseOrders, parts, transactions]);
 
   // ── Product analytics ─────────────────────────────────────────────────────────
@@ -564,7 +737,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const savePo = async () => {
     if (!poForm.supplier) return alert('Select a vendor.');
     if (poForm.items.length === 0) return alert('Add at least one item.');
-    const res = await createPurchaseOrder({ ...poForm });
+    
+    // Inject the current user's display name as the Buyer/Handler
+    const payload = {
+      ...poForm,
+      createdBy: auth?.currentUser?.displayName || auth?.currentUser?.email || 'Unknown User'
+    };
+    
+    const res = await createPurchaseOrder(payload);
     if (res.ok) { setPurchaseOrders(prev => [res.purchaseOrder, ...prev]); setViewingPo(res.purchaseOrder); onAddLog('system', `Created PO: ${res.purchaseOrder.poNumber}`); }
     else alert(res.error);
   };
@@ -682,7 +862,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     ) },
     { key: 'email', label: 'Email', render: v => v ? <a href={`mailto:${v}`} onClick={e => e.stopPropagation()} className="text-accent hover:underline">{v}</a> : '—' },
     { key: 'phone', label: 'Phone' },
-    { key: 'country', label: 'Country', render: v => v || '—' },
+    { key: 'country', label: 'Country', render: v => {
+      if (!v) return '—';
+      const countryKey = Object.keys(countryCodes).find(k => k.toLowerCase() === v.toLowerCase().trim());
+      return (
+        <div className="flex items-center justify-center">
+          {countryKey ? <ReactCountryFlag title={countryKey} countryCode={countryCodes[countryKey]} svg style={{ width: '1.8em', height: '1.8em' }} className="rounded-sm shadow-sm hover:scale-110 transition-transform cursor-help" /> : <span className="text-xs">{v}</span>}
+        </div>
+      );
+    } },
     { key: 'paymentTerms', label: 'Payment Terms' },
   ];
 
@@ -873,93 +1061,184 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
       {/* ── Reports Section ── */}
       {activeSection === 'reports' && (
-        <div className="flex-1 overflow-y-auto p-6 bg-secondary/20">
-          <h2 className="text-2xl font-bold text-foreground mb-6">Purchasing Reports</h2>
+        <div className="flex-1 overflow-y-auto p-6 bg-secondary/20 space-y-6">
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-bold text-foreground">Purchasing Reports</h2>
+            <p className="text-sm text-muted-foreground mt-1">Advanced metrics and operational pipeline analysis.</p>
+          </div>
+
+          {/* Executive KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-accent/20 group-hover:bg-accent transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><CurrencyDollar className="w-4 h-4 text-emerald-500" /> Total Spend (YTD)</span>
+              <span className="text-3xl font-black text-foreground font-display tracking-tight">{formatCurrency(reportData.totalSpend)}</span>
+              <span className="text-[10px] text-muted-foreground mt-2">Capital in received inventory</span>
+            </div>
+            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/20 group-hover:bg-blue-500 transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Truck className="w-4 h-4 text-blue-400" /> Capital in Transit</span>
+              <span className="text-3xl font-black text-foreground font-display tracking-tight">{formatCurrency(reportData.capitalInTransit)}</span>
+              <span className="text-[10px] text-muted-foreground mt-2">Confirmed orders awaiting delivery</span>
+            </div>
+            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-amber-500/20 group-hover:bg-amber-500 transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Timer className="w-4 h-4 text-amber-500" /> Avg Supplier Lead Time</span>
+              <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.avgLeadTime} <span className="text-sm text-muted-foreground font-semibold">days</span></span>
+              <span className="text-[10px] text-muted-foreground mt-2">From order confirmation to receipt</span>
+            </div>
+            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-purple-500/20 group-hover:bg-purple-500 transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-purple-400" /> Pending RFQs</span>
+              <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.pendingRfqs} <span className="text-sm text-muted-foreground font-semibold">requests</span></span>
+              <span className="text-[10px] text-muted-foreground mt-2">Drafts and sent quotes</span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Spend by Vendor */}
+            {/* Vendor Spend & Order Matrix */}
             <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><CurrencyDollar weight="duotone" className="w-4 h-4 text-accent" /> Spend by Vendor</h3>
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><CurrencyDollar weight="duotone" className="w-4 h-4 text-emerald-500" /> Vendor Spend & Order Matrix</h3>
               {reportData.spendByVendor.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={reportData.spendByVendor} layout="vertical" margin={{ left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} width={90} />
-                    <Tooltip formatter={v => [`₱${v.toLocaleString()}`, 'Spend']} contentStyle={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-                    <Bar dataKey="total" fill="#e63946" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="w-full h-64 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reportData.spendByVendor} layout="vertical" margin={{ top: 0, right: 60, left: 30, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--color-border)" />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} hide />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} width={200} axisLine={false} tickLine={false} />
+                      <Tooltip 
+                        formatter={(v, name) => [name === 'total' ? `₱${v.toLocaleString()}` : v, name === 'total' ? 'Spend' : 'Total Orders']} 
+                        cursor={{ fill: '#1e293b' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Bar dataKey="total" radius={[0, 4, 4, 0]} barSize={20} minPointSize={3}>
+                        <LabelList dataKey="total" position="right" formatter={(v) => `₱${v.toLocaleString()}`} fill="#94a3b8" fontSize={10} fontWeight="bold" />
+                        {reportData.spendByVendor.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={index === 0 ? '#ef4444' : '#3b82f6'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : <p className="text-muted-foreground text-sm py-8 text-center">No received orders yet.</p>}
+            </div>
+
+            {/* Pipeline Bottleneck Distribution */}
+            <div className="bg-background border border-border rounded-xl p-5 shadow-sm flex flex-col">
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ChartBar weight="duotone" className="w-4 h-4 text-purple-400" /> Order Pipeline Distribution</h3>
+              {reportData.pipelineData.length > 0 ? (
+                <div className="w-full h-64 flex items-center justify-center relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={reportData.pipelineData}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {reportData.pipelineData.map((entry, index) => {
+                          const COLORS = { 'Draft': '#94a3b8', 'RFQ Sent': '#a855f7', 'Confirmed': '#3b82f6', 'Received': '#10b981', 'Cancelled': '#ef4444' };
+                          return <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#64748b'} />;
+                        })}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={40} 
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
+                    <span className="text-3xl font-black text-foreground">{purchaseOrders.length}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Total POs</span>
+                  </div>
+                </div>
+              ) : <p className="text-muted-foreground text-sm py-8 text-center m-auto">No orders in pipeline.</p>}
+            </div>
+
+            {/* PO History Timeline (Area Chart) */}
+            <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ClockCounterClockwise weight="duotone" className="w-4 h-4 text-accent" /> PO History Timeline</h3>
+              {reportData.poTimeline.length > 0 ? (
+                <div className="w-full h-64 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={reportData.poTimeline} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={10} />
+                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Area type="monotone" dataKey="count" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : <p className="text-muted-foreground text-sm py-8 text-center">No purchase orders yet.</p>}
             </div>
 
             {/* Top Restocked Parts */}
             <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><Truck weight="duotone" className="w-4 h-4 text-accent" /> Top Restocked Parts</h3>
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><Package weight="duotone" className="w-4 h-4 text-emerald-500" /> Top Restocked Parts</h3>
               {reportData.topParts.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={reportData.topParts} margin={{ bottom: 30 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'var(--color-muted-foreground)' }} angle={-30} textAnchor="end" />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-                    <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: 'var(--color-muted-foreground)' }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center">No received orders yet.</p>}
-            </div>
-
-            {/* On-Time Delivery Rate */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><CheckSquare weight="duotone" className="w-4 h-4 text-accent" /> On-Time Delivery Rate</h3>
-              <div className="flex items-center gap-8">
-                <ResponsiveContainer width={160} height={160}>
-                  <PieChart>
-                    <Pie data={[{ value: reportData.onTimeRate }, { value: 100 - reportData.onTimeRate }]} innerRadius={50} outerRadius={70} startAngle={90} endAngle={-270} dataKey="value" stroke="none">
-                      <Cell fill="#10b981" />
-                      <Cell fill="rgba(255,255,255,0.05)" />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div>
-                  <div className="text-5xl font-black text-emerald-500">{reportData.onTimeRate}%</div>
-                  <div className="text-xs text-muted-foreground mt-1">of POs delivered on time</div>
-                  <div className="text-sm text-foreground mt-3 font-semibold">{confirmedPos.filter(p => p.status === 'Received').length} orders received</div>
+                <div className="w-full h-64 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reportData.topParts} margin={{ top: 25, right: 0, left: -20, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} angle={-35} textAnchor="end" height={80} axisLine={false} tickLine={false} interval={0} />
+                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                      <Tooltip 
+                        cursor={{ fill: '#1e293b' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={30} minPointSize={3}>
+                        <LabelList dataKey="qty" position="top" fill="#94a3b8" fontSize={10} fontWeight="bold" />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              </div>
-            </div>
-
-            {/* PO History Timeline */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ClockCounterClockwise weight="duotone" className="w-4 h-4 text-accent" /> PO History Timeline</h3>
-              {reportData.poTimeline.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={reportData.poTimeline}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-                    <Line type="monotone" dataKey="count" stroke="#e63946" strokeWidth={2} dot={{ fill: '#e63946', r: 4 }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center">No purchase orders yet.</p>}
+              ) : <p className="text-muted-foreground text-sm py-8 text-center">No received orders yet.</p>}
             </div>
 
             {/* Purchase vs Sales Volume */}
             <div className="bg-background border border-border rounded-xl p-5 shadow-sm lg:col-span-2">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><TrendUp weight="duotone" className="w-4 h-4 text-accent" /> Purchase vs Sales Volume (Top Parts)</h3>
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><TrendUp weight="duotone" className="w-4 h-4 text-accent" /> Overstock Analysis: Purchase vs Sales Volume</h3>
               {reportData.pvs.some(p => p.purchased > 0 || p.sold > 0) ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={reportData.pvs}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-                    <Legend wrapperStyle={{ fontSize: '11px' }} />
-                    <Bar dataKey="purchased" name="Purchased" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="sold" name="Sold" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="w-full h-72 pt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reportData.pvs} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={10} />
+                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                      <Tooltip 
+                        cursor={{ fill: '#1e293b' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        itemStyle={{ color: '#f8fafc' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
+                      <Bar dataKey="purchased" name="Total Purchased" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                      <Bar dataKey="sold" name="Total Sold" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : <p className="text-muted-foreground text-sm py-8 text-center">No data yet. Create purchase orders and record sales to see this chart.</p>}
             </div>
           </div>
@@ -1136,11 +1415,22 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     {!viewingPo && (
                       <tr><td colSpan="5" className="py-2">
                         <div className="flex items-center gap-2 mt-2">
-                          <select value={poPartSel} onChange={e => setPoPartSel(e.target.value)} className="w-1/2 bg-secondary border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:border-accent text-foreground">
-                            <option value="">Add a product...</option>
-                            {(parts || []).filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>[{p.sku}] {p.name}</option>)}
-                          </select>
-                          <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-20 bg-secondary border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:border-accent text-center" />
+                          <div className="w-1/2">
+                            <Select
+                              styles={customSelectStyles}
+                              menuPortalTarget={document.body}
+                              placeholder="Type to search product..."
+                              value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel)||{}).sku}] ${(parts.find(p => p.id === poPartSel)||{}).name}` } : null}
+                              onChange={(option) => setPoPartSel(option ? option.value : '')}
+                              options={(parts || []).filter(p => !p.archived).map(p => ({
+                                value: p.id,
+                                label: `[${p.sku}] ${p.name}`
+                              }))}
+                              isClearable
+                              isSearchable
+                            />
+                          </div>
+                          <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-20 bg-secondary border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-accent text-center text-foreground" />
                           <button onClick={addPoItem} className="px-3 py-1.5 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
                         </div>
                       </td></tr>
@@ -1231,27 +1521,34 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
               {/* General */}
               {productActiveTab === 'general' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                  <div className="space-y-5">
-                    {[
-                      { label: 'Product Name', key: 'name', type: 'text', bold: true },
-                      { label: 'SKU', key: 'sku', type: 'text', mono: true },
-                      { label: 'OEM / MPN', key: 'oem', type: 'text' },
-                    ].map(f => (
-                      <div key={f.key} className="flex flex-col border-b border-border pb-1">
-                        <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
-                        <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
-                          className={`bg-transparent focus:outline-none text-foreground ${f.bold ? 'font-semibold text-lg' : ''} ${f.mono ? 'font-mono' : ''}`} />
+                <div className="space-y-8">
+                  {/* Image Upload Area */}
+                  <DragDropImageUploader 
+                    image={productForm.image} 
+                    onImageUpload={(b64) => setProductForm({ ...productForm, image: b64 })} 
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                    <div className="space-y-5">
+                      {[
+                        { label: 'Product Name', key: 'name', type: 'text', bold: true },
+                        { label: 'SKU', key: 'sku', type: 'text', mono: true },
+                        { label: 'OEM / MPN', key: 'oem', type: 'text' },
+                      ].map(f => (
+                        <div key={f.key} className="flex flex-col border-b border-border pb-1">
+                          <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
+                          <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
+                            className={`bg-transparent focus:outline-none text-foreground ${f.bold ? 'font-semibold text-lg' : ''} ${f.mono ? 'font-mono' : ''}`} />
+                        </div>
+                      ))}
+                      <div className="flex flex-col border-b border-border pb-1">
+                        <label className="text-xs font-bold text-muted-foreground mb-1">Category</label>
+                        <select value={productForm.category || ''} onChange={e => setProductForm({ ...productForm, category: e.target.value })} className="bg-transparent focus:outline-none text-foreground">
+                          {(categories || []).filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
                       </div>
-                    ))}
-                    <div className="flex flex-col border-b border-border pb-1">
-                      <label className="text-xs font-bold text-muted-foreground mb-1">Category</label>
-                      <select value={productForm.category || ''} onChange={e => setProductForm({ ...productForm, category: e.target.value })} className="bg-transparent focus:outline-none text-foreground">
-                        {(categories || []).filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
                     </div>
-                  </div>
-                  <div className="space-y-5">
+                    <div className="space-y-5">
                     {[
                       { label: 'Unit Price (PHP)', key: 'price', type: 'number' },
                       { label: 'Current Stock', key: 'stock', type: 'number' },
@@ -1277,7 +1574,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     )}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
               {/* Sales */}
               {productActiveTab === 'sales' && (
