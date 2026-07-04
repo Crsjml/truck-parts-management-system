@@ -35,8 +35,7 @@ const purchaseOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexes
-purchaseOrderSchema.index({ poNumber: 1 });
+// Indexes - poNumber index is created by unique:true on the field
 purchaseOrderSchema.index({ supplier: 1 });
 purchaseOrderSchema.index({ status: 1 });
 
