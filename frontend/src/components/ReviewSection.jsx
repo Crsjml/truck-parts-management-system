@@ -159,14 +159,14 @@ export default function ReviewSection({ partId, currentUserId }) {
                     <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
                       {review.userName}
                       {review.purchaseVerified && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-950/40 border border-emerald-900/50 text-emerald-500 text-[9px] rounded uppercase tracking-wider" title="Verified Purchase">
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-950/40 border border-emerald-900/50 text-emerald-500 text-3xs rounded uppercase tracking-wider" title="Verified Purchase">
                           <ShieldCheck weight="fill" /> Verified
                         </span>
                       )}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <div className="flex items-center">{renderStars(review.rating)}</div>
-                      <span className="text-[10px] text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</span>
+                      <span className="text-2xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>

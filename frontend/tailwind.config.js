@@ -8,9 +8,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Space Grotesk', 'sans-serif'],
-        mono: ['Fira Code', 'monospace'],
+        sans: ['Geist', 'Satoshi', 'sans-serif'],
+        display: ['Cabinet Grotesk', 'Space Grotesk', 'sans-serif'],
+        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
+      },
+      transitionTimingFunction: {
+        'spring-physics': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        'out-expo': 'cubic-bezier(0.19, 1, 0.22, 1)',
+      },
+      fontSize: {
+        '3xs': ['0.5625rem', { lineHeight: '0.75rem' }], // 9px
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }], // 10px
+        '11px': ['0.6875rem', { lineHeight: '1rem' }],   // 11px
+        '13px': ['0.8125rem', { lineHeight: '1.125rem' }], // 13px
       },
       colors: {
         border: "hsl(var(--border) / <alpha-value>)",

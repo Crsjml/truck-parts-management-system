@@ -287,13 +287,13 @@ export default function TransactionPOS({ parts, onCheckout }) {
                   }`}
                 >
                   <div className="space-y-1 max-w-[70%]">
-                    <span className="text-[9px] font-bold text-brandBlue-400 uppercase tracking-widest">{part.category}</span>
+                    <span className="text-3xs font-bold text-brandBlue-400 uppercase tracking-widest">{part.category}</span>
                     <h5 className="font-bold text-foreground text-xs truncate group-hover:text-foreground transition-colors">{part.name}</h5>
-                    <p className="text-[10px] font-mono text-muted-foreground truncate">SKU: {part.sku}</p>
+                    <p className="text-2xs font-mono text-muted-foreground truncate">SKU: {part.sku}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-xs font-bold text-foreground block">{formatCurrency(part.price)}</span>
-                    <span className={`text-[10px] ${remaining <= 3 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                    <span className={`text-2xs ${remaining <= 3 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
                       {remaining > 0 ? `${remaining} in stock` : 'Out of stock'}
                     </span>
                   </div>
@@ -330,7 +330,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
                   <div key={item.id} className="flex justify-between items-center bg-secondary p-3 rounded-xl border border-border">
                     <div className="space-y-1 max-w-[60%]">
                       <h6 className="font-semibold text-foreground text-xs truncate">{item.name}</h6>
-                      <span className="text-[10px] text-muted-foreground font-mono">{formatCurrency(item.price)} / unit</span>
+                      <span className="text-2xs text-muted-foreground font-mono">{formatCurrency(item.price)} / unit</span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -369,7 +369,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
 
             {/* Customer Details Segment */}
             <div className="space-y-3 pt-3 border-t border-border">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">Customer Info</span>
+              <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest block">Customer Info</span>
               <div className="space-y-2.5">
                 <div className="relative">
                   <User weight="duotone" className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />

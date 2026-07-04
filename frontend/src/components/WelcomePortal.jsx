@@ -15,7 +15,7 @@ export default function WelcomePortal({ onSelectRole }) {
         <div className="flex items-center gap-3">
           <Logo className="w-12 h-12" showText={true} />
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 bg-secondary border border-border rounded-xl text-[10px] font-mono text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 py-1 bg-secondary border border-border rounded-xl text-2xs font-mono text-muted-foreground">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           SYSTEM: ONLINE
         </div>
@@ -88,7 +88,7 @@ export default function WelcomePortal({ onSelectRole }) {
                   <Buildings weight="duotone" className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-brandBlue-600 dark:text-brandBlue-400 uppercase tracking-widest block">Client Portal</span>
+                  <span className="text-2xs font-bold text-brandBlue-600 dark:text-brandBlue-400 uppercase tracking-widest block">Client Portal</span>
                   <h4 className="text-lg font-bold text-foreground mt-0.5 group-hover:text-brandBlue-500 dark:group-hover:text-brandBlue-400 transition-colors font-display">Customer Gateway</h4>
                   <p className="text-xs text-muted-foreground leading-relaxed mt-1.5">
                     Browse components inventory, verify truck model compatibility, check price catalogs, and request custom wholesale quotes.
@@ -111,7 +111,7 @@ export default function WelcomePortal({ onSelectRole }) {
                   <User weight="duotone" className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-accent uppercase tracking-widest block">Staff Operations</span>
+                  <span className="text-2xs font-bold text-accent uppercase tracking-widest block">Staff Operations</span>
                   <h4 className="text-lg font-bold text-foreground mt-0.5 group-hover:text-accent transition-colors font-display">Administrator Gateway</h4>
                   <p className="text-xs text-muted-foreground leading-relaxed mt-1.5">
                     Manage parts listings, restock quantities, run point-of-sale customer billing checkout checkouts, and view analytical stats.
