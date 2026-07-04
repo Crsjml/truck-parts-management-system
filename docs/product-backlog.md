@@ -9,8 +9,18 @@
 - [x] Invoicing: Automated PDF sales receipts compiling using `jsPDF`.
 - [x] Analytics: Top moving items and transaction log ledgers.
 
-## Sprint 2 (Future Scope)
-- [ ] Backend setup: Node.js Express server to handle REST endpoints.
-- [ ] Database integration: MongoDB schemas for persistent parts list and transactions.
-- [ ] Authentication: Admin and Operator login credentials.
-- [ ] Advanced Analytics: Monthly revenue charts and automated low-stock vendor orders.
+## Sprint 2 (Completed)
+- [x] Backend setup: Node.js Express server to handle REST endpoints.
+- [x] Database integration: MongoDB schemas for persistent parts list and transactions.
+- [x] Authentication: Firebase Authentication integration for Customer and Admin login.
+- [x] Payment Processing: Stripe integration for secure checkout.
+
+## Sprint 3 (Completed)
+- [x] Review System: Allow verified customers to post reviews and ratings on parts.
+- [x] Compatibility Engine: Advanced filtering to ensure parts fit specific truck models.
+- [x] Order Tracking: Customer dashboard for viewing past orders and statuses.
+
+## Sprint 4 (Current)
+- [ ] UI Refinements: Implement Flexbox centering for category grids and premium layout spacing.
+- [ ] Database Architecture: Migrate Customer Profile Metadata (Avatar, Saved Parts) exclusively to MongoDB as the Single Source of Truth.
+- [ ] Technical Debt: Ongoing repository cleanup, script consolidation, and dead dependency removal.
