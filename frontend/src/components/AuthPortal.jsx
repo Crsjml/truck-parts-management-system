@@ -13,11 +13,25 @@ import {
   signInWithPhoneNumber
 } from 'firebase/auth';
 import { Phone, Hash } from '@phosphor-icons/react';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  validateLoginFields,
-  validateRegistrationFields,
   validateVerificationCode,
 } from '../authStore';
+
+const registerSchema = z.object({
+  fullName: z.string().min(2, 'Full name is required'),
+  contactNumber: z.string().min(10, 'Valid contact number is required'),
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(8, 'Minimum 8 characters'),
+});
+
+const loginSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional(),
+});
 
 const customerRegisterDefaults = {
   fullName: '',
@@ -44,8 +58,16 @@ export default function AuthPortal({
   const [currentRole, setCurrentRole] = useState(mode);
   const isCustomerMode = currentRole === 'customer';
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [registerForm, setRegisterForm] = useState(customerRegisterDefaults);
-  const [loginForm, setLoginForm] = useState(customerLoginDefaults);
+  
+  const { register: registerRegister, handleSubmit: handleRegisterSubmit, formState: { errors: registerErrors }, reset: resetRegister, clearErrors: clearRegisterErrors } = useForm({
+    resolver: zodResolver(registerSchema),
+    defaultValues: customerRegisterDefaults
+  });
+
+  const { register: registerLogin, handleSubmit: handleLoginSubmit, formState: { errors: loginErrors }, reset: resetLogin, clearErrors: clearLoginErrors } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: customerLoginDefaults
+  });
   const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationInput, setVerificationInput] = useState('');
@@ -133,29 +155,22 @@ export default function AuthPortal({
   const resetFeedback = () => {
     setNotice('');
     setErrors({});
+    clearRegisterErrors();
+    clearLoginErrors();
   };
 
   const inputClass = 'w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20';
 
-  const handleCustomerRegister = async (event) => {
-    event.preventDefault();
+  const onCustomerRegister = async (data) => {
     setLoading(true);
     resetFeedback();
 
-    const nextErrors = validateRegistrationFields(registerForm);
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      setLoading(false);
-      triggerShake();
-      return;
-    }
-
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, registerForm.email, registerForm.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       
       // Update profile with full name
       await updateProfile(userCredential.user, {
-        displayName: registerForm.fullName,
+        displayName: data.fullName,
       });
 
       // Send verification email
@@ -164,10 +179,10 @@ export default function AuthPortal({
       // Sign out immediately so they don't bypass the verification requirement
       await auth.signOut();
 
-      setVerificationEmail(registerForm.email);
+      setVerificationEmail(data.email);
       setNotice('Account created! Please check your email for a verification link, then log in.');
       setActiveTab('login');
-      onRegisterSuccess?.({ email: registerForm.email });
+      onRegisterSuccess?.({ email: data.email });
     } catch (err) {
       setNotice(err.message || 'Registration failed.');
       triggerShake();
@@ -199,24 +214,15 @@ export default function AuthPortal({
     }
   };
 
-  const handleCustomerLogin = async (event) => {
-    event.preventDefault();
+  const onCustomerLogin = async (data) => {
     setLoading(true);
     resetFeedback();
 
-    const nextErrors = validateLoginFields(loginForm);
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      setLoading(false);
-      triggerShake();
-      return;
-    }
-
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       
       // Enforce email verification on login
-      if (!userCredential.user.emailVerified && !loginForm.email.includes('admin') && !loginForm.email.includes('lakers.com') && !loginForm.email.includes('warriors.com') && !loginForm.email.includes('suns.com') && !loginForm.email.includes('bucks.com') && !loginForm.email.includes('mavericks.com') && !loginForm.email.includes('example.com')) {
+      if (!userCredential.user.emailVerified && !data.email.includes('admin') && !data.email.includes('lakers.com') && !data.email.includes('warriors.com') && !data.email.includes('suns.com') && !data.email.includes('bucks.com') && !data.email.includes('mavericks.com') && !data.email.includes('example.com')) {
         await auth.signOut();
         setNotice('Please verify your email address before logging in. Check your inbox.');
         triggerShake();
@@ -321,18 +327,9 @@ export default function AuthPortal({
     setNotice('Please click the link in your email to reset your password.');
   };
 
-  const handleAdminLogin = async (event) => {
-    event.preventDefault();
+  const onAdminLogin = async (data) => {
     setLoading(true);
     resetFeedback();
-
-    const nextErrors = validateLoginFields(loginForm);
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      setLoading(false);
-      triggerShake();
-      return;
-    }
 
     if (lockoutTimeLeft > 0) {
       setNotice(`Admin portal is temporarily locked. Try again in ${formatLockoutTime(lockoutTimeLeft)}.`);
@@ -342,7 +339,7 @@ export default function AuthPortal({
     }
 
     try {
-      await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
+      await signInWithEmailAndPassword(auth, data.email, data.password);
       // App.jsx will route based on onAuthStateChanged
     } catch (err) {
       setNotice(err.message || 'Admin login failed.');
@@ -389,7 +386,7 @@ export default function AuthPortal({
             <Logo className="w-12 h-12" showText={true} />
 
             <div className="max-w-xl space-y-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-red-600 dark:text-red-300">
+              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-2xs font-bold uppercase tracking-[0.28em] text-red-600 dark:text-red-300">
                 Premium Truck Spare Parts
               </span>
               <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -444,7 +441,7 @@ export default function AuthPortal({
           <div className="w-full max-w-md mx-auto space-y-6">
             
             <div className="border-b border-border pb-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+              <p className="text-11px font-bold uppercase tracking-[0.3em] text-muted-foreground">
                 {isCustomerMode ? 'Customer account' : 'Admin sign-in'}
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -521,28 +518,26 @@ export default function AuthPortal({
             <div id="recaptcha-container"></div>
 
              {isCustomerMode && activeTab === 'register' && authMethod === 'email' && (
-              <form onSubmit={handleCustomerRegister} className={`space-y-4 ${shake && activeTab === 'register' ? 'animate-shake' : ''}`}>
+              <form onSubmit={handleRegisterSubmit(onCustomerRegister)} className={`space-y-4 ${shake && activeTab === 'register' ? 'animate-shake' : ''}`}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Full name</label>
                     <input
-                      className={`${inputClass} ${errors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      value={registerForm.fullName}
-                      onChange={(event) => setRegisterForm((current) => ({ ...current, fullName: event.target.value }))}
-                      placeholder="Juan Dela Cruz"
+                      className={`${inputClass} ${registerErrors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                      {...registerRegister('fullName')}
+                      placeholder="Your full name"
                     />
-                    {errors.fullName && <p className="text-xs text-red-400 font-semibold">{errors.fullName}</p>}
+                    {registerErrors.fullName && <p className="text-xs text-red-400 font-semibold">{registerErrors.fullName.message}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Contact number</label>
                     <input
-                      className={`${inputClass} ${errors.contactNumber ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      value={registerForm.contactNumber}
-                      onChange={(event) => setRegisterForm((current) => ({ ...current, contactNumber: event.target.value }))}
-                      placeholder="09171234567"
+                      className={`${inputClass} ${registerErrors.contactNumber ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                      {...registerRegister('contactNumber')}
+                      placeholder="+63 917 123 4567"
                     />
-                    {errors.contactNumber && <p className="text-xs text-red-400 font-semibold">{errors.contactNumber}</p>}
+                    {registerErrors.contactNumber && <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>}
                   </div>
                 </div>
 
@@ -551,24 +546,22 @@ export default function AuthPortal({
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                     <input
                       type="email"
-                      className={`${inputClass} ${errors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      value={registerForm.email}
-                      onChange={(event) => setRegisterForm((current) => ({ ...current, email: event.target.value }))}
+                      className={`${inputClass} ${registerErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                      {...registerRegister('email')}
                       placeholder="customer@domain.com"
                     />
-                    {errors.email && <p className="text-xs text-red-400 font-semibold">{errors.email}</p>}
+                    {registerErrors.email && <p className="text-xs text-red-400 font-semibold">{registerErrors.email.message}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                     <input
                       type="password"
-                      className={`${inputClass} ${errors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      value={registerForm.password}
-                      onChange={(event) => setRegisterForm((current) => ({ ...current, password: event.target.value }))}
+                      className={`${inputClass} ${registerErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                      {...registerRegister('password')}
                       placeholder="Minimum 8 characters"
                     />
-                    {errors.password && <p className="text-xs text-red-400 font-semibold">{errors.password}</p>}
+                    {registerErrors.password && <p className="text-xs text-red-400 font-semibold">{registerErrors.password.message}</p>}
                   </div>
                 </div>
 
@@ -626,7 +619,7 @@ export default function AuthPortal({
             )}
 
              {isCustomerMode && activeTab === 'login' && authMethod === 'email' && (
-              <form onSubmit={handleCustomerLogin} className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
+              <form onSubmit={handleLoginSubmit(onCustomerLogin)} className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
                 {lockoutTimeLeft > 0 ? (
                   <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
                     <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
@@ -646,32 +639,29 @@ export default function AuthPortal({
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                       <input
                         type="email"
-                        className={`${inputClass} ${errors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        value={loginForm.email}
-                        onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                        className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerLogin('email')}
                         placeholder="customer@domain.com"
                       />
-                      {errors.email && <p className="text-xs text-red-400 font-semibold">{errors.email}</p>}
+                      {loginErrors.email && <p className="text-xs text-red-400 font-semibold">{loginErrors.email.message}</p>}
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                       <input
                         type="password"
-                        className={`${inputClass} ${errors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        value={loginForm.password}
-                        onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                        className={`${inputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerLogin('password')}
                         placeholder="Enter your password"
                       />
-                      {errors.password && <p className="text-xs text-red-400 font-semibold">{errors.password}</p>}
+                      {loginErrors.password && <p className="text-xs text-red-400 font-semibold">{loginErrors.password.message}</p>}
                     </div>
 
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground w-full cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={loginForm.rememberMe}
-                          onChange={(event) => setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))}
+                          {...registerLogin('rememberMe')}
                           className="h-4 w-4 rounded border-border bg-background text-accent focus:ring-accent"
                         />
                         Remember me on this device
@@ -836,10 +826,10 @@ export default function AuthPortal({
             )}
 
              {!isCustomerMode && (
-              <form onSubmit={handleAdminLogin} className={`space-y-4 ${shake && !isCustomerMode ? 'animate-shake' : ''}`}>
-                {lockoutTimeLeft > 0 ? (
-                  <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
-                    <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
+              <form onSubmit={handleLoginSubmit(onAdminLogin)} className={`space-y-4 ${shake ? 'animate-shake' : ''}`}>
+                    {lockoutTimeLeft > 0 ? (
+                      <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
+                        <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
                     <div>
                       <h4 className="font-bold text-red-600 dark:text-red-400 text-lg">Admin Access Locked</h4>
                       <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
@@ -860,24 +850,22 @@ export default function AuthPortal({
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Admin email</label>
                       <input
                         type="email"
-                        className={`${inputClass} ${errors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        value={loginForm.email}
-                        onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                        className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerLogin('email')}
                         placeholder="admin@tarlactruckparts.local"
                       />
-                      {errors.email && <p className="text-xs text-red-400 font-semibold">{errors.email}</p>}
+                      {loginErrors.email && <p className="text-xs text-red-400 font-semibold">{loginErrors.email.message}</p>}
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
                       <input
                         type="password"
-                        className={`${inputClass} ${errors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        value={loginForm.password}
-                        onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                        className={`${inputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerLogin('password')}
                         placeholder="Enter admin password"
                       />
-                      {errors.password && <p className="text-xs text-red-400 font-semibold">{errors.password}</p>}
+                      {loginErrors.password && <p className="text-xs text-red-400 font-semibold">{loginErrors.password.message}</p>}
                     </div>
 
                     <button

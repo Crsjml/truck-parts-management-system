@@ -116,7 +116,7 @@ async function api_post(path, body, timeout_ms = 8000) {
   }
 }
 
-async function api_put(path, body, timeout_ms = 8000) {
+export async function api_put(path, body, timeout_ms = 8000) {
   try {
     const headers = await getAuthHeaders();
     console.log(`[API PUT] Requesting ${path} with body:`, body, 'and headers:', headers);
@@ -234,6 +234,78 @@ export const fetchVehicleOptions = async () => {
     return [];
   }
 };
+
+// ── Customer Profile ─────────────────────────────────────────────────────────
+
+export const fetchCustomerProfile = async () => {
+  try {
+    const { ok, data } = await api_get('/api/customers/me');
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to fetch customer profile:', err);
+    return null;
+  }
+};
+
+export const updateCustomerProfile = async (profileData) => {
+  try {
+    const { ok, data } = await api_put('/api/customers/me', profileData);
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to update customer profile:', err);
+    throw err;
+  }
+};
+
+// ── Staff & Roles Management ──────────────────────────────────────────────
+
+export const fetchStaffRoles = async () => {
+  try {
+    const { ok, data } = await api_get('/api/staff');
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch staff roles:', err);
+    return [];
+  }
+};
+
+export const checkStaffRole = async (email) => {
+  try {
+    const { ok, data } = await api_post('/api/staff/check', { email });
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to check staff role:', err);
+    return null;
+  }
+};
+
+export const createStaffRole = async (payload) => {
+  try {
+    const { ok, data } = await api_post('/api/staff', payload);
+    return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to add staff' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updateStaffRole = async (id, payload) => {
+  try {
+    const { ok, data } = await api_put(`/api/staff/${id}`, payload);
+    return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to update staff' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const deleteStaffRole = async (id) => {
+  try {
+    const { ok, data } = await api_delete(`/api/staff/${id}`);
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete staff' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
 
 // ── Validation helpers (used by UI) ─────────────────────────────────────────
 
@@ -530,18 +602,18 @@ export const fetchCategoriesList = async () => {
   }
 };
 
-export const createCategory = async ({ name, parentCategory }) => {
+export const createCategory = async ({ name, parentCategory, iconName, colorTheme }) => {
   try {
-    const { ok, data } = await api_post('/api/categories', { name, parentCategory });
+    const { ok, data } = await api_post('/api/categories', { name, parentCategory, iconName, colorTheme });
     return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to create category.' };
   } catch {
     return { ok: false, error: 'Server connection failed.' };
   }
 };
 
-export const updateCategory = async (id, { name, parentCategory }) => {
+export const updateCategory = async (id, { name, parentCategory, iconName, colorTheme }) => {
   try {
-    const { ok, data } = await api_put(`/api/categories/${id}`, { name, parentCategory });
+    const { ok, data } = await api_put(`/api/categories/${id}`, { name, parentCategory, iconName, colorTheme });
     return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to update category.' };
   } catch {
     return { ok: false, error: 'Server connection failed.' };

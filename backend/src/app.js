@@ -10,6 +10,8 @@ import suppliersRouter from './routes/suppliers.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import checkoutRouter from './routes/checkout.js';
 import reviewsRouter from './routes/reviews.js';
+import staffRoutes from './routes/staffRoutes.js';
+import customersRouter from './routes/customers.js';
 import mongoose from 'mongoose';
 const app = express();
 // CORS configuration
@@ -25,7 +27,7 @@ app.use((req, res, next) => {
   if (req.originalUrl === '/api/checkout/webhook') {
     next();
   } else {
-    express.json()(req, res, next);
+    express.json({ limit: '5mb' })(req, res, next);
   }
 });
 
@@ -37,6 +39,8 @@ app.use('/api/transactions', transactionsRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/reviews', reviewsRouter);
+app.use('/api/staff', staffRoutes);
+app.use('/api/customers', customersRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 
