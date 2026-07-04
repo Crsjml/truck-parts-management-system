@@ -4,6 +4,11 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'happy-dom',
+    setupFiles: './vitest.setup.js',
+    globals: true
+  },
   server: {
     port: 5173,
     host: true,
@@ -14,7 +19,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/countries/, '')
       },
       '/api': {
-        target: 'http://backend:3000',
+        target: process.env.BACKEND_PROXY_TARGET || process.env.VITE_BACKEND_URL || 'http://localhost:5000',
         changeOrigin: true
       }
     }
