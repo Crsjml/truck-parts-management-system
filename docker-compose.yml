@@ -30,6 +30,7 @@ services:
       - "${FRONTEND_PORT:-5173}:5173"
     environment:
       - NODE_ENV=development
+      - BACKEND_PROXY_TARGET=http://backend:5000
     volumes:
       # Live mount — edits hot-reload instantly via Vite HMR (no rebuild needed)
       - ./frontend:/app

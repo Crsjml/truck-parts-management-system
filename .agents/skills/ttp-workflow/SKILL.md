@@ -31,12 +31,13 @@ All commands should be run from the root directory.
 - **Sprint 1:** Initial UI/UX overhaul, complete catalog CRUD, categories UI, login security, MongoDB backend integration, and Docker containerization. *(Includes TTP-167, TTP-168, TTP-169, TTP-170, TTP-171)*
 - **Sprint 2:** Purchasing module UI and backend (Purchase Orders & Supplier Directory), dynamic ports fallback, Docker internal proxy routing, unified UI, AI Agent guidelines, Firebase authentication, and Stripe checkout.
 
-### Core Tickets (TTP)
-- **TTP-11 (Analytics & Purchasing Upgrade):** Upgraded analytics with Recharts (bar/pie charts, zoom modal) and enhanced the purchasing module with glassmorphism `react-select`, area charts, and `ReactCountryFlag`.
-- **TTP-13 (API Fixes):** Enabled Part virtuals for serialized ID and restored `requireAuth` on GET transactions.
-- **TTP-15 (Auth):** Implemented phone and email authentication via Firebase.
-- **TTP-68 (Parts Filter):** Implemented parts compatibility filter backend and UI.
-- **TTP-94 (Review System):** Added customer reviews section, backend logic, and star rating system.
-- **TTP-102 (System UI):** Added Firebase status chip, collapse/expand toggle to system StatusBar/Footer, and added a 'My Account' profile tab to the Customer Dashboard.
-- **TTP-167 to TTP-171 (UI/UX Overhaul):** Complete overhaul for categories, modals, and admin layout during Sprint 1.
+### Core Tickets (TTP) - Epics
+- **TTP-1 (Parts Catalog):** Overarching epic for parts inventory and listing. (To Do)
+- **TTP-2 (User Management):** Overarching epic for admin and customer auth/roles. (To Do)
+- **TTP-3 (AI Assistant):** Overarching epic for AI Agent workflows and integration. (To Do)
+- **TTP-4 (Sales Management):** Overarching epic for POS, transactions, and sales reporting. (To Do)
+- **TTP-5 (Stock Management):** Overarching epic for inventory stock adjustments. (To Do)
+- **TTP-6 (Supplier Management):** Overarching epic for supplier records and purchase orders. (To Do)
+- **TTP-7 (Customer Management):** Overarching epic for CRM and customer tracking. (To Do)
+- **TTP-8 (Inventory Management):** Overarching epic for high-level inventory tracking and categories. (To Do)
 
