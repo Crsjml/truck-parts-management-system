@@ -258,7 +258,7 @@ export default function CategoryManagement({ onAddLog }) {
               <span className="font-bold text-sm text-foreground flex items-center gap-2">
                 <List className="text-brandBlue-500 w-4 h-4" /> Main Categories
               </span>
-              <span className="px-2 py-0.5 bg-brandBlue-500/10 text-brandBlue-500 rounded-md text-[10px] font-bold">
+              <span className="px-2 py-0.5 bg-brandBlue-500/10 text-brandBlue-500 rounded-md text-2xs font-bold">
                 {topLevelCategories.length}
               </span>
             </div>
@@ -283,7 +283,7 @@ export default function CategoryManagement({ onAddLog }) {
                         </div>
                         <div>
                           <span className={`block text-sm font-bold ${isSelected ? 'text-foreground' : 'text-foreground/80'}`}>{parent.name}</span>
-                          <span className="text-[10px] text-muted-foreground">{subCount} subcategories</span>
+                          <span className="text-2xs text-muted-foreground">{subCount} subcategories</span>
                         </div>
                       </div>
                       <CaretRight className={`w-4 h-4 ${isSelected ? 'text-brandBlue-500' : 'text-muted-foreground/30'}`} weight="bold" />
@@ -354,7 +354,7 @@ export default function CategoryManagement({ onAddLog }) {
                                 <button onClick={() => handleDelete(child._id, child.name)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500"><Trash className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
-                            <span className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><CaretRight className={color} /> Parent: {selectedParent.name}</span>
+                            <span className="text-2xs text-muted-foreground mt-1 flex items-center gap-1"><CaretRight className={color} /> Parent: {selectedParent.name}</span>
                           </div>
                         );
                       })}
@@ -422,7 +422,7 @@ export default function CategoryManagement({ onAddLog }) {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${!cat.parentCategory ? 'bg-brandBlue-500/10 text-brandBlue-500 border border-brandBlue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
+                          <span className={`px-2 py-0.5 rounded text-2xs font-bold ${!cat.parentCategory ? 'bg-brandBlue-500/10 text-brandBlue-500 border border-brandBlue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
                             {!cat.parentCategory ? 'MAIN' : 'SUB'}
                           </span>
                         </td>
@@ -476,12 +476,12 @@ export default function CategoryManagement({ onAddLog }) {
                       })()}
                     </div>
                     <div>
-                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Live Preview</div>
+                      <div className="text-2xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Live Preview</div>
                       <div className="text-lg font-bold text-foreground font-display">{name || 'Category Name'}</div>
                     </div>
                   </div>
                   <div className="text-right hidden sm:block">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Parent</div>
+                    <div className="text-2xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Parent</div>
                     <div className="text-sm font-semibold text-foreground/80">
                       {parentCategory ? categories.find(c => c._id === parentCategory)?.name : 'None (Main Category)'}
                     </div>
@@ -503,7 +503,7 @@ export default function CategoryManagement({ onAddLog }) {
                           className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 text-foreground transition-all"
                         />
                         {!manualOverride && name && autoSuggest(name) && (
-                          <p className="text-[10px] text-brandBlue-500 flex items-center gap-1 mt-1 animate-fadeIn">
+                          <p className="text-2xs text-brandBlue-500 flex items-center gap-1 mt-1 animate-fadeIn">
                             <Star weight="fill" /> Auto-suggested icon and color applied.
                           </p>
                         )}
@@ -534,7 +534,7 @@ export default function CategoryManagement({ onAddLog }) {
                           <Palette className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Color Theme
                         </label>
                       </div>
-                      <div className="text-[10px] text-muted-foreground leading-relaxed">
+                      <div className="text-2xs text-muted-foreground leading-relaxed">
                         Select a vibrant theme. Colors marked with a dot are already in use.
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
@@ -560,7 +560,7 @@ export default function CategoryManagement({ onAddLog }) {
                               title={`${colorKey} ${isUsed ? '(Already Used)' : ''}`}
                             >
                               <div className={`w-3.5 h-3.5 rounded-full border ${borderClass} ${bgClass} shrink-0`} />
-                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isColorSelected ? textClass : 'text-muted-foreground'}`}>
+                              <span className={`text-2xs font-bold uppercase tracking-wider ${isColorSelected ? textClass : 'text-muted-foreground'}`}>
                                 {colorKey}
                               </span>
                               {isUsed && (
@@ -580,7 +580,7 @@ export default function CategoryManagement({ onAddLog }) {
                         <Star className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Category Icon
                       </label>
                     </div>
-                    <div className="text-[10px] text-muted-foreground leading-relaxed shrink-0">
+                    <div className="text-2xs text-muted-foreground leading-relaxed shrink-0">
                       Choose a recognizable icon to pair with your color theme.
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 flex-1 content-start">

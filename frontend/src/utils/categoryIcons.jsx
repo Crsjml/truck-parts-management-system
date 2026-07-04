@@ -63,8 +63,8 @@ export const autoSuggest = (categoryName) => {
 
 // Backwards compatibility layer for categories that don't have DB-saved icon/color yet
 export const getCategoryIconAndColor = (categoryName, dbIconName, dbColorTheme) => {
-  let finalIconName = dbIconName;
-  let finalColorTheme = dbColorTheme;
+  let finalIconName = dbIconName ? dbIconName.charAt(0).toUpperCase() + dbIconName.slice(1) : undefined;
+  let finalColorTheme = dbColorTheme ? dbColorTheme.toLowerCase() : undefined;
 
   if (!finalIconName || !ICON_MAP[finalIconName]) {
     const suggestion = autoSuggest(categoryName);
