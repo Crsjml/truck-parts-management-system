@@ -3,7 +3,8 @@ import {
   Wind, Lightning, Shield, Warning, Gear, 
   Target, SquaresFour, Drop, Truck, Database, Power,
   Thermometer, Fan, BatteryFull, Nut, Screwdriver,
-  Tire, SteeringWheel, GasPump, Key, Sparkle
+  Tire, SteeringWheel, GasPump, Key, Sparkle,
+  Cylinder, Waves, Pulse, ArrowsOutLineHorizontal, Disc, VinylRecord, BatteryCharging, Plugs, FrameCorners, HouseLine, Square
 } from '@phosphor-icons/react';
 
 export const ICON_MAP = {
@@ -11,10 +12,20 @@ export const ICON_MAP = {
   Wind, Lightning, Shield, Warning, Gear, 
   Target, SquaresFour, Drop, Truck, Database, Power,
   Thermometer, Fan, BatteryFull, Nut, Screwdriver,
-  Tire, SteeringWheel, GasPump, Key, Sparkle
+  Tire, SteeringWheel, GasPump, Key, Sparkle,
+  Cylinder, Waves, Pulse, ArrowsOutLineHorizontal, Disc, VinylRecord, BatteryCharging, Plugs, FrameCorners, HouseLine, Square
 };
 
 export const COLOR_THEMES = {
+  // Semantic themes used in the database seed
+  primary: 'text-brandBlue-600 dark:text-brandBlue-400 bg-brandBlue-500/10 border-brandBlue-500/20',
+  secondary: 'text-slate-600 dark:text-slate-400 bg-slate-500/10 border-slate-500/20',
+  success: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+  warning: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+  danger: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20',
+  info: 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20',
+
+  // Original Tailwind color themes
   red: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20',
   rose: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
   pink: 'text-pink-600 dark:text-pink-400 bg-pink-500/10 border-pink-500/20',
