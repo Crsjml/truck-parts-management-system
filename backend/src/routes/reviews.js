@@ -1,8 +1,5 @@
 import express from 'express';
-import mongoose from 'mongoose';
-import Review from '../models/Review.js';
-import Transaction from '../models/Transaction.js';
-import Part from '../models/Part.js';
+import { prisma } from '../config/prisma.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -11,12 +8,11 @@ const router = express.Router();
 router.get('/:partId', async (req, res) => {
   try {
     const { partId } = req.params;
-    
-    if (!mongoose.isValidObjectId(partId)) {
-      return res.status(400).json({ msg: 'Invalid part ID format' });
-    }
 
-    const reviews = await Review.find({ partId }).sort({ createdAt: -1 });
+    const reviews = await prisma.review.findMany({
+      where: { partId },
+      orderBy: { createdAt: 'desc' }
+    });
     
     // Calculate aggregate score
     const totalReviews = reviews.length;
@@ -45,51 +41,55 @@ router.post('/', requireAuth, async (req, res) => {
     const userName = req.auth.name || req.auth.email?.split('@')[0] || 'Anonymous';
     const userEmail = req.auth.email || '';
 
-    if (!mongoose.isValidObjectId(partId)) {
-      return res.status(400).json({ msg: 'Invalid part ID format' });
-    }
-
     if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
       return res.status(400).json({ msg: 'Rating must be a number between 1 and 5' });
     }
 
     // Check if part exists
-    const part = await Part.findById(partId);
+    const part = await prisma.part.findUnique({ where: { id: partId } });
     if (!part) {
       return res.status(404).json({ msg: 'Part not found' });
     }
 
     // Check if user already reviewed this part
-    const existingReview = await Review.findOne({ partId, userId });
+    const existingReview = await prisma.review.findUnique({
+      where: {
+        partId_userId: { partId, userId }
+      }
+    });
+    
     if (existingReview) {
       return res.status(409).json({ msg: 'You have already reviewed this part' });
     }
 
     // Verify purchase
     // A purchase is verified if the user has a transaction containing this partId
-    const userTransactions = await Transaction.find({ userId });
-    let purchaseVerified = false;
-    
-    for (const tx of userTransactions) {
-      if (tx.items.some(item => item.partId.toString() === partId.toString())) {
-        purchaseVerified = true;
-        break;
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        userId,
+        items: {
+          some: { partId }
+        }
       }
-    }
+    });
 
-    const review = await Review.create({
-      partId,
-      userId,
-      userName,
-      userEmail,
-      rating,
-      body: body ? body.trim().substring(0, 1000) : '',
-      purchaseVerified
+    const purchaseVerified = !!transaction;
+
+    const review = await prisma.review.create({
+      data: {
+        partId,
+        userId,
+        userName,
+        userEmail,
+        rating,
+        body: body ? body.trim().substring(0, 1000) : '',
+        purchaseVerified
+      }
     });
 
     res.status(201).json(review);
   } catch (err) {
-    if (err.code === 11000) {
+    if (err.code === 'P2002') {
       return res.status(409).json({ msg: 'You have already reviewed this part' });
     }
     console.error('[create review]', err);
@@ -103,21 +103,17 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const userId = req.auth.userId;
 
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ msg: 'Invalid review ID format' });
-    }
-
-    const review = await Review.findById(id);
+    const review = await prisma.review.findUnique({ where: { id } });
     if (!review) {
       return res.status(404).json({ msg: 'Review not found' });
     }
 
-    // Only the author (or an admin, but we'll stick to author for now) can delete
+    // Only the author can delete
     if (review.userId !== userId) {
       return res.status(403).json({ msg: 'Unauthorized to delete this review' });
     }
 
-    await Review.deleteOne({ _id: id });
+    await prisma.review.delete({ where: { id } });
     res.json({ msg: 'Review deleted successfully' });
   } catch (err) {
     console.error('[delete review]', err);
