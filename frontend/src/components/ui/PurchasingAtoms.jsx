@@ -350,17 +350,17 @@ export const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favor
                 )}
                 {groupRows.map((row) => (
                   <tr
-                    key={row._id || row.id}
+                    key={row.id || row.id}
                     onClick={() => onRowClick && onRowClick(row)}
                     className={`hover:bg-secondary/50 transition-colors group ${onRowClick ? 'cursor-pointer focus-within:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent' : ''}`}
                     tabIndex={onRowClick ? 0 : undefined}
                   >
                     <td className="py-3 px-3">
                       <button
-                        onClick={e => { e.stopPropagation(); onToggleFav(row._id || row.id); }}
+                        onClick={e => { e.stopPropagation(); onToggleFav(row.id || row.id); }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full p-1"
                       >
-                        <Star weight={favorites.includes(row._id || row.id) ? 'fill' : 'regular'} className={`w-4 h-4 ${favorites.includes(row._id || row.id) ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
+                        <Star weight={favorites.includes(row.id || row.id) ? 'fill' : 'regular'} className={`w-4 h-4 ${favorites.includes(row.id || row.id) ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
                       </button>
                     </td>
                     {columns.map(col => (

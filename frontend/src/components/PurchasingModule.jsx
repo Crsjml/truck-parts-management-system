@@ -13,7 +13,7 @@ import {
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus,
   updatePoBillingStatus, togglePartPublished
 } from '../authStore';
-import { auth } from '../firebaseConfig';
+import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -162,7 +162,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       const re = new RegExp(search, 'i');
       out = out.filter(r => searchFields.some(f => re.test(r[f] ?? '')));
     }
-    if (favsOnly) out = out.filter(r => favs.includes(r._id || r.id));
+    if (favsOnly) out = out.filter(r => favs.includes(r.id || r.id));
     return out;
   };
 
@@ -322,8 +322,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     e.preventDefault();
     if (!supplierForm.name.trim()) return alert('Supplier name is required.');
     if (editingSupplier) {
-      const res = await updateSupplier(editingSupplier._id, supplierForm);
-      if (res.ok) { setSuppliers(prev => prev.map(s => s._id === res.supplier._id ? res.supplier : s)); setIsSupplierModalOpen(false); onAddLog('system', `Updated supplier: ${res.supplier.name}`); }
+      const res = await updateSupplier(editingSupplier.id, supplierForm);
+      if (res.ok) { setSuppliers(prev => prev.map(s => s.id === res.supplier.id ? res.supplier : s)); setIsSupplierModalOpen(false); onAddLog('system', `Updated supplier: ${res.supplier.name}`); }
       else alert(res.error);
     } else {
       const res = await createSupplier(supplierForm);
@@ -335,14 +335,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const doArchiveSupplier = async (id, name) => {
     if (!confirm(`Archive supplier "${name}"? They will be hidden but preserved.`)) return;
     const res = await archiveSupplier(id);
-    if (res.ok) { setSuppliers(prev => prev.map(s => s._id === id ? { ...s, archived: true } : s)); setIsSupplierModalOpen(false); onAddLog('system', `Archived supplier: ${name}`); }
+    if (res.ok) { setSuppliers(prev => prev.map(s => s.id === id ? { ...s, archived: true } : s)); setIsSupplierModalOpen(false); onAddLog('system', `Archived supplier: ${name}`); }
     else alert(res.error);
   };
 
   // ── PO CRUD ───────────────────────────────────────────────────────────────────
   const openPoModal = (po = null) => {
     setViewingPo(po);
-    setPoForm(po ? { supplier: po.supplier?._id || '', expectedDeliveryDate: po.expectedDeliveryDate?.substring(0, 10) || '', notes: po.notes || '', items: po.items || [], sourceRfq: po.sourceRfq || '' }
+    setPoForm(po ? { supplier: po.supplier?.id || '', expectedDeliveryDate: po.expectedDeliveryDate?.substring(0, 10) || '', notes: po.notes || '', items: po.items || [], sourceRfq: po.sourceRfq || '' }
       : { supplier: '', expectedDeliveryDate: '', notes: '', items: [], sourceRfq: '' });
     setIsPoModalOpen(true);
   };
@@ -362,9 +362,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (poForm.items.length === 0) return alert('Add at least one item.');
     
     // Inject the current user's display name as the Buyer/Handler
+    const { data: { user } } = await supabase.auth.getUser();
     const payload = {
       ...poForm,
-      createdBy: auth?.currentUser?.displayName || auth?.currentUser?.email || 'Unknown User'
+      createdBy: user?.user_metadata?.full_name || user?.email || 'Unknown User'
     };
     
     const res = await createPurchaseOrder(payload);
@@ -378,7 +379,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const res = await updatePurchaseOrderStatus(id, status);
     if (res.ok) {
       const updated = res.purchaseOrder;
-      setPurchaseOrders(prev => prev.map(p => p._id === id ? updated : p));
+      setPurchaseOrders(prev => prev.map(p => p.id === id ? updated : p));
       setViewingPo(updated);
       onAddLog('stock', `PO ${poNumber} → ${status}`);
       if (status === 'Received') {
@@ -395,7 +396,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const updateBillingStatus = async (id, billingStatus) => {
     const res = await updatePoBillingStatus(id, billingStatus);
     if (res.ok) {
-      setPurchaseOrders(prev => prev.map(p => p._id === id ? res.purchaseOrder : p));
+      setPurchaseOrders(prev => prev.map(p => p.id === id ? res.purchaseOrder : p));
       setViewingPo(res.purchaseOrder);
     } else alert(res.error);
   };
@@ -879,7 +880,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <CheckCircle weight="bold" className="w-4 h-4" /> Save
                 </button>
                 {editingSupplier && (
-                  <button onClick={() => doArchiveSupplier(editingSupplier._id, editingSupplier.name)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-amber-500/10 hover:border-amber-500/30 text-muted-foreground hover:text-amber-400 text-sm font-bold rounded transition-all flex items-center gap-1.5">
+                  <button onClick={() => doArchiveSupplier(editingSupplier.id, editingSupplier.name)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-amber-500/10 hover:border-amber-500/30 text-muted-foreground hover:text-amber-400 text-sm font-bold rounded transition-all flex items-center gap-1.5">
                     <Archive weight="bold" className="w-4 h-4" /> Archive
                   </button>
                 )}
@@ -946,18 +947,18 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 {viewingPo ? (
                   <>
                     {viewingPo.status === 'Draft' && <>
-                      <button onClick={() => updatePoStatus(viewingPo._id, 'RFQ Sent', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Send RFQ</button>
-                      <button onClick={() => updatePoStatus(viewingPo._id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm">Confirm Order</button>
+                      <button onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Send RFQ</button>
+                      <button onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm">Confirm Order</button>
                     </>}
-                    {viewingPo.status === 'RFQ Sent' && <button onClick={() => updatePoStatus(viewingPo._id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Confirm Order</button>}
+                    {viewingPo.status === 'RFQ Sent' && <button onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Confirm Order</button>}
                     {viewingPo.status === 'Confirmed' && <>
-                      <button onClick={() => updatePoStatus(viewingPo._id, 'Received', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Receive Products</button>
-                      {viewingPo.billingStatus === 'Waiting Bills' && <button onClick={() => updateBillingStatus(viewingPo._id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>}
+                      <button onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Receive Products</button>
+                      {viewingPo.billingStatus === 'Waiting Bills' && <button onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>}
                     </>}
                     {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
-                      <button onClick={() => updateBillingStatus(viewingPo._id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>
+                      <button onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>
                     )}
-                    {['Draft', 'RFQ Sent'].includes(viewingPo.status) && <button onClick={() => updatePoStatus(viewingPo._id, 'Cancelled', viewingPo.poNumber)} className="px-4 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold rounded shadow-sm hover:bg-red-500/20">Cancel</button>}
+                    {['Draft', 'RFQ Sent'].includes(viewingPo.status) && <button onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)} className="px-4 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold rounded shadow-sm hover:bg-red-500/20">Cancel</button>}
                     <button onClick={() => generatePDF(viewingPo)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm flex items-center gap-1.5 ml-2">
                       <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
                     </button>
@@ -988,7 +989,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <label className="w-1/3 font-bold text-foreground">Vendor</label>
                     <select disabled={!!viewingPo} value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} className="w-2/3 bg-transparent focus:outline-none text-foreground disabled:text-accent font-semibold">
                       <option value="">Select Vendor...</option>
-                      {suppliers.filter(s => !s.archived).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                      {suppliers.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div className="flex border-b border-border pb-1">

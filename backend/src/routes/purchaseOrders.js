@@ -1,7 +1,5 @@
 import express from 'express';
-import mongoose from 'mongoose';
-import PurchaseOrder from '../models/PurchaseOrder.js';
-import Part from '../models/Part.js';
+import { prisma } from '../config/prisma.js';
 
 const router = express.Router();
 
@@ -9,7 +7,12 @@ const router = express.Router();
 const generatePONumber = async () => {
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  const lastPO = await PurchaseOrder.findOne({ poNumber: new RegExp(`^PO-${dateStr}-`) }).sort({ poNumber: -1 });
+  
+  const lastPO = await prisma.purchaseOrder.findFirst({
+    where: { poNumber: { startsWith: `PO-${dateStr}-` } },
+    orderBy: { poNumber: 'desc' }
+  });
+
   let sequence = 1;
   if (lastPO) {
     const parts = lastPO.poNumber.split('-');
@@ -21,11 +24,15 @@ const generatePONumber = async () => {
 // Get all POs
 router.get('/', async (req, res) => {
   try {
-    const pos = await PurchaseOrder.find()
-      .populate('supplier')
-      .populate('items.partId')
-      .sort({ createdAt: -1 })
-      .lean();
+    const pos = await prisma.purchaseOrder.findMany({
+      include: {
+        supplier: true,
+        items: {
+          include: { part: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
     res.json(pos);
   } catch (err) {
     console.error('[get POs]', err);
@@ -45,26 +52,30 @@ router.post('/', async (req, res) => {
     const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
     const poNumber = await generatePONumber();
 
-    const po = await PurchaseOrder.create({
-      poNumber,
-      supplier,
-      items: items.map(i => ({
-        partId: i.partId,
-        name: i.name,
-        sku: i.sku,
-        quantity: Number(i.quantity),
-        unitPrice: Number(i.unitPrice),
-        subtotal: Number(i.quantity) * Number(i.unitPrice)
-      })),
-      totalAmount,
-      expectedDeliveryDate,
-      notes: notes?.trim() || '',
-      sourceRfq: sourceRfq?.trim() || '',
-      createdBy: createdBy?.trim() || 'Admin'
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        poNumber,
+        supplierId: supplier,
+        totalAmount,
+        expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
+        notes: notes?.trim() || '',
+        sourceRfq: sourceRfq?.trim() || '',
+        createdBy: createdBy?.trim() || 'Admin',
+        items: {
+          create: items.map(i => ({
+            partId: i.partId,
+            name: i.name,
+            sku: i.sku || '',
+            quantity: Number(i.quantity),
+            unitPrice: Number(i.unitPrice),
+            subtotal: Number(i.quantity) * Number(i.unitPrice)
+          }))
+        }
+      },
+      include: { supplier: true }
     });
 
-    const populated = await po.populate('supplier');
-    res.status(201).json(populated);
+    res.status(201).json(po);
   } catch (err) {
     console.error('[create PO]', err);
     res.status(500).json({ msg: 'Server error creating PO.' });
@@ -73,51 +84,52 @@ router.post('/', async (req, res) => {
 
 // Update PO Status — includes stock increment on Received + confirmationDate
 router.put('/:id/status', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { status } = req.body;
-    const poId = req.params.id;
+    const { id } = req.params;
 
-    const po = await PurchaseOrder.findById(poId).session(session);
-    if (!po) throw new Error('Purchase Order not found.');
+    const updatedPo = await prisma.$transaction(async (tx) => {
+      const po = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { items: true }
+      });
 
-    // Prevent moving backwards from terminal states
-    if (po.status === 'Received' || po.status === 'Cancelled') {
-      throw new Error(`Cannot change status of a ${po.status} order.`);
-    }
+      if (!po) throw new Error('Purchase Order not found.');
 
-    // Stock increment on Received
-    if (status === 'Received' && po.status !== 'Received') {
-      for (const item of po.items) {
-        const part = await Part.findById(item.partId).session(session);
-        if (part) {
-          part.stock += item.quantity;
-          await part.save({ session });
+      // Prevent moving backwards from terminal states
+      if (po.status === 'Received' || po.status === 'Cancelled') {
+        throw new Error(`Cannot change status of a ${po.status} order.`);
+      }
+
+      // Stock increment on Received
+      if (status === 'Received' && po.status !== 'Received') {
+        for (const item of po.items) {
+          await tx.part.update({
+            where: { id: item.partId },
+            data: { stock: { increment: item.quantity } }
+          });
         }
       }
-    }
 
-    // Set confirmationDate when first Confirmed
-    if (status === 'Confirmed' && po.status !== 'Confirmed') {
-      po.confirmationDate = new Date();
-    }
+      const confirmationDate = (status === 'Confirmed' && po.status !== 'Confirmed') 
+        ? new Date() 
+        : po.confirmationDate;
 
-    po.status = status;
-    await po.save({ session });
+      return await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          status,
+          confirmationDate
+        },
+        include: {
+          supplier: true,
+          items: { include: { part: true } }
+        }
+      });
+    });
 
-    await session.commitTransaction();
-    session.endSession();
-
-    const populated = await PurchaseOrder.findById(poId)
-      .populate('supplier')
-      .populate('items.partId');
-
-    res.json(populated);
+    res.json(updatedPo);
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
     console.error('[update PO status]', err);
     res.status(400).json({ msg: err.message || 'Server error updating PO status.' });
   }
@@ -127,18 +139,24 @@ router.put('/:id/status', async (req, res) => {
 router.put('/:id/billing', async (req, res) => {
   try {
     const { billingStatus } = req.body;
+    const { id } = req.params;
+
     const allowed = ['Waiting Bills', 'Bills Received'];
     if (!allowed.includes(billingStatus)) {
       return res.status(400).json({ msg: 'Invalid billing status.' });
     }
-    const po = await PurchaseOrder.findByIdAndUpdate(
-      req.params.id,
-      { billingStatus },
-      { new: true }
-    ).populate('supplier');
-    if (!po) return res.status(404).json({ msg: 'Purchase Order not found.' });
+
+    const po = await prisma.purchaseOrder.update({
+      where: { id },
+      data: { billingStatus },
+      include: { supplier: true }
+    });
+
     res.json(po);
   } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ msg: 'Purchase Order not found.' });
+    }
     console.error('[update billing status]', err);
     res.status(500).json({ msg: 'Server error updating billing status.' });
   }
