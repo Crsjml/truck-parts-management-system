@@ -5,7 +5,6 @@ import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
 import { fetchCategoriesList } from '../authStore';
-import { stripePromise } from '../stripe';
 import { supabase } from '../supabaseClient';
 import CompatibilityFilter from './CompatibilityFilter';
 import ReviewSection from './ReviewSection';
@@ -158,8 +157,7 @@ export default function CustomerStorefront({
       const session = await response.json();
       if (session.error) throw new Error(session.error);
 
-      const stripe = await stripePromise;
-      await stripe.redirectToCheckout({ sessionId: session.id });
+      window.location.href = session.url;
     } catch (error) {
       console.error('Checkout error:', error);
       alert('Failed to initiate checkout. Please try again.');
@@ -189,7 +187,8 @@ export default function CustomerStorefront({
   const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
 
   const getCategoryStyles = (cat) => {
-    const { Icon, color } = getCategoryIconAndColor(cat);
+    const category = nestedCategories.find(c => c.name === cat);
+    const { Icon, color } = getCategoryIconAndColor(cat, category?.iconName, category?.colorTheme);
     return { icon: Icon, color, bg: '' };
   };
 
@@ -603,9 +602,11 @@ export default function CustomerStorefront({
             <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-background/50 backdrop-blur shrink-0">
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent/10 text-accent dark:bg-accent/20 dark:text-red-300">
-                  {getCategoryIconAndColor(selectedPart.category).icon 
-                    ? React.createElement(getCategoryIconAndColor(selectedPart.category).icon, { weight: 'duotone', className: 'w-6 h-6' })
-                    : <Tag weight="duotone" className="w-6 h-6" />}
+                  {(() => {
+                    const cat = nestedCategories.find(c => c.name === selectedPart.category);
+                    const { icon: DetailIcon } = getCategoryIconAndColor(selectedPart.category, cat?.iconName, cat?.colorTheme);
+                    return DetailIcon ? <DetailIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />;
+                  })()}
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground">{selectedPart.name}</h3>
