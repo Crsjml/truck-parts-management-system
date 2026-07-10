@@ -5,7 +5,7 @@
  * Polls /api/health every 30s and shows live status for:
  *   • Frontend (always "ok" if this renders)
  *   • Backend API reachability
- *   • MongoDB connection state (from backend health endpoint)
+ *   • Supabase Postgres connection state (from backend health endpoint)
  *
  * Only visible in development mode (import.meta.env.DEV).
  * Place at the bottom of App.jsx to get a sticky footer.
@@ -45,7 +45,6 @@ export default function StatusBar() {
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [status, setStatus] = useState({
-    firebase: 'ok',
     backend: 'checking',
     database: 'checking',
     uptime: null,
@@ -114,13 +113,12 @@ export default function StatusBar() {
       <div className="flex items-center gap-3">
         <span className="text-2xs uppercase tracking-widest text-muted-foreground/80 font-bold mr-1">⚙ System</span>
         <Chip label="Frontend" state="ok" />
-        <Chip label="Firebase" state={status.firebase} />
         <Chip
           label="Backend API"
           state={status.backend}
           detail={status.uptime ? `up ${formatUptime(status.uptime)}` : undefined}
         />
-        <Chip label="MongoDB" state={status.database} />
+        <Chip label="Supabase (ap-south-1)" state={status.database} />
       </div>
 
       {/* Right: meta info */}

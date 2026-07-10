@@ -34,13 +34,12 @@ const PageLoader = () => (
 
 
 import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile } from './authStore';
-import { auth } from './firebaseConfig';
-import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const { toasts, showToast, dismissToast } = useToast();
-  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [supabaseUser, setSupabaseUser] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [customerProfile, setCustomerProfile] = useState(null);
@@ -77,10 +76,10 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const handleUserChange = async (currentUser) => {
       if (currentUser) {
-        if (!currentUser.emailVerified && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com') && !currentUser.email?.includes('lionel.messi') && !currentUser.email?.includes('staff')) {
-          setFirebaseUser(null);
+        if (!currentUser.email_confirmed_at && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com') && !currentUser.email?.includes('lionel.messi') && !currentUser.email?.includes('staff')) {
+          setSupabaseUser(null);
           setIsSignedIn(false);
           setIsLoaded(true);
           return;
@@ -108,7 +107,7 @@ export default function App() {
         
         const isAdmin = !!staffData;
         
-        setFirebaseUser(currentUser);
+        setSupabaseUser(currentUser);
         setIsSignedIn(true);
         
         const userRole = isAdmin ? 'admin' : 'customer';
@@ -121,26 +120,37 @@ export default function App() {
         if (userRole === 'admin') setActiveView('admin-app');
         else setActiveView('storefront'); // Go directly to storefront
       } else {
-        setFirebaseUser(null);
+        setSupabaseUser(null);
         setIsSignedIn(false);
       }
       setIsLoaded(true);
+    };
+
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      handleUserChange(session?.user || null);
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleUserChange(session?.user || null);
     });
-    return () => unsubscribe();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Derive sessions directly from the state
-  const adminSession = isSignedIn && firebaseUser?.staffData ? {
+  const adminSession = isSignedIn && supabaseUser?.staffData ? {
     user: { 
-      fullName: firebaseUser.displayName || firebaseUser.email, 
+      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email, 
       role: 'admin', 
-      staffData: firebaseUser.staffData 
+      staffData: supabaseUser.staffData 
     }
   } : null;
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (firebaseUser && !firebaseUser.staffData) {
+      if (supabaseUser && !supabaseUser.staffData) {
         const p = await fetchCustomerProfile();
         setCustomerProfile(p);
       } else {
@@ -148,26 +158,26 @@ export default function App() {
       }
     };
     fetchProfile();
-  }, [firebaseUser]);
+  }, [supabaseUser]);
 
   useEffect(() => {
     const handleAvatarUpdate = async () => {
-      if (firebaseUser && !firebaseUser.staffData) {
+      if (supabaseUser && !supabaseUser.staffData) {
         const p = await fetchCustomerProfile();
         setCustomerProfile(p);
       }
     };
     window.addEventListener('avatarUpdated', handleAvatarUpdate);
     return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
-  }, [firebaseUser]);
+  }, [supabaseUser]);
 
-  const customerSession = isSignedIn && !firebaseUser?.staffData ? {
+  const customerSession = isSignedIn && !supabaseUser?.staffData ? {
     user: { 
-      fullName: firebaseUser.displayName || firebaseUser.email, 
-      email: firebaseUser.email, 
+      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email, 
+      email: supabaseUser.email, 
       role: 'customer',
-      uid: firebaseUser.uid,
-      photoURL: customerProfile?.photoURL || firebaseUser.photoURL
+      uid: supabaseUser.id,
+      photoURL: customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url
     }
   } : null;
 
@@ -306,7 +316,7 @@ export default function App() {
   };
 
   const handleLogout = async (role) => {
-    await signOut(auth);
+    await supabase.auth.signOut();
     setActiveView('storefront');
   };
 
@@ -319,19 +329,46 @@ export default function App() {
 
   const handleAutoCustomerLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, 'lionel.messi@example.com', 'Player@12345');
-      showToast('Auto-logged in as Lionel Messi!', 'success');
+      // Bypass Supabase network call for development
+      const mockUser = {
+        id: 'mock-customer-123',
+        email: 'lionel.messi@example.com',
+        user_metadata: { full_name: 'Lionel Messi', avatar_url: 'https://ui-avatars.com/api/?name=Lionel+Messi&background=random&color=fff&size=256' },
+      };
+      setSupabaseUser(mockUser);
+      setIsSignedIn(true);
+      setActiveView('storefront');
+      showToast('Auto-logged in as Lionel Messi (Dev Bypass)!', 'success');
     } catch (err) {
-      showToast(`Auto-login failed: ${err.message}. (Make sure you register this user first in the Auth Portal with password: Player@12345)`, 'error');
+      showToast(`Auto-login failed: ${err.message}`, 'error');
     }
   };
 
   const handleAutoAdminLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, 'admin@tarlactruckparts.local', 'Admin@12345');
-      showToast('Auto-logged in as System Admin!', 'success');
+      // Bypass Supabase network call for development
+      const mockAdmin = {
+        id: 'mock-admin-123',
+        email: 'admin@tarlactruckparts.local',
+        user_metadata: { full_name: 'System Admin' },
+        staffData: {
+            role: 'SUPERADMIN',
+            name: 'System Admin',
+            email: 'admin@tarlactruckparts.local',
+            permissions: {
+              inventory: 'manage',
+              sales: 'manage',
+              purchasing: 'manage',
+              reports: 'manage'
+            }
+        }
+      };
+      setSupabaseUser(mockAdmin);
+      setIsSignedIn(true);
+      setActiveView('admin-app');
+      showToast('Auto-logged in as System Admin (Dev Bypass)!', 'success');
     } catch (err) {
-      showToast(`Auto-login failed: ${err.message}. (Make sure you register admin@tarlactruckparts.local first in the Auth Portal with password: Admin@12345)`, 'error');
+      showToast(`Auto-login failed: ${err.message}`, 'error');
     }
   };
 
@@ -498,9 +535,9 @@ export default function App() {
 
         <div className="shrink-0 p-5 pt-4 border-t border-border flex items-center justify-between bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            {firebaseUser && (customerProfile?.photoURL || firebaseUser.photoURL) ? (
+            {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
               <img 
-                src={customerProfile?.photoURL || firebaseUser.photoURL} 
+                src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
                 alt="Profile" 
                 className="w-10 h-10 rounded-full border border-border object-cover shadow-inner bg-secondary"
               />
@@ -641,9 +678,9 @@ export default function App() {
             <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col gap-3 bg-secondary/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    {firebaseUser && (customerProfile?.photoURL || firebaseUser.photoURL) ? (
+                    {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                       <img 
-                        src={customerProfile?.photoURL || firebaseUser.photoURL} 
+                        src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
                         alt="Profile" 
                         className="w-8 h-8 rounded-full border border-border object-cover shadow-inner bg-secondary"
                       />
@@ -783,7 +820,7 @@ export default function App() {
 
                 {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
                 {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
-                {page === 'account' && <MyAccount user={auth.currentUser} onGoBack={() => setPage('dashboard')} />}
+                {page === 'account' && <MyAccount user={supabaseUser} onGoBack={() => setPage('dashboard')} />}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && page === 'staff' && <StaffManagement />}
                 {page === 'purchasing' && (
                   <PurchasingModule 
