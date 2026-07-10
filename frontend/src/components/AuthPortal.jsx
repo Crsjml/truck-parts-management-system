@@ -2,16 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, User, Warning, Bell, FacebookLogo, GoogleLogo } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
-import { auth } from '../firebaseConfig';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  sendEmailVerification, 
-  sendPasswordResetEmail,
-  updateProfile,
-  RecaptchaVerifier,
-  signInWithPhoneNumber
-} from 'firebase/auth';
+import { supabase } from '../supabaseClient';
 import { Phone, Hash } from '@phosphor-icons/react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -166,18 +157,16 @@ export default function AuthPortal({
     resetFeedback();
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      
-      // Update profile with full name
-      await updateProfile(userCredential.user, {
-        displayName: data.fullName,
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.fullName,
+          }
+        }
       });
-
-      // Send verification email
-      await sendEmailVerification(userCredential.user);
-
-      // Sign out immediately so they don't bypass the verification requirement
-      await auth.signOut();
+      if (error) throw error;
 
       setVerificationEmail(data.email);
       setNotice('Account created! Please check your email for a verification link, then log in.');
@@ -201,11 +190,15 @@ export default function AuthPortal({
   const handleResendCode = async () => {
     setLoading(true);
     try {
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
+      if (verificationEmail) {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email: verificationEmail
+        });
+        if (error) throw error;
         setNotice('A new verification email has been sent.');
       } else {
-        setNotice('You must be logged in to resend the verification email.');
+        setNotice('You must register first to resend the verification email.');
       }
     } catch (err) {
       setNotice(err.message || 'Failed to resend email.');
@@ -219,11 +212,17 @@ export default function AuthPortal({
     resetFeedback();
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+      if (error) throw error;
+      
+      const user = authData.user;
       
       // Enforce email verification on login
-      if (!userCredential.user.emailVerified && !data.email.includes('admin') && !data.email.includes('lakers.com') && !data.email.includes('warriors.com') && !data.email.includes('suns.com') && !data.email.includes('bucks.com') && !data.email.includes('mavericks.com') && !data.email.includes('example.com')) {
-        await auth.signOut();
+      if (!user.email_confirmed_at && !data.email.includes('admin') && !data.email.includes('lakers.com') && !data.email.includes('warriors.com') && !data.email.includes('suns.com') && !data.email.includes('bucks.com') && !data.email.includes('mavericks.com') && !data.email.includes('example.com')) {
+        await supabase.auth.signOut();
         setNotice('Please verify your email address before logging in. Check your inbox.');
         triggerShake();
         setLoading(false);
@@ -239,14 +238,7 @@ export default function AuthPortal({
   };
 
   const setupRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: (response) => {
-          // reCAPTCHA solved
-        }
-      });
-    }
+    // Supabase doesn't require manual recaptcha setup like Firebase for SMS.
   };
 
   const handleSendOtp = async (e) => {
@@ -261,21 +253,16 @@ export default function AuthPortal({
     resetFeedback();
     
     try {
-      setupRecaptcha();
-      const appVerifier = window.recaptchaVerifier;
-      const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-      setConfirmationResult(result);
+      const { data, error } = await supabase.auth.signInWithOtp({
+        phone: phoneNumber,
+      });
+      if (error) throw error;
       setIsOtpSent(true);
       setNotice('SMS code sent! Please enter it below.');
     } catch (err) {
       console.error(err);
       setNotice(err.message || 'Failed to send SMS code. Check the phone number format (e.g., +15555555555).');
       triggerShake();
-      // Reset recaptcha on error
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      }
     } finally {
       setLoading(false);
     }
@@ -283,14 +270,19 @@ export default function AuthPortal({
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    if (!otpCode || !confirmationResult) return;
+    if (!otpCode) return;
 
     setLoading(true);
     resetFeedback();
 
     try {
-      await confirmationResult.confirm(otpCode);
-      // Firebase automatically logs the user in upon successful confirmation!
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: phoneNumber,
+        token: otpCode,
+        type: 'sms'
+      });
+      if (error) throw error;
+      // Supabase automatically logs the user in upon successful confirmation!
       // App.jsx will catch the auth state change and redirect.
     } catch (err) {
       console.error(err);
@@ -311,7 +303,8 @@ export default function AuthPortal({
     setLoading(true);
 
     try {
-      await sendPasswordResetEmail(auth, forgotEmail);
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail);
+      if (error) throw error;
       setNotice('Password reset link sent to your email. Please check your inbox.');
       // Firebase password reset happens via email link, so we don't need step 2 manually
     } catch (err) {
@@ -339,7 +332,8 @@ export default function AuthPortal({
     }
 
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+      const { error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password });
+      if (error) throw error;
       // App.jsx will route based on onAuthStateChanged
     } catch (err) {
       setNotice(err.message || 'Admin login failed.');
@@ -353,7 +347,8 @@ export default function AuthPortal({
     setLoading(true);
     resetFeedback();
     try {
-      await signInWithEmailAndPassword(auth, 'admin@tarlactruckparts.local', 'Admin@12345');
+      const { error } = await supabase.auth.signInWithPassword({ email: 'admin@tarlactruckparts.local', password: 'Admin@12345' });
+      if (error) throw error;
     } catch (err) {
       setNotice(err.message || 'Auto-login failed.');
       triggerShake();
@@ -874,16 +869,16 @@ export default function AuthPortal({
                       className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <ShieldCheck weight="duotone" className="h-4 w-4" />}
-                      Enter admin login
+                      Access Admin Portal
                     </button>
 
                     <button
                       type="button"
-                      onClick={handleDevAutoLogin}
-                      disabled={loading}
-                      className="mt-4 w-full rounded-xl border border-dashed border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-400"
+                      onClick={() => onBackToStore()}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-transparent px-4 py-3 text-sm font-bold text-foreground transition hover:bg-secondary/80"
                     >
-                      {loading ? 'Logging in...' : 'DEV: Auto-login as Admin'}
+                      <ArrowLeft weight="bold" className="h-4 w-4" />
+                      Back to Store
                     </button>
                   </>
                 )}
