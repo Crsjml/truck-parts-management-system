@@ -30,7 +30,7 @@ describe('ReviewSection Component Tests', () => {
 
   it('renders existing reviews', async () => {
     const mockReviews = [
-      { _id: '1', userName: 'John Doe', rating: 5, body: 'Great product!', createdAt: new Date().toISOString() }
+      { id: '1', userName: 'John Doe', rating: 5, body: 'Great product!', createdAt: new Date().toISOString() }
     ];
     fetchReviews.mockResolvedValueOnce({ reviews: mockReviews, stats: { totalReviews: 1, averageRating: 5 } });
     
