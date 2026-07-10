@@ -73,7 +73,8 @@ export default function PartsCatalog({
   }, [search, parts]);
 
   const getCategoryStyles = (cat) => {
-    const { Icon, color } = getCategoryIconAndColor(cat);
+    const category = categoriesList.find(c => c.name === cat);
+    const { Icon, color } = getCategoryIconAndColor(cat, category?.iconName, category?.colorTheme);
     return { icon: Icon, color };
   };
   

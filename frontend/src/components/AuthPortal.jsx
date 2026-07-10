@@ -166,7 +166,20 @@ export default function AuthPortal({
           }
         }
       });
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
+          setNotice('An account with this email already exists. Please log in.');
+          setActiveTab('login');
+          setLoading(false);
+          return;
+        }
+        if (error.status === 429 || error.message?.includes('rate limit')) {
+          setNotice('Too many attempts. Please wait a moment and try again.');
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
 
       setVerificationEmail(data.email);
       setNotice('Account created! Please check your email for a verification link, then log in.');
@@ -216,7 +229,14 @@ export default function AuthPortal({
         email: data.email,
         password: data.password,
       });
-      if (error) throw error;
+      if (error) {
+        if (error.status === 429 || error.message?.includes('rate limit') || error.message?.includes('Too Many')) {
+          setNotice('Too many attempts. Please wait a moment and try again.');
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
       
       const user = authData.user;
       

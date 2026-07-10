@@ -184,6 +184,11 @@ async function main() {
     }
   });
 
+  const SUPABASE_AUTH_IDS = {
+    'lionel.messi@example.com': 'cd49a5af-e48a-4e98-be96-54a3eb0299ec',
+    'cristiano.ronaldo@example.com': 'e918fc28-45c2-41cb-aa7b-08764a5421a3',
+  };
+
   console.log("👥 Creating Customers...");
   const customers = [];
   const credentialsList = [];
@@ -192,7 +197,7 @@ async function main() {
     const password = 'Password123!';
     const customer = await prisma.customer.create({
       data: {
-        authId: faker.string.uuid(),
+        authId: SUPABASE_AUTH_IDS[email] || faker.string.uuid(),
         email: email,
         displayName: player.name,
         phoneNumber: faker.phone.number(),

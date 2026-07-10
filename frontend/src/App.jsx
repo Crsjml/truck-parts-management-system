@@ -329,24 +329,41 @@ export default function App() {
 
   const handleAutoCustomerLogin = async () => {
     try {
-      let { data, error } = await supabase.auth.signInWithPassword({
-        email: 'lionel.messi@example.com',
-        password: 'Password123!',
-      });
+      const email = 'lionel.messi@example.com';
+      const password = 'Password123!';
+      const fullName = 'Lionel Messi';
+
+      let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error?.status === 429) {
+        throw new Error('Too many requests. Please wait 30 seconds and try again.');
+      }
+
       if (error?.message?.includes('Invalid login credentials')) {
         const { error: signUpError } = await supabase.auth.signUp({
-          email: 'lionel.messi@example.com',
-          password: 'Password123!',
+          email, password,
+          options: { data: { full_name: fullName } },
         });
+
+        if (signUpError?.message?.includes('already registered') || signUpError?.message?.includes('already exists')) {
+          throw new Error('User exists but password mismatch. Contact admin to reset.');
+        }
+        if (signUpError?.status === 429) {
+          throw new Error('Too many requests. Please wait 30 seconds and try again.');
+        }
         if (signUpError) throw signUpError;
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: 'lionel.messi@example.com',
-          password: 'Password123!',
-        });
+
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError?.message?.includes('Email not confirmed')) {
+          throw new Error('Account created but email not confirmed. Contact admin to confirm.');
+        }
         if (signInError) throw signInError;
+      } else if (error?.message?.includes('Email not confirmed')) {
+        throw new Error('Account exists but email not confirmed. Contact admin.');
       } else if (error) {
         throw error;
       }
+
       setActiveView('storefront');
       showToast('Logged in as Lionel Messi', 'success');
     } catch (err) {
@@ -356,27 +373,18 @@ export default function App() {
 
   const handleAutoAdminLogin = async () => {
     try {
-      // Bypass Supabase network call for development
-      const mockAdmin = {
-        id: 'mock-admin-123',
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: 'admin@tarlactruckparts.local',
-        user_metadata: { full_name: 'System Admin' },
-        staffData: {
-            role: 'SUPERADMIN',
-            name: 'System Admin',
-            email: 'admin@tarlactruckparts.local',
-            permissions: {
-              inventory: 'manage',
-              sales: 'manage',
-              purchasing: 'manage',
-              reports: 'manage'
-            }
-        }
-      };
-      setSupabaseUser(mockAdmin);
-      setIsSignedIn(true);
+        password: 'admin123',
+      });
+
+      if (error?.status === 429) {
+        throw new Error('Too many requests. Please wait 30 seconds and try again.');
+      }
+      if (error) throw error;
+
       setActiveView('admin-app');
-      showToast('Auto-logged in as System Admin (Dev Bypass)!', 'success');
+      showToast('Auto-logged in as System Admin!', 'success');
     } catch (err) {
       showToast(`Auto-login failed: ${err.message}`, 'error');
     }

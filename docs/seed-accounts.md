@@ -20,7 +20,7 @@ This account provides access to the **Admin Dashboard** (Catalog management, sal
 ## 🚗 2. Customer Accounts
 These accounts provide access to the **Customer Storefront & Dashboard** (Order logs, profiles). All customers are pre-verified.
 
-**Password for all customer accounts:** `Player@12345`
+**Password for all customer accounts:** `Password123!`
 
 | Full Name | Contact Number | Email Address |
 | :--- | :--- | :--- |

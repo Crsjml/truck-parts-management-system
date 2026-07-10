@@ -67,6 +67,12 @@ export const autoSuggest = (categoryName) => {
   if (name.includes('filter')) return { iconName: 'Nut', colorTheme: 'gray' };
   if (name.includes('sensor')) return { iconName: 'Thermometer', colorTheme: 'blue' };
   if (name.includes('fuel')) return { iconName: 'GasPump', colorTheme: 'red' };
+  if (name.includes('leaf spring') || name.includes('axle')) return { iconName: 'ArrowsOutLineHorizontal', colorTheme: 'emerald' };
+  if (name.includes('alternator') || name.includes('wiring') || name.includes('harness')) return { iconName: 'BatteryFull', colorTheme: 'amber' };
+  if (name.includes('windshield') || name.includes('glass') || name.includes('windscreen')) return { iconName: 'FrameCorners', colorTheme: 'sky' };
+  if (name.includes('bumper')) return { iconName: 'Shield', colorTheme: 'blue' };
+  if (name.includes('chamber')) return { iconName: 'Disc', colorTheme: 'red' };
+  if (name.includes('cabin') || name.includes('truck')) return { iconName: 'Truck', colorTheme: 'blue' };
   if (name.includes('tire') || name.includes('wheel')) return { iconName: 'Tire', colorTheme: 'slate' };
   
   return null; // Return null if no clear suggestion exists so we don't aggressively overwrite manual choices

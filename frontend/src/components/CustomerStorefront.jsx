@@ -156,11 +156,16 @@ export default function CustomerStorefront({
       
       const session = await response.json();
       if (session.error) throw new Error(session.error);
+      if (!session.url) throw new Error('Server returned no checkout URL');
 
       window.location.href = session.url;
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Failed to initiate checkout. Please try again.');
+      if (error.message?.includes('checkout URL') || error.message?.includes('Failed')) {
+        alert('Checkout service error. Please try again.');
+      } else {
+        alert('Session expired. Please log in again.');
+      }
       setIsCheckingOut(false);
     }
   };
