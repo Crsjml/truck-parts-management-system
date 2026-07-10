@@ -13,6 +13,17 @@ The startup scripts automatically stop existing servers and handle backgrounding
 - **Mac/Linux**: Use `make up` to start, `make down` to stop.
 - **Windows**: Use `.\run.bat` to start, `docker-compose down` to stop.
 
+### Installing ECC with Antigravity Target
+To install Everything Claude Code (ECC) skills specifically for Antigravity, use the following scripts:
+
+```bash
+# Install ECC with Antigravity target
+./install.sh --target antigravity typescript
+
+# Or with multiple language modules
+./install.sh --target antigravity typescript python go
+```
+
 ## 📝 Commit & Jira Guidelines
 We use the **GitHub for Jira** integration.
 **CRITICAL**: Every commit message MUST contain the Jira ticket ID (e.g., `TTP-1`, `TTP-25`) to automatically link code to Atlassian Jira.

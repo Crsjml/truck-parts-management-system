@@ -1,0 +1,222 @@
+{
+  "TTP-134": {
+    "summary": "Parts Category Management",
+    "description": "User Story: As an admin, I want to manage part categories so that the catalog stays organized and easy to navigate for customers.\n\nAcceptance Criteria: \n\n\n1. Admin can create, edit, and delete categories and subcategories\n\n1. Parts can be linked to categories correctly\n\n1. Categories appear in the catalog filters for customers",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T10:19:58.305+0800",
+    "updated": "2026-06-22T13:28:29.136+0800"
+  },
+  "TTP-114": {
+    "summary": "Roles and Permission",
+    "description": "User Story: As a system, I want to restrict access based on user role so that customers and admins only see what is relevant to them.\n\nAcceptance Criteria:\n\n1. Admin users can access the admin dashboard and all management features\n1. Customer users can only access the customer portal\n1. Customers cannot access admin-only pages even with direct URL\n1. Role is correctly assigned upon registration or account creation",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T10:12:40.512+0800",
+    "updated": "2026-06-20T08:39:43.101+0800"
+  },
+  "TTP-90": {
+    "summary": "Password Reset",
+    "description": "User Story: As a user, I want to reset my password via email so that I can regain access to my account if I forget my credentials.\n\nAcceptance Criteria: \n\n1. User can request a password reset from the login page\n1. Reset link is sent to the registered email\n1. Reset link expires after a defined time period\n1. User is redirected to a confirmation screen after successful reset",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T10:07:36.451+0800",
+    "updated": "2026-06-20T08:39:31.620+0800"
+  },
+  "TTP-66": {
+    "summary": "Admin Login",
+    "description": "User Story: As an admin, I want to log in through a separate portal so that I can access the admin dashboard securely.\n\nAcceptance Criteria: \n\n1. Admin can log in through a separate portal\n1. Admin credentials are not accessible via the public registration page\n1. Successful login redirects admin to the dashboard\n1. Invalid credentials display an appropriate error message",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T10:02:45.812+0800",
+    "updated": "2026-06-20T19:07:35.164+0800"
+  },
+  "TTP-62": {
+    "summary": "Search and Filter Parts",
+    "description": "User Story : \n\nAs a customer, I want to search for specific parts so that I can quickly find what I am looking for without browsing the full catalog.\n\nAcceptance Criteria : \n\n1. Search returns relevant results for name, brand, and specification queries\n1. Autocomplete suggestions appear as the user types\n1. Filters narrow results correctly\n1. Stock status is shown alongside each search result",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T10:02:11.734+0800",
+    "updated": "2026-06-20T08:40:31.169+0800"
+  },
+  "TTP-56": {
+    "summary": "Product Listing",
+    "description": "User Story : \n\nAs a customer, I want to browse a paginated parts catalog so that I can find the parts I need easily.\n\nAcceptance Criteria : \n\n1. Catalog displays all available parts with basic details\n1. Pagination works correctly across all pages\n1. Filters return accurate and relevant results\n1. Stock availability is reflected in real time",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:59:20.649+0800",
+    "updated": "2026-06-20T20:47:09.415+0800"
+  },
+  "TTP-21": {
+    "summary": "Real-Time Stock Tracking",
+    "description": "User Story: As an admin, I want stock levels to update automatically so that the inventory is always accurate without manual updating.\n\nAcceptance Criteria:  \n\n\n1. Stock level decreases automatically when a sale is completed\n\n1. Stock level increases when new stock is recorded\n\n1. Changes are reflected instantly in the catalog and admin dashboard\n\n1. No manual update is required after a transaction",
+    "status": "In Review",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:53:05.269+0800",
+    "updated": "2026-06-27T08:43:35.216+0800"
+  },
+  "TTP-12": {
+    "summary": "Customer Login",
+    "description": "User Story: As a registered customer, I want to log in securely so that I can access my account and purchase history.\n\nAcceptance Criteria: \n1. Registered user can log in with correct email and password\n\n1. JWT token is issued upon successful login\n\n1. Remember-me option keeps user logged in across sessions\n\n1. Account is temporarily locked after multiple failed attempts\"",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:50:00.669+0800",
+    "updated": "2026-06-20T20:46:59.372+0800"
+  },
+  "TTP-11": {
+    "summary": "Add/Edit Parts Record",
+    "description": "User Story: As an admin, I want to add and edit parts records so that the inventory always reflects accurate and up-to-date information.\n\nAcceptance Criteria: \n\n1. Admin can add a new part with all required fields\n\n1. Admin can edit existing part records\n\n1. System rejects incomplete or invalid inputs\n\n1. Changes are saved and reflected in the catalog immediately",
+    "status": "In Review",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:49:39.445+0800",
+    "updated": "2026-06-27T08:43:35.464+0800"
+  },
+  "TTP-10": {
+    "summary": "Customer Registration",
+    "description": "User Story: As a new customer, I want to create an account so that I can access the platform and its features.\n\n\nAcceptance Criteria\n1. User can register with full name, contact number, email, and password\n\n1. System rejects incomplete or invalid inputs\n\n1. Verification email is sent upon registration\n\n1. User cannot log in until email is verified\"",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:46:56.450+0800",
+    "updated": "2026-06-20T20:46:42.959+0800"
+  },
+  "TTP-3": {
+    "summary": "AI Assistant",
+    "description": "Covers the AI-powered chatbot integrated with live inventory that allows customers to inquire about parts using plain language. This epic handles natural language queries, alternative part suggestions when stock is unavailable, and logging of out-of-stock requests to support restocking decisions.",
+    "status": "To Do",
+    "issue_type": "Epic",
+    "assignee": "Raphael Benedict Maagma",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T09:42:11.733+0800",
+    "updated": "2026-06-30T22:18:05.138+0800"
+  },
+  "TTP-102": {
+    "summary": "Profile Management",
+    "description": "User Story: As a customer, I want to update my profile information so that my account details stay accurate.\n\nAcceptance Criteria: \n\n1. Customer can update display name, contact number, and email\n1. System rejects invalid inputs\n1. Changes are saved and reflected immediately upon submission\n1. Confirmation message is shown after a successful update",
+    "status": "In Progress",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T10:09:28.479+0800",
+    "updated": "2026-06-28T12:50:08.294+0800"
+  },
+  "TTP-94": {
+    "summary": "Product Reviews",
+    "description": "User Story:\nAs a customer, I want to leave a review on parts I have purchased so that other customers can make informed decisions.\n\nAcceptance Criteria:\n\n- Only logged-in customers who purchased the part can leave a review\n- Star rating and text review are both submitted successfully\n- Aggregate score is updated and displayed on the product page after submission",
+    "status": "To Do",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Low",
+    "subtasks": [],
+    "created": "2026-06-06T10:08:16.135+0800",
+    "updated": "2026-06-22T14:33:18.145+0800"
+  },
+  "TTP-75": {
+    "summary": "Stock Adjustment",
+    "description": "User Story: As an admin, I want to manually adjust stock counts so that I can account for damaged goods or returned items accurately.\n\nAcceptance Criteria: \n\n1. Admin can manually adjust stock count for any part\n\n1. Reason log field is mandatory before submission\n\n1. Adjustment is saved with timestamp and reason\n\n1. Updated stock count is reflected immediately in the inventory",
+    "status": "In Progress",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T10:03:37.917+0800",
+    "updated": "2026-06-27T08:51:14.697+0800"
+  },
+  "TTP-68": {
+    "summary": "Parts Compatibility Filter",
+    "description": "User Story: As a customer, I want to filter parts by my vehicle type so that I only see parts that are compatible with my truck.\n\n\nAcceptance Criteria:\n\n- Customer can filter by vehicle type, make, and model\n- Only compatible parts are shown after filtering\n- Filter can be cleared to return to full catalog view",
+    "status": "To Do",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T10:02:57.152+0800",
+    "updated": "2026-06-27T08:51:00.960+0800"
+  },
+  "TTP-59": {
+    "summary": "Product Details",
+    "description": "User Story : \n\nAs a customer, I want to view the full details of a part so that I can confirm it fits my needs before purchasing.\n\nAcceptance Criteria : \n\n1. Build product detail page UI\n1. Display images, specs, and compatibility\n1. Show real-time stock status and price",
+    "status": "In Progress",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T10:00:31.758+0800",
+    "updated": "2026-06-27T08:50:54.272+0800"
+  },
+  "TTP-22": {
+    "summary": "Alert Notification",
+    "description": "User Story:\n\nAs an admin, I want to receive real-time alerts when stock is low so that I can act on restocking immediately.\n\nAcceptance Criteria: \n\n1. Alert appears on the dashboard as soon as stock hits the threshold\n1. Alert displays the part name and current quantity\n1. Alert is dismissed or updated when stock is restocked above the threshold",
+    "status": "Done",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:53:06.044+0800",
+    "updated": "2026-06-27T09:22:33.468+0800"
+  },
+  "TTP-19": {
+    "summary": "Purchase Order Creation",
+    "description": "**User Story:**\nAs an admin, I want to create formal purchase orders so that restocking requests are properly documented and tracked.\n\n**Acceptance Criteria:**\n\n1. Admin can create a purchase order linked to a supplier\n1. Order includes parts list and expected delivery date\n1. The order is saved and accessible in the supplier management section\n1. System rejects incomplete order submissions",
+    "status": "In Progress",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T09:52:42.391+0800",
+    "updated": "2026-06-22T14:33:44.913+0800"
+  },
+  "TTP-14": {
+    "summary": "Supplier Directory",
+    "description": "**User Story:**\nAs an admin, I want a supplier directory so that I can quickly access supplier contact details and terms when placing orders.\n\n**Acceptance Criteria:**\n\n1. Admin can add, edit, and delete supplier records\n1. The directory displays contact details, product categories, and payment terms\n1. Supplier records are searchable",
+    "status": "In Progress",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "Medium",
+    "subtasks": [],
+    "created": "2026-06-06T09:50:25.837+0800",
+    "updated": "2026-06-27T08:51:46.309+0800"
+  },
+  "TTP-13": {
+    "summary": "Set Minimum Stock Threshold",
+    "description": "User Story : \n\nAs an admin, I want to set minimum stock thresholds per part so that I get alerted before a part runs out.\n\nUser Acceptance Criteria:\n\n1. Admin can set a minimum threshold for each part\n1. Alert is triggered automatically when stock reaches or falls below the threshold\n1. Threshold value is saved and persists across sessions",
+    "status": "In Progress",
+    "issue_type": "Task",
+    "assignee": "Unassigned",
+    "priority": "High",
+    "subtasks": [],
+    "created": "2026-06-06T09:50:09.236+0800",
+    "updated": "2026-06-27T08:51:17.662+0800"
+  }
+}
