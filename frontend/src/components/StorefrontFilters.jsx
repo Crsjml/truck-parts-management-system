@@ -3,7 +3,7 @@ import { MagnifyingGlass, Faders, X, CurrencyDollar, Package, SortAscending, Car
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { components } from 'react-select';
 import CompatibilityFilter from './CompatibilityFilter';
-
+import { AnimatedTooltip } from './ui/AnimatedTooltip';
 // Custom Option to render icon inside react-select
 const IconOption = (props) => {
   const Icon = props.data.icon;
@@ -22,7 +22,7 @@ export default function StorefrontFilters({
   showSuggestions, setShowSuggestions,
   suggestions,
   showFilters, setShowFilters,
-  categories,
+  nestedCategories,
   getCategoryStyles,
   selectedCategory, setSelectedCategory,
   vehicleFilter, setVehicleFilter,
@@ -42,6 +42,23 @@ export default function StorefrontFilters({
     selectedCategory !== 'All',
     minRating > 0
   ].filter(Boolean).length;
+
+  const topLevelCategories = nestedCategories?.filter(c => !c.parentCategory) || [];
+  
+  let activeMainCatObj = null;
+  if (selectedCategory !== 'All') {
+    activeMainCatObj = topLevelCategories.find(c => c.name === selectedCategory);
+    if (!activeMainCatObj) {
+      const subCatObj = nestedCategories?.find(c => c.name === selectedCategory && c.parentCategory);
+      if (subCatObj) {
+        activeMainCatObj = topLevelCategories.find(c => c.name === subCatObj.parentCategory.name);
+      }
+    }
+  }
+
+  const activeSubcategories = activeMainCatObj 
+    ? nestedCategories?.filter(c => c.parentCategory?.name === activeMainCatObj.name) || []
+    : [];
 
   const activeTabCounts = {
     vehicle: vehicleFilter?.brand ? 1 : 0,
@@ -207,22 +224,72 @@ export default function StorefrontFilters({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 pt-2">
+        <div className="flex flex-col gap-3 pt-2">
+          {/* Main Categories */}
           <div className="flex flex-wrap justify-center gap-2">
-            {categories.map((category) => {
-              const { icon: CatIcon, color } = getCategoryStyles(category);
+            <button
+               onClick={() => setSelectedCategory('All')}
+               className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition shadow-sm ${selectedCategory === 'All' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'}`}
+            >
+              All
+            </button>
+            {topLevelCategories.map((category) => {
+              const { icon: CatIcon, color } = getCategoryStyles(category.name);
+              const isMainActive = activeMainCatObj?.name === category.name;
               return (
                 <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shadow-sm ${selectedCategory === category ? 'border-accent/40 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300' : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'}`}
+                  key={category.id}
+                  onClick={() => {
+                    if (selectedCategory === category.name) {
+                      setSelectedCategory('All');
+                    } else {
+                      setSelectedCategory(category.name);
+                    }
+                  }}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shadow-sm ${isMainActive ? 'border-accent/40 bg-accent/10 dark:bg-accent/20 text-accent dark:text-red-300' : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground'}`}
                 >
-                  {CatIcon && <CatIcon weight="duotone" className={`w-3.5 h-3.5 ${selectedCategory === category ? 'text-accent dark:text-red-300' : color}`} />}
-                  {category}
+                  {CatIcon && <CatIcon weight="duotone" className={`w-3.5 h-3.5 ${isMainActive ? 'text-accent dark:text-red-300' : color}`} />}
+                  {category.name}
                 </button>
               )
             })}
           </div>
+
+          {/* Subcategories (Only visible if a main category is active and has subcategories) */}
+          <AnimatePresence>
+             {activeSubcategories.length > 0 && (
+                <motion.div 
+                   initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                   animate={{ opacity: 1, height: 'auto', marginTop: 0 }}
+                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                   className="flex flex-wrap justify-center gap-2 overflow-hidden"
+                >
+                  <div className="flex items-center border-l-2 border-border pl-4 gap-2 flex-wrap justify-center bg-secondary/30 py-1.5 px-3 rounded-r-xl">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground/50 mr-1 tracking-widest">Sub:</span>
+                    {activeSubcategories.map((subCat) => {
+                       const { icon: SubIcon, color } = getCategoryStyles(subCat.name);
+                       const isSubActive = selectedCategory === subCat.name;
+                       return (
+                         <button
+                           key={subCat.id}
+                           onClick={() => {
+                             if (selectedCategory === subCat.name) {
+                               setSelectedCategory(subCat.parentCategory?.name || 'All');
+                             } else {
+                               setSelectedCategory(subCat.name);
+                             }
+                           }}
+                           className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shadow-sm ${isSubActive ? 'border-foreground bg-foreground text-background' : 'border-border/50 bg-background text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                         >
+                           {SubIcon && <SubIcon weight="duotone" className={`w-3 h-3 ${isSubActive ? 'text-background' : color}`} />}
+                           {subCat.name}
+                         </button>
+                       )
+                    })}
+                  </div>
+                </motion.div>
+             )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -242,29 +309,51 @@ export default function StorefrontFilters({
               </div>
 
               {/* Horizontal Pill Nav */}
-              <div className="flex justify-center gap-3 overflow-x-auto pb-4 no-scrollbar">
-                {[
-                  { id: 'vehicle', label: 'Vehicle', icon: CarProfile },
-                  { id: 'pricing', label: 'Pricing & Rating', icon: CurrencyDollar }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveFilterTab(tab.id)}
-                    className={`relative flex items-center gap-2 shrink-0 rounded-full px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold transition border ${activeFilterTab === tab.id ? 'bg-background border-border text-foreground shadow-sm' : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
-                  >
-                    <tab.icon weight={activeFilterTab === tab.id ? 'fill' : 'duotone'} className="w-3.5 h-3.5" />
-                    {tab.label}
-                    {activeTabCounts[tab.id] > 0 && (
-                      <span className="ml-1 inline-flex items-center justify-center bg-accent text-white text-[9px] rounded-full w-4 h-4 shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]">
-                        {activeTabCounts[tab.id]}
-                      </span>
-                    )}
-                  </button>
-                ))}
+              <div className="flex justify-center pb-4 no-scrollbar">
+                <AnimatedTooltip
+                  items={[
+                    {
+                      id: 'vehicle',
+                      name: 'Vehicle Compatibility',
+                      designation: activeTabCounts['vehicle'] > 0 ? `${activeTabCounts['vehicle']} active filters` : null,
+                      element: (
+                        <button
+                          onClick={() => setActiveFilterTab('vehicle')}
+                          className={`relative flex items-center justify-center rounded-full p-3 transition border ${activeFilterTab === 'vehicle' ? 'bg-background border-accent/50 text-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]' : 'bg-secondary border-border/50 text-muted-foreground hover:text-foreground hover:bg-background shadow-sm'}`}
+                        >
+                          <CarProfile weight={activeFilterTab === 'vehicle' ? 'fill' : 'duotone'} className="w-6 h-6" />
+                          {activeTabCounts['vehicle'] > 0 && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center bg-accent text-white text-[9px] font-bold rounded-full w-4 h-4 ring-2 ring-background">
+                              {activeTabCounts['vehicle']}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    },
+                    {
+                      id: 'pricing',
+                      name: 'Pricing & Ratings',
+                      designation: activeTabCounts['pricing'] > 0 ? `${activeTabCounts['pricing']} active filters` : null,
+                      element: (
+                        <button
+                          onClick={() => setActiveFilterTab('pricing')}
+                          className={`relative flex items-center justify-center rounded-full p-3 transition border ${activeFilterTab === 'pricing' ? 'bg-background border-accent/50 text-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]' : 'bg-secondary border-border/50 text-muted-foreground hover:text-foreground hover:bg-background shadow-sm'}`}
+                        >
+                          <CurrencyDollar weight={activeFilterTab === 'pricing' ? 'fill' : 'duotone'} className="w-6 h-6" />
+                          {activeTabCounts['pricing'] > 0 && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center bg-accent text-white text-[9px] font-bold rounded-full w-4 h-4 ring-2 ring-background">
+                              {activeTabCounts['pricing']}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    }
+                  ]}
+                />
               </div>
 
               {/* Tab Contents */}
-              <div className="mt-2 min-h-[120px]">
+              <div className="mt-2">
                 {activeFilterTab === 'vehicle' && (
                   <div className="max-w-sm mx-auto">
                     <CompatibilityFilter onFilterChange={setVehicleFilter} />

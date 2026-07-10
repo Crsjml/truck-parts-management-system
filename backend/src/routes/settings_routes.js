@@ -1,19 +1,20 @@
 import express from "express";
-import Setting from "../models/setting_model.js";
+import { prisma } from "../config/prisma.js";
 
 const router = express.Router();
 
 // GET /api/settings - Retrieve global settings
 router.get("/", async (req, res) => {
   try {
-    let settings = await Setting.findOne();
+    let settings = await prisma.setting.findFirst();
     if (!settings) {
       // Create default settings if none exist
-      settings = new Setting({
-        base_currency: "PHP",
-        active_markup: 0,
+      settings = await prisma.setting.create({
+        data: {
+          base_currency: "PHP",
+          active_markup: 0,
+        }
       });
-      await settings.save();
     }
     res.json(settings);
   } catch (error) {
@@ -25,15 +26,26 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { base_currency, active_markup } = req.body;
-    let settings = await Setting.findOne();
+    let settings = await prisma.setting.findFirst();
+    
     if (!settings) {
-      settings = new Setting({ base_currency, active_markup });
+      settings = await prisma.setting.create({
+        data: {
+          base_currency: base_currency || "PHP",
+          active_markup: active_markup || 0
+        }
+      });
     } else {
-      if (base_currency !== undefined) settings.base_currency = base_currency;
-      if (active_markup !== undefined) settings.active_markup = active_markup;
+      settings = await prisma.setting.update({
+        where: { id: settings.id },
+        data: {
+          ...(base_currency !== undefined && { base_currency }),
+          ...(active_markup !== undefined && { active_markup })
+        }
+      });
     }
-    const updatedSettings = await settings.save();
-    res.json(updatedSettings);
+    
+    res.json(settings);
   } catch (error) {
     res.status(500).json({ message: "Server error updating settings", error: error.message });
   }

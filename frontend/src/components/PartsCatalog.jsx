@@ -724,12 +724,12 @@ export default function PartsCatalog({
                           <>
                             <option value="" disabled>-- Select Category / Subcategory --</option>
                             {categoriesList.filter(c => !c.parentCategory).map(parent => {
-                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory._id?.toString() === parent._id?.toString());
+                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString());
                               return (
-                                <optgroup key={parent._id} label={parent.name}>
-                                  <option value={parent._id}>{parent.name} (Main)</option>
+                                <optgroup key={parent.id} label={parent.name}>
+                                  <option value={parent.id}>{parent.name} (Main)</option>
                                   {subs.map(sub => (
-                                    <option key={sub._id} value={sub._id}>{sub.name}</option>
+                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
                                   ))}
                                 </optgroup>
                               );
