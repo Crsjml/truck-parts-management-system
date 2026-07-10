@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Category {
+  id               String     @id @default(uuid()) @db.Uuid
+  name             String     @unique
+  parentCategoryId String?    @db.Uuid
+  parentCategory   Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  subCategories    Category[] @relation("CategoryHierarchy")
+  iconName         String?
+  colorTheme       String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  parts     Part[]
+  suppliers Supplier[] @relation("CategoryToSupplier")
+}
+
+model Customer {
+  id          String   @id @default(uuid()) @db.Uuid
+  authId      String   @unique // Replaces firebaseUid
+  email       String   @unique
+  displayName String?  @default("")
+  phoneNumber String?  @default("")
+  photoURL    String?  @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  savedParts Part[] @relation("CustomerSavedParts")
+}
+
+model Part {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  sku             String    @unique
+  oem             String?   @default("")
+  categoryId      String    @db.Uuid
+  category        Category  @relation(fields: [categoryId], references: [id])
+  supplierId      String?   @db.Uuid
+  primarySupplier Supplier? @relation("SupplierPrimaryParts", fields: [supplierId], references: [id])
+  price           Float
+  stock           Int       @default(0)
+  min_stock       Int       @default(0)
+  compatibility   String?   @default("")
+  compatibleWith  Json      @default("[]") // Replaces compatibleWith array
+  description     String?   @default("")
+  image           String?   @default("")
+  published       Boolean   @default(true)
+  archived        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  savedByCustomers   Customer[]          @relation("CustomerSavedParts")
+  purchaseOrderItems PurchaseOrderItem[]
+  transactionItems   TransactionItem[]
+  reviews            Review[]
+}
+
+model PurchaseOrder {
+  id                   String    @id @default(uuid()) @db.Uuid
+  poNumber             String    @unique
+  supplierId           String    @db.Uuid
+  supplier             Supplier  @relation(fields: [supplierId], references: [id])
+  totalAmount          Float
+  status               String    @default("Draft")
+  billingStatus        String    @default("Waiting Bills")
+  sourceRfq            String?   @default("")
+  createdBy            String    @default("Admin")
+  confirmationDate     DateTime?
+  orderDate            DateTime  @default(now())
+  expectedDeliveryDate DateTime?
+  notes                String?   @default("")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  items PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid()) @db.Uuid
+  purchaseOrderId String        @db.Uuid
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  partId          String        @db.Uuid
+  part            Part          @relation(fields: [partId], references: [id])
+  name            String
+  sku             String?
+  quantity        Int
+  unitPrice       Float
+  subtotal        Float
+}
+
+model Supplier {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  type          String   @default("Company")
+  contactPerson String?  @default("")
+  email         String?  @default("")
+  phone         String?  @default("")
+  address       String?  @default("")
+  country       String?  @default("")
+  paymentTerms  String?  @default("Net 30")
+  status        String   @default("Active")
+  notes         String?  @default("")
+  archived      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  primaryParts   Part[]          @relation("SupplierPrimaryParts")
+  categories     Category[]      @relation("CategoryToSupplier")
+  purchaseOrders PurchaseOrder[]
+}
+
+model Transaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  invoiceNumber   String   @unique
+  customerName    String   @default("Walk-in Customer")
+  customerContact String   @default("N/A")
+  userId          String?
+  discount        Float    @default(0)
+  tax             Float    @default(12)
+  subtotal        Float
+  taxAmount       Float
+  total           Float
+  status          String   @default("Pending")
+  transactionDate DateTime @default(now())
+
+  items TransactionItem[]
+
+  @@index([transactionDate])
+}
+
+model TransactionItem {
+  id            String      @id @default(uuid()) @db.Uuid
+  transactionId String      @db.Uuid
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  partId        String      @db.Uuid
+  part          Part        @relation(fields: [partId], references: [id])
+  name          String
+  quantity      Int
+  price         Float
+
+  @@index([transactionId])
+  @@index([partId])
+}
+
+model Review {
+  id               String   @id @default(uuid()) @db.Uuid
+  partId           String   @db.Uuid
+  part             Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
+  userId           String
+  userName         String   @default("Anonymous")
+  userEmail        String?  @default("")
+  rating           Int
+  body             String?  @default("")
+  purchaseVerified Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([partId, userId])
+}
+
+model StaffRole {
+  id               String   @id @default(uuid()) @db.Uuid
+  email            String   @unique
+  role             String   @default("STAFF")
+  canManageCatalog Boolean  @default(true)
+  canViewFinances  Boolean  @default(false)
+  canProcessOrders Boolean  @default(true)
+  canManageStaff   Boolean  @default(false)
+  addedBy          String   @default("system")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Setting {
+  id            String   @id @default(uuid()) @db.Uuid
+  base_currency String   @default("PHP")
+  active_markup Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
