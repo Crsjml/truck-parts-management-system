@@ -17,7 +17,7 @@ export default function MyOrders({ customerName, customerEmail, transactions }) 
       (tx.customerEmail && customerName && tx.customerEmail.toLowerCase().includes(customerName.toLowerCase().replace(/\s+/g, '.')))
   ).map(tx => ({
     ...tx,
-    status: tx.status || (Math.random() > 0.8 ? 'In Transit' : 'Completed') 
+    status: tx.status || 'Pending' 
   })).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
 
   const filteredTx = customerTx.filter(tx => {
@@ -256,7 +256,7 @@ export default function MyOrders({ customerName, customerEmail, transactions }) 
                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar max-h-[480px]">
                  {historicalOrders.length > 0 ? historicalOrders.map(tx => (
                    <button 
-                     key={tx._id || tx.id} 
+                     key={tx.id || tx.id} 
                      onClick={(e) => handleDownloadPDF(tx, e)}
                      aria-label={`Download historical order ${tx.invoiceNumber}`}
                      className="w-full text-left p-4 rounded-2xl border border-border bg-background/50 hover:bg-background hover:border-accent/40 transition-all group flex flex-col gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -285,17 +285,17 @@ export default function MyOrders({ customerName, customerEmail, transactions }) 
         // Standard List View for specific tabs
         <div className="space-y-4">
           {filteredTx.map((tx) => (
-            <div key={tx._id || tx.id} className={`rounded-[2rem] border transition-all duration-300 bg-secondary/80 backdrop-blur-xl shadow-sm overflow-hidden ${expandedRow === tx._id ? 'border-accent/40 shadow-xl' : 'border-border/50 hover:border-border hover:shadow-md'}`}>
+            <div key={tx.id || tx.id} className={`rounded-[2rem] border transition-all duration-500 ease-spring-physics bg-secondary/80 backdrop-blur-xl shadow-sm overflow-hidden ${expandedRow === tx.id ? 'border-accent/50 shadow-2xl scale-[1.01]' : 'border-border/50 hover:border-accent/30 hover:shadow-xl hover:-translate-y-1'}`}>
               
               {/* Order Header (Always visible) */}
               <div 
-                onClick={() => setExpandedRow(expandedRow === tx._id ? null : tx._id)}
+                onClick={() => setExpandedRow(expandedRow === tx.id ? null : tx.id)}
                 className="p-6 sm:p-8 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-6 group"
                 role="button"
                 tabIndex={0}
-                aria-expanded={expandedRow === tx._id}
+                aria-expanded={expandedRow === tx.id}
                 aria-label={`Toggle details for order ${tx.invoiceNumber}`}
-                onKeyDown={(e) => e.key === 'Enter' && setExpandedRow(expandedRow === tx._id ? null : tx._id)}
+                onKeyDown={(e) => e.key === 'Enter' && setExpandedRow(expandedRow === tx.id ? null : tx.id)}
               >
                 <div className="flex items-center gap-6">
                   <div className="w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform relative overflow-hidden">
@@ -335,13 +335,13 @@ export default function MyOrders({ customerName, customerEmail, transactions }) 
                   >
                     <Download weight="bold" className="w-5 h-5" />
                   </button>
-                  <CaretDown weight="bold" className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${expandedRow === tx._id ? 'rotate-180 text-foreground' : ''}`} />
+                  <CaretDown weight="bold" className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${expandedRow === tx.id ? 'rotate-180 text-foreground' : ''}`} />
                 </div>
               </div>
 
               {/* Order Details (Expandable) */}
               <AnimatePresence>
-                {expandedRow === tx._id && (
+                {expandedRow === tx.id && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}

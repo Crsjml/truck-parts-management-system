@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut } from '@phosphor-icons/react';
-import { updateProfile, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential, signOut } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { supabase } from '../supabaseClient';
 import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
 
 export default function MyAccount({ user, transactions = [], onGoBack }) {
@@ -25,10 +24,10 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
   useEffect(() => {
     async function loadProfile() {
       if (user) {
-        setDisplayName(user.displayName || '');
+        setDisplayName(user.user_metadata?.full_name || '');
         setEmail(user.email || '');
-        setPhoneNumber(user.phoneNumber || '');
-        setPhotoURL(user.photoURL || '');
+        setPhoneNumber(user.phone || '');
+        setPhotoURL(user.user_metadata?.avatar_url || '');
 
         const profile = await fetchCustomerProfile();
         if (profile) {
@@ -66,14 +65,17 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
     setIsLoading(true);
 
     try {
-      const currentUser = auth.currentUser;
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
       
       if (photoURL && photoURL.startsWith('data:image')) {
         window.dispatchEvent(new Event('avatarUpdated'));
       }
 
-      if (displayName !== currentUser.displayName) {
-        await updateProfile(currentUser, { displayName });
+      if (displayName !== currentUser.user_metadata?.full_name || photoURL !== currentUser.user_metadata?.avatar_url) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { full_name: displayName, avatar_url: photoURL }
+        });
+        if (updateError) throw updateError;
       }
 
       await updateCustomerProfile({
@@ -85,19 +87,9 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
       const sanitizedEmail = email.trim();
       let emailVerificationSent = false;
       if (sanitizedEmail !== currentUser.email) {
-        try {
-          await verifyBeforeUpdateEmail(currentUser, sanitizedEmail);
-          emailVerificationSent = true;
-        } catch (emailErr) {
-          if (emailErr.code === 'auth/requires-recent-login') {
-            setPendingEmail(sanitizedEmail);
-            setShowReauth(true);
-            setIsLoading(false);
-            return;
-          } else {
-            throw emailErr;
-          }
-        }
+        const { error: emailErr } = await supabase.auth.updateUser({ email: sanitizedEmail });
+        if (emailErr) throw emailErr;
+        emailVerificationSent = true;
       }
 
       if (emailVerificationSent) {
@@ -117,35 +109,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
 
   const handleReauth = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      const currentUser = auth.currentUser;
-      const credential = EmailAuthProvider.credential(currentUser.email, password);
-      await reauthenticateWithCredential(currentUser, credential);
-      await verifyBeforeUpdateEmail(currentUser, pendingEmail);
-      
-      if (photoURL && photoURL.startsWith('data:image')) {
-        localStorage.setItem(`avatar_${currentUser.uid}`, photoURL);
-        window.dispatchEvent(new Event('avatarUpdated'));
-      }
-      if (displayName !== currentUser.displayName) {
-        await updateProfile(currentUser, { displayName });
-      }
-
-      setSuccess('Profile updated! Verification link sent.');
-      setIsEditing(false);
-      setShowReauth(false);
-      setPassword('');
-      setPendingEmail('');
-      setTimeout(() => setSuccess(''), 4000);
-
-    } catch (err) {
-      setError('Incorrect password. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    // Removed Firebase-specific reauth
   };
 
   const handleImageUpload = (e) => {
@@ -165,14 +129,14 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
   const userTransactionsCount = transactions.filter(tx => 
-    tx.customerName?.toLowerCase() === (user?.displayName || user?.email || '').toLowerCase()
+    tx.customerName?.toLowerCase() === (user?.user_metadata?.full_name || user?.email || '').toLowerCase()
   ).length;
 
   if (!user) {
@@ -251,7 +215,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
         
         {/* Left Column: Avatar & Quick Info */}
         <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-8 h-fit">
-          <div className="group relative rounded-[2.5rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-8 shadow-sm flex flex-col items-center text-center transition-all hover:shadow-xl hover:border-accent/30">
+          <div className="group relative rounded-[2.5rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-8 shadow-sm flex flex-col items-center text-center transition-all duration-500 ease-spring-physics hover:shadow-2xl hover:border-accent/50 hover:-translate-y-1">
             <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent rounded-[2.5rem] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
             <div className="relative">
@@ -269,7 +233,9 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
               </label>
             </div>
 
-            <h2 className="text-2xl font-bold text-foreground truncate w-full mt-3">{displayName || 'User'}</h2>
+            <h2 className="text-2xl font-bold text-foreground truncate w-full mt-3">
+              {displayName ? displayName : <span className="text-muted-foreground italic text-lg">Complete Your Profile</span>}
+            </h2>
             <p className="text-sm font-medium text-muted-foreground truncate w-full">{email}</p>
             
             <div className="w-full mt-6 pt-6 border-t border-border/50 flex items-center justify-center gap-2 text-[11px] font-bold tracking-wider uppercase text-emerald-500">
@@ -375,7 +341,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         </div>
                         <input
                           type="text"
-                          value={displayName}
+                          value={isEditing ? displayName : (displayName || "Not provided")}
                           onChange={(e) => setDisplayName(e.target.value)}
                           disabled={!isEditing}
                           className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
@@ -392,7 +358,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         </div>
                         <input
                           type="email"
-                          value={email}
+                          value={isEditing ? email : (email || "Not provided")}
                           onChange={(e) => setEmail(e.target.value)}
                           disabled={!isEditing}
                           className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
@@ -409,7 +375,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         </div>
                         <input
                           type="text"
-                          value={phoneNumber}
+                          value={isEditing ? phoneNumber : (phoneNumber || "Not provided")}
                           onChange={(e) => setPhoneNumber(e.target.value)}
                           disabled={!isEditing}
                           className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
