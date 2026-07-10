@@ -96,7 +96,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
       customerName: customerName || 'Walk-in Customer',
       customerContact: customerContact || 'N/A',
       items: cart.map(item => ({
-        partId: item.id || item._id,
+        partId: item.id || item.id,
         name: item.name,
         sku: item.sku,
         quantity: item.quantity,

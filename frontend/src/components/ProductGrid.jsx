@@ -151,52 +151,81 @@ export default function ProductGrid({
               return (
                 <article
                   key={part.id}
-                  className="group relative rounded-[2rem] border border-border/50 bg-background transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 flex flex-col h-full shadow-sm hover:shadow-xl hover:shadow-black/5"
+                  className="group relative rounded-[2rem] border border-border/50 bg-background/80 backdrop-blur-md transition-all duration-500 ease-spring-physics hover:-translate-y-2 hover:border-accent/50 flex flex-col h-full shadow-sm hover:shadow-2xl hover:shadow-black/10"
                 >
                   {/* Image Section */}
                   <div className={`relative w-full overflow-hidden rounded-[2rem] bg-slate-900 flex items-center justify-center p-1 ${isCompact ? 'h-40' : 'h-56'}`}>
                     {part.image ? (
-                      <img src={part.image} alt={part.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" loading="lazy" />
+                      <img 
+                        src={part.image} 
+                        alt={part.name} 
+                        onError={(e) => { e.target.onerror = null; e.target.src = getCategoryPlaceholder(part.category); }}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 group-hover:blur-sm transition-all duration-700" 
+                        loading="lazy" 
+                      />
                     ) : (
-                      <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700" loading="lazy" />
+                      <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 group-hover:blur-sm transition-all duration-700" loading="lazy" />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                     
+                    {/* Hover Actions Overlay (Aceternity Style) */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-spring-physics flex flex-col sm:flex-row items-center justify-center gap-3 backdrop-blur-sm z-20">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPart(part)}
+                        className="px-4 py-2 bg-white/90 hover:bg-white text-black text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl"
+                      >
+                        Details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(part)}
+                        disabled={part.stock === 0}
+                        className="px-4 py-2 bg-accent/90 hover:bg-accent text-white text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(var(--accent-rgb),0.5)] disabled:opacity-50 disabled:hover:scale-100"
+                      >
+                        <Plus weight="bold" className="w-4 h-4 inline-block mr-1" /> Add
+                      </button>
+                    </div>
+
                     {/* Top Left: Category Tag */}
-                    <div className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full backdrop-blur-md bg-black/40 text-white border border-white/20 ${isCompact ? 'px-2 py-1 text-[8px]' : 'px-3 py-1.5 text-[10px]'} font-bold uppercase tracking-[0.2em] shadow-lg`}>
+                    <div className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full backdrop-blur-md bg-black/40 text-white border border-white/20 ${isCompact ? 'px-2 py-1 text-[8px]' : 'px-3 py-1.5 text-[10px]'} font-bold uppercase tracking-[0.2em] shadow-lg z-10 pointer-events-none group-hover:opacity-0 transition-opacity`}>
                       {CatIcon && <CatIcon weight="duotone" className={isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />}
                       <span className={isCompact ? 'hidden sm:block' : ''}>{part.category}</span>
                     </div>
 
                     {/* Floating Tags over Image: Price & OEM */}
-                    <div className={`absolute left-3 flex gap-2 ${isCompact ? 'bottom-3' : 'bottom-4'}`}>
+                    <div className={`absolute left-3 flex gap-2 ${isCompact ? 'bottom-3' : 'bottom-4'} z-10 pointer-events-none group-hover:opacity-0 transition-opacity`}>
                       <div className={`rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md text-white shadow-xl flex flex-col justify-center ${isCompact ? 'px-2.5 py-1.5' : 'px-3.5 py-2'}`}>
                         <p className={`${isCompact ? 'text-[8px]' : 'text-[9px]'} font-bold opacity-70 uppercase tracking-[0.2em] mb-0.5`}>Unit Price</p>
                         <p className={`${isCompact ? 'text-sm' : 'text-base'} font-black leading-none`}>{formatCurrency(part.price)}</p>
                       </div>
-                      {!isCompact && (
-                        <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-3.5 py-2 text-white shadow-xl flex flex-col justify-center">
-                          <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
-                            <ShieldCheck weight="fill" className="w-3.5 h-3.5" /> OEM
-                          </p>
-                          <p className="text-[9px] font-medium opacity-70 mt-0.5 uppercase tracking-widest">Verified</p>
-                        </div>
-                      )}
+                      {!isCompact && (() => {
+                        // Generate deterministic badge based on SKU
+                        const badges = [
+                          { title: 'OEM', subtitle: 'Verified', color: 'text-emerald-400', icon: ShieldCheck },
+                          { title: 'Surplus', subtitle: 'Grade A', color: 'text-amber-400', icon: ShieldCheck },
+                          { title: 'ISO 9001', subtitle: 'Certified', color: 'text-blue-400', icon: ShieldCheck },
+                          { title: 'Premium', subtitle: 'Aftermarket', color: 'text-purple-400', icon: ShieldCheck },
+                          { title: 'Genuine', subtitle: 'Factory', color: 'text-teal-400', icon: ShieldCheck }
+                        ];
+                        const hash = part.sku.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                        const badge = badges[hash % badges.length];
+                        const BadgeIcon = badge.icon;
+                        
+                        return (
+                          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-3.5 py-2 text-white shadow-xl flex flex-col justify-center">
+                            <p className={`text-[10px] font-bold ${badge.color} uppercase tracking-widest flex items-center gap-1`}>
+                              <BadgeIcon weight="fill" className="w-3.5 h-3.5" /> {badge.title}
+                            </p>
+                            <p className="text-[9px] font-medium opacity-70 mt-0.5 uppercase tracking-widest">{badge.subtitle}</p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  {/* FAB Button */}
-                  <button
-                    type="button"
-                    onClick={() => addToCart(part)}
-                    disabled={part.stock === 0}
-                    className={`absolute flex items-center justify-center rounded-full bg-foreground text-background shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 z-10 border-[6px] border-background ${isCompact ? 'right-3 top-[8rem] h-12 w-12' : 'right-5 top-[12rem] h-14 w-14'}`}
-                  >
-                    <Plus weight="bold" className={isCompact ? 'h-5 w-5' : 'h-6 w-6'} />
-                  </button>
-
                   {/* Content Section */}
-                  <div className={`flex flex-col flex-1 ${isCompact ? 'p-4 pt-3 gap-2' : 'p-6 pt-5 gap-3'}`}>
+                  <div className={`flex flex-col flex-1 ${isCompact ? 'p-4 pt-4 gap-2' : 'p-6 pt-6 gap-3'}`}>
                     <div>
                       <p className={`mb-1 uppercase tracking-[0.24em] font-bold text-accent/80 dark:text-red-400/80 ${isCompact ? 'text-[8px]' : 'text-[10px]'}`}>SKU {part.sku}</p>
                       <h3 className={`${isCompact ? 'text-sm' : 'text-base'} font-bold text-foreground leading-tight line-clamp-2`}>{part.name}</h3>
@@ -205,18 +234,11 @@ export default function ProductGrid({
                         <span className="text-[10px] font-bold text-muted-foreground">{part.reviewStats?.averageRating || 0} ({part.reviewStats?.totalReviews || 0})</span>
                       </div>
                     </div>
-                    <div className={`flex items-center justify-between mt-auto border-t border-border/50 ${isCompact ? 'pt-3' : 'pt-4'}`}>
+                    <div className={`mt-auto border-t border-border/50 ${isCompact ? 'pt-3' : 'pt-4'}`}>
                       <span className={`${isCompact ? 'text-[10px]' : 'text-xs'} font-bold flex items-center gap-1.5 ${part.stock > 0 ? (part.stock <= part.minStock ? 'text-amber-500' : 'text-emerald-500') : 'text-red-500'}`}>
                         <div className={`w-2 h-2 rounded-full ${part.stock > 0 ? (part.stock <= part.minStock ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse') : 'bg-red-500'}`} />
                         {part.stock > 0 ? `${part.stock} in stock` : 'Out of Stock'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPart(part)}
-                        className={`font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 ${isCompact ? 'text-[9px]' : 'text-[11px]'}`}
-                      >
-                        Details <ArrowRight weight="bold" className="w-3 h-3" />
-                      </button>
                     </div>
                   </div>
                 </article>

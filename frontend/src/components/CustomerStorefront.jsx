@@ -4,8 +4,9 @@ import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, 
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
+import { fetchCategoriesList } from '../authStore';
 import { stripePromise } from '../stripe';
-import { auth } from '../firebaseConfig';
+import { supabase } from '../supabaseClient';
 import CompatibilityFilter from './CompatibilityFilter';
 import ReviewSection from './ReviewSection';
 import CartDrawer from './CartDrawer';
@@ -13,6 +14,7 @@ import ProductGrid from './ProductGrid';
 import StorefrontFilters from './StorefrontFilters';
 import MyOrders from './MyOrders';
 import MyAccount from './MyAccount';
+import { HeroHighlight, Highlight } from './ui/HeroHighlight';
 
 export default function CustomerStorefront({
   parts,
@@ -45,8 +47,23 @@ export default function CustomerStorefront({
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [nestedCategories, setNestedCategories] = useState([]);
+  const [activeMainCat, setActiveMainCat] = useState('');
+
   const itemsPerPage = 12;
   const loading = parts.length === 0 && categories.length <= 1;
+
+  useEffect(() => {
+    const fetchNested = async () => {
+      const data = await fetchCategoriesList();
+      setNestedCategories(data);
+      const mainCats = data.filter(c => !c.parentCategory);
+      if (mainCats.length > 0 && !activeMainCat) {
+        setActiveMainCat(mainCats[0].name);
+      }
+    };
+    fetchNested();
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -59,6 +76,18 @@ export default function CustomerStorefront({
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('checkout') === 'success') {
+      alert('Order placed successfully! You will receive an email confirmation shortly.');
+      // Remove query params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (query.get('checkout') === 'canceled') {
+      alert('Order canceled.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   // Avatar state
   const [avatar, setAvatar] = useState(null);
@@ -121,7 +150,7 @@ export default function CustomerStorefront({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
         body: JSON.stringify({ items: cart }),
       });
@@ -171,7 +200,15 @@ export default function CustomerStorefront({
                             part.sku.toLowerCase().includes(searchStr) || 
                             part.oem.toLowerCase().includes(searchStr) ||
                             (part.compatibleWith && part.compatibleWith.some(c => c.brand.toLowerCase().includes(searchStr)));
-      const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
+      
+      let categoryMatchList = [selectedCategory];
+      const mainCat = nestedCategories.find(c => c.name === selectedCategory && !c.parentCategory);
+      if (mainCat) {
+        const subCatNames = nestedCategories.filter(c => c.parentCategory?.name === mainCat.name).map(c => c.name);
+        categoryMatchList = [...categoryMatchList, ...subCatNames];
+      }
+      const matchesCategory = selectedCategory === 'All' || categoryMatchList.includes(part.category);
+      
       const matchesMinPrice = minPrice === '' || part.price >= parseFloat(minPrice);
       const matchesMaxPrice = maxPrice === '' || part.price <= parseFloat(maxPrice);
       
@@ -310,16 +347,15 @@ export default function CustomerStorefront({
         <main className="flex-1 flex flex-col space-y-8 pb-10">
           {storefrontTab === 'home' && (
             <>
-              <section className="relative overflow-hidden rounded-[3rem] border border-border/30 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 p-8 sm:p-12 lg:p-16 mb-8 flex flex-col items-center text-center shadow-sm">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(220,38,38,0.06),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(37,99,235,0.04),_transparent_40%)] pointer-events-none" />
-                
+              <HeroHighlight containerClassName="rounded-[3rem] border border-border/30 p-8 sm:p-12 lg:p-16 mb-8 shadow-sm">
+                <div className="flex flex-col items-center text-center w-full z-10">
                 <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/60 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground backdrop-blur-md mb-8 shadow-sm">
                   <Sparkle weight="duotone" className="h-4 w-4 text-accent" />
                   premium truck parts marketplace
                 </span>
                 
                 <h1 className="relative z-10 max-w-4xl text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl mb-6 leading-[1.05]">
-                  Find the exact part for your heavy fleet.
+                  Find the exact part for your <Highlight>heavy fleet.</Highlight>
                 </h1>
                 
                 <p className="relative z-10 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg mb-12">
@@ -391,32 +427,58 @@ export default function CustomerStorefront({
                 </div>
 
                 {/* Shop by Category Bento */}
-                <div className="relative z-10 w-full max-w-5xl">
-                  <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-8">Shop by Category</h3>
-                  <div className="flex flex-wrap justify-center gap-4">
-                    {categories.filter(c => c !== 'All').map(category => {
-                      const { Icon: CatIcon, color } = getCategoryIconAndColor(category);
+                <div className="relative z-10 w-full max-w-5xl px-4">
+                  <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-8 text-center">Shop by Category</h3>
+                  
+                  {/* Main Category Tabs (Horizontal Scroll) */}
+                  <div className="flex overflow-x-auto hide-scrollbar scroll-fade-edges gap-3 pb-6 w-full justify-start sm:justify-center snap-x scroll-pl-4">
+                    {nestedCategories.filter(c => !c.parentCategory).map(mainCat => {
+                      const { Icon: MainIcon } = getCategoryIconAndColor(mainCat.name, mainCat.iconName, mainCat.colorTheme);
+                      const isActive = activeMainCat === mainCat.name;
+                      
                       return (
                         <button 
-                          key={category}
+                          key={mainCat.id} 
+                          onClick={() => setActiveMainCat(mainCat.name)}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-full border whitespace-nowrap snap-center transition-all duration-300 ${
+                            isActive 
+                              ? 'bg-foreground text-background border-foreground shadow-lg scale-105' 
+                              : 'bg-secondary/50 text-foreground border-border/40 hover:bg-secondary hover:border-border'
+                          }`}
+                        >
+                          {MainIcon ? <MainIcon weight={isActive ? "fill" : "duotone"} className="w-5 h-5" /> : <Tag weight="duotone" className="w-5 h-5" />}
+                          <span className="font-bold text-sm tracking-tight">{mainCat.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Sub Category Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+                    {nestedCategories.filter(c => c.parentCategory?.name === activeMainCat).map(subCat => {
+                      const { Icon: SubIcon, color: subColor } = getCategoryIconAndColor(subCat.name, subCat.iconName, subCat.colorTheme);
+                      return (
+                        <button 
+                          key={subCat.id}
                           onClick={() => {
-                            setSelectedCategory(category);
+                            setSelectedCategory(subCat.name);
                             setStorefrontTab('catalog');
                           }}
-                          className="group flex w-36 flex-col items-center justify-center gap-4 rounded-3xl border border-border/40 bg-background/40 p-6 backdrop-blur-sm transition-all duration-500 hover:-translate-y-2 hover:bg-background hover:shadow-2xl hover:shadow-accent/5 hover:border-accent/20"
+                          className="group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
                         >
-                          <div className={`flex items-center justify-center w-14 h-14 rounded-2xl bg-secondary/80 group-hover:scale-110 transition-transform duration-500 shadow-inner ${color}`}>
-                             {CatIcon ? <CatIcon weight="duotone" className="w-7 h-7" /> : <Tag weight="duotone" className="w-7 h-7" />}
+                          <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-110 transition-transform duration-300 shadow-inner ${subColor}`}>
+                            {SubIcon ? <SubIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />}
                           </div>
                           <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors text-center leading-tight">
-                            {category}
+                            {subCat.name}
                           </span>
                         </button>
-                      )
+                      );
                     })}
                   </div>
                 </div>
-              </section>
+                </div>
+              </HeroHighlight>
 
               {/* Quick welcome overview */}
               <section className="grid gap-6 md:grid-cols-2">
@@ -471,7 +533,7 @@ export default function CustomerStorefront({
                   suggestions={suggestions}
                   showFilters={showFilters}
                   setShowFilters={setShowFilters}
-                  categories={categories}
+                  nestedCategories={nestedCategories}
                   getCategoryStyles={getCategoryStyles}
                   selectedCategory={selectedCategory}
                   setSelectedCategory={setSelectedCategory}
@@ -533,10 +595,10 @@ export default function CustomerStorefront({
       </div>
 
       {selectedPart && (
-        <div className="fixed inset-0 z-50 flex justify-end pointer-events-none">
+        <div className="fixed inset-0 z-50 flex justify-end pointer-events-none p-4 sm:p-6 lg:p-8">
           <div className="fixed inset-0 pointer-events-auto bg-black/40 backdrop-blur-sm" onClick={() => setSelectedPart(null)} />
           
-          <div className="pointer-events-auto relative w-full max-w-4xl xl:max-w-5xl rounded-l-[2rem] border-l border-y border-border/50 bg-secondary shadow-[-20px_0_40px_rgba(0,0,0,0.5)] flex flex-col h-full overflow-hidden animate-in slide-in-from-right duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+          <div className="pointer-events-auto relative w-full max-w-3xl rounded-[2.5rem] border border-border/50 bg-secondary/95 backdrop-blur-3xl shadow-2xl flex flex-col h-full overflow-hidden animate-in slide-in-from-right duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
             {/* Header - Fixed */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-background/50 backdrop-blur shrink-0">
               <div className="flex items-center gap-4">
@@ -584,16 +646,18 @@ export default function CustomerStorefront({
               {modalTab === 'specs' ? (
                 <div className="grid gap-8 lg:grid-cols-2">
                   <div className="space-y-6">
-                    <div className="rounded-2xl border border-border bg-secondary overflow-hidden aspect-[4/3] relative flex items-center justify-center">
+                    <div className="rounded-3xl border border-border/50 bg-black/20 shadow-inner overflow-hidden aspect-[4/3] relative flex items-center justify-center p-2 group">
                       {selectedPart.image ? (
-                        <img src={selectedPart.image} alt={selectedPart.name} className="object-cover w-full h-full" />
+                        <img 
+                          src={selectedPart.image} 
+                          alt={selectedPart.name} 
+                          onError={(e) => { e.target.onerror = null; e.target.src = getCategoryPlaceholder(selectedPart.category); }}
+                          className="object-cover w-full h-full rounded-2xl group-hover:scale-105 transition-transform duration-700" 
+                        />
                       ) : (
-                        <div className="text-muted-foreground w-16 h-16 opacity-30">
-                          {getCategoryIconAndColor(selectedPart.category).icon 
-                            ? React.createElement(getCategoryIconAndColor(selectedPart.category).icon, { weight: 'duotone', className: 'w-full h-full' })
-                            : <Tag weight="duotone" className="w-full h-full" />}
-                        </div>
+                        <img src={getCategoryPlaceholder(selectedPart.category)} alt={selectedPart.name} className="object-cover w-full h-full rounded-2xl opacity-80 group-hover:scale-105 transition-transform duration-700" />
                       )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none rounded-3xl" />
                     </div>
                     <div>
                       <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
@@ -635,51 +699,60 @@ export default function CustomerStorefront({
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-border bg-secondary p-5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Pricing & Availability</h4>
-                      <div className="flex items-end justify-between mb-4">
-                        <span className="text-sm font-semibold text-muted-foreground">Unit Price</span>
-                        <span className="text-3xl font-black text-foreground">{formatCurrency(selectedPart.price)}</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-5 flex flex-col justify-center">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Unit Price</span>
+                        <span className="text-2xl font-black text-foreground">{formatCurrency(selectedPart.price)}</span>
                       </div>
-                      <div className="flex items-center justify-between py-3 border-t border-border">
-                        <span className="text-sm font-semibold text-muted-foreground">Stock Status</span>
+                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-5 flex flex-col justify-center">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stock Status</span>
                         {selectedPart.stock > 0 ? (
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-500">
+                          <span className="flex items-center gap-1.5 text-lg font-bold text-emerald-500">
                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                             {selectedPart.stock} in stock
                           </span>
                         ) : (
-                          <span className="text-sm font-bold text-red-500">Out of Stock</span>
+                          <span className="text-lg font-bold text-red-500">Out of Stock</span>
                         )}
                       </div>
-                      <div className="flex items-center justify-between py-3 border-t border-border">
-                        <span className="text-sm font-semibold text-muted-foreground">Min. Stock Alert</span>
-                        <span className="text-sm font-medium text-foreground">{selectedPart.minStock} units</span>
+                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Min. Alert</span>
+                        <span className="text-sm font-bold text-foreground">{selectedPart.minStock} units</span>
                       </div>
-                      <div className="flex items-center justify-between py-3 border-t border-border">
-                        <span className="text-sm font-semibold text-muted-foreground">Category</span>
-                        <span className="text-sm font-medium text-foreground">{selectedPart.category}</span>
+                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Category</span>
+                        <span className="text-sm font-bold text-foreground truncate">{selectedPart.category}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="max-w-3xl mx-auto">
-                  <ReviewSection partId={selectedPart.id} currentUserId={customerSession?.user?.id || customerSession?.user?.uid} />
+                  <ReviewSection 
+                    partId={selectedPart.id} 
+                    currentUserId={customerSession?.user?.id || customerSession?.user?.uid} 
+                    hasPurchased={
+                      !!customerSession && (transactions || []).some(tx => 
+                        (tx.userId === (customerSession.user?.id || customerSession.user?.uid) || 
+                         tx.customerContact === customerSession.user?.email) &&
+                        (tx.items || []).some(item => item.partId === selectedPart.id)
+                      )
+                    }
+                  />
                 </div>
               )}
             </div>
 
-            {/* Footer / Action - Fixed */}
-            <div className="p-4 border-t border-border bg-secondary shrink-0 flex items-center justify-between gap-4">
-              <div className="text-sm font-medium text-muted-foreground hidden sm:block px-2">
-                All parts are backed by a 90-day fitment guarantee.
+            {/* Frosted Sticky Footer */}
+            <div className="p-6 border-t border-border/50 bg-background/60 backdrop-blur-2xl shrink-0 flex items-center justify-between gap-6 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+              <div className="text-xs font-bold text-muted-foreground hidden sm:block">
+                All parts backed by a <span className="text-foreground">90-day fitment guarantee</span>.
               </div>
               <button
                 type="button"
                 onClick={() => { addToCart(selectedPart); setSelectedPart(null); }}
                 disabled={selectedPart.stock === 0}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl bg-foreground px-8 py-4 text-sm font-bold text-background transition hover:scale-[0.98] disabled:opacity-50 shadow-xl shadow-black/10"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl bg-foreground px-10 py-4 text-sm font-bold text-background transition hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-xl shadow-black/20"
               >
                 <ShoppingCart weight="bold" className="h-5 w-5" />
                 {selectedPart.stock === 0 ? 'Out of Stock' : 'Add to Quote'}
@@ -691,8 +764,8 @@ export default function CustomerStorefront({
 
       {/* Global Footer */}
       {storefrontTab === 'home' ? (
-        <footer className="mt-4 rounded-t-[2.5rem] bg-secondary border-t border-border px-6 py-8 lg:px-12">
-          <div className="max-w-7xl mx-auto grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        <footer className="mt-4 rounded-t-3xl bg-secondary/60 backdrop-blur-sm border-t border-border/40 px-6 py-8 lg:px-16 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.05)]">
+          <div className="max-w-7xl mx-auto grid gap-8 lg:gap-10 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-4">
               <Logo className="w-10 h-10" showText={true} />
               <p className="text-xs text-muted-foreground leading-relaxed mt-4">
@@ -700,7 +773,7 @@ export default function CustomerStorefront({
               </p>
             </div>
             <div>
-              <h4 className="font-bold text-foreground text-sm mb-4 uppercase tracking-wider">Quick Links</h4>
+              <h4 className="font-bold text-foreground text-[13px] mb-3 uppercase tracking-[0.15em]">Quick Links</h4>
               <ul className="space-y-3 text-xs font-semibold text-muted-foreground">
                 <li><button onClick={() => setStorefrontTab('home')} className="hover:text-accent transition-colors">Home</button></li>
                 <li><button onClick={() => setStorefrontTab('catalog')} className="hover:text-accent transition-colors">Parts Catalog</button></li>
@@ -709,8 +782,8 @@ export default function CustomerStorefront({
             </div>
             <div className="lg:col-span-2 flex flex-col lg:flex-row gap-6">
               <div className="flex-1">
-                <h4 className="font-bold text-foreground text-sm mb-4 uppercase tracking-wider">Headquarters</h4>
-                <div className="rounded-2xl border border-border/50 bg-background/50 p-4 relative overflow-hidden group">
+                <h4 className="font-bold text-foreground text-[13px] mb-3 uppercase tracking-[0.15em]">Headquarters</h4>
+                <div className="rounded-2xl border border-border/30 bg-background/50 p-5 relative overflow-hidden group">
                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-foreground to-transparent pointer-events-none group-hover:opacity-20 transition-opacity"></div>
                    <div className="absolute right-0 top-0 w-1/2 opacity-20 pointer-events-none flex items-start justify-end pr-2 pt-2">
                      <MapPin weight="fill" className="w-16 h-16 text-foreground" />
@@ -731,8 +804,8 @@ export default function CustomerStorefront({
                 </div>
               </div>
               <div className="flex-1">
-                <h4 className="font-bold text-foreground text-sm mb-4 uppercase tracking-wider">Logistics & Hours</h4>
-                <div className="rounded-2xl border border-border/50 bg-background/50 p-4 h-[calc(100%-2rem)]">
+                <h4 className="font-bold text-foreground text-[13px] mb-3 uppercase tracking-[0.15em]">Logistics & Hours</h4>
+                <div className="rounded-2xl border border-border/30 bg-background/50 p-5 h-[calc(100%-2rem)]">
                   <ul className="space-y-3 text-xs text-muted-foreground">
                     <li className="flex justify-between items-center pb-2 border-b border-border/50">
                       <span className="flex items-center gap-2"><Truck weight="duotone" className="w-4 h-4 text-accent"/> Delivery:</span> 
@@ -749,7 +822,7 @@ export default function CustomerStorefront({
               </div>
             </div>
           </div>
-          <div className="max-w-7xl mx-auto mt-8 pt-4 flex flex-col md:flex-row justify-center items-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+          <div className="max-w-7xl mx-auto mt-10 pt-4 border-t border-border/30 flex flex-col md:flex-row justify-center items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
             <p>&copy; {new Date().getFullYear()} Tarlac Truck Pitstop. All rights reserved.</p>
           </div>
         </footer>
