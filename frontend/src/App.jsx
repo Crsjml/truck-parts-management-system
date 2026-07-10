@@ -329,16 +329,26 @@ export default function App() {
 
   const handleAutoCustomerLogin = async () => {
     try {
-      // Bypass Supabase network call for development
-      const mockUser = {
-        id: 'mock-customer-123',
+      let { data, error } = await supabase.auth.signInWithPassword({
         email: 'lionel.messi@example.com',
-        user_metadata: { full_name: 'Lionel Messi', avatar_url: 'https://ui-avatars.com/api/?name=Lionel+Messi&background=random&color=fff&size=256' },
-      };
-      setSupabaseUser(mockUser);
-      setIsSignedIn(true);
+        password: 'Password123!',
+      });
+      if (error?.message?.includes('Invalid login credentials')) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: 'lionel.messi@example.com',
+          password: 'Password123!',
+        });
+        if (signUpError) throw signUpError;
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: 'lionel.messi@example.com',
+          password: 'Password123!',
+        });
+        if (signInError) throw signInError;
+      } else if (error) {
+        throw error;
+      }
       setActiveView('storefront');
-      showToast('Auto-logged in as Lionel Messi (Dev Bypass)!', 'success');
+      showToast('Logged in as Lionel Messi', 'success');
     } catch (err) {
       showToast(`Auto-login failed: ${err.message}`, 'error');
     }
