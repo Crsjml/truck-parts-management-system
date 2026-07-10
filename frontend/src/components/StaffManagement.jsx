@@ -62,8 +62,8 @@ export default function StaffManagement() {
 
   const togglePermission = async (staffItem, permKey) => {
     const updatedPerms = { ...staffItem.permissions, [permKey]: !staffItem.permissions[permKey] };
-    setStaffList(prev => prev.map(s => s._id === staffItem._id ? { ...s, permissions: updatedPerms } : s));
-    await updateStaffRole(staffItem._id, { permissions: updatedPerms });
+    setStaffList(prev => prev.map(s => s.id === staffItem.id ? { ...s, permissions: updatedPerms } : s));
+    await updateStaffRole(staffItem.id, { permissions: updatedPerms });
   };
 
   return (
@@ -116,7 +116,7 @@ export default function StaffManagement() {
               </thead>
               <tbody className="divide-y divide-border">
                 {staffList.map(staff => (
-                  <tr key={staff._id} className="hover:bg-secondary/20 transition-colors">
+                  <tr key={staff.id} className="hover:bg-secondary/20 transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold uppercase">
@@ -153,7 +153,7 @@ export default function StaffManagement() {
                     </td>
                     <td className="p-4 text-right">
                       <button
-                        onClick={() => handleDelete(staff._id)}
+                        onClick={() => handleDelete(staff.id)}
                         className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors border border-red-500/20"
                         title="Remove Staff"
                       >
