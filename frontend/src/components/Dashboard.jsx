@@ -141,11 +141,20 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                 </thead>
                 <tbody className="divide-y divide-border">
                   {lowStockItems.slice(0, 5).map((part) => (
-                    <tr key={part.id} className="hover:bg-secondary transition-colors">
+                    <tr 
+                      key={part.id} 
+                      onDoubleClick={() => {
+                        setSelectedCategory('All');
+                        setPage('catalog');
+                        setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
+                      }}
+                      className="bg-red-500/5 dark:bg-red-950/20 hover:bg-red-500/10 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
+                      title="Double-click to restock in Inventory"
+                    >
                       <td className="py-3 px-2 font-medium text-foreground max-w-[200px] truncate">{part.name}</td>
                       <td className="py-3 px-2 text-xs font-mono text-muted-foreground">{part.sku}</td>
                       <td className="py-3 px-2 text-center">
-                        <span className="px-2 py-0.5 rounded-full bg-red-500/10 dark:bg-red-950 text-red-600 dark:text-red-500 font-bold border border-red-500/30 dark:border-red-900/30">
+                        <span className="px-2 py-0.5 rounded-full bg-red-500/15 dark:bg-red-950 text-red-700 dark:text-red-400 font-bold border border-red-500/30 dark:border-red-900/40">
                           {part.stock}
                         </span>
                       </td>

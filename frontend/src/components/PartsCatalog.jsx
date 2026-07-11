@@ -17,25 +17,16 @@ const partSchema = z.object({
   minStock: z.number().min(0, "Safety min stock must be non-negative.")
 });
 
-export default function PartsCatalog({ 
-  parts, 
-  categories, 
-  selectedCategory, 
-  setSelectedCategory, 
-  onAddPart, 
-  onEditPart, 
-  onDeletePart,
-  onRestockPart,
-  isReadOnly = false,
-  onAddLog,
-  setPage
-}) {
+export default function PartsCatalog({ parts, categories, structuredCategories = [], selectedCategory, setSelectedCategory, onAddPart, onEditPart, onDeletePart, onRestockPart, onAddLog, adminSession, isReadOnly = false, setPage }) {
   const { formatCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState('recommended');
   const [viewMode, setViewMode] = useState('grid4'); // 'grid3', 'grid4', 'table'
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [activeTab, setActiveTab] = useState('All');
+  
+  // Sub-category state
+  const [selectedSubCategory, setSelectedSubCategory] = useState('All');
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
@@ -133,7 +124,13 @@ export default function PartsCatalog({
       part.oem.toLowerCase().includes(search.toLowerCase()) ||
       (part.compatibility && part.compatibility.toLowerCase().includes(search.toLowerCase()));
     
-    const matchesCategory = selectedCategory === 'All' || part.category === selectedCategory;
+    // Determine category matching logic (Main vs Sub)
+    const matchesMainCategory = selectedCategory === 'All' || part.category === selectedCategory;
+    const matchesSubCategory = selectedSubCategory === 'All' || part.category === selectedSubCategory;
+    
+    // If a subcategory is selected, use it. Otherwise, use the main category filter.
+    const matchesCategory = selectedSubCategory !== 'All' ? matchesSubCategory : matchesMainCategory;
+    
     const matchesLowStock = !showLowStockOnly || part.stock <= part.minStock;
     
     // TTP-68 compatibility filter
@@ -337,25 +334,82 @@ export default function PartsCatalog({
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex flex-wrap gap-y-2 border-b border-slate-900 pb-2">
-        {categories.map((cat) => {
-          const { icon: CatIcon, color } = getCategoryStyles(cat);
-          return (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap ${
-                selectedCategory === cat 
-                  ? 'border-accent text-accent glow-text-red' 
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {CatIcon && <CatIcon weight="duotone" className={`w-4 h-4 ${selectedCategory === cat ? '' : color}`} />}
-              {cat}
-            </button>
-          );
-        })}
+      {/* Two-Tier Category Pills */}
+      <div className="flex flex-col gap-2 pb-2">
+        {/* Main Categories Row */}
+        <div className="flex overflow-x-auto custom-scrollbar pb-1 items-center gap-2">
+          {(() => {
+            const mainCats = structuredCategories && structuredCategories.length > 0 
+              ? structuredCategories.filter(c => !c.parentCategory).map(c => c.name)
+              : categories;
+            
+            // Ensure 'All' is at the front
+            const displayMainCats = ['All', ...mainCats.filter(c => c !== 'All')];
+
+            return displayMainCats.map((cat) => {
+              const { icon: CatIcon, color } = getCategoryStyles(cat);
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setSelectedSubCategory('All'); // Reset subcategory
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${
+                    isSelected 
+                      ? 'bg-accent/10 border-accent/30 text-accent shadow-sm' 
+                      : 'bg-background border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  {CatIcon && <CatIcon weight={isSelected ? "fill" : "duotone"} className={`w-3.5 h-3.5 ${isSelected ? '' : color}`} />}
+                  {cat}
+                </button>
+              );
+            });
+          })()}
+        </div>
+
+        {/* Sub-Categories Row (Only show if parent is selected and has children) */}
+        {selectedCategory !== 'All' && structuredCategories && structuredCategories.length > 0 && (
+          (() => {
+            const parentCatObj = structuredCategories.find(c => c.name === selectedCategory);
+            if (!parentCatObj) return null;
+            const subCats = structuredCategories.filter(c => c.parentCategory?.id === parentCatObj.id);
+            if (subCats.length === 0) return null;
+
+            return (
+              <div className="flex overflow-x-auto custom-scrollbar pb-1 items-center gap-2 pl-4 border-l-2 border-border/50">
+                <button
+                  onClick={() => setSelectedSubCategory('All')}
+                  className={`flex items-center px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
+                    selectedSubCategory === 'All' 
+                      ? 'bg-secondary border-border text-foreground' 
+                      : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+                  }`}
+                >
+                  All {selectedCategory}
+                </button>
+                {subCats.map((sub) => {
+                  const isSelected = selectedSubCategory === sub.name;
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => setSelectedSubCategory(sub.name)}
+                      className={`flex items-center px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
+                        isSelected 
+                          ? 'bg-secondary border-border text-foreground shadow-sm' 
+                          : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+                      }`}
+                    >
+                      {sub.name}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()
+        )}
       </div>
 
       {/* View Controls Bar */}

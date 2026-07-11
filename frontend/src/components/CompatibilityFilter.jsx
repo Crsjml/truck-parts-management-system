@@ -62,7 +62,7 @@ export default function CompatibilityFilter({ onFilterChange }) {
   };
 
   const currentSeriesOptions = selectedBrand === 'All'
-    ? [...new Set(options.flatMap(o => o.series))].sort()
+    ? []
     : options.find(o => o.brand === selectedBrand)?.series || [];
 
   if (loading) {
@@ -142,10 +142,12 @@ export default function CompatibilityFilter({ onFilterChange }) {
     ...[...new Set(options.map(o => o.brand))].sort().map(b => ({ value: b, label: b, icon: Truck }))
   ];
 
-  const seriesOptions = [
-    { value: 'All', label: 'All Series' },
-    ...currentSeriesOptions.map(s => ({ value: s, label: s }))
-  ];
+  const seriesOptions = selectedBrand === 'All' 
+    ? [{ value: 'All', label: 'Select a Brand first' }]
+    : [
+        { value: 'All', label: 'All Series' },
+        ...currentSeriesOptions.map(s => ({ value: s, label: s }))
+      ];
 
   return (
     <div className="flex flex-col sm:flex-row gap-3">
@@ -177,10 +179,11 @@ export default function CompatibilityFilter({ onFilterChange }) {
           onChange={(selected) => handleSeriesChange({ target: { value: selected.value } })}
           options={seriesOptions}
           styles={selectStyles}
-          isSearchable={false}
+          components={{ Option: CustomOption, SingleValue: CustomSingleValue }}
           classNamePrefix="react-select"
           menuPortalTarget={document.body}
           menuPosition="fixed"
+          isDisabled={selectedBrand === 'All'}
         />
       </div>
     </div>
