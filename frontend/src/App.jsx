@@ -34,7 +34,7 @@ const PageLoader = () => (
 );
 
 
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments } from './authStore';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -872,6 +872,7 @@ export default function App() {
                     onDeletePart={handleDeletePart}
                     onRestockPart={handleRestockPart}
                     setPage={setPage}
+                    onFetchPartAdjustments={fetchPartAdjustments}
                   />
                 )}
 

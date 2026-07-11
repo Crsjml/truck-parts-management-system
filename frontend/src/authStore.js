@@ -477,6 +477,16 @@ export const updatePart = api(async (id, partData) => {
   return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to update part.' };
 });
 
+export const fetchPartAdjustments = async (id) => {
+  try {
+    const { ok, data } = await apiGet(`/api/parts/${id}/adjustments`, { supabase });
+    return ok ? { ok: true, adjustments: data } : { ok: false, error: data.msg || 'Failed to fetch adjustments.' };
+  } catch (err) {
+    console.error('[fetchPartAdjustments Error]', err);
+    return { ok: false, error: err.message || 'Server connection failed.' };
+  }
+};
+
 export const deletePart = api(async (id) => {
   const { ok, data } = await apiDelete(`/api/parts/${id}`, { supabase });
   return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete part.' };

@@ -275,6 +275,19 @@ router.put('/:id', async (req, res) => {
     if (stock !== undefined && (isNaN(Number(stock)) || Number(stock) < 0)) return res.status(400).json({ msg: 'Stock must be a non-negative number.' });
     if (minStock !== undefined && (isNaN(Number(minStock)) || Number(minStock) < 0)) return res.status(400).json({ msg: 'Minimum stock must be a non-negative number.' });
 
+    let isStockAdjustment = false;
+    const oldStock = part.stock;
+    const newStock = stock !== undefined ? Number(stock) : oldStock;
+    let difference = 0;
+
+    if (stock !== undefined && newStock !== oldStock) {
+      isStockAdjustment = true;
+      difference = newStock - oldStock;
+      if (!req.body.adjustmentReason || req.body.adjustmentReason.trim() === '') {
+        return res.status(400).json({ msg: 'Reason for stock adjustment is required.' });
+      }
+    }
+
     if (sku && sku.trim() !== part.sku) {
       const existing = await prisma.part.findFirst({ where: { sku: sku.trim(), id: { not: id } } });
       if (existing) {
@@ -294,6 +307,7 @@ router.put('/:id', async (req, res) => {
       updatedCompatibleWith = Array.isArray(compatibleWith) ? compatibleWith : [];
     }
 
+
     const updatedPart = await prisma.part.update({
       where: { id },
       data: {
@@ -312,6 +326,20 @@ router.put('/:id', async (req, res) => {
       },
       include: { category: true }
     });
+
+
+    if (isStockAdjustment) {
+      await prisma.stockAdjustment.create({
+        data: {
+          partId: updatedPart.id,
+          oldStock,
+          newStock,
+          difference,
+          reason: req.body.adjustmentReason.trim()
+        }
+      });
+    }
+
 
     res.json({
       id: updatedPart.id,
@@ -333,6 +361,20 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     console.error('[update part]', err);
     res.status(500).json({ msg: 'Server error updating part record.' });
+  }
+});
+
+// ── Get stock adjustments for a specific part ─────────────────────────────────
+router.get('/:id/adjustments', async (req, res) => {
+  try {
+    const adjustments = await prisma.stockAdjustment.findMany({
+      where: { partId: req.params.id },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(adjustments);
+  } catch (err) {
+    console.error('[get adjustments]', err);
+    res.status(500).json({ msg: 'Server error fetching stock adjustments.' });
   }
 });
 

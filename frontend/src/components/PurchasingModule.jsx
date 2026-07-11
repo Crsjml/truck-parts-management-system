@@ -365,10 +365,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   };
 
   // ── PO CRUD ───────────────────────────────────────────────────────────────────
-  const openPoModal = (po = null) => {
+  const openPoModal = (po = null, prefillSupplierId = '') => {
     setViewingPo(po);
     setPoForm(po ? { supplier: po.supplier?.id || '', expectedDeliveryDate: po.expectedDeliveryDate?.substring(0, 10) || '', notes: po.notes || '', items: po.items || [], sourceRfq: po.sourceRfq || '' }
-      : { supplier: '', expectedDeliveryDate: '', notes: '', items: [], sourceRfq: '' });
+      : { supplier: prefillSupplierId, expectedDeliveryDate: '', notes: '', items: [], sourceRfq: '' });
     setIsPoModalOpen(true);
   };
 
@@ -385,6 +385,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const savePo = async () => {
     if (!poForm.supplier) return alert('Select a vendor.');
     if (poForm.items.length === 0) return alert('Add at least one item.');
+    if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
     
     // Inject the current user's display name as the Buyer/Handler
     const { data: { user } } = await supabase.auth.getUser();
@@ -450,6 +451,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   const saveProduct = async () => {
     if (!productForm.name || !productForm.sku) return alert('Name and SKU required.');
+
+    if (viewingPart && Number(productForm.stock) !== Number(viewingPart.stock)) {
+      if (!productForm.adjustmentReason?.trim()) {
+        if (showToast) showToast('Reason for stock adjustment is mandatory.', 'error');
+        else alert('Reason for stock adjustment is mandatory.');
+        return;
+      }
+    }
+
     let result;
     if (viewingPart) {
       result = await onEditPart(viewingPart.id, { ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
@@ -957,6 +967,46 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 <textarea value={supplierForm.notes} onChange={e => setSupplierForm({ ...supplierForm, notes: e.target.value })}
                   className="w-full bg-secondary border border-border rounded-lg p-2 focus:ring-1 focus:ring-accent text-sm resize-none h-16 focus:outline-none" />
               </div>
+
+              {editingSupplier && (
+                <div className="border-t border-border pt-6 mt-2">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-foreground">Purchase Orders</h4>
+                    <button 
+                      onClick={() => {
+                        setIsSupplierModalOpen(false);
+                        openPoModal(null, editingSupplier._id);
+                      }}
+                      className="text-xs font-bold bg-accent/10 text-accent hover:bg-accent/20 px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors"
+                    >
+                      Create PO
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {purchaseOrders.filter(po => po.supplier?._id === editingSupplier._id).length === 0 ? (
+                      <p className="text-muted-foreground text-sm py-4 text-center border border-dashed border-border rounded-xl">No purchase orders found for this vendor.</p>
+                    ) : (
+                      purchaseOrders.filter(po => po.supplier?._id === editingSupplier._id).map(po => (
+                        <div key={po._id} className="flex items-center justify-between p-3 border border-border rounded-xl bg-background hover:bg-secondary transition-colors">
+                          <div>
+                            <span className="font-bold text-sm text-foreground block">{po.poNumber}</span>
+                            <span className="text-xs text-muted-foreground font-semibold">{po.status} • {po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'No Date'}</span>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setIsSupplierModalOpen(false);
+                              openPoModal(po);
+                            }}
+                            className="text-xs font-bold text-muted-foreground hover:text-foreground px-3 py-1.5 border border-border hover:border-muted-foreground rounded transition-colors"
+                          >
+                            View Order
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>, document.body
@@ -1209,6 +1259,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
                       </div>
                     ))}
+                    {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
+                      <div className="flex flex-col border-b border-border pb-1">
+                        <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
+                        <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
+                          className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
+                      </div>
+                    )}
                     {viewingPart && (
                       <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
                         <div>
