@@ -11,7 +11,19 @@ test.describe('Dynamic Data Connectivity', () => {
   test('should intercept and populate categories dynamically', async ({ page }) => {
     // Intercept the /api/parts/categories endpoint to return mock dynamic data
     await page.route('**/api/parts/categories', async (route) => {
-      const json = ['Mock Engine Parts', 'Mock Braking Systems'];
+      const json = { ok: true, data: ['Mock Engine Parts', 'Mock Braking Systems'] };
+      await route.fulfill({ json });
+    });
+
+    // Intercept the new /api/categories endpoint for structured categories
+    await page.route('**/api/categories', async (route) => {
+      const json = {
+        ok: true,
+        data: [
+          { id: 'm1', name: 'Mock Engine Parts', parentCategory: null },
+          { id: 'm2', name: 'Mock Braking Systems', parentCategory: null }
+        ]
+      };
       await route.fulfill({ json });
     });
 

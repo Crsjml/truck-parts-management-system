@@ -21,4 +21,8 @@
   - Refactored `PartsCatalog.jsx` grid cards into a bento-box layout with updated Phosphor icons.
   - Fixed overflow clipping issues in `CompatibilityFilter.jsx` dropdowns via `menuPortalTarget`.
   - Added Playwright fixtures and test teardown scripts for upcoming E2E authentication testing.
+  - Formatted Dashboard KPI values to 1 decimal place with exact value tooltips.
+  - Styled Low Stock Watchlist rows with red highlights and added double-click pre-filtered inventory routing.
+  - Overhauled Parts Catalog category filters to a space-efficient two-tier scrolling pill layout.
+  - Enforced a dependency between Vehicle Brand and Series dropdowns in the Compatibility Filter.
 - **Rationale:** Maximize horizontal screen space for data-dense grids and prepare for robust E2E test coverage.
