@@ -24,9 +24,12 @@ export default function MyAccount({ user, onGoBack }) {
       setDisplayName(user.displayName || '');
       setEmail(user.email || '');
       setPhoneNumber(user.phoneNumber || '');
-      // Load avatar from localStorage or fallback to Firebase
+      // Load extra profile data from localStorage or fallback to Firebase
       const localAvatar = localStorage.getItem(`avatar_${user.uid}`);
       setPhotoURL(localAvatar || user.photoURL || '');
+      
+      const localPhone = localStorage.getItem(`phone_${user.uid}`);
+      setPhoneNumber(localPhone || user.phoneNumber || '');
     }
   }, [user]);
 
@@ -65,10 +68,12 @@ export default function MyAccount({ user, onGoBack }) {
         window.dispatchEvent(new Event('avatarUpdated'));
       }
 
-      // 2. Update Display Name
+      // 2. Update Display Name and Local Storage fields
       if (displayName !== currentUser.displayName) {
         await updateProfile(currentUser, { displayName });
       }
+      
+      localStorage.setItem(`phone_${currentUser.uid}`, phoneNumber);
 
       // 2. Update Email (May require re-auth)
       const sanitizedEmail = email.trim();
