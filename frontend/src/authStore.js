@@ -579,6 +579,16 @@ export const updatePart = async (id, partData) => {
   }
 };
 
+export const fetchPartAdjustments = async (id) => {
+  try {
+    const { ok, data } = await api_get(`/api/parts/${id}/adjustments`);
+    return ok ? { ok: true, adjustments: data } : { ok: false, error: data.msg || 'Failed to fetch adjustments.' };
+  } catch (err) {
+    console.error('[fetchPartAdjustments Error]', err);
+    return { ok: false, error: err.message || 'Server connection failed.' };
+  }
+};
+
 export const deletePart = async (id) => {
   try {
     const { ok, data } = await api_delete(`/api/parts/${id}`);

@@ -37,7 +37,7 @@ import {
   INITIAL_TRANSACTIONS,
   INITIAL_LOGS
 } from './mockData';
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, fetchPartAdjustments } from './authStore';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -712,6 +712,7 @@ export default function App() {
                     onEditPart={handleEditPart}
                     onDeletePart={handleDeletePart}
                     onRestockPart={handleRestockPart}
+                    onFetchPartAdjustments={fetchPartAdjustments}
                   />
                 )}
 

@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import Part from '../models/Part.js';
 import Category from '../models/Category.js';
 import Review from '../models/Review.js';
+import StockAdjustment from '../models/StockAdjustment.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
 
@@ -263,6 +264,19 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ msg: 'Minimum stock must be a non-negative number.' });
     }
 
+    let isStockAdjustment = false;
+    const oldStock = part.stock;
+    const newStock = stock !== undefined ? Number(stock) : oldStock;
+    let difference = 0;
+
+    if (stock !== undefined && newStock !== oldStock) {
+      isStockAdjustment = true;
+      difference = newStock - oldStock;
+      if (!req.body.adjustmentReason || req.body.adjustmentReason.trim() === '') {
+        return res.status(400).json({ msg: 'Reason for stock adjustment is required.' });
+      }
+    }
+
     if (sku && sku.trim() !== part.sku) {
       const existing = await Part.findOne({ sku: sku.trim(), _id: { $ne: id } });
       if (existing) {
@@ -285,7 +299,7 @@ router.put('/:id', async (req, res) => {
     }
     if (oem !== undefined) part.oem = oem.trim();
     if (price !== undefined) part.price = Number(price);
-    if (stock !== undefined) part.stock = Number(stock);
+    if (stock !== undefined) part.stock = newStock;
     if (minStock !== undefined) part.min_stock = Number(minStock);
     if (compatibility !== undefined) {
       part.compatibility = compatibility.trim();
@@ -300,6 +314,16 @@ router.put('/:id', async (req, res) => {
     if (req.body.published !== undefined) part.published = req.body.published;
 
     await part.save();
+
+    if (isStockAdjustment) {
+      await StockAdjustment.create({
+        partId: part._id,
+        oldStock,
+        newStock,
+        difference,
+        reason: req.body.adjustmentReason.trim()
+      });
+    }
 
     const populated = await part.populate('category');
     res.json({
@@ -321,6 +345,19 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     console.error('[update part]', err);
     res.status(500).json({ msg: 'Server error updating part record.' });
+  }
+});
+
+// ── Get stock adjustments for a specific part ─────────────────────────────────
+router.get('/:id/adjustments', async (req, res) => {
+  try {
+    const adjustments = await StockAdjustment.find({ partId: req.params.id })
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json(adjustments);
+  } catch (err) {
+    console.error('[get adjustments]', err);
+    res.status(500).json({ msg: 'Server error fetching stock adjustments.' });
   }
 });
 

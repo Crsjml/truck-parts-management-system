@@ -801,6 +801,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   const saveProduct = async () => {
     if (!productForm.name || !productForm.sku) return alert('Name and SKU required.');
+
+    if (viewingPart && Number(productForm.stock) !== Number(viewingPart.stock)) {
+      if (!productForm.adjustmentReason?.trim()) {
+        if (showToast) showToast('Reason for stock adjustment is mandatory.', 'error');
+        else alert('Reason for stock adjustment is mandatory.');
+        return;
+      }
+    }
+
     let result;
     if (viewingPart) {
       result = await onEditPart(viewingPart.id, { ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
@@ -1560,6 +1569,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
                       </div>
                     ))}
+                    {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
+                      <div className="flex flex-col border-b border-border pb-1">
+                        <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
+                        <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
+                          className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
+                      </div>
+                    )}
                     {viewingPart && (
                       <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
                         <div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, Sliders } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
@@ -27,7 +27,8 @@ export default function PartsCatalog({
   onDeletePart,
   onRestockPart,
   isReadOnly = false,
-  onAddLog
+  onAddLog,
+  onFetchPartAdjustments
 }) {
   const { formatCurrency } = useSettings();
   const [search, setSearch] = useState('');
@@ -44,6 +45,15 @@ export default function PartsCatalog({
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
+
+  // Stock adjustment states
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustNewStock, setAdjustNewStock] = useState('');
+  const [adjustError, setAdjustError] = useState('');
+  const [adjustmentsLog, setAdjustmentsLog] = useState([]);
+  const [isLoadingAdjustments, setIsLoadingAdjustments] = useState(false);
+  const [originalStock, setOriginalStock] = useState(0);
+  const [editAdjustmentReason, setEditAdjustmentReason] = useState('');
 
   useEffect(() => {
     const loadCats = async () => {
@@ -179,6 +189,8 @@ export default function PartsCatalog({
     setFormCategory(part.category_id || '');
     setFormPrice(part.price.toString());
     setFormStock(part.stock.toString());
+    setOriginalStock(part.stock);
+    setEditAdjustmentReason('');
     setFormMinStock(part.minStock.toString());
     setFormCompatibility(part.compatibility || '');
     setFormDescription(part.description || '');
@@ -189,9 +201,31 @@ export default function PartsCatalog({
     setIsModalOpen(true);
   };
 
-  const openDetailsModal = (part) => {
+  const openDetailsModal = async (part) => {
     setModalType('details');
     setSelectedPart(part);
+    setIsModalOpen(true);
+    setAdjustmentsLog([]);
+    setIsLoadingAdjustments(true);
+    if (onFetchPartAdjustments) {
+      const res = await onFetchPartAdjustments(part.id);
+      if (res && res.ok) {
+        setAdjustmentsLog(res.adjustments);
+      }
+    }
+    setIsLoadingAdjustments(false);
+  };
+
+  const openAdjustStockModal = (part, prefilledAdjustment = 0) => {
+    setModalType('adjustStock');
+    setSelectedPart(part);
+    setAdjustReason('');
+    if (prefilledAdjustment !== 0) {
+      setAdjustNewStock((part.stock + prefilledAdjustment).toString());
+    } else {
+      setAdjustNewStock(part.stock.toString());
+    }
+    setAdjustError('');
     setIsModalOpen(true);
   };
 
@@ -233,6 +267,14 @@ export default function PartsCatalog({
       image: formImage
     };
 
+    if (modalType === 'edit' && parseInt(formStock) !== originalStock) {
+      if (!editAdjustmentReason.trim()) {
+        setServerError('A reason for stock adjustment is required.');
+        return;
+      }
+      partData.adjustmentReason = editAdjustmentReason.trim();
+    }
+
     setIsSubmitting(true);
     try {
       let result;
@@ -256,11 +298,48 @@ export default function PartsCatalog({
     }
   };
 
+  const handleAdjustStockFormSubmit = async (e) => {
+    e.preventDefault();
+    setAdjustError('');
+    
+    const newStockVal = parseInt(adjustNewStock);
+    if (isNaN(newStockVal) || newStockVal < 0) {
+      setAdjustError('Stock must be a non-negative number.');
+      return;
+    }
+    
+    if (!adjustReason.trim()) {
+      setAdjustError('A reason for stock adjustment is required.');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const result = await onEditPart(selectedPart.id, {
+        stock: newStockVal,
+        adjustmentReason: adjustReason.trim()
+      });
+      
+      if (result && !result.ok) {
+        setAdjustError(result.error || 'Failed to adjust stock. Please try again.');
+      } else {
+        setIsModalOpen(false);
+      }
+    } catch (err) {
+      setAdjustError('Unexpected error occurred.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRestockSubmit = (partId) => {
     const amount = parseInt(restockAmount[partId]) || 0;
     if (amount > 0) {
-      onRestockPart(partId, amount);
-      setRestockAmount({ ...restockAmount, [partId]: '' });
+      const part = parts.find(p => p.id === partId);
+      if (part) {
+        openAdjustStockModal(part, amount);
+        setRestockAmount({ ...restockAmount, [partId]: '' });
+      }
     }
   };
 
@@ -498,6 +577,13 @@ export default function PartsCatalog({
                       {/* Pencil/Delete Actions */}
                       <div className="flex gap-2 justify-end">
                         <button 
+                          onClick={() => openAdjustStockModal(part)}
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors border border-border"
+                          title="Adjust Stock Count"
+                        >
+                          <Sliders weight="duotone" className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
                           onClick={() => openEditModal(part)}
                           className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors border border-border"
                           title="Pencil Part Details"
@@ -565,13 +651,14 @@ export default function PartsCatalog({
       {/* Main Dialog Modal */}
       {isModalOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full ${modalType === 'details' ? 'max-w-xl' : 'max-w-4xl'} bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp`}>
+          <div className={`w-full ${(modalType === 'details' || modalType === 'adjustStock') ? 'max-w-xl' : 'max-w-4xl'} bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp`}>
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="text-lg font-bold text-foreground font-display">
                 {modalType === 'add' && 'Add New Truck Part'}
                 {modalType === 'edit' && 'Pencil Part details'}
                 {modalType === 'details' && 'Part Details Overview'}
+                {modalType === 'adjustStock' && 'Adjust Stock count'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
@@ -635,6 +722,44 @@ export default function PartsCatalog({
                   </div>
                 )}
 
+                {/* Inventory Adjustment History Log */}
+                {!isReadOnly && (
+                  <div className="space-y-2">
+                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Sliders weight="duotone" className="w-4 h-4 text-emerald-500" /> Stock Adjustment History
+                    </span>
+                    
+                    {isLoadingAdjustments ? (
+                      <div className="text-xs text-muted-foreground animate-pulse py-2">Loading history logs...</div>
+                    ) : adjustmentsLog.length === 0 ? (
+                      <div className="text-xs text-muted-foreground py-2 border border-dashed border-border rounded-xl text-center">
+                        No manual stock adjustments recorded for this part.
+                      </div>
+                    ) : (
+                      <div className="max-h-40 overflow-y-auto border border-border rounded-xl bg-background/50 divide-y divide-border custom-scrollbar">
+                        {adjustmentsLog.map((log) => {
+                          const isAddition = log.difference >= 0;
+                          return (
+                            <div key={log._id || log.id} className="p-2.5 text-xs flex flex-col gap-1 hover:bg-background/80 transition-colors">
+                              <div className="flex justify-between items-center">
+                                <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${isAddition ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                  {isAddition ? '+' : ''}{log.difference} (stock: {log.newStock})
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  {new Date(log.createdAt || Date.now()).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-foreground/90 font-medium">
+                                <span className="text-muted-foreground">Reason:</span> {log.reason}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="pt-4 flex justify-end">
                   {isReadOnly ? (
                     <button 
@@ -662,6 +787,74 @@ export default function PartsCatalog({
                   )}
                 </div>
               </div>
+            ) : modalType === 'adjustStock' ? (
+              <form onSubmit={handleAdjustStockFormSubmit} className="flex flex-col p-6 text-left space-y-4">
+                <div className="space-y-3 bg-background p-4 rounded-xl border border-border">
+                  <div>
+                    <span className="text-xs text-muted-foreground uppercase">Part / SKU</span>
+                    <p className="font-bold text-foreground mt-0.5">{selectedPart?.name} <span className="font-mono text-muted-foreground text-xs">({selectedPart?.sku})</span></p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <span className="text-xs text-muted-foreground uppercase">Current Stock</span>
+                      <p className="text-lg font-extrabold text-muted-foreground">{selectedPart?.stock} units</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground uppercase">Expected New Stock</span>
+                      <p className={`text-lg font-extrabold ${(parseInt(adjustNewStock) || 0) < (selectedPart?.stock || 0) ? 'text-orange-500' : 'text-emerald-400'}`}>
+                        {isNaN(parseInt(adjustNewStock)) ? 0 : parseInt(adjustNewStock)} units
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">New Stock Count *</label>
+                  <input 
+                    type="number" 
+                    required
+                    min="0"
+                    placeholder="Enter new stock count"
+                    value={adjustNewStock}
+                    onChange={(e) => setAdjustNewStock(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Reason for Adjustment *</label>
+                  <textarea 
+                    required
+                    placeholder="e.g., Damaged items during shipment, Returned by client, Stock audit discrepancy"
+                    rows="3"
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground resize-none animate-fadeIn"
+                  />
+                </div>
+
+                {adjustError && (
+                  <p className="text-xs text-red-400 font-semibold flex items-center gap-1 animate-shake"><WarningCircle weight="fill" /> {adjustError}</p>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 bg-accent hover:bg-accent/90 disabled:bg-accent/60 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
+                  >
+                    {isSubmitting ? 'Saving...' : 'Confirm Adjustment'}
+                  </button>
+                </div>
+              </form>
             ) : (
               // Add / Pencil Form (Bento Box Layout)
               <form onSubmit={handleFormSubmit} className="flex flex-col max-h-[85vh]">
@@ -781,6 +974,21 @@ export default function PartsCatalog({
                         />
                         {formErrors.stock && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
                       </div>
+                      
+                      {modalType === 'edit' && parseInt(formStock) !== originalStock && (
+                        <div className="space-y-1.5 col-span-3">
+                          <label className="text-xs font-bold text-red-500 uppercase flex items-center gap-1.5">Reason for Stock Adjustment *</label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="e.g. damaged goods, return"
+                            value={editAdjustmentReason}
+                            onChange={(e) => setEditAdjustmentReason(e.target.value)}
+                            className="w-full bg-background border border-red-500/50 focus:border-red-500 ring-1 ring-red-500/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground animate-fadeIn"
+                          />
+                        </div>
+                      )}
+
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-muted-foreground uppercase">Min Stock *</label>
                         <input 
