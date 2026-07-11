@@ -39,6 +39,7 @@ services:
     environment:
       - NODE_ENV=development
       - BACKEND_PROXY_TARGET=http://backend:5000
+      - NODE_OPTIONS=--max-http-header-size=245760
     volumes:
       # Live mount — edits hot-reload instantly via Vite HMR (no rebuild needed)
       - ./frontend:/app
