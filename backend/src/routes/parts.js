@@ -6,10 +6,13 @@ import { parseCompatibility } from '../utils/parseCompatibility.js';
 
 const router = express.Router();
 
-// ── Get all parts (with search and category filtering) ───────────────────────
+// ── Get all parts (with search, category filtering, and pagination) ───────────
 router.get('/', async (req, res) => {
   try {
     const { search, category, archived, published, brand, series, engineCode } = req.query;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
     
     // Build Prisma Where Clause
     const where = {};
@@ -53,15 +56,20 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // Fetch parts
-    let parts = await prisma.part.findMany({
-      where,
-      include: {
-        category: { select: { id: true, name: true } },
-        reviews: { select: { rating: true } }
-      },
-      orderBy: { name: 'asc' }
-    });
+    // Fetch parts with pagination
+    let [parts, totalCount] = await Promise.all([
+      prisma.part.findMany({
+        where,
+        include: {
+          category: { select: { id: true, name: true } },
+          reviews: { select: { rating: true } }
+        },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.part.count({ where }),
+    ]);
 
     // In-memory filter for JSON structured data (Prisma JSON array filtering is complex natively)
     if (brand && brand.toLowerCase() !== 'all') {
@@ -118,7 +126,15 @@ router.get('/', async (req, res) => {
       };
     });
 
-    res.json(formattedParts);
+    res.json({
+      data: formattedParts,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
   } catch (err) {
     console.error('[get parts]', err);
     res.status(500).json({ msg: 'Server error fetching parts.' });

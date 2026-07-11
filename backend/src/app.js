@@ -14,6 +14,7 @@ import reviewsRouter from './routes/reviews.js';
 import staffRoutes from './routes/staffRoutes.js';
 import customersRouter from './routes/customers.js';
 import { prisma } from './config/prisma.js';
+import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
 app.use(compression());
 // CORS configuration
@@ -47,7 +48,6 @@ app.use('/api/customers', customersRouter);
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 
 // ── Health endpoint (industry-standard) ──────────────────────────────────────
-const DB_STATES = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
 const startTime = Date.now();
 
 app.get('/api/health', async (req, res) => {
@@ -80,5 +80,8 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
+
+// ── Centralized error handler (must be last) ────────────────────────────────
+app.use(errorHandler);
 
 export default app;

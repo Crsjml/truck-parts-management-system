@@ -84,6 +84,20 @@ Should compile clean with no errors.
   - Fixed `docs/seed-accounts.md` — corrected password from `Player@12345` to `Password123!` (matching seed.js)
   - Pre-existing build issues: Vite 8 requires Node 20.19+, user has 20.17.0; `esbuild` package missing. These are NOT from our changes.
 
+### 2025-07-10 - BUILDING AGENT (Optimization pass)
+- **Status**: completed
+- **Task**: Backend/Docker/API optimization (Phases 1-5, 8)
+- **Files touched**: `.gitignore`, `.dockerignore`, `backend/.env.example`, `frontend/.env.example`, `frontend/.env.local` (removed from tracking), `docker-compose.yml`, `backend/src/app.js`, `backend/src/index.js`, `backend/src/routes/parts.js`, `backend/src/middleware/errorHandler.js`, `backend/src/middleware/validate.js`, `frontend/src/authStore.js`
+- **Notes**:
+  - Phase 1: Removed stale `.env.local` from git, updated `.gitignore`, updated `.env.example` files
+  - Phase 2: Deleted 9 dead Mongoose model files, `db.js`, `seed.js` (all routes use Prisma)
+  - Phase 3: Fixed healthcheck to use `wget` instead of broken `require('http')`, added root `.dockerignore`
+  - Phase 4: Created centralized `errorHandler.js` + `validate.js` middleware, added to `app.js`
+  - Phase 5: Added pagination to `GET /api/parts` (`?page=1&limit=50`), updated frontend `authStore.js` to handle `{data, pagination}` response
+  - Phase 6: Split `authStore.js` (868 lines) into `api/apiClient.js` (HTTP layer) + `api/validators.js` (field validation); rewrote `authStore.js` as barrel re-export (all 12 importing files work without changes)
+  - Phase 8: Replaced cluster mode with simple server startup (Docker handles orchestration), added SIGTERM/SIGINT graceful shutdown
+  - Deferred: Phase 7 (caching) and Phase 9 (tests) are lower priority
+
 ### 2025-07-10 - BUILDING AGENT (Supabase Auth Seed)
 - **Status**: completed
 - **Task**: Fix auto-login root cause — no Supabase Auth users exist

@@ -1,7 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { fetchVehicleOptions } from '../authStore';
 import { Truck, CarProfile } from '@phosphor-icons/react';
-import Select from 'react-select';
+import Select, { components } from 'react-select';
+
+const CustomOption = (props) => {
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center gap-2">
+        {props.data.icon && <props.data.icon weight="duotone" className="w-4 h-4 text-muted-foreground" />}
+        <span>{props.data.label}</span>
+      </div>
+    </components.Option>
+  );
+};
+
+const CustomSingleValue = (props) => {
+  return (
+    <components.SingleValue {...props}>
+      <div className="flex items-center gap-2">
+        {props.data.icon && <props.data.icon weight="duotone" className="w-4 h-4 text-brandBlue-400" />}
+        <span>{props.data.label}</span>
+      </div>
+    </components.SingleValue>
+  );
+};
 
 export default function CompatibilityFilter({ onFilterChange }) {
   const [options, setOptions] = useState([]);
@@ -59,80 +81,65 @@ export default function CompatibilityFilter({ onFilterChange }) {
   const selectStyles = {
     control: (base, state) => ({
       ...base,
-      background: 'hsl(var(--background))',
-      borderColor: state.isFocused ? 'hsl(var(--accent) / 0.5)' : 'hsl(var(--border))',
+      backgroundColor: 'transparent',
+      borderColor: state.isFocused ? '#ef4444' : 'transparent',
+      boxShadow: 'none',
       borderRadius: '0.75rem',
-      padding: '0px',
-      minHeight: '36px',
-      boxShadow: state.isFocused ? '0 0 0 2px hsl(var(--accent) / 0.2)' : 'none',
+      minHeight: '2.5rem',
+      cursor: 'pointer',
       '&:hover': {
-        borderColor: 'hsl(var(--border))'
-      },
-      transition: 'all 0.15s ease'
+        borderColor: '#334155'
+      }
     }),
     menu: (base) => ({
       ...base,
-      background: 'hsl(var(--background))',
-      border: '1px solid hsl(var(--border))',
-      borderRadius: '0.75rem',
+      backgroundColor: '#0f172a',
+      border: '1px solid #1e293b',
+      borderRadius: '1rem',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
       overflow: 'hidden',
-      zIndex: 50,
-      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)'
+      zIndex: 50
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isSelected 
-        ? 'hsl(var(--accent) / 0.1)' 
-        : state.isFocused 
-          ? 'hsl(var(--secondary))' 
-          : 'transparent',
-      color: state.isSelected ? 'hsl(var(--accent))' : 'hsl(var(--foreground))',
+      backgroundColor: state.isSelected ? '#ef4444' : state.isFocused ? '#1e293b' : 'transparent',
+      color: state.isSelected ? 'white' : '#f8fafc',
       cursor: 'pointer',
       fontSize: '0.875rem',
-      padding: '8px 12px',
-      ':active': {
-        backgroundColor: 'hsl(var(--accent) / 0.2)'
+      padding: '0.5rem 1rem',
+      '&:active': {
+        backgroundColor: '#b91c1c'
       }
     }),
     singleValue: (base) => ({
       ...base,
-      color: 'hsl(var(--foreground))',
+      color: '#f8fafc',
       fontSize: '0.875rem',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px'
+      fontWeight: '600'
     }),
-    indicatorSeparator: () => ({ display: 'none' })
+    input: (base) => ({
+      ...base,
+      color: '#f8fafc'
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: '#64748b',
+      fontSize: '0.875rem'
+    }),
+    indicatorSeparator: () => ({
+      display: 'none'
+    }),
+    dropdownIndicator: (base) => ({
+      ...base,
+      color: '#64748b',
+      padding: '4px 8px',
+      '&:hover': { color: '#f8fafc' }
+    })
   };
-
-  const getBrandColor = (brand) => {
-    const colors = {
-      'Isuzu': 'bg-blue-500 text-white',
-      'Mitsubishi': 'bg-red-500 text-white',
-      'Fuso': 'bg-red-500 text-white',
-      'Toyota': 'bg-slate-700 text-white',
-      'Nissan': 'bg-gray-500 text-white',
-      'Hino': 'bg-green-600 text-white'
-    };
-    return colors[brand] || 'bg-brandBlue-500 text-white';
-  };
-
-  const formatBrandOption = (option) => (
-    <div className="flex items-center gap-2">
-      {option.value !== 'All' ? (
-        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${getBrandColor(option.value)}`}>
-          {option.value.charAt(0)}
-        </span>
-      ) : (
-        <Truck weight="duotone" className="h-4 w-4 text-muted-foreground" />
-      )}
-      <span>{option.label}</span>
-    </div>
-  );
 
   const brandOptions = [
-    { value: 'All', label: 'All Brands' },
-    ...options.map(opt => ({ value: opt.brand, label: opt.brand }))
+    { value: 'All', label: 'All Brands', icon: CarProfile },
+    ...[...new Set(options.map(o => o.brand))].sort().map(b => ({ value: b, label: b, icon: Truck }))
   ];
 
   const seriesOptions = [
@@ -141,38 +148,40 @@ export default function CompatibilityFilter({ onFilterChange }) {
   ];
 
   return (
-    <div className="flex flex-col gap-4 mb-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex-1 space-y-2">
-          <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <Truck weight="duotone" className="w-3.5 h-3.5" />
-            Vehicle Brand
-          </label>
-          <Select 
-            value={brandOptions.find(o => o.value === selectedBrand) || brandOptions[0]}
-            onChange={(selected) => handleBrandChange({ target: { value: selected.value } })}
-            options={brandOptions}
-            formatOptionLabel={formatBrandOption}
-            styles={selectStyles}
-            isSearchable={false}
-            classNamePrefix="react-select"
-          />
-        </div>
+    <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex-1 sm:w-48 space-y-1">
+        <label className="flex items-center gap-1.5 text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+          <Truck weight="duotone" className="w-3.5 h-3.5" />
+          Vehicle Brand
+        </label>
+        <Select 
+          value={brandOptions.find(o => o.value === selectedBrand) || brandOptions[0]}
+          onChange={(selected) => handleBrandChange({ target: { value: selected.value } })}
+          options={brandOptions}
+          components={{ Option: CustomOption, SingleValue: CustomSingleValue }}
+          styles={selectStyles}
+          isSearchable={false}
+          classNamePrefix="react-select"
+          menuPortalTarget={document.body}
+          menuPosition="fixed"
+        />
+      </div>
 
-        <div className="flex-1 space-y-2">
-          <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <CarProfile weight="duotone" className="w-3.5 h-3.5" />
-            Vehicle Series
-          </label>
-          <Select 
-            value={seriesOptions.find(o => o.value === selectedSeries) || seriesOptions[0]}
-            onChange={(selected) => handleSeriesChange({ target: { value: selected.value } })}
-            options={seriesOptions}
-            styles={selectStyles}
-            isSearchable={false}
-            classNamePrefix="react-select"
-          />
-        </div>
+      <div className="flex-1 sm:w-48 space-y-1">
+        <label className="flex items-center gap-1.5 text-3xs font-bold uppercase tracking-wider text-muted-foreground">
+          <CarProfile weight="duotone" className="w-3.5 h-3.5" />
+          Vehicle Series
+        </label>
+        <Select 
+          value={seriesOptions.find(o => o.value === selectedSeries) || seriesOptions[0]}
+          onChange={(selected) => handleSeriesChange({ target: { value: selected.value } })}
+          options={seriesOptions}
+          styles={selectStyles}
+          isSearchable={false}
+          classNamePrefix="react-select"
+          menuPortalTarget={document.body}
+          menuPosition="fixed"
+        />
       </div>
     </div>
   );

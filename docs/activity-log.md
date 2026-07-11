@@ -13,3 +13,12 @@
 ## [2026-07-04] Planning Phase 4 (Upcoming)
 - Finalized the architecture for migrating Customer profile metadata (Saved Parts, Phone, Avatar) strictly to MongoDB while leaving Auth to Firebase.
 - Planned UI refinements: Centering the category grid and cleaning up the filter reset buttons.
+
+## [2026-07-11] UI Refinements & Testing Setup
+- **Goal:** Improve Admin UI real estate, refine Parts Inventory grids, and configure E2E testing.
+- **Actions Taken:**
+  - Added collapsible sidebar toggle to `App.jsx` for the Admin global navigation.
+  - Refactored `PartsCatalog.jsx` grid cards into a bento-box layout with updated Phosphor icons.
+  - Fixed overflow clipping issues in `CompatibilityFilter.jsx` dropdowns via `menuPortalTarget`.
+  - Added Playwright fixtures and test teardown scripts for upcoming E2E authentication testing.
+- **Rationale:** Maximize horizontal screen space for data-dense grids and prepare for robust E2E test coverage.

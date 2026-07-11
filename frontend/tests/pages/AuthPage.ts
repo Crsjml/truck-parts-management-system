@@ -8,12 +8,14 @@ export class AuthPage {
   readonly loginTab: Locator;
   readonly submitButton: Locator;
   readonly fullNameInput: Locator;
+  readonly contactNumberInput: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.emailInput = page.locator('input[type="email"], input[name="email"]');
     this.passwordInput = page.locator('input[type="password"], input[name="password"]');
     this.fullNameInput = page.locator('input[name="fullName"], input[placeholder*="Full Name"]');
+    this.contactNumberInput = page.locator('input[name="contactNumber"], input[placeholder*="63 917"]');
     
     // Auth Portal uses standard buttons for tabs
     this.registerTab = page.getByRole('button', { name: 'Register', exact: true }).first();
@@ -26,9 +28,9 @@ export class AuthPage {
   }
 
   async openAuthModal() {
-    const signInBtn = this.page.getByRole('button', { name: /Sign In/i }).first();
-    if (await signInBtn.isVisible()) {
-      await signInBtn.click();
+    const loginBtn = this.page.getByRole('button', { name: 'Login', exact: true }).first();
+    if (await loginBtn.isVisible()) {
+      await loginBtn.click();
     }
   }
 
@@ -41,10 +43,12 @@ export class AuthPage {
     if (await this.fullNameInput.isVisible()) {
       await this.fullNameInput.fill(fullName);
     }
+    if (await this.contactNumberInput.isVisible()) {
+      await this.contactNumberInput.fill('+639171234567');
+    }
     await this.emailInput.fill(email);
     await this.passwordInput.fill(pass);
     await this.submitButton.click();
-    await this.page.waitForLoadState('networkidle');
   }
 
   async login(email: string, pass: string) {
@@ -55,14 +59,20 @@ export class AuthPage {
     await this.emailInput.fill(email);
     await this.passwordInput.fill(pass);
     await this.submitButton.click();
-    await this.page.waitForLoadState('networkidle');
   }
 
   async logout() {
     const logoutBtn = this.page.getByRole('button', { name: /Logout|Sign Out/i }).first();
+    // Use force: true because the button is inside a hover menu that might be opacity-0 initially
     if (await logoutBtn.isVisible()) {
-      await logoutBtn.click();
+      await logoutBtn.click({ force: true });
+    } else {
+      // In case it's completely out of DOM or hidden, try to hover the user avatar first
+      const avatarBtn = this.page.locator('button.group, button').filter({ hasText: /@example.com/ }).first();
+      if (await avatarBtn.isVisible()) {
+        await avatarBtn.hover();
+        await logoutBtn.click({ force: true });
+      }
     }
-    await this.page.waitForLoadState('networkidle');
   }
 }

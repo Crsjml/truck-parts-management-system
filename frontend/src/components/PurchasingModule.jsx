@@ -113,6 +113,31 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     loadCountries();
   }, []);
 
+  useEffect(() => {
+    const handlePurchasingIntent = (e) => {
+      const part = e.detail;
+      if (part) {
+        setActiveSection('orders');
+        setActiveOrderTab('rfq'); // or 'pos', but 'rfq' is the Draft phase
+        setPoForm({
+          supplier: '',
+          expectedDeliveryDate: '',
+          notes: `Restock request for ${part.name}`,
+          items: [{
+            partId: part.id,
+            name: part.name,
+            quantity: 1,
+            unitPrice: part.price
+          }],
+          sourceRfq: ''
+        });
+        setIsPoModalOpen(true);
+      }
+    };
+    window.addEventListener('purchasingIntent', handlePurchasingIntent);
+    return () => window.removeEventListener('purchasingIntent', handlePurchasingIntent);
+  }, []);
+
   const loadData = async () => {
     setLoading(true);
     const [sups, pos] = await Promise.all([fetchSuppliers(), fetchPurchaseOrders()]);

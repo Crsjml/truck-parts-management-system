@@ -4,8 +4,10 @@ import { prisma } from '../config/prisma.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
-// We use a dummy test key if not provided in env, since we are strictly testing.
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_key_for_testing');
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('STRIPE_SECRET_KEY is not set. Checkout will fail.');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 router.post('/create-checkout-session', requireAuth, async (req, res) => {
   try {
@@ -15,11 +17,14 @@ router.post('/create-checkout-session', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Cart is empty' });
     }
 
+    const setting = await prisma.setting.findFirst();
+    const currency = (setting?.base_currency || 'PHP').toLowerCase();
+
     // Map cart items to Stripe line_items
     const lineItems = items.map((item) => {
       return {
         price_data: {
-          currency: 'usd',
+          currency,
           product_data: {
             name: item.name,
             description: `SKU: ${item.sku}`,
@@ -36,6 +41,7 @@ router.post('/create-checkout-session', requireAuth, async (req, res) => {
       userId: req.auth.userId,
       userEmail: req.auth.email || 'customer@example.com',
       cartItems: JSON.stringify(items.map(i => ({ id: i.id || i._id, quantity: i.quantity, price: i.price, name: i.name }))),
+      currency,
     };
 
     const session = await stripe.checkout.sessions.create({
@@ -114,7 +120,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         }
       });
 
-      console.log(`Successfully processed order for ${session.metadata.userEmail}. Total: $${totalAmount}`);
+      const paidCurrency = session.metadata.currency || 'PHP';
+      console.log(`Successfully processed order for ${session.metadata.userEmail}. Total: ${totalAmount} ${paidCurrency.toUpperCase()}`);
     } catch (error) {
       console.error('Error processing successful checkout:', error);
       // Still return 200 to Stripe so it doesn't retry infinitely

@@ -57,6 +57,21 @@ export const SettingsProvider = ({ children }) => {
     }).format(finalAmount);
   };
 
+  const formatCompactCurrency = (amount) => {
+    const markupFactor = 1 + (settings.active_markup / 100);
+    let finalAmount = amount * markupFactor;
+    const baseRate = exchangeRates[settings.base_currency] || 1;
+    const targetRate = exchangeRates[displayCurrency] || 1;
+    finalAmount = finalAmount * (targetRate / baseRate);
+
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: displayCurrency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(finalAmount);
+  };
+
   const toggleDisplayCurrency = (currencyCode) => {
     setDisplayCurrency(currencyCode);
   };
@@ -68,6 +83,7 @@ export const SettingsProvider = ({ children }) => {
       displayCurrency,
       toggleDisplayCurrency,
       formatCurrency,
+      formatCompactCurrency,
       loading
     }}>
       {children}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
@@ -27,11 +27,13 @@ export default function PartsCatalog({
   onDeletePart,
   onRestockPart,
   isReadOnly = false,
-  onAddLog
+  onAddLog,
+  setPage
 }) {
   const { formatCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState('recommended');
+  const [viewMode, setViewMode] = useState('grid4'); // 'grid3', 'grid4', 'table'
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [activeTab, setActiveTab] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -56,6 +58,16 @@ export default function PartsCatalog({
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedCategory, showLowStockOnly, sortOrder]);
+
+  useEffect(() => {
+    const handleFilter = (e) => {
+      if (e.detail === 'low-stock') {
+        setShowLowStockOnly(true);
+      }
+    };
+    window.addEventListener('catalogFilter', handleFilter);
+    return () => window.removeEventListener('catalogFilter', handleFilter);
+  }, []);
 
   const suggestions = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -267,21 +279,20 @@ export default function PartsCatalog({
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* TTP-68: Compatibility Filter */}
-      <CompatibilityFilter onFilterChange={setVehicleFilter} />
-
-      {/* Search and Action Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
+      {/* Unified Horizontal Toolbar */}
+      <div className="flex items-center gap-3 bg-secondary/30 p-3 rounded-2xl border border-border overflow-x-auto hide-scrollbar w-full">
+        
+        {/* Search */}
+        <div className="relative w-64 shrink-0">
           <MagnifyingGlass weight="duotone" className="absolute left-3.5 top-3.5 w-4 h-4 text-muted-foreground" />
           <input 
             type="text" 
-            placeholder="Search by part name, SKU, OEM, or compatibility..."
+            placeholder="Search by part name, SKU, OEM..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-foreground placeholder-slate-500"
+            className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-foreground placeholder-slate-500"
           />
           {showSuggestions && suggestions.length > 0 && (
             <ul className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-border bg-secondary p-2 shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto">
@@ -303,42 +314,21 @@ export default function PartsCatalog({
           )}
         </div>
 
-        {/* Categories Tab selector */}
-        <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
-          <div className="relative">
-            <SortAscending weight="duotone" className="absolute left-3 top-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <select 
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="h-10 text-xs font-semibold rounded-xl border border-border bg-secondary pl-9 pr-3 text-foreground outline-none focus:border-red-600 transition appearance-none"
-            >
-              <option value="recommended">Recommended Sort</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="name-asc">Name: A to Z</option>
-              <option value="name-desc">Name: Z to A</option>
-              <option value="stock-desc">Stock: High to Low</option>
-              <option value="stock-asc">Stock: Low to High</option>
-            </select>
-          </div>
+        {/* TTP-68: Compatibility Filter */}
+        <div className="shrink-0">
+          <CompatibilityFilter onFilterChange={setVehicleFilter} />
+        </div>
 
-          {!isReadOnly && (
-            <label className={`flex items-center gap-2 px-3 py-2 h-10 rounded-xl border cursor-pointer select-none transition-colors ${showLowStockOnly ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-secondary border-border text-muted-foreground hover:border-red-500/50 hover:bg-red-500/5'}`}>
-              <input 
-                type="checkbox" 
-                checked={showLowStockOnly} 
-                onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-                className="rounded text-red-600 focus:ring-red-600 border-border bg-background w-4 h-4 hidden"
-              />
-              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className={`w-4 h-4 ${showLowStockOnly ? 'text-red-500' : 'text-muted-foreground'}`} />
-              <span className="text-xs font-semibold">Low Stock Warning</span>
-            </label>
-          )}
+        {/* Spacer to push right actions */}
+        <div className="flex-1 min-w-[1rem]"></div>
 
+        {/* Action Bar */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Primary Action Button */}
           {!isReadOnly && (
             <button 
               onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2.5 h-10 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all shrink-0 whitespace-nowrap"
+              className="flex items-center gap-2 px-5 py-2.5 h-10 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all shrink-0 whitespace-nowrap ml-2"
             >
               <Plus weight="bold" className="w-4 h-4" />
               Add New Part
@@ -348,7 +338,7 @@ export default function PartsCatalog({
       </div>
 
       {/* Category Tabs */}
-      <div className="flex border-b border-slate-900 overflow-x-auto pb-px">
+      <div className="flex flex-wrap gap-y-2 border-b border-slate-900 pb-2">
         {categories.map((cat) => {
           const { icon: CatIcon, color } = getCategoryStyles(cat);
           return (
@@ -368,7 +358,68 @@ export default function PartsCatalog({
         })}
       </div>
 
-      {/* Parts Grid */}
+      {/* View Controls Bar */}
+      <div className="flex items-center justify-between bg-background/50 border border-border p-2 rounded-xl">
+        <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg border border-border/50">
+          <button 
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'table' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+          >
+            <ListDashes weight={viewMode === 'table' ? 'fill' : 'duotone'} className="w-4 h-4" />
+            <span className="hidden sm:inline">List</span>
+          </button>
+          <button 
+            onClick={() => setViewMode('grid3')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'grid3' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+          >
+            <SquaresFour weight={viewMode === 'grid3' ? 'fill' : 'duotone'} className="w-4 h-4" />
+            <span className="hidden sm:inline">Compact</span>
+          </button>
+          <button 
+            onClick={() => setViewMode('grid4')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'grid4' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+          >
+            <GridFour weight={viewMode === 'grid4' ? 'fill' : 'duotone'} className="w-4 h-4" />
+            <span className="hidden sm:inline">Detailed</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Sort Dropdown */}
+          <div className="relative group">
+            <SortAscending weight="duotone" className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors pointer-events-none" />
+            <select 
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="h-9 text-xs font-semibold rounded-lg border border-transparent hover:border-border bg-transparent hover:bg-secondary/50 pl-9 pr-3 text-muted-foreground hover:text-foreground cursor-pointer outline-none focus:border-red-600 focus:text-foreground transition-all appearance-none"
+            >
+              <option value="recommended">Recommended Sort</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name-asc">Name: A to Z</option>
+              <option value="name-desc">Name: Z to A</option>
+              <option value="stock-desc">Stock: High to Low</option>
+              <option value="stock-asc">Stock: Low to High</option>
+            </select>
+          </div>
+
+          {/* Low Stock Toggle */}
+          {!isReadOnly && (
+            <label className={`flex items-center gap-2 px-3 py-1.5 h-9 rounded-lg border cursor-pointer select-none transition-all duration-200 ${showLowStockOnly ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-transparent border-transparent text-muted-foreground hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400'}`}>
+              <input 
+                type="checkbox" 
+                checked={showLowStockOnly} 
+                onChange={() => setShowLowStockOnly(!showLowStockOnly)}
+                className="hidden"
+              />
+              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className={`w-4 h-4 ${showLowStockOnly ? 'text-red-500' : 'text-muted-foreground group-hover:text-red-400'}`} />
+              <span className="text-xs font-semibold hidden sm:inline">Low Stock Only</span>
+            </label>
+          )}
+        </div>
+      </div>
+
+      {/* Parts Grid / Table */}
       {filteredParts.length === 0 ? (
         <div className="glass-panel p-12 text-center rounded-2xl">
           <Package weight="duotone" className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -379,32 +430,97 @@ export default function PartsCatalog({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {paginatedParts.map((part) => {
-            const isLowStock = part.stock <= part.minStock;
-            return (
-              <div 
-                key={part.id} 
-                className={`glass-panel p-5 rounded-2xl flex flex-col justify-between glass-panel-hover border-t-2 relative ${
-                  isLowStock ? 'border-t-accent/50' : 'border-t-transparent'
-                }`}
-              >
-                {/* Low Stock Warning Badge */}
-                {isLowStock && (
-                  <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-2xs font-extrabold text-red-500 animate-pulse z-10">
-                    <Warning weight="duotone" className="w-3 h-3" />
-                    LOW STOCK
-                  </div>
-                )}
-
-                {/* Part Image */}
-                <div className="h-40 rounded-xl overflow-hidden bg-slate-900/60 border border-border/10 mb-4 flex items-center justify-center relative select-none">
-                  {part.image ? (
-                    <img src={part.image} alt={part.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="w-full h-full object-cover opacity-80" />
+          {viewMode === 'table' ? (
+            <div className="w-full overflow-x-auto glass-panel rounded-2xl border border-border/50">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-secondary/50 border-b border-border/50 text-xs uppercase text-muted-foreground tracking-wider font-semibold">
+                  <tr>
+                    <th className="px-4 py-3">Part Name</th>
+                    <th className="px-4 py-3">SKU / OEM</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3 text-right">Price</th>
+                    <th className="px-4 py-3 text-right">Stock</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {paginatedParts.map(part => {
+                    const isLowStock = part.stock <= part.minStock;
+                    return (
+                      <tr 
+                        key={part.id} 
+                        className="hover:bg-secondary/30 transition-colors cursor-pointer"
+                        onClick={() => openDetailsModal(part)}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-md overflow-hidden bg-slate-900 border border-border/20 shrink-0">
+                              {part.image ? (
+                                <img src={part.image} alt={part.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="w-full h-full object-cover opacity-80" />
+                              )}
+                            </div>
+                            <span className="font-bold text-foreground hover:text-red-400 transition-colors">{part.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                          {part.sku}<br/>
+                          <span className="text-brandBlue-400/80">{part.oem}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 bg-secondary rounded-md text-xs font-semibold border border-border/50">{part.category}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-emerald-400">
+                          {formatCurrency(part.price)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-bold">
+                          {part.stock}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {isLowStock ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-950/70 border border-red-800/40 text-2xs font-extrabold text-red-500">
+                              LOW STOCK
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-950/70 border border-emerald-800/40 text-2xs font-extrabold text-emerald-500">
+                              IN STOCK
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className={`grid gap-5 ${viewMode === 'grid3' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
+            {paginatedParts.map((part) => {
+              const isLowStock = part.stock <= part.minStock;
+              return (
+                <div 
+                  key={part.id} 
+                  className={`glass-panel p-5 rounded-2xl flex flex-col justify-between glass-panel-hover border-t-2 relative ${
+                    isLowStock ? 'border-t-accent/50' : 'border-t-transparent'
+                  }`}
+                >
+                  {/* Low Stock Warning Badge */}
+                  {isLowStock && (
+                    <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-2xs font-extrabold text-red-500 animate-pulse z-10">
+                      <Warning weight="duotone" className="w-3 h-3" />
+                      LOW STOCK
+                    </div>
                   )}
-                </div>
+  
+                  {/* Part Image */}
+                  <div className="h-40 rounded-xl overflow-hidden bg-slate-900/60 border border-border/10 mb-4 flex items-center justify-center relative select-none">
+                    {part.image ? (
+                      <img src={part.image} alt={part.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="w-full h-full object-cover opacity-80" />
+                    )}
+                  </div>
 
                 {/* Card Top */}
                 <div className="space-y-3">
@@ -450,18 +566,18 @@ export default function PartsCatalog({
                 </div>
 
                 {/* Card Bottom / Controls */}
-                <div className="space-y-4 pt-4 mt-4 border-t border-slate-900">
-                  <div className="flex items-end justify-between">
+                <div className="space-y-3 pt-4 mt-4 border-t border-slate-900">
+                  <div className="flex items-end justify-between bg-secondary/20 p-3 rounded-xl border border-border/50">
                     <div>
                       <span className="text-2xs text-muted-foreground uppercase tracking-wider block">Unit Price</span>
-                      <span className="text-xl font-bold text-foreground">
+                      <span className="text-lg font-bold text-emerald-400">
                         {formatCurrency(part.price)}
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-2xs text-muted-foreground uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
-                      <span className={`text-base font-extrabold ${isLowStock && !isReadOnly ? 'text-red-500' : 'text-muted-foreground'}`}>
-                        {isReadOnly ? (part.stock > 0 ? `${part.stock} available` : 'Out of Stock') : `${part.stock} / ${part.minStock} min`}
+                      <span className={`text-lg font-extrabold font-mono ${isLowStock && !isReadOnly ? 'text-red-500' : 'text-foreground'}`}>
+                        {isReadOnly ? (part.stock > 0 ? `${part.stock} avail` : '0') : `${part.stock} / ${part.minStock}`}
                       </span>
                     </div>
                   </div>
@@ -479,33 +595,23 @@ export default function PartsCatalog({
                       <PaperPlaneRight weight="duotone" className="w-3.5 h-3.5" /> Request Quote
                     </button>
                   ) : (
-                    <>
-                      {/* Restock Inline Form */}
-                      <div className="flex gap-2">
-                        <input 
-                          type="number" 
-                          placeholder="+Qty" 
-                          min="1"
-                          value={restockAmount[part.id] || ''}
-                          onChange={(e) => setRestockAmount({ ...restockAmount, [part.id]: e.target.value })}
-                          className="w-16 bg-background border border-border rounded-lg text-xs py-1.5 text-center focus:outline-none focus:border-red-600 text-muted-foreground font-bold"
-                        />
-                        <button 
-                          onClick={() => handleRestockSubmit(part.id)}
-                          className="flex-1 py-1.5 px-3 bg-brandBlue-500/10 dark:bg-brandBlue-900 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 text-brandBlue-600 dark:text-brandBlue-300 text-xs font-semibold rounded-lg border border-brandBlue-500/30 dark:border-brandBlue-700/30 transition-all flex items-center justify-center gap-1"
-                        >
-                          <Plus weight="duotone" className="w-3.5 h-3.5" /> Restock
-                        </button>
-                      </div>
+                    <div className="flex flex-col gap-2">
+                      <button 
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('purchasingIntent', { detail: part }));
+                          if (setPage) setPage('purchasing');
+                        }}
+                        className="w-full py-2 px-3 bg-accent/10 hover:bg-accent/20 text-accent dark:text-red-400 text-xs font-bold rounded-lg border border-accent/20 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <ShoppingCart weight="bold" className="w-4 h-4" /> Create PO
+                      </button>
 
-                      {/* Pencil/Delete Actions */}
-                      <div className="flex gap-2 justify-end">
+                      <div className="grid grid-cols-2 gap-2">
                         <button 
                           onClick={() => openEditModal(part)}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors border border-border"
-                          title="Pencil Part Details"
+                          className="py-1.5 px-2 text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary text-xs font-semibold rounded-lg transition-colors border border-border flex items-center justify-center gap-1"
                         >
-                          <Pencil weight="duotone" className="w-3.5 h-3.5" />
+                          <Wrench weight="duotone" className="w-3.5 h-3.5" /> Edit
                         </button>
                         <button 
                           onClick={() => {
@@ -513,19 +619,19 @@ export default function PartsCatalog({
                               onDeletePart(part.id);
                             }
                           }}
-                          className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-950/10 rounded-lg transition-colors border border-border"
-                          title="Delete Part"
+                          className="py-1.5 px-2 text-muted-foreground hover:text-red-500 bg-secondary/50 hover:bg-red-950/20 text-xs font-semibold rounded-lg transition-colors border border-border hover:border-red-500/30 flex items-center justify-center gap-1"
                         >
-                          <Trash weight="duotone" className="w-3.5 h-3.5" />
+                          <XCircle weight="duotone" className="w-3.5 h-3.5" /> Archive
                         </button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
+        )}
 
         {/* Pagination Controls */}
         {Math.ceil(filteredParts.length / itemsPerPage) > 1 && (
@@ -573,7 +679,7 @@ export default function PartsCatalog({
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="text-lg font-bold text-foreground font-display">
                 {modalType === 'add' && 'Add New Truck Part'}
-                {modalType === 'edit' && 'Pencil Part details'}
+                {modalType === 'edit' && 'Edit Part Details'}
                 {modalType === 'details' && 'Part Details Overview'}
               </h3>
               <button 
@@ -660,7 +766,7 @@ export default function PartsCatalog({
                       }}
                       className="flex items-center gap-1.5 px-4.5 py-2.5 bg-brandBlue-500/10 dark:bg-brandBlue-900 text-brandBlue-600 dark:text-brandBlue-300 border border-brandBlue-500/30 dark:border-brandBlue-700/30 hover:bg-brandBlue-500/20 dark:hover:bg-brandBlue-800 rounded-xl text-xs font-bold transition-all"
                     >
-                      <Pencil weight="duotone" className="w-3.5 h-3.5" /> Pencil Details
+                      <Pencil weight="duotone" className="w-3.5 h-3.5" /> Edit Details
                     </button>
                   )}
                 </div>
@@ -669,50 +775,89 @@ export default function PartsCatalog({
               // Add / Pencil Form (Bento Box Layout)
               <form onSubmit={handleFormSubmit} className="flex flex-col max-h-[85vh]">
                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 text-left overflow-y-auto custom-scrollbar">
+                  {modalType === 'add' && (
+                    <div className="md:col-span-2 space-y-1.5 bg-secondary/30 p-3 rounded-xl border border-border">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
+                        <SquaresFour weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Clone Existing Part Template
+                      </label>
+                      <select 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        onChange={(e) => {
+                          const p = parts.find(x => x.id === parseInt(e.target.value));
+                          if (p) {
+                            setFormName(p.name + ' (Copy)');
+                            setFormOem(p.oem);
+                            setFormCategory(p.category);
+                            setFormPrice(p.price);
+                            setFormCompatibility(p.compatibility || '');
+                            setFormDescription(p.description || '');
+                            // Leave SKU, Stock, and Min Stock empty for the new part
+                          }
+                        }}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>-- Select a part to clone its details --</option>
+                        {parts.map(p => (
+                          <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {/* Left Column: Core Identity */}
                   <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">Part Name / Component Title *</label>
+                    <div className="space-y-1.5 group">
+                      <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formName ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <Package weight="duotone" className={`w-4 h-4 ${formName ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Part Name / Component Title *
+                        {formName && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                      </label>
                       <input 
                         type="text" 
                         required
                         placeholder="e.g. Starter Motor Assembly (24V)"
                         value={formName}
                         onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formName ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                       />
                       {formErrors.name && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase">SKU / Code *</label>
+                      <div className="space-y-1.5 group">
+                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formSku ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <ListDashes weight="duotone" className={`w-4 h-4 ${formSku ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> SKU / Code *
+                          {formSku && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        </label>
                         <input 
                           type="text" 
                           required
                           placeholder="e.g. ELC-STR"
                           value={formSku}
                           onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formSku ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
                         {formErrors.sku && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase">OEM Part Number *</label>
+                      <div className="space-y-1.5 group">
+                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formOem ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <Tag weight="duotone" className={`w-4 h-4 ${formOem ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> OEM Part No. *
+                          {formOem && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        </label>
                         <input 
                           type="text" 
                           required
-                          placeholder="e.g. 0-23000-7010"
+                          placeholder="e.g. 1-81100-341-1"
                           value={formOem}
                           onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formOem ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
                         {formErrors.oem && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Category / Subcategory *</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
+                        <Funnel weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Category / Subcategory *
+                      </label>
                       <select 
                         value={formCategory}
                         onChange={(e) => { setFormCategory(e.target.value); setFormErrors(prev => ({...prev, category: ''})); }}
@@ -742,14 +887,17 @@ export default function PartsCatalog({
                       {categoriesList.length === 0 && <p className="text-2xs text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
                     </div>
                     
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Vehicle Compatibility Models</label>
+                    <div className="space-y-1.5 group">
+                      <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formCompatibility ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <Truck weight="duotone" className={`w-4 h-4 ${formCompatibility ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Vehicle Compatibility Models
+                        {formCompatibility && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                      </label>
                       <input 
                         type="text" 
                         placeholder="e.g. Isuzu ELF NPR, Forward, Hino 300"
                         value={formCompatibility}
                         onChange={(e) => setFormCompatibility(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formCompatibility ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                       />
                     </div>
                   </div>
@@ -757,8 +905,11 @@ export default function PartsCatalog({
                   {/* Right Column: Pricing, Stock, and Media */}
                   <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase">Price (₱) *</label>
+                      <div className="space-y-1.5 group">
+                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formPrice ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <CurrencyDollar weight="duotone" className={`w-4 h-4 ${formPrice ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Price (₱) *
+                          {formPrice && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        </label>
                         <input 
                           type="number" 
                           required
@@ -767,25 +918,32 @@ export default function PartsCatalog({
                           placeholder="0.00"
                           value={formPrice}
                           onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formPrice ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
                         {formErrors.price && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase">Initial Stock *</label>
+                      <div className="space-y-1.5 group">
+                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formStock !== '' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <Package weight="duotone" className={`w-4 h-4 ${formStock !== '' ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> {modalType === 'edit' ? 'Current Stock *' : 'Initial Stock *'}
+                          {formStock !== '' && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        </label>
                         <input 
                           type="number" 
                           required
                           min="0"
                           placeholder="0"
                           value={formStock}
+                          disabled={modalType === 'edit'}
                           onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
                         {formErrors.stock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase">Min Stock *</label>
+                      <div className="space-y-1.5 group">
+                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formMinStock !== '' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <WarningCircle weight="duotone" className={`w-4 h-4 ${formMinStock !== '' ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Min Stock *
+                          {formMinStock !== '' && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        </label>
                         <input 
                           type="number" 
                           required
@@ -793,26 +951,31 @@ export default function PartsCatalog({
                           placeholder="5"
                           value={formMinStock}
                           onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formMinStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
                         {formErrors.minStock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Item Description</label>
+                    <div className="space-y-1.5 group">
+                      <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formDescription ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <ListDashes weight="duotone" className={`w-4 h-4 ${formDescription ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Item Description
+                        {formDescription && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
+                      </label>
                       <textarea 
-                        placeholder="Enter details..."
                         rows="2"
+                        placeholder="e.g. High torque motor built for heavy-duty commercial applications..."
                         value={formDescription}
                         onChange={(e) => setFormDescription(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground resize-none"
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground resize-y min-h-[80px] custom-scrollbar ${formDescription ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                       />
                     </div>
 
                     {/* Upload Image Section */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Part Product Image</label>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
+                        <Image className="w-4 h-4 text-brandBlue-400" weight="duotone" /> Part Product Image
+                      </label>
                       <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-3.5">
                         <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
                           {formImage ? (

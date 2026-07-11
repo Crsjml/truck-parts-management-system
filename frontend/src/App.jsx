@@ -8,6 +8,7 @@ import StatusBar from './components/StatusBar';
 import Footer from './components/Footer';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 import ToastNotification, { useToast } from './components/ToastNotification';
+import UpdatePasswordModal from './components/UpdatePasswordModal';
 
 // Lazy loaded page modules to optimize initial bundle size
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -53,6 +54,7 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [logs, setLogs] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -132,7 +134,10 @@ export default function App() {
     };
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setActiveView('update-password');
+      }
       handleUserChange(session?.user || null);
     });
 
@@ -426,6 +431,17 @@ export default function App() {
 
 
 
+  if (activeView === 'update-password') {
+    return (
+      <UpdatePasswordModal 
+        onComplete={() => {
+          showToast('Password updated successfully!', 'success');
+          setActiveView('storefront');
+        }} 
+      />
+    );
+  }
+
   if (activeView === 'storefront') {
     return (
       <>
@@ -454,123 +470,147 @@ export default function App() {
 
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
-      <aside className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 glass-panel border-r border-border justify-between overflow-hidden">
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 custom-scrollbar">
-          <div className="flex items-center px-2 py-4">
-            <Logo className="w-14 h-14" showText={true} />
+      <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 custom-scrollbar">
+          <div className="flex items-center justify-between px-1 py-2">
+            {!isSidebarCollapsed && <Logo className="w-14 h-14" showText={true} />}
+            {isSidebarCollapsed && <Logo className="w-10 h-10 mx-auto" showText={false} />}
+            {!isSidebarCollapsed && (
+              <button onClick={() => setIsSidebarCollapsed(true)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors">
+                <List weight="duotone" className="w-5 h-5" />
+              </button>
+            )}
+            {isSidebarCollapsed && (
+              <button onClick={() => setIsSidebarCollapsed(false)} className="p-1.5 mt-2 mx-auto text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors block">
+                <List weight="duotone" className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           <nav className="space-y-1">
             <button
               onClick={() => setPage('dashboard')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              title="Dashboard Overview"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'dashboard'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <SquaresFour weight="duotone" className="w-5 h-5" />
-              Dashboard Overview
+              <SquaresFour weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Dashboard Overview</span>}
             </button>
 
             <button
               onClick={() => setPage('catalog')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              title="Parts Inventory"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'catalog'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <Package weight="duotone" className="w-5 h-5" />
-              Parts Inventory
+              <Package weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Parts Inventory</span>}
             </button>
 
             <button
               onClick={() => setPage('pos')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              title="Sales POS Entry"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'pos'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <ShoppingCart weight="duotone" className="w-5 h-5" />
-              Sales POS Entry
+              <ShoppingCart weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Sales POS Entry</span>}
             </button>
 
             <button
               onClick={() => setPage('analytics')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              title="Sales Analytics"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'analytics'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <ChartBar weight="duotone" className="w-5 h-5" />
-              Sales Analytics
+              <ChartBar weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Sales Analytics</span>}
             </button>
 
             <button
               onClick={() => setPage('categories')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              title="Category Management"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'categories'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <Tag weight="duotone" className="w-5 h-5" />
-              Category Management
+              <Tag weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Category Management</span>}
             </button>
 
             <button
               onClick={() => setPage('purchasing')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              title="Purchasing"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 page === 'purchasing'
                   ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
               }`}
             >
-              <Buildings weight="duotone" className="w-5 h-5" />
-              Purchasing
+              <Buildings weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Purchasing</span>}
             </button>
 
             {/* SUPER ADMIN ONLY: Staff Management */}
             {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && (
               <button
                 onClick={() => setPage('staff')}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                title="Staff Management"
+                className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
                   page === 'staff'
                     ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
                 }`}
               >
-                <ShieldCheck weight="duotone" className="w-5 h-5" />
-                Staff Management
+                <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
+                {!isSidebarCollapsed && <span>Staff Management</span>}
               </button>
             )}
 
           </nav>
         </div>
 
-        <div className="shrink-0 p-5 pt-4 border-t border-border flex items-center justify-between bg-background/50 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
-              <img 
-                src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
-                alt="Profile" 
-                className="w-10 h-10 rounded-full border border-border object-cover shadow-inner bg-secondary"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
-                <User weight="duotone" className="w-5 h-5" />
+        <div className={`shrink-0 border-t border-border flex flex-col bg-background/50 backdrop-blur-md transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
+          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
+            <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+              {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
+                <img 
+                  src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
+                  alt="Profile" 
+                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover shadow-inner bg-secondary`}
+                />
+              ) : (
+                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner`}>
+                  <User weight="duotone" className="w-5 h-5" />
+                </div>
+              )}
+              {!isSidebarCollapsed && (
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                  <span className="text-2xs text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
+                </div>
+              )}
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg" title="Active Connection secure">
+                <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
               </div>
             )}
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-              <span className="text-2xs text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
-            </div>
-          </div>
-          <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg" title="Active Connection secure">
-            <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
           </div>
         </div>
       </aside>
@@ -831,6 +871,7 @@ export default function App() {
                     onEditPart={handleEditPart}
                     onDeletePart={handleDeletePart}
                     onRestockPart={handleRestockPart}
+                    setPage={setPage}
                   />
                 )}
 

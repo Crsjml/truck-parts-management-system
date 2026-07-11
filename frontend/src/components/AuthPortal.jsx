@@ -1,15 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, User, Warning, Bell, FacebookLogo, GoogleLogo } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { supabase } from '../supabaseClient';
-import { Phone, Hash } from '@phosphor-icons/react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  validateVerificationCode,
-} from '../authStore';
 
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
@@ -59,19 +55,9 @@ export default function AuthPortal({
     resolver: zodResolver(loginSchema),
     defaultValues: customerLoginDefaults
   });
-  const [verificationEmail, setVerificationEmail] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [verificationInput, setVerificationInput] = useState('');
   const [notice, setNotice] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-
-  // Phone Auth States
-  const [authMethod, setAuthMethod] = useState('email'); // 'email' or 'phone'
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [isOtpSent, setIsOtpSent] = useState(false);
 
   // Firebase uses the global `auth` object, so we don't need useSignIn/useSignUp
 
@@ -130,9 +116,6 @@ export default function AuthPortal({
   };
 
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotToken, setForgotToken] = useState('');
-  const [forgotNewPassword, setForgotNewPassword] = useState('');
-  const [forgotStep, setForgotStep] = useState(1);
 
   useEffect(() => {
     setCurrentRole(mode);
@@ -163,6 +146,7 @@ export default function AuthPortal({
         options: {
           data: {
             full_name: data.fullName,
+            contact_number: data.contactNumber,
           }
         }
       });
@@ -181,40 +165,12 @@ export default function AuthPortal({
         throw error;
       }
 
-      setVerificationEmail(data.email);
       setNotice('Account created! Please check your email for a verification link, then log in.');
       setActiveTab('login');
       onRegisterSuccess?.({ email: data.email });
     } catch (err) {
       setNotice(err.message || 'Registration failed.');
       triggerShake();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerificationSubmit = async (event) => {
-    event.preventDefault();
-    // With Firebase, email verification is done via a link sent to the user's email.
-    // They click the link, and then they can log in. This manual code entry tab is not used for Firebase standard email verification.
-    setNotice('Please check your email for the verification link.');
-  };
-
-  const handleResendCode = async () => {
-    setLoading(true);
-    try {
-      if (verificationEmail) {
-        const { error } = await supabase.auth.resend({
-          type: 'signup',
-          email: verificationEmail
-        });
-        if (error) throw error;
-        setNotice('A new verification email has been sent.');
-      } else {
-        setNotice('You must register first to resend the verification email.');
-      }
-    } catch (err) {
-      setNotice(err.message || 'Failed to resend email.');
     } finally {
       setLoading(false);
     }
@@ -257,61 +213,7 @@ export default function AuthPortal({
     }
   };
 
-  const setupRecaptcha = () => {
-    // Supabase doesn't require manual recaptcha setup like Firebase for SMS.
-  };
-
-  const handleSendOtp = async (e) => {
-    e.preventDefault();
-    if (!phoneNumber) {
-      setNotice('Please enter a valid phone number.');
-      triggerShake();
-      return;
-    }
-
-    setLoading(true);
-    resetFeedback();
-    
-    try {
-      const { data, error } = await supabase.auth.signInWithOtp({
-        phone: phoneNumber,
-      });
-      if (error) throw error;
-      setIsOtpSent(true);
-      setNotice('SMS code sent! Please enter it below.');
-    } catch (err) {
-      console.error(err);
-      setNotice(err.message || 'Failed to send SMS code. Check the phone number format (e.g., +15555555555).');
-      triggerShake();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    if (!otpCode) return;
-
-    setLoading(true);
-    resetFeedback();
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
-        token: otpCode,
-        type: 'sms'
-      });
-      if (error) throw error;
-      // Supabase automatically logs the user in upon successful confirmation!
-      // App.jsx will catch the auth state change and redirect.
-    } catch (err) {
-      console.error(err);
-      setNotice(err.message || 'Invalid SMS code. Please try again.');
-      triggerShake();
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Supabase password reset handled via magic link (PASSWORD_RECOVERY)
 
   const handleForgotRequest = async (e) => {
     e.preventDefault();
@@ -326,18 +228,11 @@ export default function AuthPortal({
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail);
       if (error) throw error;
       setNotice('Password reset link sent to your email. Please check your inbox.');
-      // Firebase password reset happens via email link, so we don't need step 2 manually
     } catch (err) {
       setNotice(err.message || 'Failed to request reset.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotReset = async (e) => {
-    e.preventDefault();
-    // This step is bypassed because Firebase handles password resets via email links.
-    setNotice('Please click the link in your email to reset your password.');
   };
 
   const onAdminLogin = async (data) => {
@@ -460,7 +355,7 @@ export default function AuthPortal({
                 {isCustomerMode ? 'Customer account' : 'Admin sign-in'}
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'verify' ? 'Verify your email' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
+                {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
               </h2>
             </div>
 
@@ -489,18 +384,7 @@ export default function AuthPortal({
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveTab('verify');
-                    resetFeedback();
-                  }}
-                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'verify' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Verify
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
                     setActiveTab('forgot');
-                    setForgotStep(1);
                     resetFeedback();
                   }}
                   className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'forgot' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
@@ -510,30 +394,10 @@ export default function AuthPortal({
               </div>
             )}
 
-            {isCustomerMode && (activeTab === 'login' || activeTab === 'register') && (
-              <div className="flex gap-2 p-1 rounded-2xl border border-border bg-background">
-                <button
-                  type="button"
-                  onClick={() => { setAuthMethod('email'); resetFeedback(); }}
-                  className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex justify-center items-center gap-2 rounded-xl transition ${authMethod === 'email' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <EnvelopeOpen className="w-4 h-4" /> Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAuthMethod('phone'); resetFeedback(); }}
-                  className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex justify-center items-center gap-2 rounded-xl transition ${authMethod === 'phone' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <Phone className="w-4 h-4" /> Phone
-                </button>
-              </div>
-            )}
-
             {renderNoticeBanner()}
-            <div id="recaptcha-container"></div>
 
-             {isCustomerMode && activeTab === 'register' && authMethod === 'email' && (
-              <form onSubmit={handleRegisterSubmit(onCustomerRegister)} className={`space-y-4 ${shake && activeTab === 'register' ? 'animate-shake' : ''}`}>
+             {isCustomerMode && activeTab === 'register' && (
+              <form noValidate onSubmit={handleRegisterSubmit(onCustomerRegister)} className={`space-y-4 ${shake && activeTab === 'register' ? 'animate-shake' : ''}`}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Full name</label>
@@ -591,49 +455,7 @@ export default function AuthPortal({
               </form>
             )}
 
-             {isCustomerMode && activeTab === 'verify' && (
-              <form onSubmit={handleVerificationSubmit} className={`space-y-4 ${shake && activeTab === 'verify' ? 'animate-shake' : ''}`}>
-                <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
-                  Email verification is required before login. The code is sent to the address used during registration.
-                </div>
-
-                {verificationCode && (
-                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                    Demo verification code: <span className="font-bold tracking-[0.25em]">{verificationCode}</span>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Verification code</label>
-                  <input
-                    className={`${inputClass} ${errors.verificationInput ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                    value={verificationInput}
-                    onChange={(event) => setVerificationInput(event.target.value)}
-                    placeholder="6-digit code"
-                  />
-                  {errors.verificationInput && <p className="text-xs text-red-400 font-semibold">{errors.verificationInput}</p>}
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="submit"
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90"
-                  >
-                    <EnvelopeOpen weight="duotone" className="h-4 w-4" />
-                    Verify email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleResendCode}
-                    className="rounded-xl border border-border px-4 py-3.5 text-sm font-semibold text-foreground transition hover:border-border hover:bg-background"
-                  >
-                    Resend code
-                  </button>
-                </div>
-              </form>
-            )}
-
-             {isCustomerMode && activeTab === 'login' && authMethod === 'email' && (
+             {isCustomerMode && activeTab === 'login' && (
               <form onSubmit={handleLoginSubmit(onCustomerLogin)} className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
                 {lockoutTimeLeft > 0 ? (
                   <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
@@ -688,7 +510,6 @@ export default function AuthPortal({
                         type="button" 
                         onClick={() => {
                           setActiveTab('forgot');
-                          setForgotStep(1);
                           resetFeedback();
                         }}
                         className="text-xs text-accent hover:text-accent/80 transition font-bold"
@@ -711,71 +532,8 @@ export default function AuthPortal({
               </form>
             )}
 
-            {/* Phone Authentication Form (Shared for Login and Register) */}
-            {isCustomerMode && (activeTab === 'login' || activeTab === 'register') && authMethod === 'phone' && (
-              <div className={`space-y-4 ${shake ? 'animate-shake' : ''}`}>
-                {!isOtpSent ? (
-                  <form onSubmit={handleSendOtp} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Phone Number</label>
-                      <input
-                        type="tel"
-                        className={inputClass}
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+1 555 555 5555"
-                      />
-                      <p className="text-xs text-muted-foreground">Must include country code (e.g., +1 or +63).</p>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={loading || !phoneNumber}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <Phone weight="duotone" className="h-4 w-4" />}
-                      Send SMS Code
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyOtp} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
-                      Code sent to {phoneNumber}. Enter the 6-digit code below.
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">SMS Code</label>
-                      <input
-                        type="text"
-                        className={inputClass}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
-                        placeholder="123456"
-                      />
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => { setIsOtpSent(false); setOtpCode(''); }}
-                        className="rounded-xl border border-border px-4 py-3.5 text-sm font-semibold text-foreground transition hover:border-border hover:bg-background"
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={loading || !otpCode}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <Hash weight="duotone" className="h-4 w-4" />}
-                        Verify & Sign In
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
-
             {isCustomerMode && activeTab === 'forgot' && (
               <div className="space-y-4">
-                {forgotStep === 1 ? (
                   <form onSubmit={handleForgotRequest} className={`space-y-4 ${shake && activeTab === 'forgot' ? 'animate-shake' : ''}`}>
                     <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
                       Enter your email to request a password reset link.
@@ -800,43 +558,6 @@ export default function AuthPortal({
                       Request Reset Link
                     </button>
                   </form>
-                ) : (
-                  <form onSubmit={handleForgotReset} className={`space-y-4 ${shake && activeTab === 'forgot' ? 'animate-shake' : ''}`}>
-                     <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
-                      Enter the reset token you received and your new password.
-                    </div>
-                    {errors.form && <p className="text-xs text-red-400 font-semibold">{errors.form}</p>}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Reset Token</label>
-                      <input
-                        type="text"
-                        className={inputClass}
-                        value={forgotToken}
-                        onChange={(e) => setForgotToken(e.target.value)}
-                        placeholder="Paste your reset token here"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">New Password</label>
-                      <input
-                        type="password"
-                        className={`${inputClass} ${errors.newPassword ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        value={forgotNewPassword}
-                        onChange={(e) => setForgotNewPassword(e.target.value)}
-                        placeholder="Minimum 8 characters"
-                      />
-                      {errors.newPassword && <p className="text-xs text-red-400 font-semibold">{errors.newPassword}</p>}
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <CheckCircle weight="duotone" className="h-4 w-4" />}
-                      Reset Password
-                    </button>
-                  </form>
-                )}
               </div>
             )}
 

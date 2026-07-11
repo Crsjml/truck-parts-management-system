@@ -71,34 +71,56 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
         window.dispatchEvent(new Event('avatarUpdated'));
       }
 
-      if (displayName !== currentUser.user_metadata?.full_name || photoURL !== currentUser.user_metadata?.avatar_url) {
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { full_name: displayName, avatar_url: photoURL }
-        });
-        if (updateError) throw updateError;
-      }
-
+      // 1. Update backend profile first (handles the base64 photoURL without bloating JWT)
       await updateCustomerProfile({
         displayName,
         phoneNumber,
         photoURL
       });
 
-      const sanitizedEmail = email.trim();
-      let emailVerificationSent = false;
-      if (sanitizedEmail !== currentUser.email) {
-        const { error: emailErr } = await supabase.auth.updateUser({ email: sanitizedEmail });
-        if (emailErr) throw emailErr;
-        emailVerificationSent = true;
+      // 2. Update Supabase metadata (only full_name, NOT avatar_url)
+      if (displayName !== currentUser.user_metadata?.full_name) {
+        try {
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: { full_name: displayName }
+          });
+          if (updateError) console.warn('Non-critical: Failed to sync full_name to Supabase Auth metadata', updateError);
+        } catch (e) {
+          console.warn('Non-critical: Supabase metadata update failed', e);
+        }
       }
 
-      if (emailVerificationSent) {
-        setSuccess('Verification link sent to new email.');
+      // 3. Update Email (gracefully catch rate limits so they don't break the whole save)
+      const sanitizedEmail = email.trim();
+      let emailVerificationSent = false;
+      let emailFailedMessage = '';
+
+      if (sanitizedEmail !== currentUser.email) {
+        try {
+          const { error: emailErr } = await supabase.auth.updateUser({ email: sanitizedEmail });
+          if (emailErr) {
+            if (emailErr.status === 429 || emailErr.message?.toLowerCase().includes('rate limit')) {
+              emailFailedMessage = 'Profile details saved, but email update failed due to rate limits. Please try again later.';
+            } else {
+              throw emailErr;
+            }
+          } else {
+            emailVerificationSent = true;
+          }
+        } catch (e) {
+          emailFailedMessage = `Profile details saved, but email update failed: ${e.message}`;
+        }
+      }
+
+      if (emailFailedMessage) {
+        setError(emailFailedMessage);
+      } else if (emailVerificationSent) {
+        setSuccess('Profile updated! A verification link was sent to your new email.');
       } else {
         setSuccess('Profile successfully updated! ✅');
       }
       setIsEditing(false);
-      setTimeout(() => setSuccess(''), 4000);
+      setTimeout(() => setSuccess(''), 5000);
       
     } catch (err) {
       setError(err.message || 'Failed to update profile.');
@@ -122,6 +144,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoURL(reader.result);
+        setIsEditing(true); // Reveal the 'Save Changes' button
       };
       reader.readAsDataURL(file);
     }

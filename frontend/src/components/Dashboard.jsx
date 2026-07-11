@@ -3,7 +3,7 @@ import { useSettings } from '../context/SettingsContext';
 import { Package, TrendUp, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText } from '@phosphor-icons/react';
 
 export default function Dashboard({ parts, transactions, logs, setPage, setSelectedCategory }) {
-  const { formatCurrency, displayCurrency } = useSettings();
+  const { formatCurrency, formatCompactCurrency, displayCurrency } = useSettings();
   // Calculations
   const totalParts = parts.length;
   const inventoryValue = parts.reduce((sum, item) => sum + (item.price * item.stock), 0);
@@ -62,46 +62,46 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
 
         {/* Total Inventory Value */}
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-emerald-500/30 transition-all duration-300">
-          <div className="space-y-2 min-w-0">
+          <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Asset Value</span>
-            <h3 className="text-3xl font-bold text-foreground font-display truncate">
-              {formatCurrency(inventoryValue)}
+            <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatCurrency(inventoryValue)}>
+              {formatCompactCurrency(inventoryValue)}
             </h3>
             <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
-              <TrendUp weight="duotone" className="w-3.5 h-3.5" /> Stable stock value
+              <TrendUp weight="duotone" className="w-3.5 h-3.5 shrink-0" /> Stable stock
             </p>
           </div>
-          <div className="shrink-0 p-3 bg-emerald-500/10 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 dark:border-emerald-500/20">
+          <div className="shrink-0 ml-3 p-3 bg-emerald-500/10 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 dark:border-emerald-500/20">
             <CurrencyDollar weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Low Stock Alerts */}
         <div className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 ${lowStockItems.length > 0 ? 'border-t-accent/50' : 'border-t-border'}`}>
-          <div className="space-y-2 min-w-0">
+          <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Stock Warnings</span>
             <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? 'text-red-500 glow-text-red' : 'text-muted-foreground'}`}>
               {lowStockItems.length}
             </h3>
             <p className="text-xs text-muted-foreground truncate">
-              {lowStockItems.length > 0 ? 'Requires immediate action' : 'All items well-stocked'}
+              {lowStockItems.length > 0 ? 'Requires action' : 'All well-stocked'}
             </p>
           </div>
-          <div className={`shrink-0 p-3 rounded-xl border ${lowStockItems.length > 0 ? 'bg-red-950/20 text-red-500 border-red-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border'}`}>
+          <div className={`shrink-0 ml-3 p-3 rounded-xl border ${lowStockItems.length > 0 ? 'bg-red-950/20 text-red-500 border-red-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border'}`}>
             <Warning weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Total Sales Value */}
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-amber-500/30 transition-all duration-300">
-          <div className="space-y-2 min-w-0">
+          <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Invoiced Sales</span>
-            <h3 className="text-3xl font-bold text-foreground font-display truncate">
-              {formatCurrency(totalRevenue)}
+            <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatCurrency(totalRevenue)}>
+              {formatCompactCurrency(totalRevenue)}
             </h3>
             <p className="text-xs text-muted-foreground truncate">{transactions.length} invoices generated</p>
           </div>
-          <div className="shrink-0 p-3 bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 rounded-xl border border-amber-500/30 dark:border-amber-700/30">
+          <div className="shrink-0 ml-3 p-3 bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 rounded-xl border border-amber-500/30 dark:border-amber-700/30">
             <FileText weight="duotone" className="w-6 h-6" />
           </div>
         </div>
@@ -163,6 +163,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
               onClick={() => {
                 setSelectedCategory('All');
                 setPage('catalog');
+                setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
               }}
               className="w-full flex items-center justify-center gap-1 py-2 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-950/10 rounded-lg transition-colors"
             >
@@ -181,26 +182,42 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             </div>
             
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-              {logs.map((log) => {
-                let badgeColor = "bg-secondary text-muted-foreground border-border";
-                if (log.type === "sale") badgeColor = "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 dark:border-emerald-800/35";
-                if (log.type === "stock") badgeColor = "bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/30 dark:border-brandBlue-700/30";
-                if (log.type === "system") badgeColor = "bg-indigo-500/10 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 dark:border-indigo-800/35";
+              {(() => {
+                const combinedLogs = [
+                  ...logs,
+                  ...transactions.map(tx => ({
+                    id: `tx-${tx.id}`,
+                    timestamp: tx.transactionDate || tx.createdAt,
+                    type: 'sale',
+                    message: `Sale completed for ${tx.customerName || 'Walk-in'} (${formatCurrency(tx.total)})`
+                  }))
+                ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 20);
 
-                return (
-                  <div key={log.id} className="flex gap-3 text-xs leading-relaxed group">
-                    <span className={`px-2 py-0.5 rounded border self-start shrink-0 capitalize ${badgeColor}`}>
-                      {log.type}
-                    </span>
-                    <div className="space-y-1">
-                      <p className="text-muted-foreground group-hover:text-foreground transition-colors">{log.message}</p>
-                      <span className="text-2xs text-muted-foreground font-mono">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                if (combinedLogs.length === 0) {
+                  return <div className="text-sm text-muted-foreground py-4 text-center">No recent activities found.</div>;
+                }
+
+                return combinedLogs.map((log) => {
+                  let badgeColor = "bg-secondary text-muted-foreground border-border";
+                  if (log.type === "sale") badgeColor = "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 dark:border-emerald-800/35";
+                  if (log.type === "stock") badgeColor = "bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/30 dark:border-brandBlue-700/30";
+                  if (log.type === "system") badgeColor = "bg-indigo-500/10 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 dark:border-indigo-800/35";
+
+                  return (
+                    <div key={log.id} className="flex gap-3 text-xs leading-relaxed group">
+                      <span className={`px-2 py-0.5 rounded border self-start shrink-0 capitalize ${badgeColor}`}>
+                        {log.type}
                       </span>
+                      <div className="space-y-1">
+                        <p className="text-muted-foreground group-hover:text-foreground transition-colors">{log.message}</p>
+                        <span className="text-2xs text-muted-foreground font-mono">
+                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
           

@@ -1,17 +1,35 @@
 /**
- * authStore.js
+ * authStore.js — barrel re-export.
  *
- * All auth flows (admin + customer) now go through the backend API.
- * Nothing is hardcoded. Sessions are stored in localStorage/sessionStorage
- * as lightweight wrappers around the JWT returned by the backend.
+ * All API, validation, and auth logic now lives in:
+ *   api/apiClient.js    — HTTP methods + token management
+ *   api/validators.js   — field validation helpers
+ *
+ * This file re-exports everything so existing imports still work.
  */
+
+import { supabase } from './supabaseClient';
+import { apiGet, apiPost, apiPut, apiDelete, invalidateToken } from "./api/apiClient";
+import {
+  validateEmail,
+  validateLoginFields,
+  validateRegistrationFields,
+  validateVerificationCode,
+} from "./api/validators";
+
+export {
+  validateEmail,
+  validateLoginFields,
+  validateRegistrationFields,
+  validateVerificationCode,
+};
 
 const CUSTOMER_SESSION_KEY = 'ttp_customer_session_v1';
 const ADMIN_SESSION_KEY    = 'ttp_admin_session_v1';
 const ADMIN_SECURITY_KEY   = 'ttp_admin_security_v1';
 
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_DURATION_MS    = 15 * 60 * 1000; // 15 min
+const LOCK_DURATION_MS    = 15 * 60 * 1000;
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -61,7 +79,7 @@ const setAdminSecurityState = (state) => {
   window.localStorage.setItem(ADMIN_SECURITY_KEY, JSON.stringify(state));
 };
 
-// ── JWT decode helper ────────────────────────────────────────────────────────
+// ── JWT decode ───────────────────────────────────────────────────────────────
 
 function decode_jwt(token) {
   try {
@@ -72,139 +90,25 @@ function decode_jwt(token) {
   }
 }
 
-// ── API base URL ─────────────────────────────────────────────────────────────
+// ── API helpers ──────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
-
-import { supabase } from './supabaseClient';
-
-let _cachedToken = null;
-let _tokenExpiry = 0;
-
-async function getAuthHeaders() {
-  const headers = { 'Content-Type': 'application/json' };
+const api = (fn) => async (...args) => {
   try {
-    const now = Date.now();
-    if (!_cachedToken || now > _tokenExpiry) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        _cachedToken = session.access_token;
-        _tokenExpiry = now + 60_000;
-      } else {
-        _cachedToken = null;
-        _tokenExpiry = 0;
-      }
-    }
-    if (_cachedToken) {
-      headers['Authorization'] = `Bearer ${_cachedToken}`;
-    }
-  } catch (e) {
-    console.warn('Supabase token error', e);
+    return await fn(...args);
+  } catch {
+    return { ok: false, error: 'Could not reach the backend server. Is it running?' };
   }
-  return headers;
-}
+};
 
-async function api_post(path, body, timeout_ms = 8000) {
+const apiCatch = (fn) => async (...args) => {
   try {
-    const headers = await getAuthHeaders();
-    console.log(`[API POST] Requesting ${path} with body:`, body, 'and headers:', headers);
-    const res = await fetch(`${API_BASE}${path}`, {
-      method:  'POST',
-      headers,
-      body:    JSON.stringify(body),
-      signal:  AbortSignal.timeout(timeout_ms),
-    });
-    let data;
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      data = { msg: text || `HTTP error ${res.status}` };
-    }
-    console.log(`[API POST] Response from ${path}:`, res.status, data);
-    return { ok: res.ok, status: res.status, data };
+    const { ok, data } = await fn(...args);
+    return ok ? data : [];
   } catch (err) {
-    console.error(`[API POST] Request to ${path} failed:`, err);
-    throw err;
+    console.error(`Failed: ${fn.name}`, err);
+    return [];
   }
-}
-
-async function api_put(path, body, timeout_ms = 8000) {
-  try {
-    const headers = await getAuthHeaders();
-    console.log(`[API PUT] Requesting ${path} with body:`, body, 'and headers:', headers);
-    const res = await fetch(`${API_BASE}${path}`, {
-      method:  'PUT',
-      headers,
-      body:    JSON.stringify(body),
-      signal:  AbortSignal.timeout(timeout_ms),
-    });
-    let data;
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      data = { msg: text || `HTTP error ${res.status}` };
-    }
-    console.log(`[API PUT] Response from ${path}:`, res.status, data);
-    return { ok: res.ok, status: res.status, data };
-  } catch (err) {
-    console.error(`[API PUT] Request to ${path} failed:`, err);
-    throw err;
-  }
-}
-
-async function api_delete(path, timeout_ms = 8000) {
-  try {
-    const headers = await getAuthHeaders();
-    console.log(`[API DELETE] Requesting ${path} with headers:`, headers);
-    const res = await fetch(`${API_BASE}${path}`, {
-      method:  'DELETE',
-      headers,
-      signal:  AbortSignal.timeout(timeout_ms),
-    });
-    let data;
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      data = { msg: text || `HTTP error ${res.status}` };
-    }
-    console.log(`[API DELETE] Response from ${path}:`, res.status, data);
-    return { ok: res.ok, status: res.status, data };
-  } catch (err) {
-    console.error(`[API DELETE] Request to ${path} failed:`, err);
-    throw err;
-  }
-}
-
-async function api_get(path, timeout_ms = 15000) {
-  try {
-    const headers = await getAuthHeaders();
-    console.log(`[API GET] Requesting ${path} with headers:`, headers);
-    const res = await fetch(`${API_BASE}${path}`, {
-      method:  'GET',
-      headers,
-      signal:  AbortSignal.timeout(timeout_ms),
-    });
-    let data;
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      data = { msg: text || `HTTP error ${res.status}` };
-    }
-    console.log(`[API GET] Response from ${path}:`, res.status, data);
-    return { ok: res.ok, status: res.status, data };
-  } catch (err) {
-    console.error(`[API GET] Request to ${path} failed:`, err);
-    throw err;
-  }
-}
+};
 
 // ── Parts & Categories fetching ─────────────────────────────────────────────
 
@@ -214,15 +118,13 @@ export const fetchParts = async (search = '', category = 'All', filters = {}) =>
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (category && category !== 'All') params.append('category', category);
-    
-    // TTP-68 compatibility filters
     if (filters.brand) params.append('brand', filters.brand);
     if (filters.series) params.append('series', filters.series);
     if (filters.engineCode) params.append('engineCode', filters.engineCode);
     if (params.toString()) query = `?${params.toString()}`;
-    
-    const { ok, data } = await api_get(`/api/parts${query}`);
-    return ok ? data : [];
+
+    const { ok, data } = await apiGet(`/api/parts${query}`, { supabase });
+    return ok ? (data.data || data) : [];
   } catch (err) {
     console.error('Failed to fetch parts:', err);
     return [];
@@ -231,7 +133,7 @@ export const fetchParts = async (search = '', category = 'All', filters = {}) =>
 
 export const fetchCategories = async () => {
   try {
-    const { ok, data } = await api_get('/api/parts/categories');
+    const { ok, data } = await apiGet('/api/parts/categories', { supabase });
     return ok ? ['All', ...data.filter(c => c !== 'All')] : ['All'];
   } catch (err) {
     console.error('Failed to fetch categories:', err);
@@ -241,7 +143,7 @@ export const fetchCategories = async () => {
 
 export const fetchVehicleOptions = async () => {
   try {
-    const { ok, data } = await api_get('/api/parts/vehicle-options');
+    const { ok, data } = await apiGet('/api/parts/vehicle-options', { supabase });
     return ok ? data : [];
   } catch (err) {
     console.error('Failed to fetch vehicle options:', err);
@@ -253,7 +155,7 @@ export const fetchVehicleOptions = async () => {
 
 export const fetchCustomerProfile = async () => {
   try {
-    const { ok, data } = await api_get('/api/customers/me');
+    const { ok, data } = await apiGet('/api/customers/me', { supabase });
     return ok ? data : null;
   } catch (err) {
     console.error('Failed to fetch customer profile:', err);
@@ -263,7 +165,7 @@ export const fetchCustomerProfile = async () => {
 
 export const updateCustomerProfile = async (profileData) => {
   try {
-    const { ok, data } = await api_put('/api/customers/me', profileData);
+    const { ok, data } = await apiPut('/api/customers/me', profileData, { supabase });
     return ok ? data : null;
   } catch (err) {
     console.error('Failed to update customer profile:', err);
@@ -275,7 +177,7 @@ export const updateCustomerProfile = async (profileData) => {
 
 export const fetchStaffRoles = async () => {
   try {
-    const { ok, data } = await api_get('/api/staff');
+    const { ok, data } = await apiGet('/api/staff', { supabase });
     return ok ? data : [];
   } catch (err) {
     console.error('Failed to fetch staff roles:', err);
@@ -285,7 +187,7 @@ export const fetchStaffRoles = async () => {
 
 export const checkStaffRole = async (email) => {
   try {
-    const { ok, data } = await api_post('/api/staff/check', { email });
+    const { ok, data } = await apiPost('/api/staff/check', { email }, { supabase });
     return ok ? data : null;
   } catch (err) {
     console.error('Failed to check staff role:', err);
@@ -293,88 +195,20 @@ export const checkStaffRole = async (email) => {
   }
 };
 
-export const createStaffRole = async (payload) => {
-  try {
-    const { ok, data } = await api_post('/api/staff', payload);
-    return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to add staff' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const createStaffRole = api(async (payload) => {
+  const { ok, data } = await apiPost('/api/staff', payload, { supabase });
+  return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to add staff' };
+});
 
-export const updateStaffRole = async (id, payload) => {
-  try {
-    const { ok, data } = await api_put(`/api/staff/${id}`, payload);
-    return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to update staff' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const updateStaffRole = api(async (id, payload) => {
+  const { ok, data } = await apiPut(`/api/staff/${id}`, payload, { supabase });
+  return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to update staff' };
+});
 
-export const deleteStaffRole = async (id) => {
-  try {
-    const { ok, data } = await api_delete(`/api/staff/${id}`);
-    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete staff' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
-
-
-// ── Validation helpers (used by UI) ─────────────────────────────────────────
-
-const validateFullName = (value) => {
-  if (!value || value.trim().length < 3) return 'Full name must be at least 3 characters.';
-  return '';
-};
-
-const validateContactNumber = (value) => {
-  if (!value) return 'Contact number is required.';
-  const stripped = value.replace(/\s+/g, '');
-  if (!/^(\+63|0)[0-9]{10}$/.test(stripped)) {
-    return 'Must be a valid PH number (e.g., 0917 123 4567 or +63 917 123 4567).';
-  }
-  return '';
-};
-
-const validateEmail = (value) => {
-  if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()))
-    return 'Enter a valid email address.';
-  return '';
-};
-
-const validatePassword = (value) => {
-  if (!value || value.length < 8) return 'Password must be at least 8 characters.';
-  if (!/[A-Za-z]/.test(value) || !/[0-9]/.test(value))
-    return 'Password must include both letters and numbers.';
-  return '';
-};
-
-export const validateVerificationCode = (value) => {
-  if (!value || !/^\d{6}$/.test(value.trim())) return 'Enter the 6-digit verification code.';
-  return '';
-};
-
-const validateRegistrationFields = ({ fullName, contactNumber, email, password }) => {
-  const errors = {};
-  const fn = validateFullName(fullName);
-  const cn = validateContactNumber(contactNumber);
-  const em = validateEmail(email);
-  const pw = validatePassword(password);
-  if (fn) errors.fullName       = fn;
-  if (cn) errors.contactNumber  = cn;
-  if (em) errors.email          = em;
-  if (pw) errors.password       = pw;
-  return errors;
-};
-
-const validateLoginFields = ({ email, password }) => {
-  const errors = {};
-  const em = validateEmail(email);
-  if (em) errors.email = em;
-  if (!password) errors.password = 'Password is required.';
-  return errors;
-};
+export const deleteStaffRole = api(async (id) => {
+  const { ok, data } = await apiDelete(`/api/staff/${id}`, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete staff' };
+});
 
 // ── Session management ───────────────────────────────────────────────────────
 
@@ -391,7 +225,7 @@ const getActiveSession = () => {
 
 // ── Admin login ──────────────────────────────────────────────────────────────
 
-const loginAdmin = async ({ email, password }) => {
+export const loginAdmin = async ({ email, password }) => {
   const errors = validateLoginFields({ email, password });
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -408,10 +242,10 @@ const loginAdmin = async ({ email, password }) => {
   }
 
   try {
-    const { ok, data } = await api_post('/api/auth/admin/login', {
+    const { ok, data } = await apiPost('/api/auth/admin/login', {
       email:    email.trim().toLowerCase(),
       password,
-    });
+    }, { supabase });
 
     if (!ok) {
       const failed_attempts = (security.failedAttempts || 0) + 1;
@@ -447,17 +281,17 @@ const loginAdmin = async ({ email, password }) => {
 
 // ── Customer registration ────────────────────────────────────────────────────
 
-const registerCustomer = async ({ fullName, contactNumber, email, password }) => {
+export const registerCustomer = async ({ fullName, contactNumber, email, password }) => {
   const errors = validateRegistrationFields({ fullName, contactNumber, email, password });
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   try {
-    const { ok, data } = await api_post('/api/auth/register', {
+    const { ok, data } = await apiPost('/api/auth/register', {
       full_name:      fullName.trim(),
       contact_number: contactNumber.trim(),
       email:          email.trim().toLowerCase(),
       password,
-    });
+    }, { supabase });
 
     if (!ok) {
       if (data.msg?.toLowerCase().includes('email already')) {
@@ -479,12 +313,12 @@ const registerCustomer = async ({ fullName, contactNumber, email, password }) =>
 
 // ── Verify email ─────────────────────────────────────────────────────────────
 
-const verifyCustomerEmail = async ({ email, code }) => {
+export const verifyCustomerEmail = async ({ email, code }) => {
   try {
-    const { ok, data } = await api_post('/api/auth/verify', {
+    const { ok, data } = await apiPost('/api/auth/verify', {
       email: email.trim().toLowerCase(),
       code:  code.trim(),
-    });
+    }, { supabase });
 
     if (!ok) return { ok: false, error: data.msg || 'Verification failed.' };
     return { ok: true, message: data.msg };
@@ -495,11 +329,11 @@ const verifyCustomerEmail = async ({ email, code }) => {
 
 // ── Resend verification code ─────────────────────────────────────────────────
 
-const resendVerificationCode = async (email) => {
+export const resendVerificationCode = async (email) => {
   try {
-    const { ok, data } = await api_post('/api/auth/resend-verify', {
+    const { ok, data } = await apiPost('/api/auth/resend-verify', {
       email: email.trim().toLowerCase(),
-    });
+    }, { supabase });
 
     if (!ok) return { ok: false, error: data.msg || 'Failed to resend code.' };
     return {
@@ -514,15 +348,15 @@ const resendVerificationCode = async (email) => {
 
 // ── Customer login ───────────────────────────────────────────────────────────
 
-const loginCustomer = async ({ email, password, rememberMe }) => {
+export const loginCustomer = async ({ email, password, rememberMe }) => {
   const errors = validateLoginFields({ email, password });
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   try {
-    const { ok, status, data } = await api_post('/api/auth/login', {
+    const { ok, status, data } = await apiPost('/api/auth/login', {
       email:    email.trim().toLowerCase(),
       password,
-    });
+    }, { supabase });
 
     if (!ok) {
       return {
@@ -555,16 +389,16 @@ const loginCustomer = async ({ email, password, rememberMe }) => {
 
 // ── Password reset request ───────────────────────────────────────────────────
 
-const requestPasswordReset = async (email) => {
+export const requestPasswordReset = async (email) => {
   try {
-    const { ok, data } = await api_post('/api/auth/reset-request', {
+    const { ok, data } = await apiPost('/api/auth/reset-request', {
       email: email.trim().toLowerCase(),
-    });
+    }, { supabase });
     if (!ok) return { ok: false, error: data.msg || 'Failed to request reset.' };
     return {
       ok:         true,
       message:    data.msg,
-      resetToken: data.reset_token, // dev-only; in prod this comes via email link
+      resetToken: data.reset_token,
     };
   } catch {
     return { ok: false, error: 'Could not reach the backend server. Is it running?' };
@@ -573,9 +407,9 @@ const requestPasswordReset = async (email) => {
 
 // ── Password reset apply ─────────────────────────────────────────────────────
 
-const resetPassword = async ({ token, password }) => {
+export const resetPassword = async ({ token, password }) => {
   try {
-    const { ok, data } = await api_post(`/api/auth/reset/${token}`, { password });
+    const { ok, data } = await apiPost(`/api/auth/reset/${token}`, { password }, { supabase });
     if (!ok) return { ok: false, error: data.msg || 'Password reset failed.' };
     return { ok: true, message: data.msg };
   } catch {
@@ -585,13 +419,13 @@ const resetPassword = async ({ token, password }) => {
 
 // ── Change Password (Authenticated) ──────────────────────────────────────────
 
-const changePassword = async ({ email, currentPassword, newPassword }) => {
+export const changePassword = async ({ email, currentPassword, newPassword }) => {
   try {
-    const { ok, data } = await api_post('/api/auth/change-password', {
+    const { ok, data } = await apiPost('/api/auth/change-password', {
       email: email.trim().toLowerCase(),
       current_password: currentPassword,
       new_password: newPassword,
-    });
+    }, { supabase });
     if (!ok) return { ok: false, error: data.msg || 'Password change failed.' };
     return { ok: true, message: data.msg };
   } catch {
@@ -601,14 +435,14 @@ const changePassword = async ({ email, currentPassword, newPassword }) => {
 
 // ── Verification notice helper (used by UI) ──────────────────────────────────
 
-const getVerificationNotice = (email, code) =>
+export const getVerificationNotice = (email, code) =>
   `Verification code sent to ${email}. Demo code: ${code}`;
 
 // ── Categories CRUD ──────────────────────────────────────────────────────────
 
 export const fetchCategoriesList = async () => {
   try {
-    const { ok, data } = await api_get('/api/categories');
+    const { ok, data } = await apiGet('/api/categories', { supabase });
     return ok ? data : [];
   } catch (err) {
     console.error('Failed to fetch categories list:', err);
@@ -616,90 +450,54 @@ export const fetchCategoriesList = async () => {
   }
 };
 
-export const createCategory = async ({ name, parentCategory, iconName, colorTheme }) => {
-  try {
-    const { ok, data } = await api_post('/api/categories', { name, parentCategory, iconName, colorTheme });
-    return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to create category.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const createCategory = api(async ({ name, parentCategory, iconName, colorTheme }) => {
+  const { ok, data } = await apiPost('/api/categories', { name, parentCategory, iconName, colorTheme }, { supabase });
+  return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to create category.' };
+});
 
-export const updateCategory = async (id, { name, parentCategory, iconName, colorTheme }) => {
-  try {
-    const { ok, data } = await api_put(`/api/categories/${id}`, { name, parentCategory, iconName, colorTheme });
-    return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to update category.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const updateCategory = api(async (id, { name, parentCategory, iconName, colorTheme }) => {
+  const { ok, data } = await apiPut(`/api/categories/${id}`, { name, parentCategory, iconName, colorTheme }, { supabase });
+  return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to update category.' };
+});
 
-export const deleteCategory = async (id) => {
-  try {
-    const { ok, data } = await api_delete(`/api/categories/${id}`);
-    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete category.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const deleteCategory = api(async (id) => {
+  const { ok, data } = await apiDelete(`/api/categories/${id}`, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete category.' };
+});
 
 // ── Parts CRUD ───────────────────────────────────────────────────────────────
 
-export const createPart = async (partData) => {
-  try {
-    const { ok, data } = await api_post('/api/parts', partData);
-    return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to create part.' };
-  } catch (err) {
-    console.error('[createPart Error]', err);
-    return { ok: false, error: err.message || 'Server connection failed.' };
-  }
-};
+export const createPart = api(async (partData) => {
+  const { ok, data } = await apiPost('/api/parts', partData, { supabase });
+  return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to create part.' };
+});
 
-export const updatePart = async (id, partData) => {
-  try {
-    const { ok, data } = await api_put(`/api/parts/${id}`, partData);
-    return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to update part.' };
-  } catch (err) {
-    console.error('[updatePart Error]', err);
-    return { ok: false, error: err.message || 'Server connection failed.' };
-  }
-};
+export const updatePart = api(async (id, partData) => {
+  const { ok, data } = await apiPut(`/api/parts/${id}`, partData, { supabase });
+  return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to update part.' };
+});
 
-export const deletePart = async (id) => {
-  try {
-    const { ok, data } = await api_delete(`/api/parts/${id}`);
-    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete part.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const deletePart = api(async (id) => {
+  const { ok, data } = await apiDelete(`/api/parts/${id}`, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete part.' };
+});
 
 // ── Transactions ─────────────────────────────────────────────────────────────
 
-export const createTransaction = async (txData) => {
-  try {
-    const { ok, data } = await api_post('/api/transactions', txData);
-    return ok ? { ok: true, transaction: data.transaction } : { ok: false, error: data.msg || 'Failed to create transaction.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const createTransaction = api(async (txData) => {
+  const { ok, data } = await apiPost('/api/transactions', txData, { supabase });
+  return ok ? { ok: true, transaction: data.transaction } : { ok: false, error: data.msg || 'Failed to create transaction.' };
+});
 
-export const fetchTransactions = async () => {
-  try {
-    const { ok, data } = await api_get('/api/transactions');
-    return ok ? data : [];
-  } catch (err) {
-    console.error('Failed to fetch transactions:', err);
-    return [];
-  }
-};
+export const fetchTransactions = apiCatch(async () => {
+  return await apiGet('/api/transactions', { supabase });
+});
 
 // ── Settings & Adjustments ───────────────────────────────────────────────────
 
 export const fetchSettings = async () => {
   try {
-    const { ok, data } = await api_get('/api/settings');
+    const { ok, data } = await apiGet('/api/settings', { supabase });
     return ok ? data : null;
   } catch (err) {
     console.error('Failed to fetch settings:', err);
@@ -707,29 +505,21 @@ export const fetchSettings = async () => {
   }
 };
 
-export const updateSettings = async (settingsData) => {
-  try {
-    const { ok, data } = await api_post('/api/settings', settingsData);
-    return ok ? { ok: true, settings: data } : { ok: false, error: data.msg || 'Failed to update settings.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const updateSettings = api(async (settingsData) => {
+  const { ok, data } = await apiPost('/api/settings', settingsData, { supabase });
+  return ok ? { ok: true, settings: data } : { ok: false, error: data.msg || 'Failed to update settings.' };
+});
 
-const bulkAdjustPrices = async (percentage) => {
-  try {
-    const { ok, data } = await api_post('/api/parts/bulk-adjust', { percentage });
-    return ok ? { ok: true, message: data.msg } : { ok: false, error: data.msg || 'Failed to bulk adjust prices.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const bulkAdjustPrices = api(async (percentage) => {
+  const { ok, data } = await apiPost('/api/parts/bulk-adjust', { percentage }, { supabase });
+  return ok ? { ok: true, message: data.msg } : { ok: false, error: data.msg || 'Failed to bulk adjust prices.' };
+});
 
 // ── Suppliers ────────────────────────────────────────────────────────────────
 
 export const fetchSuppliers = async (archived = false) => {
   try {
-    const { ok, data } = await api_get(`/api/suppliers${archived ? '?archived=true' : ''}`);
+    const { ok, data } = await apiGet(`/api/suppliers${archived ? '?archived=true' : ''}`, { supabase });
     return ok ? data : [];
   } catch (err) {
     console.error('Failed to fetch suppliers:', err);
@@ -737,111 +527,66 @@ export const fetchSuppliers = async (archived = false) => {
   }
 };
 
-export const createSupplier = async (supplierData) => {
-  try {
-    const { ok, data } = await api_post('/api/suppliers', supplierData);
-    return ok ? { ok: true, supplier: data } : { ok: false, error: data.msg || 'Failed to create supplier.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const createSupplier = api(async (supplierData) => {
+  const { ok, data } = await apiPost('/api/suppliers', supplierData, { supabase });
+  return ok ? { ok: true, supplier: data } : { ok: false, error: data.msg || 'Failed to create supplier.' };
+});
 
-export const updateSupplier = async (id, supplierData) => {
-  try {
-    const { ok, data } = await api_put(`/api/suppliers/${id}`, supplierData);
-    return ok ? { ok: true, supplier: data } : { ok: false, error: data.msg || 'Failed to update supplier.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const updateSupplier = api(async (id, supplierData) => {
+  const { ok, data } = await apiPut(`/api/suppliers/${id}`, supplierData, { supabase });
+  return ok ? { ok: true, supplier: data } : { ok: false, error: data.msg || 'Failed to update supplier.' };
+});
 
-// Soft delete (archive)
-export const archiveSupplier = async (id) => {
-  try {
-    const { ok, data } = await api_delete(`/api/suppliers/${id}`);
-    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to archive supplier.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const archiveSupplier = api(async (id) => {
+  const { ok, data } = await apiDelete(`/api/suppliers/${id}`, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to archive supplier.' };
+});
 
-// Restore archived supplier
-export const restoreSupplier = async (id) => {
-  try {
-    const { ok, data } = await api_put(`/api/suppliers/${id}/restore`, {});
-    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to restore supplier.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const restoreSupplier = api(async (id) => {
+  const { ok, data } = await apiPut(`/api/suppliers/${id}/restore`, {}, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to restore supplier.' };
+});
 
-// Keep backward compat alias
-const deleteSupplier = archiveSupplier;
+export const deleteSupplier = archiveSupplier;
 
 // ── Purchase Orders ──────────────────────────────────────────────────────────
 
-export const fetchPurchaseOrders = async () => {
-  try {
-    const { ok, data } = await api_get('/api/purchase-orders');
-    return ok ? data : [];
-  } catch (err) {
-    console.error('Failed to fetch POs:', err);
-    return [];
-  }
-};
+export const fetchPurchaseOrders = apiCatch(async () => {
+  return await apiGet('/api/purchase-orders', { supabase });
+});
 
-export const createPurchaseOrder = async (poData) => {
-  try {
-    const { ok, data } = await api_post('/api/purchase-orders', poData);
-    return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to create Purchase Order.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const createPurchaseOrder = api(async (poData) => {
+  const { ok, data } = await apiPost('/api/purchase-orders', poData, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to create Purchase Order.' };
+});
 
-export const updatePurchaseOrderStatus = async (id, status) => {
-  try {
-    const { ok, data } = await api_put(`/api/purchase-orders/${id}/status`, { status });
-    return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update PO status.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const updatePurchaseOrderStatus = api(async (id, status) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/status`, { status }, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update PO status.' };
+});
 
-export const updatePoBillingStatus = async (id, billingStatus) => {
-  try {
-    const { ok, data } = await api_put(`/api/purchase-orders/${id}/billing`, { billingStatus });
-    return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update billing status.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const updatePoBillingStatus = api(async (id, billingStatus) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/billing`, { billingStatus }, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update billing status.' };
+});
 
 // ── Parts (extended) ─────────────────────────────────────────────────────────
 
-export const togglePartPublished = async (id, published) => {
-  try {
-    const { ok, data } = await api_put(`/api/parts/${id}/published`, { published });
-    return ok ? { ok: true, published: data.published } : { ok: false, error: data.msg };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const togglePartPublished = api(async (id, published) => {
+  const { ok, data } = await apiPut(`/api/parts/${id}/published`, { published }, { supabase });
+  return ok ? { ok: true, published: data.published } : { ok: false, error: data.msg };
+});
 
-const restorePart = async (id) => {
-  try {
-    const { ok, data } = await api_put(`/api/parts/${id}/restore`, {});
-    return ok ? { ok: true } : { ok: false, error: data.msg };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const restorePart = api(async (id) => {
+  const { ok, data } = await apiPut(`/api/parts/${id}/restore`, {}, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg };
+});
 
 // ── Reviews ──────────────────────────────────────────────────────────────────
 
 export const fetchReviews = async (partId) => {
   try {
-    const { ok, data } = await api_get(`/api/reviews/${partId}`);
+    const { ok, data } = await apiGet(`/api/reviews/${partId}`, { supabase });
     return ok ? data : { reviews: [], stats: { totalReviews: 0, averageRating: 0 } };
   } catch (err) {
     console.error('Failed to fetch reviews:', err);
@@ -849,20 +594,12 @@ export const fetchReviews = async (partId) => {
   }
 };
 
-export const createReview = async (reviewData) => {
-  try {
-    const { ok, data } = await api_post('/api/reviews', reviewData);
-    return ok ? { ok: true, review: data } : { ok: false, error: data.msg || 'Failed to submit review.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const createReview = api(async (reviewData) => {
+  const { ok, data } = await apiPost('/api/reviews', reviewData, { supabase });
+  return ok ? { ok: true, review: data } : { ok: false, error: data.msg || 'Failed to submit review.' };
+});
 
-export const deleteReview = async (id) => {
-  try {
-    const { ok, data } = await api_delete(`/api/reviews/${id}`);
-    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete review.' };
-  } catch {
-    return { ok: false, error: 'Server connection failed.' };
-  }
-};
+export const deleteReview = api(async (id) => {
+  const { ok, data } = await apiDelete(`/api/reviews/${id}`, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete review.' };
+});
