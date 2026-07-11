@@ -1,0 +1,165 @@
+TYPE,KEY,SUMMARY,STATUS
+Subtask,TTP-169,Link categories to parts records,Done
+Subtask,TTP-168,Allow creation and editing of categories and subcategories,Done
+Subtask,TTP-167,Build category management UI,Done
+Subtask,TTP-166,Reflect changes in inventory,In Progress
+Subtask,TTP-165,Save adjustment history to database,In Progress
+Subtask,TTP-164,Add mandatory reason log field,In Progress
+Subtask,TTP-163,Build stock adjustment form UI,In Progress
+Subtask,TTP-162,Reflect changes instantly across catalog and dashboard,In Progress
+Subtask,TTP-161,Implement stock increment logic on new stock receipt,In Progress
+Subtask,TTP-160,Implement stock deduction logic on sale completion,In Progress
+Subtask,TTP-159,Allow image upload per part,In Progress
+Subtask,TTP-158,Save records to database,In Progress
+Subtask,TTP-157,Add input validation,In Progress
+Subtask,TTP-156,"Display by day, week, and month view",To Do
+Subtask,TTP-155,Implement logic to identify high-traffic periods,To Do
+Subtask,TTP-154,Build peak period visualization UI,To Do
+Task,TTP-153,Peak Sales Period Analysis,To Do
+Subtask,TTP-152,Add date range filter,To Do
+Subtask,TTP-151,Build add/edit parts form UI,In Progress
+Subtask,TTP-150,Implement logic to flag parts with low sales movement,To Do
+Subtask,TTP-149,Build slow-moving stock report UI,To Do
+Task,TTP-148,Slow-Moving Stock Report,To Do
+Subtask,TTP-147,Add date range filter,To Do
+Subtask,TTP-146,Implement ranking logic by sales volume,To Do
+Subtask,TTP-145,Build best-selling parts report UI,To Do
+Task,TTP-144,Best-Selling Parts Report,To Do
+Subtask,TTP-142,Restrict access to admin and owner roles,To Do
+Subtask,TTP-141,"Implement daily, weekly, and monthly revenue charts",To Do
+Subtask,TTP-140,Build revenue dashboard UI,To Do
+Task,TTP-139,Revenue Overview Dashboard,To Do
+Subtask,TTP-138,Allow viewing of past daily summaries,To Do
+Subtask,TTP-137,"Display total revenue, transaction count, and top sellers",To Do
+Subtask,TTP-136,Implement end-of-day summary logic,To Do
+Task,TTP-135,Daily Sales Summary,To Do
+Task,TTP-134,Parts Category Management,Done
+Subtask,TTP-133,Pull records from database,To Do
+Subtask,TTP-132,"Implement search and filter by date, cashier, and items",To Do
+Subtask,TTP-131,Build transaction history UI,To Do
+Task,TTP-130,Transaction History Log,To Do
+Subtask,TTP-129,Reflect tags in sales reports,To Do
+Subtask,TTP-128,. Implement tagging logic in transaction records,To Do
+Subtask,TTP-127,Add customer type selection on sale screen,To Do
+Task,TTP-126,Walk-in vs Account Sale,To Do
+Subtask,TTP-125,Restrict reviews to verified purchasers,To Do
+Subtask,TTP-124,Display aggregate score on product page,To Do
+Subtask,TTP-123,Implement star rating and text input,To Do
+Subtask,TTP-122,3. Display previous orders with part details,To Do
+Subtask,TTP-121,Build review form UI,To Do
+Subtask,TTP-120,2. Implement customer search by name or account,To Do
+Subtask,TTP-119,1. Build repeat purchase lookup UI,To Do
+Subtask,TTP-118,4. Role is correctly assigned upon registration or account creation,Done
+Subtask,TTP-117,3. Customers cannot access admin-only pages even with direct URL,Done
+Subtask,TTP-116,2. Customer users can only access the customer portal,Done
+Subtask,TTP-115,1. Admin users can access the admin dashboard and all management features,Done
+Task,TTP-114,Roles and Permission,Done
+Subtask,TTP-113,3. Allow viewing of purchase history per customer,To Do
+Subtask,TTP-112,2. Display customer list with account details,To Do
+Subtask,TTP-111,1. Build customer management UI on admin dashboard,To Do
+Subtask,TTP-110,"3. Display date, items, and total per transaction",To Do
+Subtask,TTP-109,2. Pull transaction records linked to customer account,To Do
+Subtask,TTP-108,1. Build purchase history UI for customer portal,To Do
+Subtask,TTP-107,2. System rejects invalid inputs,Done
+Subtask,TTP-106,4. Confirmation message is shown after a successful update,In Review
+Subtask,TTP-105,3. Changes are saved and reflected immediately upon submission,In Review
+Subtask,TTP-104,2. System rejects invalid inputs,Done
+Subtask,TTP-103,"1. Customer can update display name, contact number, and email",In Review
+Task,TTP-102,Profile Management,In Progress
+Subtask,TTP-101,3. Display payment history per supplier profile,To Do
+Subtask,TTP-100,"2. Add date, amount, and reference number fields",To Do
+Subtask,TTP-99,1. Build payment logging UI per supplier,To Do
+Subtask,TTP-98,4. Save orders to database,In Progress
+Subtask,TTP-97,3. Add parts list and expected delivery date fields,In Progress
+Subtask,TTP-96,2. Link orders to supplier directory,In Progress
+Subtask,TTP-95,1. Build purchase order creation form,In Progress
+Task,TTP-94,Product Reviews,To Do
+Subtask,TTP-93,3. Allow editing and deletion of supplier records,In Progress
+Subtask,TTP-92,"2. Add supplier entry form with contact details, categories, and payment terms",In Progress
+Subtask,TTP-91,1. Build supplier directory UI,Done
+Task,TTP-90,Password Reset,Done
+Subtask,TTP-89,Connect filter to catalog results,To Do
+Subtask,TTP-88,"Implement filter logic by type, make, and model",To Do
+Subtask,TTP-87,Build vehicle filter UI,To Do
+Subtask,TTP-86,3. Log actual delivery dates on receipt,To Do
+Subtask,TTP-85,2. Implement status update UI,To Do
+Subtask,TTP-84,"1. Add status field to purchase orders (pending, shipped, received).",To Do
+Subtask,TTP-83,4. Invalid credentials display an appropriate error message,Done
+Subtask,TTP-82,3. Successful login redirects admin to the dashboard,Done
+Subtask,TTP-81,2. Admin credentials are not accessible via the public registration page,Done
+Subtask,TTP-80,1. Admin can log in through a separate portal,Done
+Task,TTP-79,Repeat Purchase Lookup,To Do
+Subtask,TTP-78,1. Build search bar with autocomplete,Done
+Subtask,TTP-77,4. Display matching results with stock status,Done
+Subtask,TTP-76,3. Add filter options,Done
+Task,TTP-75,Stock Adjustment,In Progress
+Subtask,TTP-74,"2. Implement search by name, brand, and specification",Done
+Subtask,TTP-72,3. Show real-time stock status and price,In Review
+Subtask,TTP-71,"2. Display images, specs, and compatibility",In Review
+Subtask,TTP-70,1. Build product detail page UI,Done
+Task,TTP-69,Customer Control,To Do
+Task,TTP-68,Parts Compatibility Filter,To Do
+Subtask,TTP-67,4. Connect to live inventory,Done
+Task,TTP-66,Admin Login,Done
+Subtask,TTP-65,"3. Add category, brand, compatibility, and price filters",Done
+Subtask,TTP-64,2. Implement pagination,Done
+Subtask,TTP-63,1. Build catalog listing UI,Done
+Task,TTP-62,Search and Filter Parts,Done
+Task,TTP-61,View Purchase History,To Do
+Task,TTP-59,Product Details,In Progress
+Task,TTP-58,Delivery Status Tracking,To Do
+Subtask,TTP-57,Display logs on admin dashboard,To Do
+Task,TTP-56,Product Listing,Done
+Subtask,TTP-55,Store logs in database,To Do
+Subtask,TTP-54,Implement request logging when chatbot detects unavailable part,To Do
+Subtask,TTP-53,Add print and download options,To Do
+Subtask,TTP-52,Implement auto-generation on sale completion,To Do
+Task,TTP-51,Out-of-Stock Request Logging,To Do
+Subtask,TTP-50,Design receipt template,To Do
+Task,TTP-48,Payment History per Supplier,To Do
+Subtask,TTP-47,4. Allow export of report,To Do
+Subtask,TTP-46,3. Pull all parts below threshold from database,To Do
+Subtask,TTP-45,2. Implement filter options,To Do
+Subtask,TTP-44,1. Build low-stock report UI,To Do
+Subtask,TTP-43,3. Show part name and current quantity in alert,Done
+Subtask,TTP-42,2. Display badge or notification on admin dashboard,Done
+Subtask,TTP-41,Allow customer to view full details of suggested parts,To Do
+Subtask,TTP-40,1. Implement alert trigger logic,Done
+Subtask,TTP-39,4. Add brute-force protection,Done
+Subtask,TTP-38,Display suggestions with stock status,To Do
+Subtask,TTP-37,3. Add remember-me option,Done
+Subtask,TTP-36,Implement alternative matching logic based on specs,To Do
+Subtask,TTP-35,2. Implement JWT authentication,Done
+Subtask,TTP-34,1. Build login form UI,Done
+Subtask,TTP-32,3. Implement trigger logic when stock hits threshold,To Do
+Subtask,TTP-31,2. Save threshold values to database,To Do
+Task,TTP-30,Alternative Part Suggestion,To Do
+Subtask,TTP-29,1. Build threshold configuration UI per part,To Do
+Task,TTP-28,Low-Stock Report,To Do
+Subtask,TTP-27,4. Connect to database,Done
+Subtask,TTP-26,3. Implement email verification flow,Done
+Subtask,TTP-25,Display matching results to customer,To Do
+Subtask,TTP-24,Connect chatbot to live inventory,To Do
+Subtask,TTP-23,Integrate natural language processing,To Do
+Task,TTP-22,Alert Notification,Done
+Task,TTP-21,Real-Time Stock Tracking,In Review
+Subtask,TTP-20,Build Chatbot User Interface,To Do
+Task,TTP-19,Purchase Order Creation,In Progress
+Task,TTP-18,Receipt Generation,To Do
+Subtask,TTP-17,2. Add input validation,Done
+Subtask,TTP-16,1. Build registration form UI,Done
+Task,TTP-15,Process Sale Transaction,To Do
+Task,TTP-14,Supplier Directory,In Progress
+Task,TTP-13,Set Minimum Stock Threshold,In Progress
+Task,TTP-12,Customer Login,Done
+Task,TTP-11,Add/Edit Parts Record,In Review
+Task,TTP-10,Customer Registration,Done
+Task,TTP-9,Natural Language Part Inquiry,To Do
+Epic,TTP-8,Inventory Management,To Do
+Epic,TTP-7,Customer Management,To Do
+Epic,TTP-6,Supplier Management,To Do
+Epic,TTP-5,Stock Management,To Do
+Epic,TTP-4,Sales Management,To Do
+Epic,TTP-3,AI Assistant,To Do
+Epic,TTP-2,User Management,To Do
+Epic,TTP-1,Parts Catalog,To Do

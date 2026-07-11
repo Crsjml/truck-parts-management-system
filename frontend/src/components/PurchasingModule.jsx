@@ -13,7 +13,7 @@ import {
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus,
   updatePoBillingStatus, togglePartPublished
 } from '../authStore';
-import { auth } from '../firebaseConfig';
+import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -25,57 +25,15 @@ import {
   AreaChart, Area, LabelList
 } from 'recharts';
 import Select from 'react-select';
-
-// ─── Custom Styles for React-Select Glassmorphism ─────────────────────────────
-export const customSelectStyles = {
-  control: (base, state) => ({
-    ...base,
-    backgroundColor: 'var(--color-secondary)',
-    borderColor: state.isFocused ? 'var(--color-accent)' : 'var(--color-border)',
-    boxShadow: state.isFocused ? '0 0 0 1px var(--color-accent)' : 'none',
-    '&:hover': {
-      borderColor: 'var(--color-accent)'
-    },
-    color: 'var(--color-foreground)',
-    borderRadius: '0.5rem',
-    minHeight: '38px',
-    padding: '0 4px',
-  }),
-  menu: (base) => ({
-    ...base,
-    backgroundColor: '#0f172a', // Tailwind slate-900 for dark mode dropdown menu
-    border: '1px solid #1e293b',
-    borderRadius: '0.5rem',
-    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
-    zIndex: 9999
-  }),
-  option: (base, state) => ({
-    ...base,
-    backgroundColor: state.isSelected 
-      ? 'var(--color-accent)' 
-      : state.isFocused 
-        ? 'rgba(255, 255, 255, 0.05)' 
-        : 'transparent',
-    color: state.isSelected ? '#fff' : '#e2e8f0', // slate-200 text
-    '&:active': {
-      backgroundColor: 'var(--color-accent)'
-    },
-    padding: '8px 12px'
-  }),
-  singleValue: (base) => ({
-    ...base,
-    color: 'var(--color-foreground)'
-  }),
-  input: (base) => ({
-    ...base,
-    color: 'var(--color-foreground)'
-  }),
-  placeholder: (base) => ({
-    ...base,
-    color: 'var(--color-muted-foreground)'
-  }),
-  menuPortal: base => ({ ...base, zIndex: 9999 })
-};
+import {
+  customSelectStyles,
+  StatusBadge,
+  StatChip,
+  PipelineChevron,
+  DragDropImageUploader,
+  ControlPanel,
+  GroupedTable
+} from './ui/PurchasingAtoms';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const NOT_ACKNOWLEDGED_DAYS = 7;
@@ -92,341 +50,6 @@ const toggleFavorite = (key, id) => {
   return next;
 };
 
-// ─── Shared UI Atoms ──────────────────────────────────────────────────────────
-const StatusBadge = ({ status }) => {
-  const map = {
-    'Draft':          'bg-secondary text-muted-foreground border-border',
-    'RFQ Sent':       'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-    'Confirmed':      'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    'Received':       'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    'Cancelled':      'bg-red-500/15 text-red-400 border-red-500/30',
-    'Waiting Bills':  'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    'Bills Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  };
-  return (
-    <span className={`px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${map[status] || map['Draft']}`}>
-      {status}
-    </span>
-  );
-};
-
-const StatChip = ({ label, count, icon: Icon, color, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
-      active ? `${color} shadow-sm` : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
-    }`}
-  >
-    {Icon && <Icon weight="duotone" className="w-3.5 h-3.5" />}
-    {label}
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${active ? 'bg-black/20' : 'bg-background'}`}>
-      {count}
-    </span>
-  </button>
-);
-
-const PipelineChevron = ({ currentStatus }) => {
-  const stages = ['Draft', 'RFQ Sent', 'Confirmed', 'Received'];
-  let idx = stages.indexOf(currentStatus);
-  if (idx === -1) idx = 0;
-  if (currentStatus === 'Cancelled')
-    return <div className="flex border border-red-500/50 rounded-lg overflow-hidden bg-red-950/20 text-red-400 font-bold px-4 py-1.5 text-xs">CANCELLED</div>;
-  return (
-    <div className="flex bg-secondary/50 rounded-lg border border-border overflow-hidden text-[10px] font-bold uppercase tracking-wider">
-      {stages.map((s, i) => (
-        <div key={s} className={`flex items-center px-3 py-2 relative transition-colors ${i === idx ? 'bg-accent text-white' : i < idx ? 'text-foreground' : 'text-muted-foreground'}`}>
-          {s}
-          {i !== stages.length - 1 && <CaretRight weight="bold" className={`absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-3 h-3 ${i === idx ? 'text-accent' : 'text-border'}`} />}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ─── Drag & Drop Image Uploader ─────────────────────────────────────────────
-const DragDropImageUploader = ({ image, onImageUpload }) => {
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') setIsDragging(true);
-    else if (e.type === 'dragleave' || e.type === 'drop') setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleChange = (e) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
-    }
-  };
-
-  const handleFile = (file) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      onImageUpload(reader.result); // Base64 string
-    };
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="text-xs font-bold text-muted-foreground">Product Image</label>
-      <div 
-        onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-        className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden ${
-          isDragging ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:bg-secondary/80'
-        }`}
-      >
-        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-        
-        {image ? (
-          <div className="relative w-full h-32 flex items-center justify-center">
-            <img src={image} alt="Preview" className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
-              <span className="text-white text-xs font-bold bg-black/60 px-3 py-1.5 rounded-md">Change Image</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center text-center">
-            <div className="w-10 h-10 bg-background rounded-full flex items-center justify-center mb-3 border border-border shadow-sm">
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold text-foreground">Click or Drag & Drop</p>
-            <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">SVG, PNG, JPG or GIF</p>
-          </div>
-        )}
-      </div>
-      {image && (
-        <button onClick={() => onImageUpload('')} className="text-xs text-red-400 hover:text-red-300 self-start font-semibold">
-          Remove Image
-        </button>
-      )}
-    </div>
-  );
-};
-
-// ─── Control Panel (Search + Filters + GroupBy + Favorites) ──────────────────
-const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilter, groupByOptions, activeGroup, onGroupBy, favoritesCount, onFavoritesFilter, showFavoritesOnly }) => {
-  const [showFilters, setShowFilters] = useState(false);
-  const [showGroup, setShowGroup] = useState(false);
-  const filterRef = useRef(null);
-  const groupRef = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilters(false);
-      if (groupRef.current && !groupRef.current.contains(e.target)) setShowGroup(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[180px] max-w-xs">
-        <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          type="text"
-          value={search}
-          onChange={e => onSearch(e.target.value)}
-          placeholder="Search..."
-          className="w-full pl-9 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
-        />
-        {search && (
-          <button onClick={() => onSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
-      {/* Filters */}
-      {filters.length > 0 && (
-        <div className="relative" ref={filterRef}>
-          <button
-            onClick={() => { setShowFilters(v => !v); setShowGroup(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${activeFilters.length > 0 ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-muted-foreground hover:text-foreground'}`}
-          >
-            <Funnel weight={activeFilters.length > 0 ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
-            Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
-          </button>
-          {showFilters && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-2xl p-2 min-w-[200px] animate-fadeIn">
-              {filters.map(f => (
-                <label key={f.value} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary cursor-pointer text-sm text-foreground transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={activeFilters.includes(f.value)}
-                    onChange={() => onFilter(f.value)}
-                    className="w-3.5 h-3.5 accent-accent"
-                  />
-                  {f.label}
-                </label>
-              ))}
-              {activeFilters.length > 0 && (
-                <button onClick={() => activeFilters.forEach(f => onFilter(f))} className="w-full mt-1 px-3 py-1.5 text-xs text-accent hover:bg-accent/10 rounded-lg text-left font-semibold">
-                  Clear filters
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Group By */}
-      {groupByOptions.length > 0 && (
-        <div className="relative" ref={groupRef}>
-          <button
-            onClick={() => { setShowGroup(v => !v); setShowFilters(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${activeGroup ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-muted-foreground hover:text-foreground'}`}
-          >
-            <ArrowsDownUp weight="regular" className="w-3.5 h-3.5" />
-            {activeGroup ? `By: ${activeGroup}` : 'Group By'}
-          </button>
-          {showGroup && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-2xl p-2 min-w-[160px] animate-fadeIn">
-              {activeGroup && (
-                <button onClick={() => { onGroupBy(null); setShowGroup(false); }} className="w-full px-3 py-2 rounded-lg hover:bg-secondary text-left text-xs text-accent font-semibold mb-1">
-                  Clear grouping
-                </button>
-              )}
-              {groupByOptions.map(g => (
-                <button key={g} onClick={() => { onGroupBy(g); setShowGroup(false); }} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${activeGroup === g ? 'text-accent font-bold bg-accent/10' : 'text-foreground hover:bg-secondary'}`}>
-                  {g}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Favorites */}
-      <button
-        onClick={onFavoritesFilter}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${showFavoritesOnly ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' : 'bg-secondary border-border text-muted-foreground hover:text-foreground'}`}
-      >
-        <Star weight={showFavoritesOnly ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
-        Favorites {favoritesCount > 0 && `(${favoritesCount})`}
-      </button>
-    </div>
-  );
-};
-
-// ─── Grouped DataTable ────────────────────────────────────────────────────────
-const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favorites, onToggleFav }) => {
-  const [sortCol, setSortCol] = useState(null);
-  const [sortDir, setSortDir] = useState('asc');
-
-  const sorted = useMemo(() => {
-    if (!sortCol) return rows;
-    return [...rows].sort((a, b) => {
-      const av = a[sortCol] ?? '';
-      const bv = b[sortCol] ?? '';
-      return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
-    });
-  }, [rows, sortCol, sortDir]);
-
-  const grouped = useMemo(() => {
-    if (!groupBy) return { '': sorted };
-    return sorted.reduce((acc, row) => {
-      const key = row[groupBy] || 'Unknown';
-      acc[key] = acc[key] || [];
-      acc[key].push(row);
-      return acc;
-    }, {});
-  }, [sorted, groupBy]);
-
-  const handleSort = (col) => {
-    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortCol(col); setSortDir('asc'); }
-  };
-
-  return (
-    <div className="glass-panel border border-border rounded-xl shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead>
-            <tr className="border-b border-border bg-secondary/80 text-muted-foreground">
-              <th className="py-2.5 px-3 w-8"></th>
-              {columns.map(col => (
-                <th
-                  key={col.key}
-                  onClick={() => col.sortable !== false && handleSort(col.key)}
-                  className={`py-2.5 px-4 text-xs font-bold uppercase tracking-wider ${col.align === 'right' ? 'text-right' : ''} ${col.sortable !== false ? 'cursor-pointer hover:text-foreground select-none' : ''}`}
-                >
-                  <span className="flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : ''}">
-                    {col.label}
-                    {sortCol === col.key && <span className="text-accent">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/50">
-            {Object.entries(grouped).map(([group, groupRows]) => (
-              <React.Fragment key={group}>
-                {groupBy && group && (
-                  <tr>
-                    <td colSpan={columns.length + 1} className="py-2 px-4 bg-secondary/40 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border/50">
-                      {group} <span className="text-accent ml-1">({groupRows.length})</span>
-                    </td>
-                  </tr>
-                )}
-                {groupRows.map((row) => (
-                  <tr
-                    key={row._id || row.id}
-                    onClick={() => onRowClick && onRowClick(row)}
-                    className={`hover:bg-secondary/50 transition-colors group ${onRowClick ? 'cursor-pointer' : ''}`}
-                  >
-                    <td className="py-3 px-3">
-                      <button
-                        onClick={e => { e.stopPropagation(); onToggleFav(row._id || row.id); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Star
-                          weight={favorites.includes(row._id || row.id) ? 'fill' : 'regular'}
-                          className={`w-3.5 h-3.5 ${favorites.includes(row._id || row.id) ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`}
-                        />
-                      </button>
-                    </td>
-                    {columns.map(col => (
-                      <td key={col.key} className={`py-3 px-4 ${col.align === 'right' ? 'text-right' : ''} ${col.className || ''}`}>
-                        {col.render ? col.render(row[col.key], row) : row[col.key] ?? '—'}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </React.Fragment>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={columns.length + 1} className="py-16 text-center text-muted-foreground">
-                  No records found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
 
 // ─── Main Module ──────────────────────────────────────────────────────────────
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
@@ -539,7 +162,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       const re = new RegExp(search, 'i');
       out = out.filter(r => searchFields.some(f => re.test(r[f] ?? '')));
     }
-    if (favsOnly) out = out.filter(r => favs.includes(r._id || r.id));
+    if (favsOnly) out = out.filter(r => favs.includes(r.id || r.id));
     return out;
   };
 
@@ -699,8 +322,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     e.preventDefault();
     if (!supplierForm.name.trim()) return alert('Supplier name is required.');
     if (editingSupplier) {
-      const res = await updateSupplier(editingSupplier._id, supplierForm);
-      if (res.ok) { setSuppliers(prev => prev.map(s => s._id === res.supplier._id ? res.supplier : s)); setIsSupplierModalOpen(false); onAddLog('system', `Updated supplier: ${res.supplier.name}`); }
+      const res = await updateSupplier(editingSupplier.id, supplierForm);
+      if (res.ok) { setSuppliers(prev => prev.map(s => s.id === res.supplier.id ? res.supplier : s)); setIsSupplierModalOpen(false); onAddLog('system', `Updated supplier: ${res.supplier.name}`); }
       else alert(res.error);
     } else {
       const res = await createSupplier(supplierForm);
@@ -712,14 +335,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const doArchiveSupplier = async (id, name) => {
     if (!confirm(`Archive supplier "${name}"? They will be hidden but preserved.`)) return;
     const res = await archiveSupplier(id);
-    if (res.ok) { setSuppliers(prev => prev.map(s => s._id === id ? { ...s, archived: true } : s)); setIsSupplierModalOpen(false); onAddLog('system', `Archived supplier: ${name}`); }
+    if (res.ok) { setSuppliers(prev => prev.map(s => s.id === id ? { ...s, archived: true } : s)); setIsSupplierModalOpen(false); onAddLog('system', `Archived supplier: ${name}`); }
     else alert(res.error);
   };
 
   // ── PO CRUD ───────────────────────────────────────────────────────────────────
   const openPoModal = (po = null, prefillSupplierId = '') => {
     setViewingPo(po);
-    setPoForm(po ? { supplier: po.supplier?._id || '', expectedDeliveryDate: po.expectedDeliveryDate?.substring(0, 10) || '', notes: po.notes || '', items: po.items || [], sourceRfq: po.sourceRfq || '' }
+    setPoForm(po ? { supplier: po.supplier?.id || '', expectedDeliveryDate: po.expectedDeliveryDate?.substring(0, 10) || '', notes: po.notes || '', items: po.items || [], sourceRfq: po.sourceRfq || '' }
       : { supplier: prefillSupplierId, expectedDeliveryDate: '', notes: '', items: [], sourceRfq: '' });
     setIsPoModalOpen(true);
   };
@@ -740,9 +363,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
     
     // Inject the current user's display name as the Buyer/Handler
+    const { data: { user } } = await supabase.auth.getUser();
     const payload = {
       ...poForm,
-      createdBy: auth?.currentUser?.displayName || auth?.currentUser?.email || 'Unknown User'
+      createdBy: user?.user_metadata?.full_name || user?.email || 'Unknown User'
     };
     
     const res = await createPurchaseOrder(payload);
@@ -756,7 +380,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const res = await updatePurchaseOrderStatus(id, status);
     if (res.ok) {
       const updated = res.purchaseOrder;
-      setPurchaseOrders(prev => prev.map(p => p._id === id ? updated : p));
+      setPurchaseOrders(prev => prev.map(p => p.id === id ? updated : p));
       setViewingPo(updated);
       onAddLog('stock', `PO ${poNumber} → ${status}`);
       if (status === 'Received') {
@@ -773,7 +397,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const updateBillingStatus = async (id, billingStatus) => {
     const res = await updatePoBillingStatus(id, billingStatus);
     if (res.ok) {
-      setPurchaseOrders(prev => prev.map(p => p._id === id ? res.purchaseOrder : p));
+      setPurchaseOrders(prev => prev.map(p => p.id === id ? res.purchaseOrder : p));
       setViewingPo(res.purchaseOrder);
     } else alert(res.error);
   };
@@ -928,7 +552,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             {orderTabs.map(t => (
               <button key={t.key} onClick={() => setActiveOrderTab(t.key)} className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeOrderTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                 {t.label}
-                {t.key === 'rfq' && rfqs.length > 0 && <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-accent/20 text-accent rounded-full font-bold">{rfqs.length}</span>}
+                {t.key === 'rfq' && rfqs.length > 0 && <span className="ml-2 px-1.5 py-0.5 text-2xs bg-accent/20 text-accent rounded-full font-bold">{rfqs.length}</span>}
               </button>
             ))}
           </div>
@@ -1034,16 +658,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3 shadow-inner" style={{ color: color || '#888' }}>
                       <Icon weight="duotone" className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground font-mono tracking-wider">{part.sku}</span>
+                    <span className="text-2xs uppercase font-bold text-muted-foreground font-mono tracking-wider">{part.sku}</span>
                     <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                       <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price)}</span>
-                      <span className={`text-[11px] font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`}>{part.stock} pcs</span>
+                      <span className={`text-11px font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`}>{part.stock} pcs</span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-2">
                       {part.published ? <Eye weight="duotone" className="w-3 h-3 text-emerald-500" /> : <EyeSlash weight="duotone" className="w-3 h-3 text-muted-foreground" />}
-                      <span className={`text-[10px] font-semibold ${part.published ? 'text-emerald-500' : 'text-muted-foreground'}`}>{part.published ? 'Published' : 'Unpublished'}</span>
-                      {part.archived && <span className="ml-auto text-[10px] font-bold text-amber-400 flex items-center gap-0.5"><Archive className="w-3 h-3" /> Archived</span>}
+                      <span className={`text-2xs font-semibold ${part.published ? 'text-emerald-500' : 'text-muted-foreground'}`}>{part.published ? 'Published' : 'Unpublished'}</span>
+                      {part.archived && <span className="ml-auto text-2xs font-bold text-amber-400 flex items-center gap-0.5"><Archive className="w-3 h-3" /> Archived</span>}
                     </div>
                   </div>
                 );
@@ -1081,27 +705,27 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-accent/20 group-hover:bg-accent transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><CurrencyDollar className="w-4 h-4 text-emerald-500" /> Total Spend (YTD)</span>
+              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><CurrencyDollar className="w-4 h-4 text-emerald-500" /> Total Spend (YTD)</span>
               <span className="text-3xl font-black text-foreground font-display tracking-tight">{formatCurrency(reportData.totalSpend)}</span>
-              <span className="text-[10px] text-muted-foreground mt-2">Capital in received inventory</span>
+              <span className="text-2xs text-muted-foreground mt-2">Capital in received inventory</span>
             </div>
             <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/20 group-hover:bg-blue-500 transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Truck className="w-4 h-4 text-blue-400" /> Capital in Transit</span>
+              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Truck className="w-4 h-4 text-blue-400" /> Capital in Transit</span>
               <span className="text-3xl font-black text-foreground font-display tracking-tight">{formatCurrency(reportData.capitalInTransit)}</span>
-              <span className="text-[10px] text-muted-foreground mt-2">Confirmed orders awaiting delivery</span>
+              <span className="text-2xs text-muted-foreground mt-2">Confirmed orders awaiting delivery</span>
             </div>
             <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-amber-500/20 group-hover:bg-amber-500 transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Timer className="w-4 h-4 text-amber-500" /> Avg Supplier Lead Time</span>
+              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Timer className="w-4 h-4 text-amber-500" /> Avg Supplier Lead Time</span>
               <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.avgLeadTime} <span className="text-sm text-muted-foreground font-semibold">days</span></span>
-              <span className="text-[10px] text-muted-foreground mt-2">From order confirmation to receipt</span>
+              <span className="text-2xs text-muted-foreground mt-2">From order confirmation to receipt</span>
             </div>
             <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-purple-500/20 group-hover:bg-purple-500 transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-purple-400" /> Pending RFQs</span>
+              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-purple-400" /> Pending RFQs</span>
               <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.pendingRfqs} <span className="text-sm text-muted-foreground font-semibold">requests</span></span>
-              <span className="text-[10px] text-muted-foreground mt-2">Drafts and sent quotes</span>
+              <span className="text-2xs text-muted-foreground mt-2">Drafts and sent quotes</span>
             </div>
           </div>
 
@@ -1171,7 +795,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
                     <span className="text-3xl font-black text-foreground">{purchaseOrders.length}</span>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Total POs</span>
+                    <span className="text-2xs font-bold text-muted-foreground uppercase">Total POs</span>
                   </div>
                 </div>
               ) : <p className="text-muted-foreground text-sm py-8 text-center m-auto">No orders in pipeline.</p>}
@@ -1266,7 +890,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <CheckCircle weight="bold" className="w-4 h-4" /> Save
                 </button>
                 {editingSupplier && (
-                  <button onClick={() => doArchiveSupplier(editingSupplier._id, editingSupplier.name)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-amber-500/10 hover:border-amber-500/30 text-muted-foreground hover:text-amber-400 text-sm font-bold rounded transition-all flex items-center gap-1.5">
+                  <button onClick={() => doArchiveSupplier(editingSupplier.id, editingSupplier.name)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-amber-500/10 hover:border-amber-500/30 text-muted-foreground hover:text-amber-400 text-sm font-bold rounded transition-all flex items-center gap-1.5">
                     <Archive weight="bold" className="w-4 h-4" /> Archive
                   </button>
                 )}
@@ -1373,18 +997,18 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 {viewingPo ? (
                   <>
                     {viewingPo.status === 'Draft' && <>
-                      <button onClick={() => updatePoStatus(viewingPo._id, 'RFQ Sent', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Send RFQ</button>
-                      <button onClick={() => updatePoStatus(viewingPo._id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm">Confirm Order</button>
+                      <button onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Send RFQ</button>
+                      <button onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm">Confirm Order</button>
                     </>}
-                    {viewingPo.status === 'RFQ Sent' && <button onClick={() => updatePoStatus(viewingPo._id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Confirm Order</button>}
+                    {viewingPo.status === 'RFQ Sent' && <button onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Confirm Order</button>}
                     {viewingPo.status === 'Confirmed' && <>
-                      <button onClick={() => updatePoStatus(viewingPo._id, 'Received', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Receive Products</button>
-                      {viewingPo.billingStatus === 'Waiting Bills' && <button onClick={() => updateBillingStatus(viewingPo._id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>}
+                      <button onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Receive Products</button>
+                      {viewingPo.billingStatus === 'Waiting Bills' && <button onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>}
                     </>}
                     {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
-                      <button onClick={() => updateBillingStatus(viewingPo._id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>
+                      <button onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>
                     )}
-                    {['Draft', 'RFQ Sent'].includes(viewingPo.status) && <button onClick={() => updatePoStatus(viewingPo._id, 'Cancelled', viewingPo.poNumber)} className="px-4 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold rounded shadow-sm hover:bg-red-500/20">Cancel</button>}
+                    {['Draft', 'RFQ Sent'].includes(viewingPo.status) && <button onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)} className="px-4 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold rounded shadow-sm hover:bg-red-500/20">Cancel</button>}
                     <button onClick={() => generatePDF(viewingPo)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm flex items-center gap-1.5 ml-2">
                       <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
                     </button>
@@ -1415,7 +1039,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <label className="w-1/3 font-bold text-foreground">Vendor</label>
                     <select disabled={!!viewingPo} value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} className="w-2/3 bg-transparent focus:outline-none text-foreground disabled:text-accent font-semibold">
                       <option value="">Select Vendor...</option>
-                      {suppliers.filter(s => !s.archived).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                      {suppliers.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div className="flex border-b border-border pb-1">
@@ -1515,7 +1139,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground leading-tight">{viewingPart ? viewingPart.name : 'New Product'}</h3>
-                  {viewingPart && <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">SKU: {viewingPart.sku}</p>}
+                  {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider">SKU: {viewingPart.sku}</p>}
                 </div>
               </div>
               <div className="flex items-center gap-2">

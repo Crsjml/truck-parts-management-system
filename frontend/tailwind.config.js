@@ -1,3 +1,8 @@
+const svgToDataUri = require("mini-svg-data-uri");
+const {
+  default: flattenColorPalette,
+} = require("tailwindcss/lib/util/flattenColorPalette");
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -8,9 +13,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Space Grotesk', 'sans-serif'],
-        mono: ['Fira Code', 'monospace'],
+        sans: ['Geist', 'Satoshi', 'sans-serif'],
+        display: ['Cabinet Grotesk', 'Space Grotesk', 'sans-serif'],
+        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
+      },
+      transitionTimingFunction: {
+        'spring-physics': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        'out-expo': 'cubic-bezier(0.19, 1, 0.22, 1)',
+      },
+      fontSize: {
+        '3xs': ['0.5625rem', { lineHeight: '0.75rem' }], // 9px
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }], // 10px
+        '11px': ['0.6875rem', { lineHeight: '1rem' }],   // 11px
+        '13px': ['0.8125rem', { lineHeight: '1.125rem' }], // 13px
       },
       colors: {
         border: "hsl(var(--border) / <alpha-value>)",
@@ -74,5 +89,18 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function ({ matchUtilities, theme }) {
+      matchUtilities(
+        {
+          "bg-dot": (value) => ({
+            backgroundImage: `url("${svgToDataUri(
+              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="16" height="16" fill="none"><circle fill="${value}" id="pattern-circle" cx="10" cy="10" r="1.6257413380501518"></circle></svg>`
+            )}")`,
+          }),
+        },
+        { values: flattenColorPalette(theme("backgroundColor")), type: "color" }
+      );
+    },
+  ],
 }

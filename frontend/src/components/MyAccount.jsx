@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, CircleNotch, LockKey } from '@phosphor-icons/react';
-import { updateProfile, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut } from '@phosphor-icons/react';
+import { supabase } from '../supabaseClient';
+import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
 
-export default function MyAccount({ user, onGoBack }) {
+export default function MyAccount({ user, transactions = [], onGoBack }) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -19,26 +19,32 @@ export default function MyAccount({ user, onGoBack }) {
   const [password, setPassword] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
 
+  const [savedPartsCount, setSavedPartsCount] = useState(0);
+
   useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || '');
-      setEmail(user.email || '');
-      setPhoneNumber(user.phoneNumber || '');
-      // Load extra profile data from localStorage or fallback to Firebase
-      const localAvatar = localStorage.getItem(`avatar_${user.uid}`);
-      setPhotoURL(localAvatar || user.photoURL || '');
-      
-      const localPhone = localStorage.getItem(`phone_${user.uid}`);
-      setPhoneNumber(localPhone || user.phoneNumber || '');
+    async function loadProfile() {
+      if (user) {
+        setDisplayName(user.user_metadata?.full_name || '');
+        setEmail(user.email || '');
+        setPhoneNumber(user.phone || '');
+        setPhotoURL(user.user_metadata?.avatar_url || '');
+
+        const profile = await fetchCustomerProfile();
+        if (profile) {
+          if (profile.displayName) setDisplayName(profile.displayName);
+          if (profile.phoneNumber) setPhoneNumber(profile.phoneNumber);
+          if (profile.photoURL) setPhotoURL(profile.photoURL);
+          setSavedPartsCount(profile.savedParts ? profile.savedParts.length : 0);
+        }
+      }
     }
+    loadProfile();
   }, [user]);
 
   const validateForm = () => {
     if (!displayName.trim()) return 'Display name is required.';
-    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) return 'Please enter a valid email address.';
-    
     if (phoneNumber && !/^\+?[0-9]{10,14}$/.test(phoneNumber.replace(/[\s-]/g, ''))) {
       return 'Please enter a valid phone number. (e.g. +639171234567)';
     }
@@ -59,48 +65,41 @@ export default function MyAccount({ user, onGoBack }) {
     setIsLoading(true);
 
     try {
-      const currentUser = auth.currentUser;
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
       
-      // 1. Handle Profile Picture (Avoid Firebase URL limit)
       if (photoURL && photoURL.startsWith('data:image')) {
-        localStorage.setItem(`avatar_${currentUser.uid}`, photoURL);
-        // Dispatch custom event so the rest of the app can update the avatar
         window.dispatchEvent(new Event('avatarUpdated'));
       }
 
-      // 2. Update Display Name and Local Storage fields
-      if (displayName !== currentUser.displayName) {
-        await updateProfile(currentUser, { displayName });
+      if (displayName !== currentUser.user_metadata?.full_name || photoURL !== currentUser.user_metadata?.avatar_url) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { full_name: displayName, avatar_url: photoURL }
+        });
+        if (updateError) throw updateError;
       }
       
       localStorage.setItem(`phone_${currentUser.uid}`, phoneNumber);
 
-      // 2. Update Email (May require re-auth)
+      await updateCustomerProfile({
+        displayName,
+        phoneNumber,
+        photoURL
+      });
+
       const sanitizedEmail = email.trim();
       let emailVerificationSent = false;
       if (sanitizedEmail !== currentUser.email) {
-        try {
-          await verifyBeforeUpdateEmail(currentUser, sanitizedEmail);
-          emailVerificationSent = true;
-        } catch (emailErr) {
-          if (emailErr.code === 'auth/requires-recent-login') {
-            setPendingEmail(sanitizedEmail);
-            setShowReauth(true);
-            setIsLoading(false);
-            return;
-          } else {
-            throw emailErr;
-          }
-        }
+        const { error: emailErr } = await supabase.auth.updateUser({ email: sanitizedEmail });
+        if (emailErr) throw emailErr;
+        emailVerificationSent = true;
       }
 
       if (emailVerificationSent) {
-        setSuccess('Profile updated! A verification link was sent to your new email to complete the change.');
+        setSuccess('Verification link sent to new email.');
       } else {
         setSuccess('Profile successfully updated! ✅');
       }
       setIsEditing(false);
-      
       setTimeout(() => setSuccess(''), 4000);
       
     } catch (err) {
@@ -112,44 +111,13 @@ export default function MyAccount({ user, onGoBack }) {
 
   const handleReauth = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      const currentUser = auth.currentUser;
-      const credential = EmailAuthProvider.credential(currentUser.email, password);
-      
-      await reauthenticateWithCredential(currentUser, credential);
-      
-      await verifyBeforeUpdateEmail(currentUser, pendingEmail);
-      
-      if (photoURL && photoURL.startsWith('data:image')) {
-        localStorage.setItem(`avatar_${currentUser.uid}`, photoURL);
-        window.dispatchEvent(new Event('avatarUpdated'));
-      }
-      
-      if (displayName !== currentUser.displayName) {
-        await updateProfile(currentUser, { displayName });
-      }
-
-      setSuccess('Profile updated! A verification link was sent to your new email to complete the change.');
-      setIsEditing(false);
-      setShowReauth(false);
-      setPassword('');
-      setPendingEmail('');
-      setTimeout(() => setSuccess(''), 4000);
-
-    } catch (err) {
-      setError('Incorrect password. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    // Removed Firebase-specific reauth
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 1024 * 1024 * 2) { // 2MB limit
+      if (file.size > 1024 * 1024 * 2) {
         setError('Image must be less than 2MB.');
         return;
       }
@@ -161,121 +129,194 @@ export default function MyAccount({ user, onGoBack }) {
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">My Account</h1>
-          <p className="text-muted-foreground mt-1">Manage your personal information and security settings.</p>
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const userTransactionsCount = transactions.filter(tx => 
+    tx.customerName?.toLowerCase() === (user?.user_metadata?.full_name || user?.email || '').toLowerCase()
+  ).length;
+
+  if (!user) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-24">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="space-y-3">
+            <div className="w-32 h-4 bg-secondary rounded animate-pulse" />
+            <div className="w-48 h-8 bg-secondary rounded animate-pulse" />
+          </div>
         </div>
-        {onGoBack && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 space-y-6">
+            <div className="rounded-[2.5rem] border border-border/50 bg-secondary/30 p-8 h-80 animate-pulse" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-[2rem] border border-border/50 bg-secondary/30 h-24 animate-pulse" />
+              <div className="rounded-[2rem] border border-border/50 bg-secondary/30 h-24 animate-pulse" />
+            </div>
+          </div>
+          <div className="lg:col-span-8">
+            <div className="rounded-[2.5rem] border border-border/50 bg-secondary/30 h-[500px] animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-24">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground font-display">Account Settings</p>
+          <h1 className="mt-2 text-3xl font-display font-bold text-foreground flex items-center gap-3">
+            My Profile
+            <span className="inline-flex w-8 h-8 rounded-full bg-accent/10 items-center justify-center text-accent ring-4 ring-accent/5">
+              <User weight="duotone" className="w-5 h-5" />
+            </span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-3">
           <button 
-            onClick={onGoBack}
-            className="px-4 py-2 bg-secondary hover:bg-muted text-foreground font-semibold rounded-xl border border-border transition-colors"
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-red-500/10 text-foreground hover:text-red-500 font-semibold rounded-xl border border-border hover:border-red-500/30 transition-all shadow-sm active:translate-y-[1px]"
           >
-            Back to Dashboard
+            <SignOut weight="bold" className="w-4 h-4" />
+            Sign Out
           </button>
-        )}
+          {onGoBack && (
+            <button 
+              onClick={onGoBack}
+              className="px-4 py-2 bg-foreground text-background font-semibold rounded-xl transition-all hover:scale-[1.02] shadow-md"
+            >
+              Back to Dashboard
+            </button>
+          )}
+        </div>
       </div>
 
       {success && (
-        <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center gap-3 text-emerald-400 animate-fadeIn">
-          <CheckCircle weight="duotone" className="w-5 h-5 shrink-0" />
-          <p className="font-medium text-sm">{success}</p>
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-emerald-500 animate-fadeIn backdrop-blur-md">
+          <CheckCircle weight="fill" className="w-5 h-5 shrink-0" />
+          <p className="font-bold text-sm">{success}</p>
         </div>
       )}
 
       {error && !showReauth && (
-        <div className="p-4 bg-red-500/15 border border-red-500/30 rounded-xl flex items-center gap-3 text-red-400 animate-fadeIn">
-          <WarningCircle weight="duotone" className="w-5 h-5 shrink-0" />
-          <p className="font-medium text-sm">{error}</p>
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 animate-fadeIn backdrop-blur-md">
+          <WarningCircle weight="fill" className="w-5 h-5 shrink-0" />
+          <p className="font-bold text-sm">{error}</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Profile Card */}
-        <div className="md:col-span-1 space-y-6">
-          <div className="bg-background border border-border rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
+        {/* Left Column: Avatar & Quick Info */}
+        <div className="lg:col-span-6 space-y-6 lg:sticky lg:top-8 h-fit">
+          <div className="group relative rounded-[2.5rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-8 shadow-sm flex flex-col items-center text-center transition-all duration-500 ease-spring-physics hover:shadow-2xl hover:border-accent/50 hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent rounded-[2.5rem] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
-            <div className="relative group">
-              <div className="w-32 h-32 bg-accent/20 rounded-full flex items-center justify-center mb-4 border-4 border-background shadow-lg shadow-accent/10 overflow-hidden">
+            <div className="relative">
+              <div className="w-32 h-32 bg-background rounded-[2rem] flex items-center justify-center mb-5 border-4 border-background shadow-xl shadow-black/5 overflow-hidden transition-transform group-hover:scale-105">
                 {photoURL ? (
                   <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <User weight="duotone" className="w-14 h-14 text-accent" />
+                  <User weight="duotone" className="w-14 h-14 text-muted-foreground" />
                 )}
               </div>
               
-              {isEditing && (
-                <label className="absolute bottom-4 right-0 p-2 bg-accent hover:bg-accent/90 text-white rounded-full cursor-pointer shadow-lg transition-transform hover:scale-110 active:scale-95">
-                  <User weight="bold" className="w-4 h-4" />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                </label>
-              )}
+              <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-accent hover:bg-accent/90 text-white rounded-2xl flex items-center justify-center cursor-pointer shadow-lg transition-transform hover:scale-110 active:scale-95 border-[3px] border-secondary z-10">
+                <PencilSimple weight="bold" className="w-4 h-4" />
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              </label>
             </div>
 
-            <h2 className="text-xl font-bold text-foreground truncate w-full mt-2">{displayName || 'User'}</h2>
-            <p className="text-sm text-muted-foreground truncate w-full">{email}</p>
+            <h2 className="text-2xl font-bold text-foreground truncate w-full mt-3">
+              {displayName ? displayName : <span className="text-muted-foreground italic text-lg">Complete Your Profile</span>}
+            </h2>
+            <p className="text-sm font-medium text-muted-foreground truncate w-full">{email}</p>
             
-            <div className="w-full mt-6 pt-6 border-t border-border flex items-center justify-center gap-2 text-xs font-semibold text-emerald-500">
-              <ShieldCheck weight="duotone" className="w-4 h-4" />
-              Account Verified
+            <div className="w-full mt-6 pt-6 border-t border-border/50 flex items-center justify-center gap-2 text-[11px] font-bold tracking-wider uppercase text-emerald-500">
+              <ShieldCheck weight="fill" className="w-4 h-4" />
+              Verified Fleet Partner
+            </div>
+          </div>
+
+          {/* Account Metrics (Decorative) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-[2rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-6 shadow-sm flex flex-col justify-center">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Orders</p>
+              <p className="text-3xl font-black text-foreground font-display">{userTransactionsCount}</p>
+            </div>
+            <div className="rounded-[2rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-6 shadow-sm flex flex-col justify-center">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Saved Parts</p>
+              <p className="text-3xl font-black text-foreground font-display">{savedPartsCount}</p>
             </div>
           </div>
         </div>
 
-        {/* Edit Form */}
-        <div className="md:col-span-2">
-          <div className="bg-background border border-border rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-border flex items-center justify-between bg-secondary/30">
-              <h3 className="font-bold text-foreground">Profile Details</h3>
+        {/* Right Column: Edit Form */}
+        <div className="lg:col-span-6">
+          <div className="rounded-[2.5rem] border border-border/50 bg-secondary/80 backdrop-blur-xl shadow-sm overflow-hidden flex flex-col h-full transition-all hover:shadow-xl hover:border-accent/30">
+            <div className="p-8 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-background/30">
+              <div>
+                <h3 className="text-xl font-bold text-foreground">Personal Details</h3>
+                <p className="text-sm font-medium text-muted-foreground mt-1">Update your contact information and preferences.</p>
+              </div>
               {!isEditing && (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="text-sm font-semibold text-accent hover:text-accent/80 transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-background border border-border text-foreground font-bold text-sm rounded-xl hover:border-accent hover:text-accent transition-all shadow-sm active:translate-y-[1px]"
                 >
+                  <PencilSimple weight="bold" className="w-4 h-4" />
                   Edit Profile
                 </button>
               )}
             </div>
             
-            <div className="p-6">
+            <div className="p-8 flex-1">
               {showReauth ? (
-                <form onSubmit={handleReauth} className="space-y-4 animate-fadeIn">
-                  <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl text-orange-400 text-sm mb-4">
-                    <p className="font-bold mb-1">Security Verification Required</p>
-                    <p>To change your email address, please re-enter your password to confirm your identity.</p>
+                <form onSubmit={handleReauth} className="max-w-md mx-auto space-y-6 animate-fadeIn">
+                  <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-[1.5rem] text-amber-500 text-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <LockKey weight="fill" className="w-5 h-5" />
+                      <p className="font-bold text-base">Security Verification</p>
+                    </div>
+                    <p className="font-medium">To change your email address, please re-enter your password to confirm your identity.</p>
                   </div>
                   
                   {error && (
-                    <div className="text-red-400 text-sm font-medium">{error}</div>
+                    <div className="text-red-500 text-sm font-bold text-center">{error}</div>
                   )}
                   
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Current Password</label>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Current Password</label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <LockKey className="w-4 h-4 text-muted-foreground" />
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <LockKey weight="duotone" className="w-5 h-5 text-muted-foreground" />
                       </div>
                       <input
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:border-accent transition-colors"
+                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-medium"
                         required
                         autoFocus
                       />
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3 pt-4">
+                  <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
                     <button
                       type="submit"
                       disabled={isLoading || !password}
-                      className="flex-1 py-2 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full sm:flex-1 py-3.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20"
                     >
-                      {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Verify & Save'}
+                      {isLoading ? <CircleNotch weight="bold" className="w-5 h-5 animate-spin" /> : 'Verify & Continue'}
                     </button>
                     <button
                       type="button"
@@ -285,61 +326,61 @@ export default function MyAccount({ user, onGoBack }) {
                         setPassword('');
                         setError('');
                       }}
-                      className="flex-1 py-2 bg-secondary hover:bg-muted text-foreground font-semibold rounded-xl border border-border transition-colors"
+                      className="w-full sm:flex-1 py-3.5 bg-background hover:bg-muted text-foreground font-bold rounded-2xl border border-border transition-all"
                     >
                       Cancel
                     </button>
                   </div>
                 </form>
               ) : (
-                <form onSubmit={handleSave} className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display Name</label>
+                <form onSubmit={handleSave} className="space-y-8 max-w-2xl">
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Full Name / Display Name</label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User className={`w-4 h-4 ${isEditing ? 'text-accent' : 'text-muted-foreground'}`} />
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <User weight={isEditing ? "duotone" : "regular"} className={`w-5 h-5 ${isEditing ? 'text-accent' : 'text-muted-foreground'}`} />
                         </div>
                         <input
                           type="text"
-                          value={displayName}
+                          value={isEditing ? displayName : (displayName || "Not provided")}
                           onChange={(e) => setDisplayName(e.target.value)}
                           disabled={!isEditing}
-                          className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:border-accent transition-colors disabled:bg-secondary disabled:text-muted-foreground disabled:opacity-70"
-                          placeholder="Lionel Messi"
+                          className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
+                          placeholder="Your full name"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</label>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <EnvelopeSimple className={`w-4 h-4 ${isEditing ? 'text-accent' : 'text-muted-foreground'}`} />
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <EnvelopeSimple weight={isEditing ? "duotone" : "regular"} className={`w-5 h-5 ${isEditing ? 'text-accent' : 'text-muted-foreground'}`} />
                         </div>
                         <input
                           type="email"
-                          value={email}
+                          value={isEditing ? email : (email || "Not provided")}
                           onChange={(e) => setEmail(e.target.value)}
                           disabled={!isEditing}
-                          className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:border-accent transition-colors disabled:bg-secondary disabled:text-muted-foreground disabled:opacity-70"
-                          placeholder="lionel.messi@example.com"
+                          className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
+                          placeholder="juan@example.com"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact Number</label>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Contact Number</label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Phone className={`w-4 h-4 ${isEditing ? 'text-accent' : 'text-muted-foreground'}`} />
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Phone weight={isEditing ? "duotone" : "regular"} className={`w-5 h-5 ${isEditing ? 'text-accent' : 'text-muted-foreground'}`} />
                         </div>
                         <input
                           type="text"
-                          value={phoneNumber}
+                          value={isEditing ? phoneNumber : (phoneNumber || "Not provided")}
                           onChange={(e) => setPhoneNumber(e.target.value)}
                           disabled={!isEditing}
-                          className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:border-accent transition-colors disabled:bg-secondary disabled:text-muted-foreground disabled:opacity-70"
+                          className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
                           placeholder="+63 917 123 4567"
                         />
                       </div>
@@ -347,13 +388,13 @@ export default function MyAccount({ user, onGoBack }) {
                   </div>
 
                   {isEditing && (
-                    <div className="flex items-center gap-3 pt-4 border-t border-border mt-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-6 border-t border-border/50">
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="px-6 py-2 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className="w-full sm:w-auto px-8 py-3.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20 active:translate-y-[1px]"
                       >
-                        {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Save Changes'}
+                        {isLoading ? <CircleNotch weight="bold" className="w-5 h-5 animate-spin" /> : 'Save Changes'}
                       </button>
                       <button
                         type="button"
@@ -365,7 +406,7 @@ export default function MyAccount({ user, onGoBack }) {
                           setPhotoURL(user?.photoURL || '');
                           setError('');
                         }}
-                        className="px-6 py-2 bg-secondary hover:bg-muted text-foreground font-semibold rounded-xl border border-border transition-colors"
+                        className="w-full sm:w-auto px-8 py-3.5 bg-background hover:bg-muted text-foreground font-bold rounded-2xl border border-border transition-all"
                       >
                         Cancel
                       </button>

@@ -1,10 +1,6 @@
 // backend/src/routes/parts.js
 import express from 'express';
-import mongoose from 'mongoose';
-import Part from '../models/Part.js';
-import Category from '../models/Category.js';
-import Review from '../models/Review.js';
-import StockAdjustment from '../models/StockAdjustment.js';
+import { prisma } from '../config/prisma.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
 
@@ -14,120 +10,113 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { search, category, archived, published, brand, series, engineCode } = req.query;
-    const query = {};
+    
+    // Build Prisma Where Clause
+    const where = {};
 
-    // By default exclude archived parts; pass ?archived=true to include only archived
     if (archived === 'true') {
-      query.archived = true;
+      where.archived = true;
     } else {
-      query.archived = { $ne: true };
+      where.archived = false;
     }
 
-    // Optional published filter
-    if (published === 'true') query.published = true;
-    if (published === 'false') query.published = false;
+    if (published === 'true') where.published = true;
+    if (published === 'false') where.published = false;
 
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { name: searchRegex },
-        { sku: searchRegex },
-        { oem: searchRegex },
-        { compatibility: searchRegex },
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { oem: { contains: search, mode: 'insensitive' } },
+        { compatibility: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    // Compatibility filter — brand/series/engineCode (TTP-68)
-    if (brand && brand.toLowerCase() !== 'all') {
-      const brandCondition = { 'compatibleWith.brand': { $regex: new RegExp(`^${brand}$`, 'i') } };
-      // Universal parts always show when any brand is selected
-      const universalCondition = { 'compatibleWith.brand': { $regex: /^universal$/i } };
-      query.$and = query.$and || [];
-      query.$and.push({ $or: [brandCondition, universalCondition] });
-    }
-    if (series && series.toLowerCase() !== 'all') {
-      query.$and = query.$and || [];
-      query.$and.push({ 'compatibleWith.series': { $regex: new RegExp(`^${series}$`, 'i') } });
-    }
-    if (engineCode) {
-      query.$and = query.$and || [];
-      query.$and.push({ 'compatibleWith.engineCode': { $regex: new RegExp(engineCode, 'i') } });
-    }
-
-    // Fetch all parts WITHOUT populate to avoid CastErrors from legacy data
-    const parts = await Part.find(query).sort({ name: 1 }).lean();
-
-    // Build category map manually — safe even if some refs are missing or malformed
-    let categoryFilter = null;
+    // Category mapping
+    let categoryIds = null;
     if (category && category.toLowerCase() !== 'all') {
-      const matchedCats = await Category.find({
-        name: { $regex: new RegExp(`^${category}$`, 'i') }
-      }).lean();
+      const matchedCats = await prisma.category.findMany({
+        where: { name: { startsWith: category, mode: 'insensitive' } },
+        select: { id: true }
+      });
+      
       if (matchedCats.length > 0) {
-        const catIds = matchedCats.map(c => c._id.toString());
-        const subCats = await Category.find({
-          parentCategory: { $in: matchedCats.map(c => c._id) }
-        }).lean();
-        categoryFilter = new Set([...catIds, ...subCats.map(c => c._id.toString())]);
+        const ids = matchedCats.map(c => c.id);
+        const subCats = await prisma.category.findMany({
+          where: { parentCategoryId: { in: ids } },
+          select: { id: true }
+        });
+        categoryIds = [...ids, ...subCats.map(c => c.id)];
+        where.categoryId = { in: categoryIds };
       } else {
-        // No matching category — return empty
         return res.json([]);
       }
     }
 
-    // Fetch categories to map IDs to Names
-    const categories = await Category.find({}).lean();
-    const categoryMap = {};
-    categories.forEach(cat => {
-      categoryMap[cat._id.toString()] = cat;
+    // Fetch parts
+    let parts = await prisma.part.findMany({
+      where,
+      include: {
+        category: { select: { id: true, name: true } },
+        reviews: { select: { rating: true } }
+      },
+      orderBy: { name: 'asc' }
     });
 
-    // Fetch reviews to calculate averages
-    const reviews = await Review.find({}, 'partId rating').lean();
-    const reviewMap = {};
-    reviews.forEach(r => {
-      const pId = r.partId.toString();
-      if (!reviewMap[pId]) reviewMap[pId] = { sum: 0, count: 0 };
-      reviewMap[pId].sum += r.rating;
-      reviewMap[pId].count += 1;
-    });
-
-    // Format parts and apply category filter
-    const formattedParts = parts
-      .filter(part => {
-        if (!categoryFilter) return true;
-        const catId = part.category ? part.category.toString() : null;
-        return catId && categoryFilter.has(catId);
-      })
-      .map(part => {
-        const catId = part.category && mongoose.isValidObjectId(part.category)
-          ? part.category.toString()
-          : null;
-        const cat = catId ? categoryMap[catId] : null;
-        const rStats = reviewMap[part._id.toString()];
-        const averageRating = rStats ? Number((rStats.sum / rStats.count).toFixed(1)) : 0;
-        return {
-          id: part._id.toString(),
-          name: part.name,
-          sku: part.sku,
-          oem: part.oem || '',
-          category: cat ? cat.name : 'Uncategorized',
-          category_id: cat ? cat._id.toString() : null,
-          price: part.price,
-          stock: part.stock,
-          minStock: part.min_stock,
-          compatibility: part.compatibility || '',
-          compatibleWith: part.compatibleWith || [],
-          description: part.description || '',
-          image: part.image || '',
-          published: part.published ?? true,
-          archived: part.archived ?? false,
-          reviewStats: {
-            averageRating,
-            totalReviews: rStats ? rStats.count : 0
-          }
-        };
+    // In-memory filter for JSON structured data (Prisma JSON array filtering is complex natively)
+    if (brand && brand.toLowerCase() !== 'all') {
+      const brandRegex = new RegExp(`^${brand}$`, 'i');
+      const universalRegex = /^universal$/i;
+      parts = parts.filter(p => {
+        const arr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
+        return arr.some(c => brandRegex.test(c.brand) || universalRegex.test(c.brand));
       });
+    }
+
+    if (series && series.toLowerCase() !== 'all') {
+      const seriesRegex = new RegExp(`^${series}$`, 'i');
+      parts = parts.filter(p => {
+        const arr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
+        return arr.some(c => seriesRegex.test(c.series));
+      });
+    }
+
+    if (engineCode) {
+      const engineRegex = new RegExp(engineCode, 'i');
+      parts = parts.filter(p => {
+        const arr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
+        return arr.some(c => engineRegex.test(c.engineCode));
+      });
+    }
+
+    // Format output
+    const formattedParts = parts.map(part => {
+      const totalReviews = part.reviews.length;
+      const sumRatings = part.reviews.reduce((acc, r) => acc + r.rating, 0);
+      const averageRating = totalReviews > 0 ? Number((sumRatings / totalReviews).toFixed(1)) : 0;
+
+      return {
+        id: part.id,
+        name: part.name,
+        sku: part.sku,
+        oem: part.oem || '',
+        category: part.category ? part.category.name : 'Uncategorized',
+        category_id: part.categoryId,
+        price: part.price,
+        stock: part.stock,
+        minStock: part.min_stock,
+        compatibility: part.compatibility || '',
+        compatibleWith: part.compatibleWith || [],
+        description: part.description || '',
+        image: part.image || '',
+        published: part.published,
+        archived: part.archived,
+        reviewStats: {
+          averageRating,
+          totalReviews
+        }
+      };
+    });
 
     res.json(formattedParts);
   } catch (err) {
@@ -139,7 +128,10 @@ router.get('/', async (req, res) => {
 // ── Get all unique categories ─────────────────────────────────────────────
 router.get('/categories', async (req, res) => {
   try {
-    const categories = await Category.find({}).sort({ name: 1 });
+    const categories = await prisma.category.findMany({
+      orderBy: { name: 'asc' },
+      select: { name: true }
+    });
     const names = categories.map(c => c.name);
     res.json(names);
   } catch (err) {
@@ -148,24 +140,31 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// ── Get vehicle filter options (brands + series per brand) — TTP-68 ──────────
+// ── Get vehicle filter options (brands + series per brand) ───────────────────
 router.get('/vehicle-options', async (req, res) => {
   try {
-    const parts = await Part.find({ archived: { $ne: true }, 'compatibleWith.0': { $exists: true } }, 'compatibleWith').lean();
+    const parts = await prisma.part.findMany({
+      where: { archived: false },
+      select: { compatibleWith: true }
+    });
+
     const brandMap = {};
     parts.forEach(p => {
-      (p.compatibleWith || []).forEach(({ brand, series }) => {
+      const compatibleArr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
+      compatibleArr.forEach(({ brand, series }) => {
         if (!brand || brand.toLowerCase() === 'universal') return;
         if (!brandMap[brand]) brandMap[brand] = new Set();
         if (series) brandMap[brand].add(series);
       });
     });
+
     const options = Object.entries(brandMap)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([brand, seriesSet]) => ({
         brand,
         series: [...seriesSet].sort()
       }));
+
     res.json(options);
   } catch (err) {
     console.error('[vehicle-options]', err);
@@ -176,9 +175,8 @@ router.get('/vehicle-options', async (req, res) => {
 // ── Create part record ───────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    const { name, sku, oem, category_id, price, stock, minStock, compatibility, description, image } = req.body;
+    const { name, sku, oem, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = req.body;
 
-    // Strict input validation
     if (!name || name.trim() === '') return res.status(400).json({ msg: 'Part name is required.' });
     if (!sku || sku.trim() === '') return res.status(400).json({ msg: 'SKU is required.' });
     if (!category_id) return res.status(400).json({ msg: 'Category reference is required.' });
@@ -194,47 +192,51 @@ router.post('/', async (req, res) => {
     if (cleanStock < 0) return res.status(400).json({ msg: 'Stock cannot be negative.' });
     if (cleanMinStock < 0) return res.status(400).json({ msg: 'Minimum stock cannot be negative.' });
 
-    const existing = await Part.findOne({ sku: sku.trim() });
+    const existing = await prisma.part.findUnique({ where: { sku: sku.trim() } });
     if (existing) {
       return res.status(409).json({ msg: 'A part with this SKU already exists.' });
     }
 
-    const categoryDoc = await Category.findById(category_id);
+    const categoryDoc = await prisma.category.findUnique({ where: { id: category_id } });
     if (!categoryDoc) {
       return res.status(404).json({ msg: 'Selected category does not exist.' });
     }
 
-    const part = await Part.create({
-      name: name.trim(),
-      sku: sku.trim(),
-      oem: oem ? oem.trim() : '',
-      category: categoryDoc._id,
-      price: cleanPrice,
-      stock: cleanStock,
-      min_stock: cleanMinStock,
-      compatibility: compatibility ? compatibility.trim() : '',
-      compatibleWith: (Array.isArray(req.body.compatibleWith) && req.body.compatibleWith.length > 0) 
-        ? req.body.compatibleWith 
-        : parseCompatibility(compatibility ? compatibility.trim() : ''),
-      description: description ? description.trim() : '',
-      image: image || ''
+    const parsedCompatibleWith = (Array.isArray(compatibleWith) && compatibleWith.length > 0)
+      ? compatibleWith
+      : parseCompatibility(compatibility ? compatibility.trim() : '');
+
+    const part = await prisma.part.create({
+      data: {
+        name: name.trim(),
+        sku: sku.trim(),
+        oem: oem ? oem.trim() : '',
+        categoryId: categoryDoc.id,
+        price: cleanPrice,
+        stock: cleanStock,
+        min_stock: cleanMinStock,
+        compatibility: compatibility ? compatibility.trim() : '',
+        compatibleWith: parsedCompatibleWith,
+        description: description ? description.trim() : '',
+        image: image || ''
+      },
+      include: { category: true }
     });
 
-    const populated = await part.populate('category');
     res.status(201).json({
-      id: populated._id.toString(),
-      name: populated.name,
-      sku: populated.sku,
-      oem: populated.oem,
-      category: populated.category.name,
-      category_id: populated.category._id.toString(),
-      price: populated.price,
-      stock: populated.stock,
-      minStock: populated.min_stock,
-      compatibility: populated.compatibility,
-      compatibleWith: populated.compatibleWith || [],
-      description: populated.description,
-      image: populated.image || ''
+      id: part.id,
+      name: part.name,
+      sku: part.sku,
+      oem: part.oem,
+      category: part.category.name,
+      category_id: part.categoryId,
+      price: part.price,
+      stock: part.stock,
+      minStock: part.min_stock,
+      compatibility: part.compatibility,
+      compatibleWith: part.compatibleWith,
+      description: part.description,
+      image: part.image || ''
     });
   } catch (err) {
     console.error('[create part]', err);
@@ -245,24 +247,17 @@ router.post('/', async (req, res) => {
 // ── Update part record ───────────────────────────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
-    const { name, sku, oem, category_id, price, stock, minStock, compatibility, description, image } = req.body;
+    const { name, sku, oem, category_id, price, stock, minStock, compatibility, description, image, published, compatibleWith } = req.body;
     const { id } = req.params;
 
-    const part = await Part.findById(id);
+    const part = await prisma.part.findUnique({ where: { id } });
     if (!part) {
       return res.status(404).json({ msg: 'Part record not found.' });
     }
 
-    // Input validation
-    if (price !== undefined && (isNaN(Number(price)) || Number(price) < 0)) {
-      return res.status(400).json({ msg: 'Price must be a non-negative number.' });
-    }
-    if (stock !== undefined && (isNaN(Number(stock)) || Number(stock) < 0)) {
-      return res.status(400).json({ msg: 'Stock must be a non-negative number.' });
-    }
-    if (minStock !== undefined && (isNaN(Number(minStock)) || Number(minStock) < 0)) {
-      return res.status(400).json({ msg: 'Minimum stock must be a non-negative number.' });
-    }
+    if (price !== undefined && (isNaN(Number(price)) || Number(price) < 0)) return res.status(400).json({ msg: 'Price must be a non-negative number.' });
+    if (stock !== undefined && (isNaN(Number(stock)) || Number(stock) < 0)) return res.status(400).json({ msg: 'Stock must be a non-negative number.' });
+    if (minStock !== undefined && (isNaN(Number(minStock)) || Number(minStock) < 0)) return res.status(400).json({ msg: 'Minimum stock must be a non-negative number.' });
 
     let isStockAdjustment = false;
     const oldStock = part.stock;
@@ -278,69 +273,74 @@ router.put('/:id', async (req, res) => {
     }
 
     if (sku && sku.trim() !== part.sku) {
-      const existing = await Part.findOne({ sku: sku.trim(), _id: { $ne: id } });
+      const existing = await prisma.part.findFirst({ where: { sku: sku.trim(), id: { not: id } } });
       if (existing) {
         return res.status(409).json({ msg: 'A part with this SKU already exists.' });
       }
-      part.sku = sku.trim();
     }
 
     if (category_id) {
-      const categoryDoc = await Category.findById(category_id);
-      if (!categoryDoc) {
-        return res.status(404).json({ msg: 'Selected category does not exist.' });
-      }
-      part.category = categoryDoc._id;
+      const categoryDoc = await prisma.category.findUnique({ where: { id: category_id } });
+      if (!categoryDoc) return res.status(404).json({ msg: 'Selected category does not exist.' });
     }
 
-    if (name !== undefined) {
-      if (name.trim() === '') return res.status(400).json({ msg: 'Part name cannot be empty.' });
-      part.name = name.trim();
+    let updatedCompatibleWith = part.compatibleWith;
+    if (compatibility !== undefined && compatibleWith === undefined) {
+      updatedCompatibleWith = parseCompatibility(compatibility.trim());
+    } else if (compatibleWith !== undefined) {
+      updatedCompatibleWith = Array.isArray(compatibleWith) ? compatibleWith : [];
     }
-    if (oem !== undefined) part.oem = oem.trim();
-    if (price !== undefined) part.price = Number(price);
-    if (stock !== undefined) part.stock = newStock;
-    if (minStock !== undefined) part.min_stock = Number(minStock);
-    if (compatibility !== undefined) {
-      part.compatibility = compatibility.trim();
-      // Auto-update structured data if string changed and no explicit structured data was sent
-      if (req.body.compatibleWith === undefined) {
-        part.compatibleWith = parseCompatibility(part.compatibility);
-      }
-    }
-    if (req.body.compatibleWith !== undefined) part.compatibleWith = Array.isArray(req.body.compatibleWith) ? req.body.compatibleWith : [];
-    if (description !== undefined) part.description = description.trim();
-    if (image !== undefined) part.image = image;
-    if (req.body.published !== undefined) part.published = req.body.published;
 
-    await part.save();
+
+    const updatedPart = await prisma.part.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(sku !== undefined && { sku: sku.trim() }),
+        ...(oem !== undefined && { oem: oem.trim() }),
+        ...(category_id !== undefined && { categoryId: category_id }),
+        ...(price !== undefined && { price: Number(price) }),
+        ...(stock !== undefined && { stock: Number(stock) }),
+        ...(minStock !== undefined && { min_stock: Number(minStock) }),
+        ...(compatibility !== undefined && { compatibility: compatibility.trim() }),
+        compatibleWith: updatedCompatibleWith,
+        ...(description !== undefined && { description: description.trim() }),
+        ...(image !== undefined && { image }),
+        ...(published !== undefined && { published })
+      },
+      include: { category: true }
+    });
+
 
     if (isStockAdjustment) {
-      await StockAdjustment.create({
-        partId: part._id,
-        oldStock,
-        newStock,
-        difference,
-        reason: req.body.adjustmentReason.trim()
+      await prisma.stockAdjustment.create({
+        data: {
+          partId: updatedPart.id,
+          oldStock,
+          newStock,
+          difference,
+          reason: req.body.adjustmentReason.trim()
+        }
       });
     }
 
-    const populated = await part.populate('category');
+
     res.json({
-      id: populated._id.toString(),
-      name: populated.name,
-      sku: populated.sku,
-      oem: populated.oem,
-      category: populated.category.name,
-      category_id: populated.category._id.toString(),
-      price: populated.price,
-      stock: populated.stock,
-      minStock: populated.min_stock,
-      compatibility: populated.compatibility,
-      description: populated.description,
-      image: populated.image || '',
-      published: populated.published ?? true,
-      archived: populated.archived ?? false
+      id: updatedPart.id,
+      name: updatedPart.name,
+      sku: updatedPart.sku,
+      oem: updatedPart.oem,
+      category: updatedPart.category.name,
+      category_id: updatedPart.categoryId,
+      price: updatedPart.price,
+      stock: updatedPart.stock,
+      minStock: updatedPart.min_stock,
+      compatibility: updatedPart.compatibility,
+      compatibleWith: updatedPart.compatibleWith,
+      description: updatedPart.description,
+      image: updatedPart.image || '',
+      published: updatedPart.published,
+      archived: updatedPart.archived
     });
   } catch (err) {
     console.error('[update part]', err);
@@ -351,9 +351,10 @@ router.put('/:id', async (req, res) => {
 // ── Get stock adjustments for a specific part ─────────────────────────────────
 router.get('/:id/adjustments', async (req, res) => {
   try {
-    const adjustments = await StockAdjustment.find({ partId: req.params.id })
-      .sort({ createdAt: -1 })
-      .lean();
+    const adjustments = await prisma.stockAdjustment.findMany({
+      where: { partId: req.params.id },
+      orderBy: { createdAt: 'desc' }
+    });
     res.json(adjustments);
   } catch (err) {
     console.error('[get adjustments]', err);
@@ -365,11 +366,10 @@ router.get('/:id/adjustments', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const part = await Part.findById(id);
+    const part = await prisma.part.findUnique({ where: { id } });
     if (!part) return res.status(404).json({ msg: 'Part record not found.' });
 
-    part.archived = true;
-    await part.save();
+    await prisma.part.update({ where: { id }, data: { archived: true } });
     res.json({ msg: 'Part archived successfully.' });
   } catch (err) {
     console.error('[archive part]', err);
@@ -380,11 +380,15 @@ router.delete('/:id', async (req, res) => {
 // ── Toggle published status ───────────────────────────────────────────────────
 router.put('/:id/published', async (req, res) => {
   try {
-    const part = await Part.findById(req.params.id);
+    const { id } = req.params;
+    const part = await prisma.part.findUnique({ where: { id } });
     if (!part) return res.status(404).json({ msg: 'Part not found.' });
-    part.published = req.body.published ?? !part.published;
-    await part.save();
-    res.json({ id: part._id.toString(), published: part.published });
+
+    const updated = await prisma.part.update({
+      where: { id },
+      data: { published: req.body.published ?? !part.published }
+    });
+    res.json({ id: updated.id, published: updated.published });
   } catch (err) {
     console.error('[toggle published]', err);
     res.status(500).json({ msg: 'Server error toggling published state.' });
@@ -394,10 +398,11 @@ router.put('/:id/published', async (req, res) => {
 // ── Restore archived part ─────────────────────────────────────────────────────
 router.put('/:id/restore', async (req, res) => {
   try {
-    const part = await Part.findById(req.params.id);
+    const { id } = req.params;
+    const part = await prisma.part.findUnique({ where: { id } });
     if (!part) return res.status(404).json({ msg: 'Part not found.' });
-    part.archived = false;
-    await part.save();
+
+    await prisma.part.update({ where: { id }, data: { archived: false } });
     res.json({ msg: 'Part restored successfully.' });
   } catch (err) {
     console.error('[restore part]', err);
@@ -415,17 +420,11 @@ router.post('/bulk-adjust', async (req, res) => {
 
     const factor = 1 + (Number(percentage) / 100);
 
-    // Update all parts
-    // We use a MongoDB aggregation pipeline update to calculate new price natively
-    await Part.updateMany({}, [
-      {
-        $set: {
-          price: {
-            $max: [0, { $multiply: ["$price", factor] }]
-          }
-        }
+    await prisma.part.updateMany({
+      data: {
+        price: { multiply: factor }
       }
-    ]);
+    });
 
     res.json({ msg: `All part prices have been adjusted by ${percentage}%` });
   } catch (err) {

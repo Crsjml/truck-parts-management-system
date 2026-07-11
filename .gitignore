@@ -1,8 +1,12 @@
 node_modules/ 
 *.env
+*.env.local
 atlas-credentials.env
 dist/
 frontend/dist/
 .env.jira
 
 firebase-service-account.json
+
+# Archived scratch scripts
+.archive/

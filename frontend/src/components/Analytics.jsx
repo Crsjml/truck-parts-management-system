@@ -77,12 +77,13 @@ export default function Analytics({ parts, transactions }) {
     
     return (
       <g transform={`translate(${x},${y})`}>
-        <foreignObject x="-190" y={line2 ? "-16" : "-12"} width="185" height="32">
+        <foreignObject x="-200" y={line2 ? "-16" : "-12"} width="195" height="32">
           <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
             <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color}`} />
-            <div className="flex flex-col items-end leading-tight text-right">
-              <span className="text-[11px] text-slate-300 font-medium whitespace-nowrap" title={item?.fullName || name}>{line1}</span>
-              {line2 && <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap" title={item?.fullName || name}>{line2}</span>}
+            <div className="flex flex-col items-end leading-tight text-right w-full overflow-hidden">
+              <span className="text-11px text-slate-300 font-medium break-words whitespace-normal w-full" title={item?.fullName || name} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                {line1}
+              </span>
             </div>
           </div>
         </foreignObject>
@@ -93,14 +94,16 @@ export default function Analytics({ parts, transactions }) {
   const CustomPieLegend = (props) => {
     const { payload } = props;
     return (
-      <div className="flex flex-wrap justify-center gap-4 mt-4">
+      <div className="flex flex-wrap justify-center gap-3 mt-8">
         {payload.map((entry, index) => {
           const IconProps = getCategoryIconAndColor(entry.value);
           const IconComponent = IconProps?.icon || Package;
           return (
-            <div key={`legend-${index}`} className="flex items-center gap-1.5">
-              <IconComponent weight="duotone" className={`w-3.5 h-3.5 ${IconProps?.color || 'text-slate-400'}`} />
-              <span className="text-[11px] text-slate-400 font-medium">{entry.value}</span>
+            <div key={`legend-${index}`} className="flex items-center gap-1.5 px-2 py-1 bg-slate-800/30 rounded-lg">
+              <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color || 'text-slate-400'}`} />
+              <span className="text-[10px] leading-tight text-slate-400 font-medium max-w-[120px] break-words whitespace-normal">
+                {entry.value}
+              </span>
             </div>
           );
         })}
@@ -215,11 +218,11 @@ export default function Analytics({ parts, transactions }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Net Sales</span>
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Total Net Sales</span>
             <h3 className="text-2xl font-bold text-foreground font-display">
               {formatCurrency(totalInvoicedAmount)}
             </h3>
-            <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+            <p className="text-2xs text-emerald-400 flex items-center gap-1">
               <TrendUp weight="duotone" className="w-3 h-3" /> Cumulative earnings
             </p>
           </div>
@@ -230,9 +233,9 @@ export default function Analytics({ parts, transactions }) {
 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Processed Invoices</span>
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Processed Invoices</span>
             <h3 className="text-2xl font-bold text-foreground font-display">{totalSales}</h3>
-            <p className="text-[10px] text-muted-foreground">Customer payments complete</p>
+            <p className="text-2xs text-muted-foreground">Customer payments complete</p>
           </div>
           <div className="p-3 bg-brandBlue-900/40 text-brandBlue-400 rounded-xl border border-brandBlue-700/30">
             <FileText weight="duotone" className="w-5 h-5" />
@@ -241,11 +244,11 @@ export default function Analytics({ parts, transactions }) {
 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Invoice</span>
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Average Invoice</span>
             <h3 className="text-2xl font-bold text-foreground font-display">
               {formatCurrency(averageInvoiceValue)}
             </h3>
-            <p className="text-[10px] text-muted-foreground">Value per customer checkout</p>
+            <p className="text-2xs text-muted-foreground">Value per customer checkout</p>
           </div>
           <div className="p-3 bg-amber-950/40 text-amber-500 rounded-xl border border-amber-800/35">
             <TrendUp weight="duotone" className="w-5 h-5" />
@@ -254,9 +257,9 @@ export default function Analytics({ parts, transactions }) {
 
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
           <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Items Dispatched</span>
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Total Items Dispatched</span>
             <h3 className="text-2xl font-bold text-foreground font-display">{totalItemsSold} units</h3>
-            <p className="text-[10px] text-muted-foreground">Truck parts sold out of warehouse</p>
+            <p className="text-2xs text-muted-foreground">Truck parts sold out of warehouse</p>
           </div>
           <div className="p-3 bg-violet-950/40 text-violet-400 rounded-xl border border-violet-800/35">
             <ShoppingCart weight="duotone" className="w-5 h-5" />
@@ -333,13 +336,13 @@ export default function Analytics({ parts, transactions }) {
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No categories found.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 20, right: 0, bottom: 20, left: 0 }}>
+                <PieChart margin={{ top: 30, right: 0, bottom: 40, left: 0 }}>
                   <Pie
                     data={categoryBreakdown.filter(c => c.name !== 'All')}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
+                    cy="45%"
+                    innerRadius={50}
+                    outerRadius={85}
                     paddingAngle={5}
                     dataKey="count"
                     stroke="none"
@@ -498,7 +501,7 @@ export default function Analytics({ parts, transactions }) {
                         cx="50%"
                         cy="45%"
                         innerRadius={130}
-                        outerRadius={220}
+                        outerRadius={190}
                         paddingAngle={4}
                         dataKey="count"
                         stroke="none"

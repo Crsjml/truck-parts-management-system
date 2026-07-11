@@ -8,17 +8,20 @@
     "start": "node src/index.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "@prisma/client": "^6.19.3",
+    "@supabase/supabase-js": "^2.109.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "firebase-admin": "^13.10.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.5.2",
-    "stripe": "^22.3.0"
+    "stripe": "^22.3.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14",
-    "supertest": "^7.2.2"
+    "@faker-js/faker": "^9.9.0",
+    "prisma": "^6.19.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

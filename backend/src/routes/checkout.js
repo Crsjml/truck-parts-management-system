@@ -1,8 +1,7 @@
 import express from 'express';
 import Stripe from 'stripe';
+import { prisma } from '../config/prisma.js';
 import { requireAuth } from '../middleware/authMiddleware.js';
-import Transaction from '../models/Transaction.js';
-import Part from '../models/Part.js';
 
 const router = express.Router();
 // We use a dummy test key if not provided in env, since we are strictly testing.
@@ -84,27 +83,36 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       const cartItems = JSON.parse(session.metadata.cartItems);
       const totalAmount = session.amount_total / 100;
       
-      // 1. Create a transaction
-      const newTransaction = new Transaction({
-        customer: session.metadata.userEmail,
-        type: 'Sale',
-        amount: totalAmount,
-        status: 'Completed',
-        parts: cartItems.map(item => ({
-          partId: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price
-        })),
-      });
-      await newTransaction.save();
-
-      // 2. Deduct inventory stock
-      for (const item of cartItems) {
-        await Part.findByIdAndUpdate(item.id, {
-          $inc: { stock: -item.quantity }
+      await prisma.$transaction(async (tx) => {
+        // 1. Create a transaction
+        await tx.transaction.create({
+          data: {
+            invoiceNumber: `WEB-${Date.now()}`,
+            customerName: session.metadata.userEmail,
+            customerContact: session.metadata.userId,
+            userId: session.metadata.userId,
+            subtotal: totalAmount,
+            taxAmount: 0,
+            total: totalAmount,
+            items: {
+              create: cartItems.map(item => ({
+                partId: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price
+              }))
+            }
+          }
         });
-      }
+
+        // 2. Deduct inventory stock
+        for (const item of cartItems) {
+          await tx.part.update({
+            where: { id: item.id },
+            data: { stock: { decrement: item.quantity } }
+          });
+        }
+      });
 
       console.log(`Successfully processed order for ${session.metadata.userEmail}. Total: $${totalAmount}`);
     } catch (error) {

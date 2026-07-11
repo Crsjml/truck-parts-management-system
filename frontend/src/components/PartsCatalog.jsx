@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, Sliders } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
@@ -83,7 +83,8 @@ export default function PartsCatalog({
   }, [search, parts]);
 
   const getCategoryStyles = (cat) => {
-    const { Icon, color } = getCategoryIconAndColor(cat);
+    const category = categoriesList.find(c => c.name === cat);
+    const { Icon, color } = getCategoryIconAndColor(cat, category?.iconName, category?.colorTheme);
     return { icon: Icon, color };
   };
   
@@ -383,40 +384,42 @@ export default function PartsCatalog({
 
         {/* Categories Tab selector */}
         <div className="flex flex-wrap gap-2 items-center justify-end w-full md:w-auto">
-          <select 
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="h-10 text-xs font-semibold rounded-xl border border-border bg-secondary px-3 text-foreground outline-none focus:border-red-600 transition"
-          >
-            <option value="recommended">Recommended Sort</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-            <option value="name-asc">Name: A to Z</option>
-            <option value="name-desc">Name: Z to A</option>
-            <option value="stock-desc">Stock: High to Low</option>
-            <option value="stock-asc">Stock: Low to High</option>
-          </select>
+          <div className="relative">
+            <SortAscending weight="duotone" className="absolute left-3 top-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <select 
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="h-10 text-xs font-semibold rounded-xl border border-border bg-secondary pl-9 pr-3 text-foreground outline-none focus:border-red-600 transition appearance-none"
+            >
+              <option value="recommended">Recommended Sort</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name-asc">Name: A to Z</option>
+              <option value="name-desc">Name: Z to A</option>
+              <option value="stock-desc">Stock: High to Low</option>
+              <option value="stock-asc">Stock: Low to High</option>
+            </select>
+          </div>
 
           {!isReadOnly && (
-            <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-border cursor-pointer select-none">
+            <label className={`flex items-center gap-2 px-3 py-2 h-10 rounded-xl border cursor-pointer select-none transition-colors ${showLowStockOnly ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-secondary border-border text-muted-foreground hover:border-red-500/50 hover:bg-red-500/5'}`}>
               <input 
                 type="checkbox" 
                 checked={showLowStockOnly} 
                 onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-                className="rounded text-red-600 focus:ring-red-600 border-border bg-background w-4 h-4"
+                className="rounded text-red-600 focus:ring-red-600 border-border bg-background w-4 h-4 hidden"
               />
-              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                <Warning weight="duotone" className="w-3.5 h-3.5 text-red-500" /> Low Stock Warning
-              </span>
+              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className={`w-4 h-4 ${showLowStockOnly ? 'text-red-500' : 'text-muted-foreground'}`} />
+              <span className="text-xs font-semibold">Low Stock Warning</span>
             </label>
           )}
 
           {!isReadOnly && (
             <button 
               onClick={openAddModal}
-              className="flex items-center gap-1.5 px-4.5 py-2.5 bg-accent hover:bg-accent/90 text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 h-10 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all shrink-0 whitespace-nowrap"
             >
-              <Plus weight="duotone" className="w-4 h-4" />
+              <Plus weight="bold" className="w-4 h-4" />
               Add New Part
             </button>
           )}
@@ -467,7 +470,7 @@ export default function PartsCatalog({
               >
                 {/* Low Stock Warning Badge */}
                 {isLowStock && (
-                  <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-[10px] font-extrabold text-red-500 animate-pulse z-10">
+                  <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-950/70 border border-red-800/40 text-2xs font-extrabold text-red-500 animate-pulse z-10">
                     <Warning weight="duotone" className="w-3 h-3" />
                     LOW STOCK
                   </div>
@@ -486,11 +489,11 @@ export default function PartsCatalog({
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <div className="flex justify-between items-start">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-brandBlue-400">
+                      <span className="text-2xs font-bold uppercase tracking-widest text-brandBlue-400">
                         {part.category}
                       </span>
                       {part.reviewStats?.totalReviews > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400">
+                        <div className="flex items-center gap-1 text-2xs font-bold text-amber-400">
                           <Star weight="fill" />
                           <span>{part.reviewStats.averageRating} ({part.reviewStats.totalReviews})</span>
                         </div>
@@ -529,13 +532,13 @@ export default function PartsCatalog({
                 <div className="space-y-4 pt-4 mt-4 border-t border-slate-900">
                   <div className="flex items-end justify-between">
                     <div>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Unit Price</span>
+                      <span className="text-2xs text-muted-foreground uppercase tracking-wider block">Unit Price</span>
                       <span className="text-xl font-bold text-foreground">
                         {formatCurrency(part.price)}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
+                      <span className="text-2xs text-muted-foreground uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
                       <span className={`text-base font-extrabold ${isLowStock && !isReadOnly ? 'text-red-500' : 'text-muted-foreground'}`}>
                         {isReadOnly ? (part.stock > 0 ? `${part.stock} available` : 'Out of Stock') : `${part.stock} / ${part.minStock} min`}
                       </span>
@@ -680,7 +683,7 @@ export default function PartsCatalog({
                     )}
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart?.category}</span>
+                    <span className="text-2xs font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart?.category}</span>
                     <h2 className="text-lg font-bold text-foreground font-display leading-tight">{selectedPart?.name}</h2>
                   </div>
                 </div>
@@ -871,7 +874,7 @@ export default function PartsCatalog({
                         onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
                         className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                       />
-                      {formErrors.name && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
+                      {formErrors.name && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -885,7 +888,7 @@ export default function PartsCatalog({
                           onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
                           className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                         />
-                        {formErrors.sku && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
+                        {formErrors.sku && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-muted-foreground uppercase">OEM Part Number *</label>
@@ -897,7 +900,7 @@ export default function PartsCatalog({
                           onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
                           className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                         />
-                        {formErrors.oem && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
+                        {formErrors.oem && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
                       </div>
                     </div>
 
@@ -915,12 +918,12 @@ export default function PartsCatalog({
                           <>
                             <option value="" disabled>-- Select Category / Subcategory --</option>
                             {categoriesList.filter(c => !c.parentCategory).map(parent => {
-                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory._id?.toString() === parent._id?.toString());
+                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString());
                               return (
-                                <optgroup key={parent._id} label={parent.name}>
-                                  <option value={parent._id}>{parent.name} (Main)</option>
+                                <optgroup key={parent.id} label={parent.name}>
+                                  <option value={parent.id}>{parent.name} (Main)</option>
                                   {subs.map(sub => (
-                                    <option key={sub._id} value={sub._id}>{sub.name}</option>
+                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
                                   ))}
                                 </optgroup>
                               );
@@ -928,8 +931,8 @@ export default function PartsCatalog({
                           </>
                         )}
                       </select>
-                      {formErrors.category && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
-                      {categoriesList.length === 0 && <p className="text-[10px] text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
+                      {formErrors.category && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
+                      {categoriesList.length === 0 && <p className="text-2xs text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
                     </div>
                     
                     <div className="space-y-1.5">
@@ -959,7 +962,7 @@ export default function PartsCatalog({
                           onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
                           className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                         />
-                        {formErrors.price && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
+                        {formErrors.price && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-muted-foreground uppercase">Initial Stock *</label>
@@ -972,7 +975,7 @@ export default function PartsCatalog({
                           onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
                           className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                         />
-                        {formErrors.stock && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
+                        {formErrors.stock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
                       </div>
                       
                       {modalType === 'edit' && parseInt(formStock) !== originalStock && (
@@ -1000,7 +1003,7 @@ export default function PartsCatalog({
                           onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
                           className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
                         />
-                        {formErrors.minStock && <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
+                        {formErrors.minStock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
                       </div>
                     </div>
 
@@ -1044,15 +1047,15 @@ export default function PartsCatalog({
                                 reader.readAsDataURL(file);
                               }
                             }}
-                            className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-secondary file:text-foreground file:hover:bg-slate-700 transition file:cursor-pointer"
+                            className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-slate-700 transition file:cursor-pointer"
                           />
-                          <p className="text-[9px] text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
+                          <p className="text-3xs text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
                         </div>
                         {formImage && (
                           <button 
                             type="button"
                             onClick={() => setFormImage('')}
-                            className="text-[10px] font-bold text-red-500 hover:text-red-400 px-2 py-1 bg-red-950/20 rounded border border-red-900/30"
+                            className="text-2xs font-bold text-red-500 hover:text-red-400 px-2 py-1 bg-red-950/20 rounded border border-red-900/30"
                           >
                             Remove
                           </button>
@@ -1124,13 +1127,13 @@ export default function PartsCatalog({
             <form onSubmit={handleRequestQuoteSubmit}>
               <div className="p-6 space-y-4">
                 <div className="bg-background p-3.5 rounded-xl border border-slate-850 text-xs space-y-1 text-left">
-                  <span className="text-[10px] font-bold text-brandBlue-400 uppercase tracking-widest">{inquiryPart.category}</span>
+                  <span className="text-2xs font-bold text-brandBlue-400 uppercase tracking-widest">{inquiryPart.category}</span>
                   <h4 className="font-bold text-foreground text-sm">{inquiryPart.name}</h4>
-                  <p className="text-[10px] font-mono text-muted-foreground">SKU: {inquiryPart.sku} | OEM: {inquiryPart.oem}</p>
+                  <p className="text-2xs font-mono text-muted-foreground">SKU: {inquiryPart.sku} | OEM: {inquiryPart.oem}</p>
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Requested Quantity *</label>
+                  <label className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Requested Quantity *</label>
                   <input 
                     type="number" 
                     min="1"
@@ -1142,7 +1145,7 @@ export default function PartsCatalog({
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Additional Request Details</label>
+                  <label className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Additional Request Details</label>
                   <textarea 
                     placeholder="E.g., transport lead time, packaging requirements, custom specifications..."
                     rows="3"

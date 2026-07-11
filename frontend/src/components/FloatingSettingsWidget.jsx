@@ -97,7 +97,7 @@ const FloatingSettingsWidget = ({ onAdminLogin, onCustomerLogin, onLogout, isLog
               className="flex-1 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-600 dark:hover:bg-slate-500 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex flex-col items-center justify-center leading-tight"
             >
               <span>Auto-Login</span>
-              <span className="text-[9px] font-medium opacity-80">(Admin)</span>
+              <span className="text-3xs font-medium opacity-80">(Admin)</span>
             </button>
             <button 
               type="button"
@@ -105,7 +105,7 @@ const FloatingSettingsWidget = ({ onAdminLogin, onCustomerLogin, onLogout, isLog
               className="flex-1 bg-brandBlue-100 hover:bg-brandBlue-200 text-brandBlue-700 dark:bg-brandBlue-900/30 dark:text-brandBlue-400 dark:hover:bg-brandBlue-900/50 py-2.5 rounded-xl text-xs font-bold transition-all border border-brandBlue-200 dark:border-brandBlue-800 flex flex-col items-center justify-center leading-tight shadow-sm hover:shadow"
             >
               <span>Auto-Login</span>
-              <span className="text-[9px] font-medium opacity-80">(Messi)</span>
+              <span className="text-3xs font-medium opacity-80">(Messi)</span>
             </button>
           </div>
         )}

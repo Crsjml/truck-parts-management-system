@@ -50,58 +50,58 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Total Catalog Items */}
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-brandBlue-400 transition-all duration-300">
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Catalog Parts</span>
-            <h3 className="text-3xl font-bold text-foreground font-display">{totalParts}</h3>
-            <p className="text-xs text-muted-foreground">Listed components</p>
+          <div className="space-y-2 min-w-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Catalog Parts</span>
+            <h3 className="text-3xl font-bold text-foreground font-display truncate">{totalParts}</h3>
+            <p className="text-xs text-muted-foreground truncate">Listed components</p>
           </div>
-          <div className="p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl border border-brandBlue-500/30 dark:border-brandBlue-700/30">
+          <div className="shrink-0 p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl border border-brandBlue-500/30 dark:border-brandBlue-700/30">
             <Package weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Total Inventory Value */}
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-emerald-500/30 transition-all duration-300">
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Asset Value</span>
-            <h3 className="text-3xl font-bold text-foreground font-display">
+          <div className="space-y-2 min-w-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Asset Value</span>
+            <h3 className="text-3xl font-bold text-foreground font-display truncate">
               {formatCurrency(inventoryValue)}
             </h3>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
               <TrendUp weight="duotone" className="w-3.5 h-3.5" /> Stable stock value
             </p>
           </div>
-          <div className="p-3 bg-emerald-500/10 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 dark:border-emerald-500/20">
+          <div className="shrink-0 p-3 bg-emerald-500/10 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 dark:border-emerald-500/20">
             <CurrencyDollar weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Low Stock Alerts */}
         <div className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 ${lowStockItems.length > 0 ? 'border-t-accent/50' : 'border-t-border'}`}>
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Stock Warnings</span>
-            <h3 className={`text-3xl font-bold font-display ${lowStockItems.length > 0 ? 'text-red-500 glow-text-red' : 'text-muted-foreground'}`}>
+          <div className="space-y-2 min-w-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Stock Warnings</span>
+            <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? 'text-red-500 glow-text-red' : 'text-muted-foreground'}`}>
               {lowStockItems.length}
             </h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {lowStockItems.length > 0 ? 'Requires immediate action' : 'All items well-stocked'}
             </p>
           </div>
-          <div className={`p-3 rounded-xl border ${lowStockItems.length > 0 ? 'bg-red-950/20 text-red-500 border-red-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border'}`}>
+          <div className={`shrink-0 p-3 rounded-xl border ${lowStockItems.length > 0 ? 'bg-red-950/20 text-red-500 border-red-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border'}`}>
             <Warning weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Total Sales Value */}
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-amber-500/30 transition-all duration-300">
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Invoiced Sales</span>
-            <h3 className="text-3xl font-bold text-foreground font-display">
+          <div className="space-y-2 min-w-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Invoiced Sales</span>
+            <h3 className="text-3xl font-bold text-foreground font-display truncate">
               {formatCurrency(totalRevenue)}
             </h3>
-            <p className="text-xs text-muted-foreground">{transactions.length} invoices generated</p>
+            <p className="text-xs text-muted-foreground truncate">{transactions.length} invoices generated</p>
           </div>
-          <div className="p-3 bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 rounded-xl border border-amber-500/30 dark:border-amber-700/30">
+          <div className="shrink-0 p-3 bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 rounded-xl border border-amber-500/30 dark:border-amber-700/30">
             <FileText weight="duotone" className="w-6 h-6" />
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                     </span>
                     <div className="space-y-1">
                       <p className="text-muted-foreground group-hover:text-foreground transition-colors">{log.message}</p>
-                      <span className="text-[10px] text-muted-foreground font-mono">
+                      <span className="text-2xs text-muted-foreground font-mono">
                         {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>

@@ -2,6 +2,7 @@
 import './config/env.js';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import partsRouter from './routes/parts.js';
 import categoriesRouter from './routes/categories.js';
 import settingsRouter from './routes/settings_routes.js';
@@ -10,8 +11,11 @@ import suppliersRouter from './routes/suppliers.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import checkoutRouter from './routes/checkout.js';
 import reviewsRouter from './routes/reviews.js';
-import mongoose from 'mongoose';
+import staffRoutes from './routes/staffRoutes.js';
+import customersRouter from './routes/customers.js';
+import { prisma } from './config/prisma.js';
 const app = express();
+app.use(compression());
 // CORS configuration
 app.use(cors({
   origin: [
@@ -25,7 +29,7 @@ app.use((req, res, next) => {
   if (req.originalUrl === '/api/checkout/webhook') {
     next();
   } else {
-    express.json()(req, res, next);
+    express.json({ limit: '5mb' })(req, res, next);
   }
 });
 
@@ -37,6 +41,8 @@ app.use('/api/transactions', transactionsRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/reviews', reviewsRouter);
+app.use('/api/staff', staffRoutes);
+app.use('/api/customers', customersRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 
@@ -44,21 +50,35 @@ app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 const DB_STATES = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
 const startTime = Date.now();
 
-app.get('/api/health', (req, res) => {
-  const dbState = mongoose.connection.readyState;
-  const status = dbState === 1 ? 'ok' : 'degraded';
-  res.status(dbState === 1 ? 200 : 503).json({
-    status,
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-    services: {
-      backend: 'ok',
-      database: {
-        status: DB_STATES[dbState] ?? 'unknown',
-        connected: dbState === 1,
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({
+      status: 'ok',
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+      services: {
+        backend: 'ok',
+        database: {
+          status: 'connected',
+          connected: true,
+        },
       },
-    },
-    timestamp: new Date().toISOString(),
-  });
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'degraded',
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+      services: {
+        backend: 'ok',
+        database: {
+          status: 'disconnected',
+          connected: false,
+        },
+      },
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 export default app;

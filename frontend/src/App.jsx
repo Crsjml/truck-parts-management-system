@@ -4,7 +4,6 @@ import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank
 import Logo from './components/Logo';
 import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
-import CustomerDashboard from './components/CustomerDashboard';
 import StatusBar from './components/StatusBar';
 import Footer from './components/Footer';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
@@ -18,6 +17,7 @@ const Analytics = lazy(() => import('./components/Analytics'));
 const CategoryManagement = lazy(() => import('./components/CategoryManagement'));
 const PurchasingModule = lazy(() => import('./components/PurchasingModule'));
 const MyAccount = lazy(() => import('./components/MyAccount'));
+const StaffManagement = lazy(() => import('./components/StaffManagement'));
 
 // Sleek loading fallback for Suspense
 const PageLoader = () => (
@@ -33,20 +33,16 @@ const PageLoader = () => (
 );
 
 
-import {
-  INITIAL_TRANSACTIONS,
-  INITIAL_LOGS
-} from './mockData';
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, fetchPartAdjustments } from './authStore';
-import { auth } from './firebaseConfig';
-import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile } from './authStore';
+import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const { toasts, showToast, dismissToast } = useToast();
-  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [supabaseUser, setSupabaseUser] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [customerProfile, setCustomerProfile] = useState(null);
 
   const [activeView, setActiveView] = useState('storefront');
   const [page, setPage] = useState('dashboard');
@@ -54,8 +50,8 @@ export default function App() {
   const [categories, setCategories] = useState(['All']);
   const [isAlertDrawerOpen, setIsAlertDrawerOpen] = useState(false);
   const [myRfqStats, setMyRfqStats] = useState({ sent: 0, lateRfq: 0, notAck: 0, lateReceipt: 0 });
-  const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [transactions, setTransactions] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -80,47 +76,109 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const handleUserChange = async (currentUser) => {
       if (currentUser) {
-        // Enforce email verification (unless it's a seed test user or admin bypass if needed)
-        // For security, if they aren't verified, we don't log them in.
-        if (!currentUser.emailVerified && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com') && !currentUser.email?.includes('lionel.messi')) {
-          // We don't call signOut() here directly to avoid infinite loops in some edge cases,
-          // but we just treat them as NOT signed in for the app state.
-          setFirebaseUser(null);
+        if (!currentUser.email_confirmed_at && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com') && !currentUser.email?.includes('lionel.messi') && !currentUser.email?.includes('staff')) {
+          setSupabaseUser(null);
           setIsSignedIn(false);
           setIsLoaded(true);
           return;
         }
 
-        setFirebaseUser(currentUser);
-        setIsSignedIn(true);
-        // Automatically set view based on role
         const email = currentUser.email || '';
-        const isAdmin = email.includes('admin') || email.includes('tarlac') || email === 'rbenedict.maagma@gmail.com' || email === 'azhoraaaa@gmail.com';
-        const role = isAdmin ? 'admin' : 'customer';
-        if (role === 'admin') setActiveView('admin-app');
-        else setActiveView('customer-dashboard');
+        
+        // Fetch RBAC staff role
+        let staffData = await checkStaffRole(email);
+        
+        // Hardcode fallback for default developer admin account
+        if (!staffData && email === 'admin@tarlactruckparts.local') {
+          staffData = {
+            role: 'SUPERADMIN',
+            name: 'System Admin',
+            email: 'admin@tarlactruckparts.local',
+            permissions: {
+              inventory: 'manage',
+              sales: 'manage',
+              purchasing: 'manage',
+              reports: 'manage'
+            }
+          };
+        }
+        
+        const isAdmin = !!staffData;
+        
+        setSupabaseUser(currentUser);
+        setIsSignedIn(true);
+        
+        const userRole = isAdmin ? 'admin' : 'customer';
+        
+        // Expose staff permissions in the session for components to consume
+        if (isAdmin) {
+           currentUser.staffData = staffData;
+        }
+        
+        if (userRole === 'admin') setActiveView('admin-app');
+        else setActiveView('storefront'); // Go directly to storefront
       } else {
-        setFirebaseUser(null);
+        setSupabaseUser(null);
         setIsSignedIn(false);
       }
       setIsLoaded(true);
+    };
+
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      handleUserChange(session?.user || null);
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleUserChange(session?.user || null);
     });
-    return () => unsubscribe();
+
+    return () => subscription.unsubscribe();
   }, []);
 
-
-  // Derive roles from Firebase user
-  const isAdmin = firebaseUser?.email?.includes('admin') || firebaseUser?.email?.includes('tarlac') || firebaseUser?.email === 'rbenedict.maagma@gmail.com' || firebaseUser?.email === 'azhoraaaa@gmail.com';
-  const role = isAdmin ? 'admin' : 'customer';
-  
-  const customerSession = isSignedIn && role === 'customer' ? {
-    user: { fullName: firebaseUser.displayName || firebaseUser.email, role: 'customer' }
+  // Derive sessions directly from the state
+  const adminSession = isSignedIn && supabaseUser?.staffData ? {
+    user: { 
+      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email, 
+      role: 'admin', 
+      staffData: supabaseUser.staffData 
+    }
   } : null;
 
-  const adminSession = isSignedIn && role === 'admin' ? {
-    user: { fullName: firebaseUser.displayName || firebaseUser.email, role: 'admin' }
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (supabaseUser && !supabaseUser.staffData) {
+        const p = await fetchCustomerProfile();
+        setCustomerProfile(p);
+      } else {
+        setCustomerProfile(null);
+      }
+    };
+    fetchProfile();
+  }, [supabaseUser]);
+
+  useEffect(() => {
+    const handleAvatarUpdate = async () => {
+      if (supabaseUser && !supabaseUser.staffData) {
+        const p = await fetchCustomerProfile();
+        setCustomerProfile(p);
+      }
+    };
+    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+    return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+  }, [supabaseUser]);
+
+  const customerSession = isSignedIn && !supabaseUser?.staffData ? {
+    user: { 
+      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email, 
+      email: supabaseUser.email, 
+      role: 'customer',
+      uid: supabaseUser.id,
+      photoURL: customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url
+    }
   } : null;
 
   useEffect(() => {
@@ -161,12 +219,16 @@ export default function App() {
     
     const loadData = async () => {
       // Parallelize data fetching to prevent sequential waterfalls
-      const [fetchedParts, fetchedCategories] = await Promise.all([
+      const [fetchedParts, fetchedCategories, fetchedTransactions] = await Promise.all([
         fetchParts(),
-        fetchCategories()
+        fetchCategories(),
+        fetchTransactions()
       ]);
       setParts(fetchedParts);
       setCategories(fetchedCategories);
+      if (fetchedTransactions && fetchedTransactions.length > 0) {
+        setTransactions(fetchedTransactions);
+      }
     };
 
     loadData();
@@ -254,28 +316,77 @@ export default function App() {
   };
 
   const handleLogout = async (role) => {
-    await signOut(auth);
+    await supabase.auth.signOut();
     setActiveView('storefront');
   };
 
-  const handleOpenCustomerAuth = () => setActiveView('customer-auth');
+  const [authInitialTab, setAuthInitialTab] = useState('login');
+  const handleOpenCustomerAuth = (tab = 'login') => {
+    setAuthInitialTab(tab);
+    setActiveView('customer-auth');
+  };
   const handleOpenAdminAuth = () => setActiveView('admin-auth');
 
   const handleAutoCustomerLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, 'lionel.messi@example.com', 'Player@12345');
-      showToast('Auto-logged in as Lionel Messi!', 'success');
+      const email = 'lionel.messi@example.com';
+      const password = 'Password123!';
+      const fullName = 'Lionel Messi';
+
+      let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error?.status === 429) {
+        throw new Error('Too many requests. Please wait 30 seconds and try again.');
+      }
+
+      if (error?.message?.includes('Invalid login credentials')) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { full_name: fullName } },
+        });
+
+        if (signUpError?.message?.includes('already registered') || signUpError?.message?.includes('already exists')) {
+          throw new Error('User exists but password mismatch. Contact admin to reset.');
+        }
+        if (signUpError?.status === 429) {
+          throw new Error('Too many requests. Please wait 30 seconds and try again.');
+        }
+        if (signUpError) throw signUpError;
+
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError?.message?.includes('Email not confirmed')) {
+          throw new Error('Account created but email not confirmed. Contact admin to confirm.');
+        }
+        if (signInError) throw signInError;
+      } else if (error?.message?.includes('Email not confirmed')) {
+        throw new Error('Account exists but email not confirmed. Contact admin.');
+      } else if (error) {
+        throw error;
+      }
+
+      setActiveView('storefront');
+      showToast('Logged in as Lionel Messi', 'success');
     } catch (err) {
-      showToast(`Auto-login failed: ${err.message}. (Make sure you register this user first in the Auth Portal with password: Player@12345)`, 'error');
+      showToast(`Auto-login failed: ${err.message}`, 'error');
     }
   };
 
   const handleAutoAdminLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, 'admin@tarlactruckparts.local', 'Admin@12345');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: 'admin@tarlactruckparts.local',
+        password: 'admin123',
+      });
+
+      if (error?.status === 429) {
+        throw new Error('Too many requests. Please wait 30 seconds and try again.');
+      }
+      if (error) throw error;
+
+      setActiveView('admin-app');
       showToast('Auto-logged in as System Admin!', 'success');
     } catch (err) {
-      showToast(`Auto-login failed: ${err.message}. (Make sure you register admin@tarlactruckparts.local first in the Auth Portal with password: Admin@12345)`, 'error');
+      showToast(`Auto-login failed: ${err.message}`, 'error');
     }
   };
 
@@ -299,7 +410,7 @@ export default function App() {
       <>
         <AuthPortal
           mode={activeView === 'admin-auth' ? 'admin' : 'customer'}
-          initialTab={activeView === 'signup' ? 'register' : 'login'}
+          initialTab={activeView === 'signup' ? 'register' : authInitialTab}
           onBackToStore={() => setActiveView('storefront')}
         />
         <FloatingSettingsWidget 
@@ -314,31 +425,6 @@ export default function App() {
   }
 
 
-  if (activeView === 'customer-dashboard') {
-    return (
-      <>
-        <CustomerDashboard
-          customerName={customerSession?.user?.fullName || ''}
-          customerContact={customerSession?.user?.contactNumber || ''}
-          transactions={transactions}
-          parts={parts}
-          onAddLog={addLog}
-          onCheckout={handleCheckout}
-          onLogout={() => handleLogout('customer')}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-        />
-      <FloatingSettingsWidget 
-        onAdminLogin={handleAutoAdminLogin}
-        onCustomerLogin={handleAutoCustomerLogin}
-        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
-        isLoggedIn={!!adminSession || !!customerSession}
-      />
-        <StatusBar />
-      </>
-    );
-  }
-
 
   if (activeView === 'storefront') {
     return (
@@ -346,6 +432,7 @@ export default function App() {
         <CustomerStorefront
           parts={parts}
           categories={categories}
+          transactions={transactions}
           customerSession={customerSession}
           onOpenCustomerAuth={handleOpenCustomerAuth}
           onOpenAdminAuth={handleOpenAdminAuth}
@@ -445,14 +532,30 @@ export default function App() {
               <Buildings weight="duotone" className="w-5 h-5" />
               Purchasing
             </button>
+
+            {/* SUPER ADMIN ONLY: Staff Management */}
+            {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && (
+              <button
+                onClick={() => setPage('staff')}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  page === 'staff'
+                    ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
+              >
+                <ShieldCheck weight="duotone" className="w-5 h-5" />
+                Staff Management
+              </button>
+            )}
+
           </nav>
         </div>
 
         <div className="shrink-0 p-5 pt-4 border-t border-border flex items-center justify-between bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            {firebaseUser && (localStorage.getItem(`avatar_${firebaseUser.uid}`) || firebaseUser.photoURL) ? (
+            {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
               <img 
-                src={localStorage.getItem(`avatar_${firebaseUser.uid}`) || firebaseUser.photoURL} 
+                src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
                 alt="Profile" 
                 className="w-10 h-10 rounded-full border border-border object-cover shadow-inner bg-secondary"
               />
@@ -463,7 +566,7 @@ export default function App() {
             )}
             <div className="flex flex-col text-left">
               <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-              <span className="text-[10px] text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
+              <span className="text-2xs text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
             </div>
           </div>
           <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg" title="Active Connection secure">
@@ -571,17 +674,33 @@ export default function App() {
                   <User weight="duotone" className="w-5 h-5" />
                   My Account
                 </button>
+                
+                {/* SUPER ADMIN ONLY: Staff Management (Mobile) */}
+                {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && (
+                  <button
+                    onClick={() => {
+                      setPage('staff');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                      page === 'staff' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
+                  >
+                    <ShieldCheck weight="duotone" className="w-5 h-5" />
+                    Staff Management
+                  </button>
+                )}
               </nav>
             </div>
 
             <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col gap-3 bg-secondary/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    {firebaseUser && (localStorage.getItem(`avatar_${firebaseUser.uid}`) || firebaseUser.photoURL) ? (
+                    {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                       <img 
-                        src={localStorage.getItem(`avatar_${firebaseUser.uid}`) || firebaseUser.photoURL} 
+                        src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
                         alt="Profile" 
-                        className="w-10 h-10 rounded-full border border-border object-cover shadow-inner bg-secondary"
+                        className="w-8 h-8 rounded-full border border-border object-cover shadow-inner bg-secondary"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
@@ -590,26 +709,26 @@ export default function App() {
                     )}
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                    <span className="text-[9px] text-muted-foreground uppercase font-semibold">System Admin</span>
+                    <span className="text-3xs text-muted-foreground uppercase font-semibold">System Admin</span>
                   </div>
                 </div>
-                <div className="p-1 px-2 bg-emerald-500/10 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-[10px] rounded border border-emerald-500/30 dark:border-emerald-800/30">Secure</div>
+                <div className="p-1 px-2 bg-emerald-500/10 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-2xs rounded border border-emerald-500/30 dark:border-emerald-800/30">Secure</div>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-[9px] text-muted-foreground font-bold uppercase">Sent RFQs</span>
+                  <span className="text-3xs text-muted-foreground font-bold uppercase">Sent RFQs</span>
                   <span className="text-sm font-black text-cyan-500">{myRfqStats.sent}</span>
                 </div>
                 <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-[9px] text-muted-foreground font-bold uppercase">Late RFQs</span>
+                  <span className="text-3xs text-muted-foreground font-bold uppercase">Late RFQs</span>
                   <span className="text-sm font-black text-orange-500">{myRfqStats.lateRfq}</span>
                 </div>
                 <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-[9px] text-muted-foreground font-bold uppercase">Not Acknowledged</span>
+                  <span className="text-3xs text-muted-foreground font-bold uppercase">Not Acknowledged</span>
                   <span className="text-sm font-black text-amber-500">{myRfqStats.notAck}</span>
                 </div>
                 <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-[9px] text-muted-foreground font-bold uppercase">Late Receipt</span>
+                  <span className="text-3xs text-muted-foreground font-bold uppercase">Late Receipt</span>
                   <span className="text-sm font-black text-red-500">{myRfqStats.lateReceipt}</span>
                 </div>
               </div>
@@ -643,7 +762,7 @@ export default function App() {
             >
               <Bell weight="duotone" className="w-4.5 h-4.5" />
               {lowStockCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-[9px] font-extrabold text-white rounded-full flex items-center justify-center animate-bounce shadow-md shadow-accent/35">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-3xs font-extrabold text-white rounded-full flex items-center justify-center animate-bounce shadow-md shadow-accent/35">
                   {lowStockCount}
                 </span>
               )}
@@ -651,7 +770,7 @@ export default function App() {
 
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="font-mono text-muted-foreground text-[10px]">TTP-SERVER: ACTIVE</span>
+              <span className="font-mono text-muted-foreground text-2xs">TTP-SERVER: ACTIVE</span>
             </div>
             
             <button
@@ -720,7 +839,8 @@ export default function App() {
 
                 {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
                 {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
-                {page === 'account' && <MyAccount user={auth.currentUser} onGoBack={() => setPage('dashboard')} />}
+                {page === 'account' && <MyAccount user={supabaseUser} onGoBack={() => setPage('dashboard')} />}
+                {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && page === 'staff' && <StaffManagement />}
                 {page === 'purchasing' && (
                   <PurchasingModule 
                     onAddLog={addLog} 
@@ -791,11 +911,11 @@ export default function App() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 pl-2">
                         <div className="p-2 bg-background rounded-lg border border-border">
-                          <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
+                          <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
                           <div className="text-lg font-bold text-foreground">{part.stock}</div>
                         </div>
                         <div className="p-2 bg-background rounded-lg border border-border">
-                          <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
+                          <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
                           <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
                         </div>
                       </div>
@@ -820,7 +940,7 @@ export default function App() {
 
       <FloatingSettingsWidget 
         onAdminLogin={handleAutoAdminLogin}
-        onCustomerLogin={handleOpenCustomerAuth}
+        onCustomerLogin={handleAutoCustomerLogin}
         onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
         isLoggedIn={!!adminSession || !!customerSession}
       />

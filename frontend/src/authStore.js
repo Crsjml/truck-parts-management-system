@@ -76,16 +76,30 @@ function decode_jwt(token) {
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
 
+import { supabase } from './supabaseClient';
+
+let _cachedToken = null;
+let _tokenExpiry = 0;
+
 async function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  if (window.Clerk?.session) {
-    try {
-      const token = await window.Clerk.session.getToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-    } catch (e) { console.warn('Clerk token error', e); }
-  } else {
-    const session = readSession(ADMIN_SESSION_KEY) || readSession(CUSTOMER_SESSION_KEY);
-    if (session && session.token) headers['Authorization'] = `Bearer ${session.token}`;
+  try {
+    const now = Date.now();
+    if (!_cachedToken || now > _tokenExpiry) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        _cachedToken = session.access_token;
+        _tokenExpiry = now + 60_000;
+      } else {
+        _cachedToken = null;
+        _tokenExpiry = 0;
+      }
+    }
+    if (_cachedToken) {
+      headers['Authorization'] = `Bearer ${_cachedToken}`;
+    }
+  } catch (e) {
+    console.warn('Supabase token error', e);
   }
   return headers;
 }
@@ -167,7 +181,7 @@ async function api_delete(path, timeout_ms = 8000) {
   }
 }
 
-export async function api_get(path, timeout_ms = 8000) {
+async function api_get(path, timeout_ms = 15000) {
   try {
     const headers = await getAuthHeaders();
     console.log(`[API GET] Requesting ${path} with headers:`, headers);
@@ -235,14 +249,86 @@ export const fetchVehicleOptions = async () => {
   }
 };
 
+// ── Customer Profile ─────────────────────────────────────────────────────────
+
+export const fetchCustomerProfile = async () => {
+  try {
+    const { ok, data } = await api_get('/api/customers/me');
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to fetch customer profile:', err);
+    return null;
+  }
+};
+
+export const updateCustomerProfile = async (profileData) => {
+  try {
+    const { ok, data } = await api_put('/api/customers/me', profileData);
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to update customer profile:', err);
+    throw err;
+  }
+};
+
+// ── Staff & Roles Management ──────────────────────────────────────────────
+
+export const fetchStaffRoles = async () => {
+  try {
+    const { ok, data } = await api_get('/api/staff');
+    return ok ? data : [];
+  } catch (err) {
+    console.error('Failed to fetch staff roles:', err);
+    return [];
+  }
+};
+
+export const checkStaffRole = async (email) => {
+  try {
+    const { ok, data } = await api_post('/api/staff/check', { email });
+    return ok ? data : null;
+  } catch (err) {
+    console.error('Failed to check staff role:', err);
+    return null;
+  }
+};
+
+export const createStaffRole = async (payload) => {
+  try {
+    const { ok, data } = await api_post('/api/staff', payload);
+    return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to add staff' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const updateStaffRole = async (id, payload) => {
+  try {
+    const { ok, data } = await api_put(`/api/staff/${id}`, payload);
+    return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to update staff' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+export const deleteStaffRole = async (id) => {
+  try {
+    const { ok, data } = await api_delete(`/api/staff/${id}`);
+    return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete staff' };
+  } catch {
+    return { ok: false, error: 'Server connection failed.' };
+  }
+};
+
+
 // ── Validation helpers (used by UI) ─────────────────────────────────────────
 
-export const validateFullName = (value) => {
+const validateFullName = (value) => {
   if (!value || value.trim().length < 3) return 'Full name must be at least 3 characters.';
   return '';
 };
 
-export const validateContactNumber = (value) => {
+const validateContactNumber = (value) => {
   if (!value) return 'Contact number is required.';
   const stripped = value.replace(/\s+/g, '');
   if (!/^(\+63|0)[0-9]{10}$/.test(stripped)) {
@@ -251,13 +337,13 @@ export const validateContactNumber = (value) => {
   return '';
 };
 
-export const validateEmail = (value) => {
+const validateEmail = (value) => {
   if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()))
     return 'Enter a valid email address.';
   return '';
 };
 
-export const validatePassword = (value) => {
+const validatePassword = (value) => {
   if (!value || value.length < 8) return 'Password must be at least 8 characters.';
   if (!/[A-Za-z]/.test(value) || !/[0-9]/.test(value))
     return 'Password must include both letters and numbers.';
@@ -269,7 +355,7 @@ export const validateVerificationCode = (value) => {
   return '';
 };
 
-export const validateRegistrationFields = ({ fullName, contactNumber, email, password }) => {
+const validateRegistrationFields = ({ fullName, contactNumber, email, password }) => {
   const errors = {};
   const fn = validateFullName(fullName);
   const cn = validateContactNumber(contactNumber);
@@ -282,7 +368,7 @@ export const validateRegistrationFields = ({ fullName, contactNumber, email, pas
   return errors;
 };
 
-export const validateLoginFields = ({ email, password }) => {
+const validateLoginFields = ({ email, password }) => {
   const errors = {};
   const em = validateEmail(email);
   if (em) errors.email = em;
@@ -292,12 +378,12 @@ export const validateLoginFields = ({ email, password }) => {
 
 // ── Session management ───────────────────────────────────────────────────────
 
-export const clearSession = (role) => {
+const clearSession = (role) => {
   if (!role || role === 'customer') removeKey(CUSTOMER_SESSION_KEY);
   if (!role || role === 'admin')    removeKey(ADMIN_SESSION_KEY);
 };
 
-export const getActiveSession = () => {
+const getActiveSession = () => {
   const admin = readSession(ADMIN_SESSION_KEY);
   if (admin) return admin;
   return readSession(CUSTOMER_SESSION_KEY);
@@ -305,7 +391,7 @@ export const getActiveSession = () => {
 
 // ── Admin login ──────────────────────────────────────────────────────────────
 
-export const loginAdmin = async ({ email, password }) => {
+const loginAdmin = async ({ email, password }) => {
   const errors = validateLoginFields({ email, password });
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -361,7 +447,7 @@ export const loginAdmin = async ({ email, password }) => {
 
 // ── Customer registration ────────────────────────────────────────────────────
 
-export const registerCustomer = async ({ fullName, contactNumber, email, password }) => {
+const registerCustomer = async ({ fullName, contactNumber, email, password }) => {
   const errors = validateRegistrationFields({ fullName, contactNumber, email, password });
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -393,7 +479,7 @@ export const registerCustomer = async ({ fullName, contactNumber, email, passwor
 
 // ── Verify email ─────────────────────────────────────────────────────────────
 
-export const verifyCustomerEmail = async ({ email, code }) => {
+const verifyCustomerEmail = async ({ email, code }) => {
   try {
     const { ok, data } = await api_post('/api/auth/verify', {
       email: email.trim().toLowerCase(),
@@ -409,7 +495,7 @@ export const verifyCustomerEmail = async ({ email, code }) => {
 
 // ── Resend verification code ─────────────────────────────────────────────────
 
-export const resendVerificationCode = async (email) => {
+const resendVerificationCode = async (email) => {
   try {
     const { ok, data } = await api_post('/api/auth/resend-verify', {
       email: email.trim().toLowerCase(),
@@ -428,7 +514,7 @@ export const resendVerificationCode = async (email) => {
 
 // ── Customer login ───────────────────────────────────────────────────────────
 
-export const loginCustomer = async ({ email, password, rememberMe }) => {
+const loginCustomer = async ({ email, password, rememberMe }) => {
   const errors = validateLoginFields({ email, password });
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -469,7 +555,7 @@ export const loginCustomer = async ({ email, password, rememberMe }) => {
 
 // ── Password reset request ───────────────────────────────────────────────────
 
-export const requestPasswordReset = async (email) => {
+const requestPasswordReset = async (email) => {
   try {
     const { ok, data } = await api_post('/api/auth/reset-request', {
       email: email.trim().toLowerCase(),
@@ -487,7 +573,7 @@ export const requestPasswordReset = async (email) => {
 
 // ── Password reset apply ─────────────────────────────────────────────────────
 
-export const resetPassword = async ({ token, password }) => {
+const resetPassword = async ({ token, password }) => {
   try {
     const { ok, data } = await api_post(`/api/auth/reset/${token}`, { password });
     if (!ok) return { ok: false, error: data.msg || 'Password reset failed.' };
@@ -499,7 +585,7 @@ export const resetPassword = async ({ token, password }) => {
 
 // ── Change Password (Authenticated) ──────────────────────────────────────────
 
-export const changePassword = async ({ email, currentPassword, newPassword }) => {
+const changePassword = async ({ email, currentPassword, newPassword }) => {
   try {
     const { ok, data } = await api_post('/api/auth/change-password', {
       email: email.trim().toLowerCase(),
@@ -515,7 +601,7 @@ export const changePassword = async ({ email, currentPassword, newPassword }) =>
 
 // ── Verification notice helper (used by UI) ──────────────────────────────────
 
-export const getVerificationNotice = (email, code) =>
+const getVerificationNotice = (email, code) =>
   `Verification code sent to ${email}. Demo code: ${code}`;
 
 // ── Categories CRUD ──────────────────────────────────────────────────────────
@@ -530,18 +616,18 @@ export const fetchCategoriesList = async () => {
   }
 };
 
-export const createCategory = async ({ name, parentCategory }) => {
+export const createCategory = async ({ name, parentCategory, iconName, colorTheme }) => {
   try {
-    const { ok, data } = await api_post('/api/categories', { name, parentCategory });
+    const { ok, data } = await api_post('/api/categories', { name, parentCategory, iconName, colorTheme });
     return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to create category.' };
   } catch {
     return { ok: false, error: 'Server connection failed.' };
   }
 };
 
-export const updateCategory = async (id, { name, parentCategory }) => {
+export const updateCategory = async (id, { name, parentCategory, iconName, colorTheme }) => {
   try {
-    const { ok, data } = await api_put(`/api/categories/${id}`, { name, parentCategory });
+    const { ok, data } = await api_put(`/api/categories/${id}`, { name, parentCategory, iconName, colorTheme });
     return ok ? { ok: true, category: data } : { ok: false, error: data.msg || 'Failed to update category.' };
   } catch {
     return { ok: false, error: 'Server connection failed.' };
@@ -640,7 +726,7 @@ export const updateSettings = async (settingsData) => {
   }
 };
 
-export const bulkAdjustPrices = async (percentage) => {
+const bulkAdjustPrices = async (percentage) => {
   try {
     const { ok, data } = await api_post('/api/parts/bulk-adjust', { percentage });
     return ok ? { ok: true, message: data.msg } : { ok: false, error: data.msg || 'Failed to bulk adjust prices.' };
@@ -700,7 +786,7 @@ export const restoreSupplier = async (id) => {
 };
 
 // Keep backward compat alias
-export const deleteSupplier = archiveSupplier;
+const deleteSupplier = archiveSupplier;
 
 // ── Purchase Orders ──────────────────────────────────────────────────────────
 
@@ -752,7 +838,7 @@ export const togglePartPublished = async (id, published) => {
   }
 };
 
-export const restorePart = async (id) => {
+const restorePart = async (id) => {
   try {
     const { ok, data } = await api_put(`/api/parts/${id}/restore`, {});
     return ok ? { ok: true } : { ok: false, error: data.msg };

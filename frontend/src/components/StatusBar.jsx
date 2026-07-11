@@ -5,7 +5,7 @@
  * Polls /api/health every 30s and shows live status for:
  *   • Frontend (always "ok" if this renders)
  *   • Backend API reachability
- *   • MongoDB connection state (from backend health endpoint)
+ *   • Supabase Postgres connection state (from backend health endpoint)
  *
  * Only visible in development mode (import.meta.env.DEV).
  * Place at the bottom of App.jsx to get a sticky footer.
@@ -29,10 +29,10 @@ function Chip({ label, state, detail }) {
 
   return (
     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted/60 border border-border/50">
-      <span style={{ color }} className="text-[10px] leading-none">{dot}</span>
-      <span className="text-[11px] text-foreground/80 font-medium">{label}</span>
+      <span style={{ color }} className="text-2xs leading-none">{dot}</span>
+      <span className="text-11px text-foreground/80 font-medium">{label}</span>
       {detail && (
-        <span className="text-[10px] text-muted-foreground border-l border-border/40 pl-1.5 ml-0.5">
+        <span className="text-2xs text-muted-foreground border-l border-border/40 pl-1.5 ml-0.5">
           {detail}
         </span>
       )}
@@ -41,12 +41,10 @@ function Chip({ label, state, detail }) {
 }
 
 export default function StatusBar() {
-  // Only render in dev mode — remove this condition if you want it in prod too
-  if (!import.meta.env.DEV) return null;
+  const isDev = import.meta.env.DEV;
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [status, setStatus] = useState({
-    firebase: 'ok',
     backend: 'checking',
     database: 'checking',
     uptime: null,
@@ -80,6 +78,7 @@ export default function StatusBar() {
   }, []);
 
   useEffect(() => {
+    if (!isDev) return;
     check(); // immediate first check
     const id = setInterval(check, POLL_INTERVAL_MS);
     return () => clearInterval(id);
@@ -95,11 +94,13 @@ export default function StatusBar() {
     return `${sec}s`;
   };
 
+  if (!isDev) return null;
+
   if (!isExpanded) {
     return (
       <button 
         onClick={() => setIsExpanded(true)} 
-        className="fixed bottom-0 right-0 p-1 px-2 bg-background/90 backdrop-blur-md border border-border/80 rounded-tl-lg text-muted-foreground hover:text-foreground z-[9999] shadow-sm flex items-center gap-1 text-[10px]"
+        className="fixed bottom-0 right-0 p-1 px-2 bg-background/90 backdrop-blur-md border border-border/80 rounded-tl-lg text-muted-foreground hover:text-foreground z-[9999] shadow-sm flex items-center gap-1 text-2xs"
       >
         ⚙ System <CaretUp className="w-3 h-3" />
       </button>
@@ -107,27 +108,26 @@ export default function StatusBar() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-8 bg-background/90 backdrop-blur-md border-t border-border/80 flex items-center justify-between px-4 font-mono text-[11px] text-muted-foreground z-[9999] select-none" role="status" aria-label="System status">
+    <div className="fixed bottom-0 left-0 right-0 h-8 bg-background/90 backdrop-blur-md border-t border-border/80 flex items-center justify-between px-4 font-mono text-11px text-muted-foreground z-[9999] select-none" role="status" aria-label="System status">
       {/* Left: service chips */}
       <div className="flex items-center gap-3">
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold mr-1">⚙ System</span>
+        <span className="text-2xs uppercase tracking-widest text-muted-foreground/80 font-bold mr-1">⚙ System</span>
         <Chip label="Frontend" state="ok" />
-        <Chip label="Firebase" state={status.firebase} />
         <Chip
           label="Backend API"
           state={status.backend}
           detail={status.uptime ? `up ${formatUptime(status.uptime)}` : undefined}
         />
-        <Chip label="MongoDB" state={status.database} />
+        <Chip label="Supabase (ap-south-1)" state={status.database} />
       </div>
 
       {/* Right: meta info */}
       <div className="flex items-center gap-2.5">
         {status.error && (
-          <span className="text-[10px] text-red-500 font-bold" title={status.error}>⚠ {status.error}</span>
+          <span className="text-2xs text-red-500 font-bold" title={status.error}>⚠ {status.error}</span>
         )}
         {status.lastChecked && (
-          <span className="text-[10px] text-muted-foreground/70">Last checked {status.lastChecked}</span>
+          <span className="text-2xs text-muted-foreground/70">Last checked {status.lastChecked}</span>
         )}
         <button
           className="bg-transparent border-none text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer text-sm leading-none px-1"
