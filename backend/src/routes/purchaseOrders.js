@@ -41,6 +41,9 @@ router.post('/', async (req, res) => {
     if (!supplier || !items || items.length === 0) {
       return res.status(400).json({ msg: 'Supplier and items are required.' });
     }
+    if (!expectedDeliveryDate) {
+      return res.status(400).json({ msg: 'Expected delivery date is required.' });
+    }
 
     const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
     const poNumber = await generatePONumber();
