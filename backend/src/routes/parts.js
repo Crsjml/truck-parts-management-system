@@ -56,7 +56,37 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // Fetch parts with pagination
+    // Push JSON compatibility filtering natively to Prisma to fix pagination and memory leaks
+    const compatibilityFilters = [];
+
+    if (brand && brand.toLowerCase() !== 'all') {
+      // Create exact match for brand, plus fallback to Universal
+      compatibilityFilters.push({
+        OR: [
+          { compatibleWith: { array_contains: [{ brand }] } },
+          { compatibleWith: { array_contains: [{ brand: 'Universal' }] } }
+        ]
+      });
+    }
+
+    if (series && series.toLowerCase() !== 'all') {
+      compatibilityFilters.push({
+        compatibleWith: { array_contains: [{ series }] }
+      });
+    }
+
+    if (engineCode) {
+      compatibilityFilters.push({
+        compatibleWith: { array_contains: [{ engineCode }] }
+      });
+    }
+
+    if (compatibilityFilters.length > 0) {
+      if (!where.AND) where.AND = [];
+      where.AND.push(...compatibilityFilters);
+    }
+
+    // Fetch parts with pagination natively filtered
     let [parts, totalCount] = await Promise.all([
       prisma.part.findMany({
         where,
@@ -70,32 +100,6 @@ router.get('/', async (req, res) => {
       }),
       prisma.part.count({ where }),
     ]);
-
-    // In-memory filter for JSON structured data (Prisma JSON array filtering is complex natively)
-    if (brand && brand.toLowerCase() !== 'all') {
-      const brandRegex = new RegExp(`^${brand}$`, 'i');
-      const universalRegex = /^universal$/i;
-      parts = parts.filter(p => {
-        const arr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
-        return arr.some(c => brandRegex.test(c.brand) || universalRegex.test(c.brand));
-      });
-    }
-
-    if (series && series.toLowerCase() !== 'all') {
-      const seriesRegex = new RegExp(`^${series}$`, 'i');
-      parts = parts.filter(p => {
-        const arr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
-        return arr.some(c => seriesRegex.test(c.series));
-      });
-    }
-
-    if (engineCode) {
-      const engineRegex = new RegExp(engineCode, 'i');
-      parts = parts.filter(p => {
-        const arr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
-        return arr.some(c => engineRegex.test(c.engineCode));
-      });
-    }
 
     // Format output
     const formattedParts = parts.map(part => {
