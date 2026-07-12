@@ -1,5 +1,5 @@
 // backend/src/controllers/PurchaseOrdersController.js
-import BaseController from './BaseController.js';
+import { BaseController } from './BaseController.js';
 import purchaseOrdersService from '../services/PurchaseOrdersService.js';
 
 class PurchaseOrdersController extends BaseController {

@@ -1,5 +1,5 @@
 // backend/src/controllers/CheckoutController.js
-import BaseController from './BaseController.js';
+import { BaseController } from './BaseController.js';
 import checkoutService from '../services/CheckoutService.js';
 
 class CheckoutController extends BaseController {

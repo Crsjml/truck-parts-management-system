@@ -1,5 +1,5 @@
 // backend/src/controllers/SuppliersController.js
-import BaseController from './BaseController.js';
+import { BaseController } from './BaseController.js';
 import suppliersService from '../services/SuppliersService.js';
 
 class SuppliersController extends BaseController {

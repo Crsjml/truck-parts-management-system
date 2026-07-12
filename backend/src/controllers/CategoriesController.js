@@ -1,5 +1,5 @@
 // backend/src/controllers/CategoriesController.js
-import BaseController from './BaseController.js';
+import { BaseController } from './BaseController.js';
 import categoriesService from '../services/CategoriesService.js';
 
 class CategoriesController extends BaseController {

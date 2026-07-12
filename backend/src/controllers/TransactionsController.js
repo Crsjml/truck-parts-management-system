@@ -1,5 +1,5 @@
 // backend/src/controllers/TransactionsController.js
-import BaseController from './BaseController.js';
+import { BaseController } from './BaseController.js';
 import transactionsService from '../services/TransactionsService.js';
 
 class TransactionsController extends BaseController {
