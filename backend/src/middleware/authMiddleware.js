@@ -7,6 +7,10 @@ export const requireAuth = async (req, res, next) => {
   }
 
   const token = authHeader.split('Bearer ')[1];
+  
+  if (!token || token === 'null' || token === 'undefined') {
+    return res.status(401).json({ msg: 'No token provided' });
+  }
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
