@@ -11,4 +11,4 @@ echo 🟢 Live success/bug messages below...
 echo ⏹️  Press Ctrl+C to stop the servers at any time.
 echo.
 
-docker-compose --ansi always up backend frontend
+docker-compose --ansi always up --build backend frontend

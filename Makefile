@@ -32,7 +32,7 @@ up:
 	@echo "\033[1;36m🔗 Frontend:\033[0m http://localhost:5173\n"
 	@echo "🟢 Live success/bug messages below..."
 	@echo "⏹️  Press Ctrl+C to stop the servers at any time.\n"
-	docker-compose --ansi always up backend frontend
+	docker-compose --ansi always up --build backend frontend
 
 down:
 	@echo "${GREEN}Stopping containers...${NC}"
