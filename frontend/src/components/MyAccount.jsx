@@ -131,7 +131,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
 
   const handleReauth = async (e) => {
     e.preventDefault();
-    // Removed Firebase-specific reauth
+    // TODO: Implement Supabase re-authentication for sensitive operations (e.g. email change)
   };
 
   const handleImageUpload = (e) => {

@@ -4,12 +4,12 @@ These are the synced instructions for AI agents (Antigravity & Claude Code) and 
 
 ## 🏗️ Project Architecture
 - **Frontend**: React + Vite (Port 5173). API requests use relative paths (`/api/*`) which Vite proxies to the backend automatically.
-- **Backend**: Express.js + Mongoose (Port 5000 internally). 
-- **Database**: MongoDB 7.
+- **Backend**: Express.js + Prisma (Port 5000 internally). 
+- **Database**: PostgreSQL (Supabase / Prisma).
 - **Orchestration**: Docker Compose.
 
 ## 🚀 Running the Project
-The startup scripts automatically stop existing servers and handle backgrounding Mongo for a clean terminal.
+The startup scripts automatically stop existing servers.
 - **Mac/Linux**: Use `make up` to start, `make down` to stop.
 - **Windows**: Use `.\run.bat` to start, `docker-compose down` to stop.
 
@@ -33,7 +33,7 @@ We use the **GitHub for Jira** integration.
 
 ## 🛠️ Code Style & Rules
 - **No Hardcoded URLs**: Do NOT hardcode backend URLs (`http://localhost:5000`) in the frontend. Always use relative paths (`/api/health`) because Vite proxies it natively.
-- **Clean Terminals**: Keep terminal logs clean. We suppress Mongo/Mongoose warnings by default in our compose file.
+- **Clean Terminals**: Keep terminal logs clean. We suppress unnecessary warnings by default in our compose file.
 - **Premium UI/UX System**:
   - **Color Harmony**: Avoid default raw HTML colors. Use curated HSL palettes. For accents, use glowing drop shadows (e.g., `box-shadow` or `ring` classes with 10-20% opacity).
   - **Glassmorphism & Depth**: Favor translucent overlays over solid panels. Combine `rgba` backgrounds with `backdrop-filter: blur()`, subtle white borders, and heavy soft shadows (`box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15)`) to create depth.

@@ -10,7 +10,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
-      - ./atlas-credentials.env
       - ./backend/.env
     environment:
       - NODE_NO_WARNINGS=1
@@ -21,9 +20,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 2s
-    depends_on:
-      mongo:
-        condition: service_started
 
   # ------------------------------------------------------------
   # Frontend – Vite / React
@@ -50,20 +46,7 @@ services:
         condition: service_healthy
     restart: always
 
-  # ------------------------------------------------------------
-  # (Optional) Local MongoDB for testing – keep commented if you prefer Atlas
-  # ------------------------------------------------------------
-  mongo:
-    container_name: truck-system-mongo
-    image: mongo:7
-    command: --quiet
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    environment:
-      MONGO_INITDB_DATABASE: truck_parts
+
 
 volumes:
   frontend_node_modules:
-  mongo-data:

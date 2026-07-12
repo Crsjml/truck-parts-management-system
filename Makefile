@@ -27,8 +27,7 @@ build:
 up:
 	@echo "\033[1;32m🛑 Stopping any currently running servers...\033[0m"
 	docker-compose down
-	@echo "\033[1;36m🗄️  Starting MongoDB silently in the background...\033[0m"
-	docker-compose up -d mongo
+
 	@echo "\n\033[1;32m🚀 Web Application is spinning up!\033[0m"
 	@echo "\033[1;36m🔗 Frontend:\033[0m http://localhost:5173\n"
 	@echo "🟢 Live success/bug messages below..."

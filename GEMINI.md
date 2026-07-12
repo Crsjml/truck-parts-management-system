@@ -29,9 +29,9 @@ When encountering bugs, test failures, or console errors:
 ## 🏗️ 2. Project Architecture & Stack
 
 - **Frontend:** React 18+, Vite, Tailwind CSS, Phosphor Icons. Runs on Port `5173`.
-- **Backend:** Node.js, Express.js, Mongoose. Runs on Port `5000` internally.
-- **Database:** MongoDB 7 (Atlas Cloud & Local Docker fallback).
-- **Authentication:** Firebase Auth (Client-side & Admin SDK verification).
+- **Backend:** Node.js, Express.js, Prisma. Runs on Port `5000` internally.
+- **Database:** PostgreSQL (Supabase / Prisma).
+- **Authentication:** Supabase Auth (Client-side JWT & Admin SDK verification).
 - **Orchestration:** Docker Desktop & Docker Compose.
 - **Routing:** Frontend API requests MUST use relative paths (e.g., `/api/health`). Vite automatically proxies `/api/*` to the backend. **Never hardcode `http://localhost:5000` in the frontend.**
 
@@ -40,14 +40,14 @@ When encountering bugs, test failures, or console errors:
 ## 💻 3. Development Workflow & Commands
 
 All execution commands should be run from the repository root.
-- **Start Cluster:** `make up` (Mac/Linux) or `.\run.bat` (Windows). This handles backgrounding Mongo for a clean terminal.
+- **Start Cluster:** `make up` (Mac/Linux) or `.\run.bat` (Windows).
 - **Stop Cluster:** `make down` (Mac/Linux) or `docker-compose down` (Windows).
 - **Manual Frontend:** `npm run dev` inside `/frontend`.
 - **Manual Backend:** `npm run dev` inside `/backend`.
 - **Logs:** Use `make logs`, `make frontend-logs`, or `make backend-logs`.
 
 ### Integrating AI MCP Servers
-This repository provides a template for Model Context Protocol (MCP) servers (`mcp-config.example.json`) which gives the AI agent superpowers to natively query MongoDB, Firebase, Stripe, and GitHub.
+This repository provides a template for Model Context Protocol (MCP) servers (`mcp-config.example.json`) which gives the AI agent superpowers to natively query Postgres, Stripe, and GitHub.
 1. Copy `mcp-config.example.json` into your local IDE's MCP settings (e.g., `~/.gemini/config/mcp.json` or Cursor's MCP configuration).
 2. Replace the placeholder API keys with your own (or use the team's shared vault). 
 3. **DO NOT commit your actual API keys to the repository.**
@@ -91,7 +91,7 @@ You enforce two distinct design systems depending on the portal you are editing.
 
 ## ⚙️ 5. Backend & Database Standards
 
-- **Clean Terminals:** Suppress Mongo/Mongoose warnings. Keep backend logs actionable.
+- **Clean Terminals:** Suppress unnecessary warnings. Keep backend logs actionable.
 - **Security:** Implement least privilege. Do not expose unnecessary fields in JSON responses.
 - **Dependencies:** No external libraries unless absolutely necessary. Check `package.json` before adding anything.
 - **Data Protection:** Never generate, log, or hardcode real customer personal data, passwords, API keys, or connection strings.

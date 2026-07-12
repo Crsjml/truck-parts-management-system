@@ -59,7 +59,7 @@ export default function AuthPortal({
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Firebase uses the global `auth` object, so we don't need useSignIn/useSignUp
+
 
   const [shake, setShake] = useState(false);
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);

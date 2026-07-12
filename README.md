@@ -32,8 +32,6 @@ A full-stack enterprise-grade inventory, sales, and analytics platform built for
 <summary><strong>Infrastructure</strong></summary>
 
 - **Docker + Docker Compose** — Container orchestration
-- **MongoDB** (optional local service, legacy — not used by main app)
-
 </details>
 
 ---
