@@ -8,6 +8,9 @@ export class PartsController extends BaseController {
       const query = getPartsQuerySchema.parse(req.query);
       const { parts, totalCount } = await partsService.getParts(query);
       
+      // Add Cache-Control header to mitigate heavy payloads
+      res.set('Cache-Control', 'public, max-age=60');
+
       return this.handleSuccess(res, {
         data: parts,
         pagination: {
@@ -19,6 +22,25 @@ export class PartsController extends BaseController {
       });
     } catch (error) {
       return this.handleError(error, res, 'getParts');
+    }
+  }
+
+  async createPart(req, res) {
+    try {
+      // Logic expects `partsService.createPart` to handle errors by throwing
+      const result = await partsService.createPart(req.body);
+      return this.handleSuccess(res, result, 201);
+    } catch (error) {
+      return this.handleError(error, res, 'createPart');
+    }
+  }
+
+  async updatePart(req, res) {
+    try {
+      const result = await partsService.updatePart(req.params.id, req.body, req.user);
+      return this.handleSuccess(res, result);
+    } catch (error) {
+      return this.handleError(error, res, 'updatePart');
     }
   }
 }
