@@ -3,11 +3,11 @@ export class BaseController {
     return res.status(statusCode).json(data);
   }
 
-  handleError(error, res, context) {
+  handleError(res, error, context) {
     console.error(`[Controller Error] ${context}:`, error);
     
     // Zod validation error
-    if (error.name === 'ZodError') {
+    if (error && error.name === 'ZodError') {
       return res.status(400).json({ error: 'Validation failed', details: error.errors });
     }
 

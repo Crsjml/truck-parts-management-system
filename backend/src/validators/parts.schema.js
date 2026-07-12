@@ -8,6 +8,6 @@ export const getPartsQuerySchema = z.object({
   brand: z.string().optional(),
   series: z.string().optional(),
   engineCode: z.string().optional(),
-  page: z.string().regex(/^\d+$/, "Page must be a number").transform(Number).optional().default('1'),
-  limit: z.string().regex(/^\d+$/, "Limit must be a number").transform(Number).optional().default('50')
+  page: z.string().regex(/^\d+$/, "Page must be a number").default('1').transform(Number),
+  limit: z.string().regex(/^\d+$/, "Limit must be a number").default('50').transform(Number)
 });

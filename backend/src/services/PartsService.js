@@ -5,7 +5,9 @@ import { parseCompatibility } from '../utils/parseCompatibility.js';
 export class PartsService {
   async getParts(query) {
     const { search, category, archived, published, brand, series, engineCode, page, limit } = query;
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 50;
+    const skip = (pageNum - 1) * limitNum;
 
     // Build Prisma Where Clause
     const where = {};
@@ -79,7 +81,7 @@ export class PartsService {
 
     // Fetch data
     const [parts, totalCount] = await Promise.all([
-      partsRepository.findParts(where, skip, limit),
+      partsRepository.findParts(where, skip, limitNum),
       partsRepository.countParts(where)
     ]);
 

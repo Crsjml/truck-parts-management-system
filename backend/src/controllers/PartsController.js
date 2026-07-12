@@ -21,7 +21,7 @@ export class PartsController extends BaseController {
         }
       });
     } catch (error) {
-      return this.handleError(error, res, 'getParts');
+      return this.handleError(res, error, 'getParts');
     }
   }
 
@@ -31,7 +31,7 @@ export class PartsController extends BaseController {
       const result = await partsService.createPart(req.body);
       return this.handleSuccess(res, result, 201);
     } catch (error) {
-      return this.handleError(error, res, 'createPart');
+      return this.handleError(res, error, 'createPart');
     }
   }
 
@@ -40,7 +40,7 @@ export class PartsController extends BaseController {
       const result = await partsService.updatePart(req.params.id, req.body, req.user);
       return this.handleSuccess(res, result);
     } catch (error) {
-      return this.handleError(error, res, 'updatePart');
+      return this.handleError(res, error, 'updatePart');
     }
   }
 }

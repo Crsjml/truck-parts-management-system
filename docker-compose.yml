@@ -6,6 +6,9 @@ services:
   # ------------------------------------------------------------
   backend:
     container_name: truck-system-backend
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -26,6 +29,9 @@ services:
   # ------------------------------------------------------------
   frontend:
     container_name: truck-system-frontend
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     build:
       context: .
       dockerfile: frontend/Dockerfile
