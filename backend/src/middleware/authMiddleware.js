@@ -16,7 +16,9 @@ export const requireAuth = async (req, res, next) => {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error || !user) {
-      console.error('Supabase token verification error:', error);
+      if (error && error.name !== 'AuthSessionMissingError') {
+         console.warn(`[Auth] Token rejected: ${error.message}`);
+      }
       return res.status(401).json({ msg: 'Invalid or expired token' });
     }
     
