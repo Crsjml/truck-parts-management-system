@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders, ShoppingCart, Plus, Minus, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User} from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders, ShoppingCart, Plus, Minus, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
-import { fetchCategoriesList } from '../authStore';
+import { fetchCategoriesList, fetchCustomerProfile } from '../authStore';
 import { supabase } from '../supabaseClient';
 import CompatibilityFilter from './CompatibilityFilter';
 import ReviewSection from './ReviewSection';
@@ -14,7 +14,7 @@ import StorefrontFilters from './StorefrontFilters';
 import MyOrders from './MyOrders';
 import MyAccount from './MyAccount';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
-
+import { motion, AnimatePresence } from 'framer-motion';
 export default function CustomerStorefront({
   parts,
   categories,
@@ -75,25 +75,76 @@ export default function CustomerStorefront({
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    if (query.get('checkout') === 'success') {
-      alert('Order placed successfully! You will receive an email confirmation shortly.');
-      // Remove query params
+    const handleCheckoutSuccess = async () => {
+      const query = new URLSearchParams(window.location.search);
+      const sessionId = query.get('session_id');
+      const isSuccess = query.get('checkout') === 'success';
+      const isCanceled = query.get('checkout') === 'canceled';
+
+      if (!isSuccess && !isCanceled) return;
+
+      // Immediately clear the URL so this effect cannot be re-triggered on next render
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (query.get('checkout') === 'canceled') {
-      alert('Order canceled.');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+      
+      if (isSuccess && sessionId && customerSession) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+          
+          await fetch('/api/checkout/verify-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ sessionId })
+          });
+          
+          setCart([]);
+          setShowSuccessModal(true);
+          setStorefrontTab('orders'); // Redirect to orders immediately to see it
+          
+          // Dispatch event to force App.jsx to re-fetch the latest transactions
+          window.dispatchEvent(new Event('customerTransactionsUpdate'));
+        } catch (err) {
+          console.error('Failed to verify session', err);
+        }
+      } else if (isCanceled) {
+        // You can also build a custom cancel modal, but for now silent return or simple alert
+        // alert('Order canceled.');
+      }
+    };
+
+    handleCheckoutSuccess();
+  }, [customerSession]);
 
   // Avatar state
   const [avatar, setAvatar] = useState(null);
 
   useEffect(() => {
-    const loadAvatar = () => {
-      if (customerSession?.user?.uid || customerSession?.user?.id) {
+    const loadAvatar = async () => {
+      if (customerSession?.user) {
+        try {
+          const profile = await fetchCustomerProfile();
+          if (profile?.photoURL) {
+            setAvatar(profile.photoURL);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to load customer profile avatar", e);
+        }
+
+        // Fallback to Supabase user_metadata
+        const metadataAvatar = customerSession.user.user_metadata?.avatar_url;
+        if (metadataAvatar) {
+          setAvatar(metadataAvatar);
+          return;
+        }
+
+        // Fallback to local storage (legacy)
         const uid = customerSession.user.uid || customerSession.user.id;
         const storedAvatar = localStorage.getItem(`avatar_${uid}`);
         if (storedAvatar) setAvatar(storedAvatar);
@@ -112,8 +163,9 @@ export default function CustomerStorefront({
   const addToCart = (part) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === part.id);
+      const availableStock = part.stock - (part.reservedStock || 0);
       if (existing) {
-        if (existing.quantity >= part.stock) return prev;
+        if (existing.quantity >= availableStock) return prev;
         return prev.map(item => item.id === part.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...part, quantity: 1 }];
@@ -216,9 +268,11 @@ export default function CustomerStorefront({
       const matchesMinPrice = minPrice === '' || part.price >= parseFloat(minPrice);
       const matchesMaxPrice = maxPrice === '' || part.price <= parseFloat(maxPrice);
       
+      const availableStock = part.stock - (part.reservedStock || 0);
       let matchesStock = true;
-      if (stockStatus === 'In Stock') matchesStock = part.stock > 0;
-      else if (stockStatus === 'Low Stock') matchesStock = part.stock > 0 && part.stock <= part.minStock;
+      if (stockStatus === 'In Stock') matchesStock = availableStock > 0;
+      else if (stockStatus === 'Low Stock') matchesStock = availableStock > 0 && availableStock <= part.minStock;
+      else if (stockStatus === 'Out of Stock') matchesStock = availableStock === 0;
 
       let matchesBrand = true;
       if (vehicleFilter.brand) {
@@ -239,8 +293,8 @@ export default function CustomerStorefront({
     else if (sortOrder === 'price-desc') result.sort((a, b) => b.price - a.price);
     else if (sortOrder === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortOrder === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
-    else if (sortOrder === 'stock-desc') result.sort((a, b) => b.stock - a.stock);
-    else if (sortOrder === 'stock-asc') result.sort((a, b) => a.stock - b.stock);
+    else if (sortOrder === 'stock-desc') result.sort((a, b) => (b.stock - (b.reservedStock || 0)) - (a.stock - (a.reservedStock || 0)));
+    else if (sortOrder === 'stock-asc') result.sort((a, b) => (a.stock - (a.reservedStock || 0)) - (b.stock - (b.reservedStock || 0)));
 
     return result;
   }, [parts, debouncedSearch, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter, vehicleFilter, minRating]);
@@ -588,6 +642,7 @@ export default function CustomerStorefront({
             <MyOrders 
               customerName={customerSession?.user?.fullName} 
               customerEmail={customerSession?.user?.email}
+              userId={customerSession?.user?.id}
               transactions={transactions} 
             />
           )}
@@ -712,14 +767,16 @@ export default function CustomerStorefront({
                       </div>
                       <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-5 flex flex-col justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stock Status</span>
-                        {selectedPart.stock > 0 ? (
-                          <span className="flex items-center gap-1.5 text-lg font-bold text-emerald-500">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            {selectedPart.stock} in stock
-                          </span>
-                        ) : (
-                          <span className="text-lg font-bold text-red-500">Out of Stock</span>
-                        )}
+                        <div className="flex items-center gap-2 mb-8">
+                          { (selectedPart.stock - (selectedPart.reservedStock || 0)) > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {(selectedPart.stock - (selectedPart.reservedStock || 0))} in stock
+                            </span>
+                          ) : (
+                            <span className="text-lg font-bold text-red-500">Out of Stock</span>
+                          )}
+                        </div>
                       </div>
                       <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Min. Alert</span>
@@ -757,11 +814,11 @@ export default function CustomerStorefront({
               <button
                 type="button"
                 onClick={() => { addToCart(selectedPart); setSelectedPart(null); }}
-                disabled={selectedPart.stock === 0}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-2xl bg-foreground px-10 py-4 text-sm font-bold text-background transition hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-xl shadow-black/20"
+                disabled={(selectedPart.stock - (selectedPart.reservedStock || 0)) === 0}
+                className="w-full sm:flex-1 py-4 bg-accent hover:bg-accent/90 text-white font-black text-lg rounded-2xl shadow-xl shadow-accent/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <ShoppingCart weight="bold" className="h-5 w-5" />
-                {selectedPart.stock === 0 ? 'Out of Stock' : 'Add to Quote'}
+                <ShoppingCart weight="bold" className="w-6 h-6" />
+                {(selectedPart.stock - (selectedPart.reservedStock || 0)) === 0 ? 'Out of Stock' : 'Add to Quote'}
               </button>
             </div>
           </div>
@@ -770,78 +827,56 @@ export default function CustomerStorefront({
 
       {/* Global Footer */}
       {storefrontTab === 'home' ? (
-        <footer className="mt-4 rounded-t-3xl bg-secondary/60 backdrop-blur-sm border-t border-border/40 px-6 py-8 lg:px-16 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.05)]">
-          <div className="max-w-7xl mx-auto grid gap-8 lg:gap-10 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-4">
-              <Logo className="w-10 h-10" showText={true} />
-              <p className="text-xs text-muted-foreground leading-relaxed mt-4">
-                Tarlac Truck Pitstop is the region's trusted supplier of high-quality replacement parts, accessories, and maintenance solutions for heavy commercial trucks and cargo transport fleets.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-bold text-foreground text-[13px] mb-3 uppercase tracking-[0.15em]">Quick Links</h4>
-              <ul className="space-y-3 text-xs font-semibold text-muted-foreground">
-                <li><button onClick={() => setStorefrontTab('home')} className="hover:text-accent transition-colors">Home</button></li>
-                <li><button onClick={() => setStorefrontTab('catalog')} className="hover:text-accent transition-colors">Parts Catalog</button></li>
-                {customerSession && <li><button onClick={() => setStorefrontTab('orders')} className="hover:text-accent transition-colors">My POs & Quotes</button></li>}
-              </ul>
-            </div>
-            <div className="lg:col-span-2 flex flex-col lg:flex-row gap-6">
-              <div className="flex-1">
-                <h4 className="font-bold text-foreground text-[13px] mb-3 uppercase tracking-[0.15em]">Headquarters</h4>
-                <div className="rounded-2xl border border-border/30 bg-background/50 p-5 relative overflow-hidden group">
-                   <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-foreground to-transparent pointer-events-none group-hover:opacity-20 transition-opacity"></div>
-                   <div className="absolute right-0 top-0 w-1/2 opacity-20 pointer-events-none flex items-start justify-end pr-2 pt-2">
-                     <MapPin weight="fill" className="w-16 h-16 text-foreground" />
-                   </div>
-                   <ul className="space-y-3 text-xs text-muted-foreground relative z-10">
-                    <li className="flex items-start gap-2">
-                      <MapPin weight="duotone" className="w-4 h-4 shrink-0 text-accent mt-0.5" />
-                      <span className="font-medium text-foreground">Tarlac Truck Pitstop Building,<br/>McArthur Highway, Tarlac City, 2300</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Envelope weight="duotone" className="w-4 h-4 shrink-0 text-accent" />
-                      <span className="font-medium">wholesale@tarlactruckparts.local</span>
-                    </li>
-                  </ul>
-                  <button className="mt-4 w-full py-2 rounded-xl bg-foreground text-background text-xs font-bold uppercase tracking-wider hover:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10 shadow-lg shadow-black/10">
-                    <Phone weight="fill" className="w-4 h-4" /> Contact Wholesale Support
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-foreground text-[13px] mb-3 uppercase tracking-[0.15em]">Logistics & Hours</h4>
-                <div className="rounded-2xl border border-border/30 bg-background/50 p-5 h-[calc(100%-2rem)]">
-                  <ul className="space-y-3 text-xs text-muted-foreground">
-                    <li className="flex justify-between items-center pb-2 border-b border-border/50">
-                      <span className="flex items-center gap-2"><Truck weight="duotone" className="w-4 h-4 text-accent"/> Delivery:</span> 
-                      <span className="font-semibold text-foreground">Nationwide Freight</span>
-                    </li>
-                    <li className="flex justify-between items-center pt-1">
-                      <span>Mon - Sat:</span> <span className="font-semibold text-foreground">8:00 AM - 5:00 PM</span>
-                    </li>
-                    <li className="flex justify-between items-center">
-                      <span>Sunday:</span> <span className="font-semibold text-red-500">Closed</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="max-w-7xl mx-auto mt-10 pt-4 border-t border-border/30 flex flex-col md:flex-row justify-center items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-            <p>&copy; {new Date().getFullYear()} Tarlac Truck Pitstop. All rights reserved.</p>
-          </div>
-        </footer>
+        <Footer />
       ) : (
-        <footer className="mt-auto border-t border-border bg-background px-6 py-4">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            <div className="flex items-center gap-3">
-               <Logo className="w-5 h-5 grayscale opacity-50" showText={false} />
-               <p>&copy; {new Date().getFullYear()} Tarlac Truck Pitstop. Wholesale Parts Distributor.</p>
-            </div>
-          </div>
-        </footer>
+        <Footer variant="dark" className="mt-auto border-t-0 bg-transparent shadow-none !rounded-none !pt-6 !pb-6 !px-6" />
       )}
+
+      {/* Success Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm cursor-pointer"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md bg-secondary/90 backdrop-blur-xl border border-border/50 rounded-[2rem] p-8 shadow-2xl text-center overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -z-10 -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              
+              <div className="mx-auto w-20 h-20 bg-background rounded-full border border-border/50 flex items-center justify-center shadow-sm mb-6 relative">
+                <CheckCircle weight="fill" className="w-10 h-10 text-emerald-500 relative z-10" />
+                <motion.div 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                  className="absolute inset-0 bg-emerald-500/20 rounded-full pointer-events-none"
+                />
+              </div>
+
+              <h2 className="text-2xl font-bold font-display text-foreground mb-2">Order Confirmed!</h2>
+              <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
+                Your order has been successfully placed. You will receive an email confirmation containing your receipt and tracking details shortly.
+              </p>
+
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full py-4 rounded-xl bg-foreground text-background font-bold hover:bg-accent hover:text-foreground hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Track My Order
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Sliding Cart Modal */}
       <CartDrawer 

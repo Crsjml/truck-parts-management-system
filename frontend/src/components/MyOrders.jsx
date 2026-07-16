@@ -5,15 +5,17 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function MyOrders({ customerName, customerEmail, transactions }) {
+export default function MyOrders({ customerName, customerEmail, userId, transactions }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
   const [expandedRow, setExpandedRow] = useState(null);
 
   const customerTx = (transactions || []).filter(
     (tx) => 
+      (tx.userId && userId && tx.userId === userId) ||
       (tx.customerEmail && customerEmail && tx.customerEmail.toLowerCase() === customerEmail.toLowerCase()) ||
       (tx.customerName && customerName && tx.customerName.toLowerCase() === customerName.toLowerCase()) ||
+      (tx.customerName && customerEmail && tx.customerName.toLowerCase() === customerEmail.toLowerCase()) ||
       (tx.customerEmail && customerName && tx.customerEmail.toLowerCase().includes(customerName.toLowerCase().replace(/\s+/g, '.')))
   ).map(tx => ({
     ...tx,
@@ -211,6 +213,45 @@ export default function MyOrders({ customerName, customerEmail, transactions }) 
                         </div>
                         <p className="text-3xl font-black text-foreground font-mono tracking-tight">{formatCurrency(featuredOrder.total)}</p>
                      </div>
+                  </div>
+
+                  {/* Order Status Timeline */}
+                  <div className="mb-8 p-6 rounded-3xl bg-background/50 border border-border/50 relative">
+                    <div className="absolute top-1/2 left-[10%] right-[10%] h-1 bg-secondary -translate-y-1/2 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ 
+                          width: featuredOrder.status === 'Completed' ? '100%' : 
+                                 featuredOrder.status === 'In Transit' ? '50%' : '10%' 
+                        }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                        className="h-full bg-accent"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-between relative z-10">
+                      {[
+                        { status: 'Pending', icon: Clock },
+                        { status: 'In Transit', icon: Truck },
+                        { status: 'Completed', icon: CheckCircle }
+                      ].map((step, idx) => {
+                        const isActive = 
+                          (featuredOrder.status === 'Completed') || 
+                          (featuredOrder.status === 'In Transit' && idx <= 1) ||
+                          (featuredOrder.status === 'Pending' && idx === 0);
+                        
+                        return (
+                          <div key={step.status} className="flex flex-col items-center gap-2">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors duration-500 border-4 border-background ${isActive ? 'bg-accent text-background' : 'bg-secondary text-muted-foreground'}`}>
+                              <step.icon weight={isActive ? "fill" : "duotone"} className="w-5 h-5" />
+                            </div>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {step.status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="flex-1 bg-background/50 rounded-3xl p-6 border border-border/50 flex flex-col">

@@ -10,7 +10,10 @@ router.get('/me', requireAuth, async (req, res) => {
     const authId = req.auth.userId;
     const email = req.auth.email || '';
 
-    let customer = await prisma.customer.findUnique({ where: { authId } });
+    let customer = await prisma.customer.findUnique({ 
+      where: { authId },
+      include: { addresses: true }
+    });
 
     if (!customer) {
       // Auto-create on first fetch
@@ -36,7 +39,7 @@ router.get('/me', requireAuth, async (req, res) => {
 router.put('/me', requireAuth, async (req, res) => {
   try {
     const authId = req.auth.userId;
-    const { displayName, phoneNumber, photoURL } = req.body;
+    const { displayName, phoneNumber, photoURL, companyName, addresses } = req.body;
 
     let customer = await prisma.customer.findUnique({ where: { authId } });
     if (!customer) {
@@ -48,9 +51,53 @@ router.put('/me', requireAuth, async (req, res) => {
       data: {
         ...(displayName !== undefined && { displayName }),
         ...(phoneNumber !== undefined && { phoneNumber }),
-        ...(photoURL !== undefined && { photoURL })
-      }
+        ...(photoURL !== undefined && { photoURL }),
+        ...(companyName !== undefined && { companyName })
+      },
+      include: { addresses: true }
     });
+
+    if (addresses && Array.isArray(addresses)) {
+      await prisma.$transaction(async (tx) => {
+        const addressIds = addresses.filter(a => a.id).map(a => a.id);
+        await tx.customerAddress.deleteMany({
+          where: {
+            customerId: updatedCustomer.id,
+            id: { notIn: addressIds }
+          }
+        });
+        
+        for (const addr of addresses) {
+          if (addr.id) {
+            await tx.customerAddress.update({
+              where: { id: addr.id },
+              data: {
+                label: addr.label,
+                fullAddress: addr.fullAddress,
+                isDefaultShipping: addr.isDefaultShipping,
+                isDefaultBilling: addr.isDefaultBilling,
+              }
+            });
+          } else {
+            await tx.customerAddress.create({
+              data: {
+                label: addr.label,
+                fullAddress: addr.fullAddress,
+                isDefaultShipping: addr.isDefaultShipping,
+                isDefaultBilling: addr.isDefaultBilling,
+                customerId: updatedCustomer.id,
+              }
+            });
+          }
+        }
+      });
+      // Refetch to get updated addresses
+      const finalCustomer = await prisma.customer.findUnique({
+        where: { authId },
+        include: { addresses: true }
+      });
+      return res.json(finalCustomer);
+    }
 
     res.json(updatedCustomer);
   } catch (err) {
