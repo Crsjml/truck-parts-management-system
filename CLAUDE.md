@@ -1,6 +1,6 @@
 # 🚀 CLAUDE.md - Comprehensive AI Agent Guidelines
 
-This document serves as the absolute source of truth for Claude Code operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `GEMINI.md` and `.opencode` configurations.
+This document serves as the absolute source of truth for Claude Code operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `GEMINI.md` and `.opencode` configurations. **Permanent active skills (e.g., ponytail, linting, UI constraints) are globally mandated via `.agents/AGENTS.md` and injected into `.opencode.json`.**
 
 Claude, **you must read and adhere to these guidelines for every action you take.**
 

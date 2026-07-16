@@ -2,11 +2,21 @@
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "build",
   "instructions": [
-    "/Users/rbndct/.nvm/versions/node/v20.17.0/lib/node_modules/ecc-universal/.opencode/../skills/tdd-workflow/SKILL.md",
-    "/Users/rbndct/.nvm/versions/node/v20.17.0/lib/node_modules/ecc-universal/.opencode/../skills/security-review/SKILL.md",
-    "/Users/rbndct/.nvm/versions/node/v20.17.0/lib/node_modules/ecc-universal/.opencode/../skills/coding-standards/SKILL.md",
-    "/Users/rbndct/.nvm/versions/node/v20.17.0/lib/node_modules/ecc-universal/.opencode/../skills/frontend-patterns/SKILL.md",
-    "/Users/rbndct/.nvm/versions/node/v20.17.0/lib/node_modules/ecc-universal/.opencode/../skills/backend-patterns/SKILL.md"
+    "/Users/rbndct/.gemini/config/skills/ponytail/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/high-end-visual-design/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/premium-ui-ux-design/SKILL.md",
+    "/Users/rbndct/CODING /ITISDEV_ISANDE1/truck-parts-management-system/.agents/skills/minimalist-ui/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/motion-ui/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/design-system/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/lint-and-validate/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/systematic-debugging/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/backend-patterns/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/frontend-patterns/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/coding-standards/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/postgres-patterns/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/api-patterns/SKILL.md",
+    "/Users/rbndct/.gemini/config/skills/security-review/SKILL.md",
+    "/Users/rbndct/CODING /ITISDEV_ISANDE1/truck-parts-management-system/.agents/AGENTS.md"
   ],
   "plugin": [
     "ecc-universal"

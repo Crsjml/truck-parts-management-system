@@ -40,19 +40,27 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 
 (Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
 
-# Permanent UI/UX Skill Directives
-The following UI/UX skills MUST be strictly adhered to and kept active at all times without the user explicitly needing to request them:
+# Permanent Active Skills
+The following skills MUST be strictly adhered to and kept actively loaded in the background at all times without the user explicitly needing to request them.
 
-1. **`ponytail` (Lazy Senior Dev Mode)**
-   - Applies everywhere. Always prioritize minimalism, avoid bloat, delete unused code instead of working around it, and use native/standard library functions before installing dependencies.
+### Aesthetics & Design
+1. **`ponytail` (Lazy Senior Dev Mode)**: Applies everywhere. Prioritize minimalism, avoid bloat, and delete unused code.
+2. **`high-end-visual-design` & `premium-ui-ux-design`**: Enforce premium aesthetics (Customer Storefront).
+3. **`minimalist-ui`**: Enforce extreme readability and flat bento grids (Admin Dashboard).
+4. **`motion-ui`**: Use production-ready React animations where motion is needed.
+5. **`design-system`**: Generate/audit design systems for visual consistency across components.
 
-2. **`high-end-visual-design` & `premium-ui-ux-design`**
-   - **Target Area:** The Customer Storefront (`/`, `/catalog`, customer modals, customer authentication, etc.)
-   - **Enforcement:** Enforce premium, "high-budget" aesthetics. Use strict macro-typography, refined padding, double-bezel borders, glassmorphism, and micro-interactions. Avoid cheap/generic AI-looking layouts.
+### Quality Gates & Debugging
+6. **`lint-and-validate`**: MANDATORY: Run appropriate validation tools (tests/linters) after EVERY code change.
+7. **`systematic-debugging`**: MANDATORY: Do root cause investigation before fixing bugs.
 
-3. **`minimalist-ui`**
-   - **Target Area:** The Admin Dashboard, POS System, and Staff portals.
-   - **Enforcement:** Enforce extreme readability, flat bento grids, warm monochrome palettes, and muted pastels. Zero visual fatigue. Ban complex gradients and heavy shadows in these areas to optimize for dense data management and staff efficiency.
+### Architecture & Standards
+8. **`backend-patterns`**: Node/Express API design and caching strategies.
+9. **`frontend-patterns`**: React/Next.js UI best practices and performance.
+10. **`coding-standards`**: Baseline cross-project conventions.
+11. **`postgres-patterns`**: Database schema design, indexing, and Supabase optimization.
+12. **`api-patterns`**: REST API design principles.
+13. **`security-review`**: Enforce strict security scanning.
 
 # Comprehensive Planning Workflow
 When the user asks for a plan, an architectural decision, or proposes a feature:
