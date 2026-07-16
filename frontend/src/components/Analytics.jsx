@@ -11,6 +11,34 @@ export default function Analytics({ parts, transactions }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [zoomedChart, setZoomedChart] = useState(null); // 'bar' | 'pie' | null
+  const [localTransactions, setLocalTransactions] = useState(transactions);
+
+  // Sync with props if transactions change from App.jsx
+  React.useEffect(() => {
+    setLocalTransactions(transactions);
+  }, [transactions]);
+
+  const handleStatusUpdate = async (id, newStatus) => {
+    try {
+      const response = await fetch(`/api/transactions/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken') || ''}` // Use admin token if available
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (response.ok) {
+        setLocalTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, status: newStatus } : tx));
+      } else {
+        console.error('Failed to update status');
+        alert('Failed to update status. Please try again.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating status.');
+    }
+  };
 
   const getHexForTailwindClass = (classStr) => {
     if (!classStr) return '#ef4444';
@@ -26,16 +54,16 @@ export default function Analytics({ parts, transactions }) {
   };
 
   // Computations
-  const totalSales = transactions.length;
-  const totalInvoicedAmount = transactions.reduce((sum, tx) => sum + tx.total, 0);
+  const totalSales = localTransactions.length;
+  const totalInvoicedAmount = localTransactions.reduce((sum, tx) => sum + tx.total, 0);
   const averageInvoiceValue = totalSales > 0 ? totalInvoicedAmount / totalSales : 0;
-  const totalItemsSold = transactions.reduce((sum, tx) => 
+  const totalItemsSold = localTransactions.reduce((sum, tx) => 
     sum + tx.items.reduce((s, i) => s + i.quantity, 0), 0
   );
 
   // Group sales quantities by part name to avoid "Unknown Part" if IDs mismatch
   const partSalesCounts = {};
-  transactions.forEach(tx => {
+  localTransactions.forEach(tx => {
     tx.items.forEach(item => {
       const name = item.name || 'Unknown Part';
       partSalesCounts[name] = (partSalesCounts[name] || 0) + item.quantity;
@@ -123,7 +151,7 @@ export default function Analytics({ parts, transactions }) {
   }));
 
   // Filtered transactions for the log
-  const filteredTransactions = transactions.filter(tx => 
+  const filteredTransactions = localTransactions.filter(tx => 
     tx.invoiceNumber.toLowerCase().includes(searchInvoice.toLowerCase()) ||
     tx.customerName.toLowerCase().includes(searchInvoice.toLowerCase())
   ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
@@ -397,6 +425,7 @@ export default function Analytics({ parts, transactions }) {
                   <th className="py-3 px-3">Customer</th>
                   <th className="py-3 px-3 text-center">Items Count</th>
                   <th className="py-3 px-3 text-right">Invoiced Amount</th>
+                  <th className="py-3 px-3 text-center">Status</th>
                   <th className="py-3 px-3 text-center">Action</th>
                 </tr>
               </thead>
@@ -417,6 +446,21 @@ export default function Analytics({ parts, transactions }) {
                     </td>
                     <td className="py-3 px-3 text-right font-bold text-foreground">
                       {formatCurrency(tx.total)}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <select 
+                        value={tx.status || 'Pending'}
+                        onChange={(e) => handleStatusUpdate(tx.id, e.target.value)}
+                        className={`text-xs font-bold rounded-md px-2 py-1 border outline-none cursor-pointer appearance-none text-center
+                          ${(!tx.status || tx.status === 'Pending') ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                            tx.status === 'In Transit' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                            'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}
+                        `}
+                      >
+                        <option value="Pending" className="bg-background text-foreground">Pending</option>
+                        <option value="In Transit" className="bg-background text-foreground">In Transit</option>
+                        <option value="Completed" className="bg-background text-foreground">Completed</option>
+                      </select>
                     </td>
                     <td className="py-3 px-3 text-center">
                       <button 

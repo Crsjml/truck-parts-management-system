@@ -237,6 +237,17 @@ export default function App() {
     };
 
     loadData();
+
+    // Listen for transaction updates from CustomerStorefront (e.g. after checkout)
+    const handleTransactionUpdate = async () => {
+      const fetchedTransactions = await fetchTransactions();
+      if (fetchedTransactions) {
+        setTransactions(fetchedTransactions);
+      }
+    };
+
+    window.addEventListener('customerTransactionsUpdate', handleTransactionUpdate);
+    return () => window.removeEventListener('customerTransactionsUpdate', handleTransactionUpdate);
   }, [isLoaded, isSignedIn]);
 
   const addLog = (type, message) => {
@@ -396,7 +407,7 @@ export default function App() {
   };
 
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const lowStockParts = parts.filter((part) => part.stock <= part.minStock);
+  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock);
   const lowStockCount = lowStockParts.length;
 
   if (!isLoaded) {

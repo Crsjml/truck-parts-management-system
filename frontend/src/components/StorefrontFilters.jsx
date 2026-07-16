@@ -32,7 +32,7 @@ export default function StorefrontFilters({
   sortOrder, setSortOrder,
   minRating, setMinRating
 }) {
-  const [activeFilterTab, setActiveFilterTab] = useState('vehicle'); // 'vehicle', 'pricing', 'b2b', 'sort'
+  const [activeFilterTab, setActiveFilterTab] = useState('pricing'); // default tab if tabs are kept, though we removed tabs, just for compatibility.
 
   const activeFiltersCount = [
     minPrice !== '',
@@ -152,7 +152,7 @@ export default function StorefrontFilters({
     <section className="rounded-[1.75rem] border border-border bg-secondary/80 p-4 backdrop-blur sm:p-5 flex flex-col gap-6">
       <div className="flex flex-col gap-4 relative z-20">
         <div className="flex flex-col lg:flex-row gap-3 w-full">
-          <div className="relative w-full">
+          <div className="relative w-full lg:flex-1">
             <MagnifyingGlass weight="duotone" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search}
@@ -160,7 +160,7 @@ export default function StorefrontFilters({
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               placeholder="Search part name, SKU, OEM..."
-              className="w-full rounded-2xl border border-border bg-background py-3.5 pl-11 pr-10 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20 shadow-sm"
+              className="w-full rounded-[1rem] border border-border bg-background py-3.5 pl-11 pr-10 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-accent focus:ring-2 focus:ring-accent/20 shadow-sm min-h-[46px]"
             />
             {search && (
               <button
@@ -198,14 +198,18 @@ export default function StorefrontFilters({
               )}
             </AnimatePresence>
           </div>
+
+          <div className="hidden md:block shrink-0">
+             <CompatibilityFilter onFilterChange={setVehicleFilter} />
+          </div>
           
           <div className="flex gap-3 w-full lg:w-auto shrink-0">
             <button 
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex-1 lg:flex-none relative flex items-center justify-center gap-2 rounded-2xl border px-6 py-3.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shadow-sm ${showFilters ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-foreground hover:bg-background/80'}`}
+              className={`flex-1 lg:flex-none relative flex items-center justify-center gap-2 rounded-[1rem] border px-6 py-3.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shadow-sm min-h-[46px] ${showFilters ? 'bg-accent/10 border-accent/30 text-accent dark:text-red-300' : 'bg-background border-border text-foreground hover:bg-background/80'}`}
             >
               <Faders weight="duotone" className="w-4 h-4" />
-              Advanced Filters
+              Advanced
               {activeFiltersCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white shadow-sm ring-2 ring-secondary">
                   {activeFiltersCount}
@@ -218,7 +222,7 @@ export default function StorefrontFilters({
                 className="hidden lg:flex items-center justify-center gap-1.5 px-4 text-xs font-bold text-muted-foreground hover:text-accent transition-colors"
               >
                 <Trash weight="duotone" className="w-4 h-4" />
-                Clear All
+                Clear
               </button>
             )}
           </div>
@@ -308,59 +312,12 @@ export default function StorefrontFilters({
                  <button onClick={handleClearAll} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-accent transition-colors"><Trash weight="duotone" className="w-3.5 h-3.5" /> Clear All</button>
               </div>
 
-              {/* Horizontal Pill Nav */}
-              <div className="flex justify-center pb-4 no-scrollbar">
-                <AnimatedTooltip
-                  items={[
-                    {
-                      id: 'vehicle',
-                      name: 'Vehicle Compatibility',
-                      designation: activeTabCounts['vehicle'] > 0 ? `${activeTabCounts['vehicle']} active filters` : null,
-                      element: (
-                        <button
-                          onClick={() => setActiveFilterTab('vehicle')}
-                          className={`relative flex items-center justify-center rounded-full p-3 transition border ${activeFilterTab === 'vehicle' ? 'bg-background border-accent/50 text-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]' : 'bg-secondary border-border/50 text-muted-foreground hover:text-foreground hover:bg-background shadow-sm'}`}
-                        >
-                          <CarProfile weight={activeFilterTab === 'vehicle' ? 'fill' : 'duotone'} className="w-6 h-6" />
-                          {activeTabCounts['vehicle'] > 0 && (
-                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center bg-accent text-white text-[9px] font-bold rounded-full w-4 h-4 ring-2 ring-background">
-                              {activeTabCounts['vehicle']}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    },
-                    {
-                      id: 'pricing',
-                      name: 'Pricing & Ratings',
-                      designation: activeTabCounts['pricing'] > 0 ? `${activeTabCounts['pricing']} active filters` : null,
-                      element: (
-                        <button
-                          onClick={() => setActiveFilterTab('pricing')}
-                          className={`relative flex items-center justify-center rounded-full p-3 transition border ${activeFilterTab === 'pricing' ? 'bg-background border-accent/50 text-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]' : 'bg-secondary border-border/50 text-muted-foreground hover:text-foreground hover:bg-background shadow-sm'}`}
-                        >
-                          <CurrencyDollar weight={activeFilterTab === 'pricing' ? 'fill' : 'duotone'} className="w-6 h-6" />
-                          {activeTabCounts['pricing'] > 0 && (
-                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center bg-accent text-white text-[9px] font-bold rounded-full w-4 h-4 ring-2 ring-background">
-                              {activeTabCounts['pricing']}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    }
-                  ]}
-                />
+              <div className="md:hidden mb-6">
+                <CompatibilityFilter onFilterChange={setVehicleFilter} />
               </div>
 
               {/* Tab Contents */}
               <div className="mt-2">
-                {activeFilterTab === 'vehicle' && (
-                  <div className="max-w-sm mx-auto">
-                    <CompatibilityFilter onFilterChange={setVehicleFilter} />
-                  </div>
-                )}
-                
-                {activeFilterTab === 'pricing' && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     <div className="space-y-2">
                       <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -426,7 +383,6 @@ export default function StorefrontFilters({
                       />
                     </div>
                   </div>
-                )}
               </div>
 
             </div>
