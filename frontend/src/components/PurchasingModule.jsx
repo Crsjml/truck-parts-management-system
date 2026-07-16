@@ -25,6 +25,10 @@ import {
   AreaChart, Area, LabelList
 } from 'recharts';
 import Select from 'react-select';
+import AsyncSelect from 'react-select/async';
+import PhoneInput from 'react-phone-number-input';
+import { getCountries } from 'react-phone-number-input';
+import en from 'react-phone-number-input/locale/en.json';
 import {
   customSelectStyles,
   StatusBadge,
@@ -55,14 +59,34 @@ const toggleFavorite = (key, id) => {
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
-  const [activeOrderTab, setActiveOrderTab] = useState('rfq'); // 'rfq' | 'pos' | 'vendors'
+  const [activeOrderTab, setActiveOrderTab] = useState('rfq'); // 'rfq' | 'pos' | 'suppliers'
 
   // Data
   const [suppliers, setSuppliers] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [countries, setCountries] = useState([]);
-  const [countryCodes, setCountryCodes] = useState({});
   const [loading, setLoading] = useState(true);
+
+  // Helper for country data
+  const countryOptions = useMemo(() => getCountries().map(c => ({ value: en[c], label: en[c], code: c })), []);
+  const getCountryCode = (countryName) => {
+    if (!countryName) return null;
+    return getCountries().find(c => en[c].toLowerCase() === countryName.toLowerCase().trim());
+  };
+
+  const loadAddressOptions = async (inputValue) => {
+    if (!inputValue || inputValue.length < 3) return [];
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(inputValue)}&format=json&addressdetails=1&limit=5`);
+      const data = await res.json();
+      return data.map(item => ({
+        label: item.display_name,
+        value: item.display_name
+      }));
+    } catch (err) {
+      console.error('Error fetching address:', err);
+      return [];
+    }
+  };
 
   // Modal state
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -87,11 +111,11 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [posFavsOnly, setPosFavsOnly] = useState(false);
   const [posFavs, setPosFavs] = useState(getFavorites('pos'));
 
-  const [vendorSearch, setVendorSearch] = useState('');
-  const [vendorFilters, setVendorFilters] = useState([]);
-  const [vendorGroup, setVendorGroup] = useState(null);
-  const [vendorFavsOnly, setVendorFavsOnly] = useState(false);
-  const [vendorFavs, setVendorFavs] = useState(getFavorites('vendor'));
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierFilters, setSupplierFilters] = useState([]);
+  const [supplierGroup, setSupplierGroup] = useState(null);
+  const [supplierFavsOnly, setSupplierFavsOnly] = useState(false);
+  const [supplierFavs, setSupplierFavs] = useState(getFavorites('supplier'));
 
   const [prodSearch, setProdSearch] = useState('');
   const [prodFilters, setProdFilters] = useState([]);
@@ -110,7 +134,6 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   // ── Load data ────────────────────────────────────────────────────────────────
   useEffect(() => {
     loadData();
-    loadCountries();
   }, []);
 
   useEffect(() => {
@@ -146,22 +169,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setLoading(false);
   };
 
-  const loadCountries = async () => {
-    try {
-      const res = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2');
-      const data = await res.json();
-      const names = data.map(c => c.name.common).sort();
-      const codeMap = {};
-      data.forEach(c => { codeMap[c.name.common] = c.cca2; });
-      
-      setCountries(names);
-      setCountryCodes(codeMap);
-    } catch (err) {
-      console.error('Failed to fetch countries:', err);
-      setCountries([]);
-      setCountryCodes({});
-    }
-  };
+
 
   // ── RFQ derived data ─────────────────────────────────────────────────────────
   const today = new Date();
@@ -213,14 +221,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     return applyFilter(rows, posSearch, posFilters, posFavsOnly, posFavs, ['poNumber', 'createdBy']);
   }, [confirmedPos, posSearch, posFilters, posFavsOnly, posFavs]);
 
-  const filteredVendors = useMemo(() => {
+  const filteredSuppliers = useMemo(() => {
     let rows = suppliers;
-    if (vendorFilters.includes('person')) rows = rows.filter(s => s.type === 'Person');
-    if (vendorFilters.includes('company')) rows = rows.filter(s => s.type === 'Company');
-    if (vendorFilters.includes('archived')) rows = rows.filter(s => s.archived);
+    if (supplierFilters.includes('person')) rows = rows.filter(s => s.type === 'Person');
+    if (supplierFilters.includes('company')) rows = rows.filter(s => s.type === 'Company');
+    if (supplierFilters.includes('archived')) rows = rows.filter(s => s.archived);
     else rows = rows.filter(s => !s.archived);
-    return applyFilter(rows, vendorSearch, vendorFilters, vendorFavsOnly, vendorFavs, ['name', 'email', 'country']);
-  }, [suppliers, vendorSearch, vendorFilters, vendorFavsOnly, vendorFavs]);
+    return applyFilter(rows, supplierSearch, supplierFilters, supplierFavsOnly, supplierFavs, ['name', 'email', 'country']);
+  }, [suppliers, supplierSearch, supplierFilters, supplierFavsOnly, supplierFavs]);
 
   const filteredParts = useMemo(() => {
     let rows = parts || [];
@@ -269,8 +277,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     }, {});
     const pipelineData = Object.entries(pipelineDataRaw).map(([name, value]) => ({ name, value }));
 
-    // Spend by Vendor (Revamped with counts)
-    const spendByVendorRaw = purchaseOrders.filter(p => p.status === 'Received').reduce((acc, po) => {
+    // Spend by Supplier (Revamped with counts)
+    const spendBySupplierRaw = purchaseOrders.filter(p => p.status === 'Received').reduce((acc, po) => {
       const name = po.supplier?.name || 'Unknown';
       if (!acc[name]) acc[name] = { total: 0, count: 0 };
       acc[name].total += (po.totalAmount || 0);
@@ -278,7 +286,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       return acc;
     }, {});
     
-    const spendByVendor = Object.entries(spendByVendorRaw)
+    const spendBySupplier = Object.entries(spendBySupplierRaw)
       .map(([name, data]) => ({ name, total: data.total, count: data.count }))
       .sort((a, b) => b.total - a.total).slice(0, 8);
 
@@ -312,7 +320,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       sold: soldMap[p.name] || 0
     }));
 
-    return { totalSpend, capitalInTransit, avgLeadTime, pendingRfqs, pipelineData, spendByVendor, topParts, onTimeRate, poTimeline, pvs };
+    return { totalSpend, capitalInTransit, avgLeadTime, pendingRfqs, pipelineData, spendBySupplier, topParts, onTimeRate, poTimeline, pvs };
   }, [purchaseOrders, parts, transactions]);
 
   // ── Product analytics ─────────────────────────────────────────────────────────
@@ -383,7 +391,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const removePoItem = (idx) => setPoForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
 
   const savePo = async () => {
-    if (!poForm.supplier) return alert('Select a vendor.');
+    if (!poForm.supplier) return alert('Select a supplier.');
     if (poForm.items.length === 0) return alert('Add at least one item.');
     if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
     
@@ -433,7 +441,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const sup = po.supplier;
     doc.setFontSize(22); doc.text('Purchase Order', 105, 20, { align: 'center' });
     doc.setFontSize(10); doc.text(`Reference: ${po.poNumber}`, 14, 35); doc.text(`Date: ${new Date(po.createdAt).toLocaleDateString()}`, 14, 40);
-    doc.text(`Vendor: ${sup?.name || 'N/A'}`, 14, 55);
+    doc.text(`Supplier: ${sup?.name || 'N/A'}`, 14, 55);
     const tableData = po.items.map(i => [`[${i.sku || 'N/A'}] ${i.name}`, i.quantity.toString(), `PHP ${i.unitPrice.toFixed(2)}`, `PHP ${i.subtotal.toFixed(2)}`]);
     autoTable(doc, { startY: 70, head: [['Description', 'Qty', 'Unit Price', 'Amount']], body: tableData, theme: 'grid', headStyles: { fillColor: [44, 62, 80] } });
     const fy = doc.lastAutoTable.finalY + 10;
@@ -489,13 +497,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const orderTabs = [
     { key: 'rfq', label: 'Requests for Quotation' },
     { key: 'pos', label: 'Purchase Orders' },
-    { key: 'vendors', label: 'Vendors' },
+    { key: 'suppliers', label: 'Suppliers' },
   ];
 
   // ── RFQ columns ───────────────────────────────────────────────────────────────
   const rfqColumns = [
     { key: 'poNumber', label: 'Reference', className: 'font-bold text-foreground group-hover:text-accent transition-colors', render: (v) => v },
-    { key: 'vendorName', label: 'Vendor', render: (_, r) => r.supplier?.name || '—' },
+    { key: 'supplierName', label: 'Supplier', render: (_, r) => r.supplier?.name || '—' },
     { key: 'createdBy', label: 'Buyer' },
     { key: 'expectedDeliveryDate', label: 'Order Deadline', render: v => v ? new Date(v).toLocaleDateString() : '—' },
     { key: 'totalAmount', label: 'Total', align: 'right', render: v => <span className="font-bold">{formatCurrency(v)}</span> },
@@ -504,7 +512,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const posColumns = [
     { key: 'poNumber', label: 'Reference', className: 'font-bold text-foreground group-hover:text-accent transition-colors' },
     { key: 'confirmationDate', label: 'Confirmation Date', render: v => v ? new Date(v).toLocaleDateString() : '—' },
-    { key: 'vendorName', label: 'Vendor', render: (_, r) => r.supplier?.name || '—' },
+    { key: 'supplierName', label: 'Supplier', render: (_, r) => r.supplier?.name || '—' },
     { key: 'createdBy', label: 'Buyer' },
     { key: 'sourceRfq', label: 'Source', render: v => v ? <span className="font-mono text-xs text-muted-foreground">{v}</span> : '—' },
     { key: 'totalAmount', label: 'Total', align: 'right', render: v => <span className="font-bold">{formatCurrency(v)}</span> },
@@ -512,7 +520,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'expectedDeliveryDate', label: 'Expected Arrival', render: v => v ? new Date(v).toLocaleDateString() : '—' },
     { key: 'status', label: 'Status', align: 'right', render: v => <StatusBadge status={v} /> },
   ];
-  const vendorColumns = [
+  const supplierColumns = [
     { key: 'name', label: 'Name', className: 'font-bold text-foreground group-hover:text-accent transition-colors', render: (v, r) => (
       <span className="flex items-center gap-2">
         {r.type === 'Person' ? <User weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" /> : <Buildings weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />}
@@ -523,14 +531,26 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'phone', label: 'Phone' },
     { key: 'country', label: 'Country', render: v => {
       if (!v) return '—';
-      const countryKey = Object.keys(countryCodes).find(k => k.toLowerCase() === v.toLowerCase().trim());
+      const code = getCountryCode(v);
       return (
         <div className="flex items-center justify-center">
-          {countryKey ? <ReactCountryFlag title={countryKey} countryCode={countryCodes[countryKey]} svg style={{ width: '1.8em', height: '1.8em' }} className="rounded-sm shadow-sm hover:scale-110 transition-transform cursor-help" /> : <span className="text-xs">{v}</span>}
+          {code ? <ReactCountryFlag title={en[code]} countryCode={code} svg style={{ width: '1.8em', height: '1.8em' }} className="rounded-sm shadow-sm hover:scale-110 transition-transform cursor-help" /> : <span className="text-xs">{v}</span>}
         </div>
       );
     } },
     { key: 'paymentTerms', label: 'Payment Terms' },
+    { key: 'actions', label: 'Actions', align: 'right', render: (_, r) => (
+      <div className="flex justify-end gap-2">
+        <button onClick={(e) => { e.stopPropagation(); openSupplierModal(r); }} className="p-1.5 text-muted-foreground hover:text-accent bg-secondary hover:bg-background rounded-md transition-colors border border-transparent hover:border-border shadow-sm">
+          <PencilSimple weight="bold" className="w-4 h-4" />
+        </button>
+        {!r.archived && (
+          <button onClick={(e) => { e.stopPropagation(); doArchiveSupplier(r.id, r.name); }} className="p-1.5 text-muted-foreground hover:text-red-500 bg-secondary hover:bg-background rounded-md transition-colors border border-transparent hover:border-border shadow-sm">
+            <Trash weight="bold" className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    ) },
   ];
 
   if (loading) return (
@@ -560,7 +580,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         <button
           onClick={() => {
             if (activeSection === 'products') openProductModal();
-            else if (activeSection === 'orders' && activeOrderTab === 'vendors') openSupplierModal();
+            else if (activeSection === 'orders' && activeOrderTab === 'suppliers') openSupplierModal();
             else if (activeSection === 'orders') openPoModal();
           }}
           className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow transition-all active:scale-95 flex items-center gap-2"
@@ -598,7 +618,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   search={rfqSearch} onSearch={setRfqSearch}
                   filters={[{ value: 'myOrders', label: 'My Orders' }, { value: 'new', label: 'New' }, { value: 'sent', label: 'RFQ Sent' }]}
                   activeFilters={rfqFilters} onFilter={v => setRfqFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
-                  groupByOptions={['Vendor', 'Buyer', 'Status']} activeGroup={rfqGroup} onGroupBy={setRfqGroup}
+                  groupByOptions={['Supplier', 'Buyer', 'Status']} activeGroup={rfqGroup} onGroupBy={setRfqGroup}
                   favoritesCount={rfqFavs.length} onFavoritesFilter={() => setRfqFavsOnly(p => !p)} showFavoritesOnly={rfqFavsOnly}
                 />
                 <GroupedTable
@@ -617,7 +637,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   search={posSearch} onSearch={setPosSearch}
                   filters={[{ value: 'waitingBills', label: 'Waiting Bills' }, { value: 'billsReceived', label: 'Bills Received' }]}
                   activeFilters={posFilters} onFilter={v => setPosFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
-                  groupByOptions={['Vendor', 'Buyer', 'Status']} activeGroup={posGroup} onGroupBy={setPosGroup}
+                  groupByOptions={['Supplier', 'Buyer', 'Status']} activeGroup={posGroup} onGroupBy={setPosGroup}
                   favoritesCount={posFavs.length} onFavoritesFilter={() => setPosFavsOnly(p => !p)} showFavoritesOnly={posFavsOnly}
                 />
                 <GroupedTable
@@ -629,21 +649,21 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               </>
             )}
 
-            {/* Vendors Tab */}
-            {activeOrderTab === 'vendors' && (
+            {/* Suppliers Tab */}
+            {activeOrderTab === 'suppliers' && (
               <>
                 <ControlPanel
-                  search={vendorSearch} onSearch={setVendorSearch}
+                  search={supplierSearch} onSearch={setSupplierSearch}
                   filters={[{ value: 'person', label: 'Person' }, { value: 'company', label: 'Company' }, { value: 'archived', label: 'Show Archived' }]}
-                  activeFilters={vendorFilters} onFilter={v => setVendorFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
-                  groupByOptions={['Country', 'Type']} activeGroup={vendorGroup} onGroupBy={setVendorGroup}
-                  favoritesCount={vendorFavs.length} onFavoritesFilter={() => setVendorFavsOnly(p => !p)} showFavoritesOnly={vendorFavsOnly}
+                  activeFilters={supplierFilters} onFilter={v => setSupplierFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
+                  groupByOptions={['Country', 'Type']} activeGroup={supplierGroup} onGroupBy={setSupplierGroup}
+                  favoritesCount={supplierFavs.length} onFavoritesFilter={() => setSupplierFavsOnly(p => !p)} showFavoritesOnly={supplierFavsOnly}
                 />
                 <GroupedTable
-                  columns={vendorColumns} rows={filteredVendors} groupBy={vendorGroup}
+                  columns={supplierColumns} rows={filteredSuppliers} groupBy={supplierGroup}
                   onRowClick={openSupplierModal}
-                  favKey="vendor" favorites={vendorFavs}
-                  onToggleFav={id => setVendorFavs(toggleFavorite('vendor', id))}
+                  favKey="supplier" favorites={supplierFavs}
+                  onToggleFav={id => setSupplierFavs(toggleFavorite('supplier', id))}
                 />
               </>
             )}
@@ -756,13 +776,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Vendor Spend & Order Matrix */}
+            {/* Supplier Spend & Order Matrix */}
             <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><CurrencyDollar weight="duotone" className="w-4 h-4 text-emerald-500" /> Vendor Spend & Order Matrix</h3>
-              {reportData.spendByVendor.length > 0 ? (
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><CurrencyDollar weight="duotone" className="w-4 h-4 text-emerald-500" /> Supplier Spend & Order Matrix</h3>
+              {reportData.spendBySupplier.length > 0 ? (
                 <div className="w-full h-64 pt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData.spendByVendor} layout="vertical" margin={{ top: 0, right: 60, left: 30, bottom: 0 }}>
+                    <BarChart data={reportData.spendBySupplier} layout="vertical" margin={{ top: 0, right: 60, left: 30, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--color-border)" />
                       <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} hide />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} width={200} axisLine={false} tickLine={false} />
@@ -774,7 +794,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       />
                       <Bar dataKey="total" radius={[0, 4, 4, 0]} barSize={20} minPointSize={3}>
                         <LabelList dataKey="total" position="right" formatter={(v) => `₱${v.toLocaleString()}`} fill="#94a3b8" fontSize={10} fontWeight="bold" />
-                        {reportData.spendByVendor.map((entry, index) => (
+                        {reportData.spendBySupplier.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={index === 0 ? '#ef4444' : '#3b82f6'} />
                         ))}
                       </Bar>
@@ -904,12 +924,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         </div>
       )}
 
-      {/* ── VENDOR MODAL ── */}
+      {/* ── SUPPLIER MODAL ── */}
       {isSupplierModalOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-2xl bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-              <h3 className="text-xl font-bold text-foreground">{editingSupplier ? 'Vendor Profile' : 'New Vendor'}</h3>
+              <h3 className="text-xl font-bold text-foreground">{editingSupplier ? 'Supplier Profile' : 'New Supplier'}</h3>
               <div className="flex items-center gap-2">
                 <button onClick={saveSupplier} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow flex items-center gap-1.5 transition-all active:scale-95">
                   <CheckCircle weight="bold" className="w-4 h-4" /> Save
@@ -933,33 +953,79 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer"><input type="radio" checked={supplierForm.type === 'Individual'} onChange={() => setSupplierForm({ ...supplierForm, type: 'Person' })} className="accent-accent" /> Individual</label>
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer"><input type="radio" checked={supplierForm.type === 'Company'} onChange={() => setSupplierForm({ ...supplierForm, type: 'Company' })} className="accent-accent" /> Company</label>
                   </div>
-                  <input type="text" placeholder="Vendor Name *" value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                  <input type="text" placeholder="Supplier Name *" value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })}
                     className="w-full bg-transparent border-b-2 border-border focus:border-accent focus:outline-none text-2xl font-extrabold text-foreground placeholder:text-muted-foreground pb-1 transition-colors" />
                 </div>
               </div>
               {/* Fields grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
-                {[
-                  { label: 'Contact Person', key: 'contactPerson', type: 'text' },
-                  { label: 'Email', key: 'email', type: 'email' },
-                  { label: 'Phone', key: 'phone', type: 'text' },
-                  { label: 'Address', key: 'address', type: 'text' },
-                  { label: 'Payment Terms', key: 'paymentTerms', type: 'text' },
-                ].map(f => (
-                  <div key={f.key} className="flex border-b border-border pb-1">
-                    <label className="w-1/3 font-semibold text-muted-foreground pt-0.5">{f.label}</label>
-                    <input type={f.type} value={supplierForm[f.key]} onChange={e => setSupplierForm({ ...supplierForm, [f.key]: e.target.value })}
-                      className="w-2/3 bg-transparent focus:outline-none text-foreground" />
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-muted-foreground">Contact Person</label>
+                  <input type="text" value={supplierForm.contactPerson} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })} className="w-full bg-secondary border border-border rounded-lg p-2 focus:ring-2 focus:ring-accent focus:outline-none text-foreground transition-all h-10" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-muted-foreground">Email</label>
+                  <input type="email" value={supplierForm.email} onChange={e => setSupplierForm({ ...supplierForm, email: e.target.value })} className="w-full bg-secondary border border-border rounded-lg p-2 focus:ring-2 focus:ring-accent focus:outline-none text-foreground transition-all h-10" />
+                </div>
+                
                 {/* Country dropdown */}
-                <div className="flex border-b border-border pb-1">
-                  <label className="w-1/3 font-semibold text-muted-foreground pt-0.5 flex items-center gap-1"><Globe className="w-3 h-3" /> Country</label>
-                  <select value={supplierForm.country} onChange={e => setSupplierForm({ ...supplierForm, country: e.target.value })}
-                    className="w-2/3 bg-transparent focus:outline-none text-foreground">
-                    <option value="">Select country...</option>
-                    {countries.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-muted-foreground flex items-center gap-2"><Globe className="w-4 h-4" /> Country</label>
+                  <Select
+                    options={countryOptions}
+                    value={supplierForm.country ? { value: supplierForm.country, label: supplierForm.country } : null}
+                    onChange={(sel) => setSupplierForm({ ...supplierForm, country: sel ? sel.value : '' })}
+                    placeholder="Select country..."
+                    styles={customSelectStyles}
+                    isClearable
+                    classNamePrefix="react-select"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-muted-foreground">Phone</label>
+                  <PhoneInput
+                    countrySelectComponent={() => null}
+                    country={getCountryCode(supplierForm.country)}
+                    value={supplierForm.phone}
+                    onChange={val => setSupplierForm({ ...supplierForm, phone: val })}
+                    className="w-full bg-secondary border border-border rounded-lg p-2 focus:ring-2 focus:ring-accent focus:outline-none text-foreground transition-all h-10"
+                    placeholder={supplierForm.country ? "Enter phone number" : "Select country first"}
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-2 md:col-span-2">
+                  <label className="font-bold text-muted-foreground">Address</label>
+                  <AsyncSelect
+                    cacheOptions
+                    loadOptions={loadAddressOptions}
+                    defaultOptions={false}
+                    value={supplierForm.address ? { label: supplierForm.address, value: supplierForm.address } : null}
+                    onChange={(sel) => setSupplierForm({ ...supplierForm, address: sel ? sel.value : '' })}
+                    onInputChange={(val, { action }) => {
+                       if (action === 'input-change') {
+                         setSupplierForm({ ...supplierForm, address: val });
+                       }
+                    }}
+                    placeholder="Start typing an address..."
+                    styles={customSelectStyles}
+                    isClearable
+                    classNamePrefix="react-select"
+                    noOptionsMessage={() => "Type to search address..."}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 md:col-span-2">
+                  <label className="font-bold text-muted-foreground">Payment Terms</label>
+                  <Select
+                    options={['Net 15', 'Net 30', 'Net 60', 'Due on Receipt', 'Prepaid'].map(t => ({ value: t, label: t }))}
+                    value={supplierForm.paymentTerms ? { value: supplierForm.paymentTerms, label: supplierForm.paymentTerms } : null}
+                    onChange={(sel) => setSupplierForm({ ...supplierForm, paymentTerms: sel ? sel.value : '' })}
+                    placeholder="Select terms..."
+                    styles={customSelectStyles}
+                    isClearable
+                    classNamePrefix="react-select"
+                  />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -975,7 +1041,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <button 
                       onClick={() => {
                         setIsSupplierModalOpen(false);
-                        openPoModal(null, editingSupplier._id);
+                        openPoModal(null, editingSupplier.id);
                       }}
                       className="text-xs font-bold bg-accent/10 text-accent hover:bg-accent/20 px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors"
                     >
@@ -983,11 +1049,11 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     </button>
                   </div>
                   <div className="space-y-2">
-                    {purchaseOrders.filter(po => po.supplier?._id === editingSupplier._id).length === 0 ? (
-                      <p className="text-muted-foreground text-sm py-4 text-center border border-dashed border-border rounded-xl">No purchase orders found for this vendor.</p>
+                    {purchaseOrders.filter(po => po.supplier?.id === editingSupplier.id).length === 0 ? (
+                      <p className="text-muted-foreground text-sm py-4 text-center border border-dashed border-border rounded-xl">No purchase orders found for this supplier.</p>
                     ) : (
-                      purchaseOrders.filter(po => po.supplier?._id === editingSupplier._id).map(po => (
-                        <div key={po._id} className="flex items-center justify-between p-3 border border-border rounded-xl bg-background hover:bg-secondary transition-colors">
+                      purchaseOrders.filter(po => po.supplier?.id === editingSupplier.id).map(po => (
+                        <div key={po.id} className="flex items-center justify-between p-3 border border-border rounded-xl bg-background hover:bg-secondary transition-colors">
                           <div>
                             <span className="font-bold text-sm text-foreground block">{po.poNumber}</span>
                             <span className="text-xs text-muted-foreground font-semibold">{po.status} • {po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'No Date'}</span>
@@ -1061,9 +1127,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm mb-10">
                 <div className="space-y-4">
                   <div className="flex border-b border-border pb-1">
-                    <label className="w-1/3 font-bold text-foreground">Vendor</label>
+                    <label className="w-1/3 font-bold text-foreground">Supplier</label>
                     <select disabled={!!viewingPo} value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} className="w-2/3 bg-transparent focus:outline-none text-foreground disabled:text-accent font-semibold">
-                      <option value="">Select Vendor...</option>
+                      <option value="">Select Supplier...</option>
                       {suppliers.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
@@ -1194,6 +1260,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
                     { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400' },
                     { label: 'In Stock', value: viewingPart.stock, icon: Package, color: viewingPart.stock <= viewingPart.minStock ? 'text-accent' : 'text-foreground', alert: viewingPart.stock <= viewingPart.minStock },
+                    { label: 'Reserved', value: viewingPart.reservedStock || 0, icon: Clock, color: 'text-amber-500', alert: (viewingPart.reservedStock || 0) > 0 },
                   ].map(s => (
                     <div key={s.label} className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-accent/50' : 'border-border'}`}>
                       {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />}
@@ -1323,7 +1390,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <table className="w-full text-left text-sm">
                     <thead className="bg-background border-b border-border text-muted-foreground">
                       <tr className="uppercase text-xs tracking-wider">
-                        <th className="p-3">Date</th><th className="p-3">PO Number</th><th className="p-3">Vendor</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Status</th>
+                        <th className="p-3">Date</th><th className="p-3">PO Number</th><th className="p-3">Supplier</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">

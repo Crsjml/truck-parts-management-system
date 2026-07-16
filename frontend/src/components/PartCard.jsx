@@ -34,7 +34,7 @@ const PartCard = memo(({
       )}
 
       {/* Part Image */}
-      <div className="h-40 rounded-xl overflow-hidden bg-slate-900/60 border border-border/10 mb-4 flex items-center justify-center relative select-none">
+      <div className="h-40 rounded-xl overflow-hidden bg-secondary/60 border border-border/10 mb-4 flex items-center justify-center relative select-none">
         {part.image ? (
           <img src={part.image} alt={part.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (

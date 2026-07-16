@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders, CurrencyDollar } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
 import PartCard from './PartCard';
 import PartTableRow from './PartTableRow';
+import AddPartDrawer from './AddPartDrawer';
 import { z } from 'zod';
 
 const partSchema = z.object({
@@ -27,7 +28,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
   // Sub-category state
-  const [selectedSubCategory, setSelectedSubCategory] = useState('All');
+  const [selectedSubCategory, setSelectedSubCategory] = useState(['All']);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -94,7 +95,8 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState('add'); // 'add', 'edit', 'details'
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+  const [modalType, setModalType] = useState('edit'); // 'edit', 'details', 'adjustStock'
   const [selectedPart, setSelectedPart] = useState(null);
   
   // Restock state inline
@@ -136,11 +138,15 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
       (part.compatibility && part.compatibility.toLowerCase().includes(search.toLowerCase()));
     
     // Determine category matching logic (Main vs Sub)
-    const matchesMainCategory = selectedCategory === 'All' || part.category === selectedCategory;
-    const matchesSubCategory = selectedSubCategory === 'All' || part.category === selectedSubCategory;
+    const activeCats = structuredCategories && structuredCategories.length > 0 ? structuredCategories : (categoriesList || []);
+    const parentCatObj = activeCats.find(c => c.name === selectedCategory);
+    const validSubCats = parentCatObj ? activeCats.filter(c => c.parentCategory?.id === parentCatObj.id || c.parentCategory === parentCatObj.id).map(c => c.name) : [];
+    
+    const matchesMainCategory = selectedCategory === 'All' || part.category === selectedCategory || validSubCats.includes(part.category);
+    const matchesSubCategory = selectedSubCategory.includes('All') || selectedSubCategory.includes(part.category);
     
     // If a subcategory is selected, use it. Otherwise, use the main category filter.
-    const matchesCategory = selectedSubCategory !== 'All' ? matchesSubCategory : matchesMainCategory;
+    const matchesCategory = !selectedSubCategory.includes('All') ? matchesSubCategory : matchesMainCategory;
     
     const matchesLowStock = !showLowStockOnly || part.stock <= part.minStock;
     
@@ -174,21 +180,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   }, [sortedParts, currentPage]);
 
   const openAddModal = () => {
-    setModalType('add');
-    setFormName('');
-    setFormSku('');
-    setFormOem('');
-    setFormCategory('');
-    setFormPrice('');
-    setFormStock('');
-    setFormMinStock('');
-    setFormCompatibility('');
-    setFormDescription('');
-    setFormImage('');
-    setFormErrors({});
-    setServerError('');
-    setIsSubmitting(false);
-    setIsModalOpen(true);
+    setIsAddDrawerOpen(true);
   };
 
   const openEditModal = (part) => {
@@ -289,9 +281,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
     setIsSubmitting(true);
     try {
       let result;
-      if (modalType === 'add') {
-        result = await onAddPart(partData);
-      } else if (modalType === 'edit') {
+      if (modalType === 'edit') {
         result = await onEditPart(selectedPart.id, partData);
       }
 
@@ -419,8 +409,12 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
         {/* Main Categories Row */}
         <div className="flex overflow-x-auto custom-scrollbar pb-1 items-center gap-2">
           {(() => {
-            const mainCats = structuredCategories && structuredCategories.length > 0 
-              ? structuredCategories.filter(c => !c.parentCategory).map(c => c.name)
+            const activeCategories = structuredCategories && structuredCategories.length > 0 
+              ? structuredCategories 
+              : (categoriesList || []);
+              
+            const mainCats = activeCategories.length > 0 
+              ? activeCategories.filter(c => !c.parentCategory).map(c => c.name)
               : categories;
             
             // Ensure 'All' is at the front
@@ -434,7 +428,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                   key={cat}
                   onClick={() => {
                     setSelectedCategory(cat);
-                    setSelectedSubCategory('All'); // Reset subcategory
+                    setSelectedSubCategory(['All']); // Reset subcategory
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${
                     isSelected 
@@ -451,37 +445,58 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
         </div>
 
         {/* Sub-Categories Row (Only show if parent is selected and has children) */}
-        {selectedCategory !== 'All' && structuredCategories && structuredCategories.length > 0 && (
+        {selectedCategory !== 'All' && (
           (() => {
-            const parentCatObj = structuredCategories.find(c => c.name === selectedCategory);
+            const activeCategories = structuredCategories && structuredCategories.length > 0 
+              ? structuredCategories 
+              : (categoriesList || []);
+              
+            if (activeCategories.length === 0) return null;
+
+            const parentCatObj = activeCategories.find(c => c.name === selectedCategory);
             if (!parentCatObj) return null;
-            const subCats = structuredCategories.filter(c => c.parentCategory?.id === parentCatObj.id);
+            // Handle both populated object or string ID
+            const subCats = activeCategories.filter(c => c.parentCategory?.id === parentCatObj.id || c.parentCategory === parentCatObj.id);
             if (subCats.length === 0) return null;
 
             return (
               <div className="flex overflow-x-auto custom-scrollbar pb-1 items-center gap-2 pl-4 border-l-2 border-border/50">
                 <button
-                  onClick={() => setSelectedSubCategory('All')}
-                  className={`flex items-center px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
-                    selectedSubCategory === 'All' 
+                  onClick={() => setSelectedSubCategory(['All'])}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
+                    selectedSubCategory.includes('All') 
                       ? 'bg-secondary border-border text-foreground' 
                       : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                   }`}
                 >
+                  <SquaresFour weight="duotone" className="w-3 h-3" />
                   All {selectedCategory}
                 </button>
                 {subCats.map((sub) => {
-                  const isSelected = selectedSubCategory === sub.name;
+                  const isSelected = selectedSubCategory.includes(sub.name);
+                  const { icon: SubIcon, color } = getCategoryStyles(sub.name);
                   return (
                     <button
                       key={sub.id}
-                      onClick={() => setSelectedSubCategory(sub.name)}
-                      className={`flex items-center px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
+                      onClick={() => {
+                        setSelectedSubCategory(prev => {
+                          const current = Array.isArray(prev) ? prev : [prev];
+                          const withoutAll = current.filter(x => x !== 'All');
+                          if (withoutAll.includes(sub.name)) {
+                            const next = withoutAll.filter(x => x !== sub.name);
+                            return next.length === 0 ? ['All'] : next;
+                          } else {
+                            return [...withoutAll, sub.name];
+                          }
+                        });
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
                         isSelected 
                           ? 'bg-secondary border-border text-foreground shadow-sm' 
                           : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                       }`}
                     >
+                      {SubIcon && <SubIcon weight={isSelected ? "fill" : "duotone"} className={`w-3 h-3 ${isSelected ? 'text-foreground' : color}`} />}
                       {sub.name}
                     </button>
                   );
@@ -578,20 +593,20 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {paginatedParts.map(part => {
+                  {paginatedParts.map(part => (
                       <PartTableRow 
                         key={part.id} 
                         part={part} 
                         openDetailsModal={openDetailsModal} 
                         formatCurrency={formatCurrency} 
                       />
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
           ) : (
             <div className={`grid gap-5 ${viewMode === 'grid3' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-            {paginatedParts.map((part) => {
+            {paginatedParts.map((part) => (
                 <PartCard 
                   key={part.id} 
                   part={part} 
@@ -608,7 +623,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                   onDeletePart={onDeletePart}
                   viewMode={viewMode}
                 />
-          })}
+            ))}
         </div>
         )}
 
@@ -657,7 +672,6 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="text-lg font-bold text-foreground font-display">
-                {modalType === 'add' && 'Add New Truck Part'}
                 {modalType === 'edit' && 'Edit Part Details'}
                 {modalType === 'details' && 'Part Details Overview'}
                 {modalType === 'adjustStock' && 'Adjust Stock count'}
@@ -674,7 +688,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
             {modalType === 'details' ? (
               <div className="p-6 space-y-5">
                 <div className="space-y-1 bg-background p-4 rounded-xl border border-border flex items-center gap-4">
-                  <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
+                  <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border/10">
                     {selectedPart?.image ? (
                       <img src={selectedPart.image} alt={selectedPart.name} className="w-full h-full object-cover" />
                     ) : (
@@ -844,7 +858,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                     type="button" 
                     onClick={() => setIsModalOpen(false)}
                     disabled={isSubmitting}
-                    className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-secondary hover:bg-background text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -858,37 +872,10 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 </div>
               </form>
             ) : (
-              // Add / Pencil Form (Bento Box Layout)
+              // Edit Form (Bento Box Layout)
               <form onSubmit={handleFormSubmit} className="flex flex-col max-h-[85vh]">
                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 text-left overflow-y-auto custom-scrollbar">
-                  {modalType === 'add' && (
-                    <div className="md:col-span-2 space-y-1.5 bg-secondary/30 p-3 rounded-xl border border-border">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                        <SquaresFour weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Clone Existing Part Template
-                      </label>
-                      <select 
-                        className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground"
-                        onChange={(e) => {
-                          const p = parts.find(x => x.id === parseInt(e.target.value));
-                          if (p) {
-                            setFormName(p.name + ' (Copy)');
-                            setFormOem(p.oem);
-                            setFormCategory(p.category);
-                            setFormPrice(p.price);
-                            setFormCompatibility(p.compatibility || '');
-                            setFormDescription(p.description || '');
-                            // Leave SKU, Stock, and Min Stock empty for the new part
-                          }
-                        }}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>-- Select a part to clone its details --</option>
-                        {parts.map(p => (
-                          <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+
                   {/* Left Column: Core Identity */}
                   <div className="space-y-4">
                     <div className="space-y-1.5 group">
@@ -1078,7 +1065,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         <Image className="w-4 h-4 text-brandBlue-400" weight="duotone" /> Part Product Image
                       </label>
                       <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-3.5">
-                        <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center border border-border/10">
+                        <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border/10">
                           {formImage ? (
                             <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
                           ) : (
@@ -1103,7 +1090,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                                 reader.readAsDataURL(file);
                               }
                             }}
-                            className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-slate-700 transition file:cursor-pointer"
+                            className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-background transition file:cursor-pointer"
                           />
                           <p className="text-3xs text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
                         </div>
@@ -1135,7 +1122,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                     type="button" 
                     onClick={() => setIsModalOpen(false)}
                     disabled={isSubmitting}
-                    className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-secondary hover:bg-background text-muted-foreground text-sm font-semibold rounded-xl border border-border transition-all disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -1153,7 +1140,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         Saving...
                       </>
                     ) : (
-                      modalType === 'add' ? 'Save Component' : 'Save Changes'
+                      'Save Changes'
                     )}
                   </button>
                 </div>
@@ -1217,7 +1204,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 <button 
                   type="button" 
                   onClick={() => setIsInquiryModalOpen(false)}
-                  className="px-4 py-2 bg-secondary hover:bg-slate-700 text-muted-foreground text-xs font-semibold rounded-xl border border-border transition-all"
+                  className="px-4 py-2 bg-secondary hover:bg-background text-muted-foreground text-xs font-semibold rounded-xl border border-border transition-all"
                 >
                   Cancel
                 </button>
@@ -1251,7 +1238,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
             <button 
               onClick={() => setInquirySuccess(false)}
-              className="w-full py-2.5 bg-secondary hover:bg-slate-700 border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
+              className="w-full py-2.5 bg-secondary hover:bg-background border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
             >
               Okay
             </button>
@@ -1259,6 +1246,13 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
         </div>,
         document.body
       )}
+      <AddPartDrawer 
+        isOpen={isAddDrawerOpen} 
+        onClose={() => setIsAddDrawerOpen(false)} 
+        onAddPart={onAddPart} 
+        categoriesList={categoriesList} 
+        parts={parts} 
+      />
     </div>
   );
 }

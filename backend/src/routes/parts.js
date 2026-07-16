@@ -30,16 +30,23 @@ router.get('/vehicle-options', async (req, res) => {
   try {
     const parts = await prisma.part.findMany({
       where: { archived: false },
-      select: { compatibleWith: true }
+      select: { compatibility: true, compatibleWith: true }
     });
 
     const brandMap = {};
     parts.forEach(p => {
-      const compatibleArr = Array.isArray(p.compatibleWith) ? p.compatibleWith : [];
+      let compatibleArr = [];
+      if (Array.isArray(p.compatibleWith) && p.compatibleWith.length > 0) {
+        compatibleArr = p.compatibleWith;
+      } else if (p.compatibility) {
+        compatibleArr = parseCompatibility(p.compatibility);
+      }
+
       compatibleArr.forEach(({ brand, series }) => {
         if (!brand || brand.toLowerCase() === 'universal') return;
-        if (!brandMap[brand]) brandMap[brand] = new Set();
-        if (series) brandMap[brand].add(series);
+        const normalizedBrand = brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+        if (!brandMap[normalizedBrand]) brandMap[normalizedBrand] = new Set();
+        if (series) brandMap[normalizedBrand].add(series);
       });
     });
 

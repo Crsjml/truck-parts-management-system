@@ -66,6 +66,18 @@ class CheckoutService {
   }
 
   async processSuccessfulCheckout(session) {
+    const sessionId = session.id;
+
+    // Idempotency check: Ensure we don't process the same session twice
+    const existingTransaction = await prisma.transaction.findUnique({
+      where: { stripeSessionId: sessionId }
+    });
+
+    if (existingTransaction) {
+      console.log(`Session ${sessionId} already processed.`);
+      return;
+    }
+
     const cartItems = JSON.parse(session.metadata.cartItems);
     const totalAmount = session.amount_total / 100;
     
@@ -77,6 +89,7 @@ class CheckoutService {
           customerName: session.metadata.userEmail,
           customerContact: session.metadata.userId,
           userId: session.metadata.userId !== 'N/A' ? session.metadata.userId : null,
+          stripeSessionId: sessionId,
           subtotal: totalAmount,
           taxAmount: 0,
           total: totalAmount,

@@ -13,6 +13,14 @@ class TransactionsRepository {
   async executeTransaction(callback) {
     return await prisma.$transaction(callback);
   }
+
+  async update(id, data) {
+    return await prisma.transaction.update({
+      where: { id },
+      data,
+      include: { items: true }
+    });
+  }
 }
 
 export default new TransactionsRepository();

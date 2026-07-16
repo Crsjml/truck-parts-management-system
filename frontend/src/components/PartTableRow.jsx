@@ -14,7 +14,7 @@ const PartTableRow = memo(({
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md overflow-hidden bg-slate-900 border border-border/20 shrink-0">
+          <div className="w-10 h-10 rounded-md overflow-hidden bg-secondary border border-border/20 shrink-0">
             {part.image ? (
               <img src={part.image} alt={part.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (

@@ -6,6 +6,47 @@ class TransactionsService {
     return await transactionsRepository.findMany();
   }
 
+  async updateStatus(id, status) {
+    return await transactionsRepository.executeTransaction(async (tx) => {
+      const transaction = await tx.transaction.findUnique({
+        where: { id },
+        include: { items: true }
+      });
+
+      if (!transaction) throw new Error('Transaction not found.');
+
+      if (transaction.status === status) return transaction;
+
+      if (transaction.status === 'Completed' || transaction.status === 'Cancelled') {
+        throw new Error(`Cannot change status of a ${transaction.status} transaction.`);
+      }
+
+      if (status === 'Completed') {
+        for (const item of transaction.items) {
+          await tx.part.update({
+            where: { id: item.partId },
+            data: { 
+              stock: { decrement: item.quantity },
+              reservedStock: { decrement: item.quantity } 
+            }
+          });
+        }
+      } else if (status === 'Cancelled') {
+        for (const item of transaction.items) {
+          await tx.part.update({
+            where: { id: item.partId },
+            data: { reservedStock: { decrement: item.quantity } }
+          });
+        }
+      }
+
+      return await tx.transaction.update({
+        where: { id },
+        data: { status }
+      });
+    });
+  }
+
   async createTransaction(data, userId) {
     const {
       invoiceNumber,
@@ -32,13 +73,14 @@ class TransactionsService {
           throw new Error(`Part not found: ${item.name} (${item.partId})`);
         }
         
-        if (part.stock < item.quantity) {
-          throw new Error(`Insufficient stock for ${part.name}. Available: ${part.stock}, Requested: ${item.quantity}`);
+        const available = part.stock - part.reservedStock;
+        if (available < item.quantity) {
+          throw new Error(`Insufficient available stock for ${part.name}. Available: ${available}, Requested: ${item.quantity}`);
         }
 
         await tx.part.update({
           where: { id: item.partId },
-          data: { stock: { decrement: item.quantity } }
+          data: { reservedStock: { increment: item.quantity } }
         });
       }
 

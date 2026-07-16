@@ -25,25 +25,28 @@ export default function TransactionPOS({ parts, onCheckout }) {
       part.name.toLowerCase().includes(term) ||
       part.sku.toLowerCase().includes(term) ||
       part.oem.toLowerCase().includes(term)
-    ) && part.stock > 0; // only show items that are in stock
+    ) && (part.stock - (part.reservedStock || 0)) > 0; // only show items that are in stock
   });
 
   const addToCart = (part) => {
-    const existing = cart.find(item => item.id === part.id);
-    
-    if (existing) {
-      if (existing.quantity >= part.stock) {
-        alert(`Cannot add more. Only ${part.stock} units of ${part.name} are available in stock.`);
-        return;
+    const availableStock = part.stock - (part.reservedStock || 0);
+    setCart(prev => {
+      const existing = prev.find(item => item.id === part.id);
+      
+      if (existing) {
+        if (existing.quantity >= availableStock) {
+          alert(`Cannot add more. Only ${availableStock} units of ${part.name} are available in stock.`);
+          return prev;
+        }
+        return prev.map(item => 
+          item.id === part.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      } else {
+        return [...prev, { ...part, quantity: 1 }];
       }
-      setCart(cart.map(item => 
-        item.id === part.id 
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, { ...part, quantity: 1 }]);
-    }
+    });
   };
 
   const updateQuantity = (partId, delta) => {
@@ -51,6 +54,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
     if (!item) return;
 
     const target = parts.find(p => p.id === partId);
+    const availableStock = target ? (target.stock - (target.reservedStock || 0)) : 0;
     const newQty = item.quantity + delta;
 
     if (newQty <= 0) {
@@ -58,8 +62,8 @@ export default function TransactionPOS({ parts, onCheckout }) {
       return;
     }
 
-    if (target && newQty > target.stock) {
-      alert(`Cannot exceed available stock (${target.stock} units).`);
+    if (target && newQty > availableStock) {
+      alert(`Cannot exceed available stock (${availableStock} units).`);
       return;
     }
 
@@ -271,10 +275,11 @@ export default function TransactionPOS({ parts, onCheckout }) {
           </div>
 
           {/* Quick list of items */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {filteredParts.map(part => {
               const cartItem = cart.find(item => item.id === part.id);
-              const remaining = part.stock - (cartItem ? cartItem.quantity : 0);
+              const availableStock = part.stock - (part.reservedStock || 0);
+              const remaining = availableStock - (cartItem ? cartItem.quantity : 0);
 
               return (
                 <div 
@@ -478,7 +483,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
               </button>
               <button 
                 onClick={() => setCheckoutSuccess(false)}
-                className="py-3 px-4 bg-secondary hover:bg-slate-700 border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
+                className="py-3 px-4 bg-secondary hover:bg-background border border-border text-muted-foreground font-bold rounded-xl text-xs transition-colors"
               >
                 Done
               </button>

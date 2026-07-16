@@ -154,7 +154,7 @@ export default function ProductGrid({
                   className="group relative rounded-[2rem] border border-border/50 bg-background/80 backdrop-blur-md transition-all duration-500 ease-spring-physics hover:-translate-y-2 hover:border-accent/50 flex flex-col h-full shadow-sm hover:shadow-2xl hover:shadow-black/10"
                 >
                   {/* Image Section */}
-                  <div className={`relative w-full overflow-hidden rounded-[2rem] bg-slate-900 flex items-center justify-center p-1 ${isCompact ? 'h-40' : 'h-56'}`}>
+                  <div className={`relative w-full overflow-hidden rounded-[2rem] bg-secondary flex items-center justify-center p-1 ${isCompact ? 'h-40' : 'h-56'}`}>
                     {part.image ? (
                       <img 
                         src={part.image} 
@@ -180,7 +180,7 @@ export default function ProductGrid({
                       <button
                         type="button"
                         onClick={() => addToCart(part)}
-                        disabled={part.stock === 0}
+                        disabled={(part.stock - (part.reservedStock || 0)) === 0}
                         className="px-4 py-2 bg-accent/90 hover:bg-accent text-white text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(var(--accent-rgb),0.5)] disabled:opacity-50 disabled:hover:scale-100"
                       >
                         <Plus weight="bold" className="w-4 h-4 inline-block mr-1" /> Add
@@ -235,9 +235,9 @@ export default function ProductGrid({
                       </div>
                     </div>
                     <div className={`mt-auto border-t border-border/50 ${isCompact ? 'pt-3' : 'pt-4'}`}>
-                      <span className={`${isCompact ? 'text-[10px]' : 'text-xs'} font-bold flex items-center gap-1.5 ${part.stock > 0 ? (part.stock <= part.minStock ? 'text-amber-500' : 'text-emerald-500') : 'text-red-500'}`}>
-                        <div className={`w-2 h-2 rounded-full ${part.stock > 0 ? (part.stock <= part.minStock ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse') : 'bg-red-500'}`} />
-                        {part.stock > 0 ? `${part.stock} in stock` : 'Out of Stock'}
+                      <span className={`${isCompact ? 'text-[10px]' : 'text-xs'} font-bold flex items-center gap-1.5 ${(part.stock - (part.reservedStock || 0)) > 0 ? ((part.stock - (part.reservedStock || 0)) <= part.minStock ? 'text-amber-500' : 'text-emerald-500') : 'text-red-500'}`}>
+                        <div className={`w-2 h-2 rounded-full ${(part.stock - (part.reservedStock || 0)) > 0 ? ((part.stock - (part.reservedStock || 0)) <= part.minStock ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse') : 'bg-red-500'}`} />
+                        {(part.stock - (part.reservedStock || 0)) > 0 ? `${(part.stock - (part.reservedStock || 0))} in stock` : 'Out of Stock'}
                       </span>
                     </div>
                   </div>
@@ -293,9 +293,9 @@ export default function ProductGrid({
                         {formatCurrency(part.price)}
                       </td>
                       <td className="py-2.5 px-4 text-center">
-                         <div className="flex items-center justify-center gap-2" title={`${part.stock} available`}>
-                           <div className={`w-2 h-2 rounded-full ${part.stock > 0 ? (part.stock <= part.minStock ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]') : 'bg-red-500'}`} />
-                           <span className="text-xs font-bold text-muted-foreground w-6 text-left">{part.stock}</span>
+                         <div className="flex items-center justify-center gap-2" title={`${(part.stock - (part.reservedStock || 0))} available`}>
+                           <div className={`w-2 h-2 rounded-full ${(part.stock - (part.reservedStock || 0)) > 0 ? ((part.stock - (part.reservedStock || 0)) <= part.minStock ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]') : 'bg-red-500'}`} />
+                           <span className="text-xs font-bold text-muted-foreground w-6 text-left">{(part.stock - (part.reservedStock || 0))}</span>
                          </div>
                       </td>
                       <td className="py-2.5 px-6 text-right">
@@ -311,7 +311,7 @@ export default function ProductGrid({
                           <button
                             type="button"
                             onClick={() => addToCart(part)}
-                            disabled={part.stock === 0}
+                            disabled={(part.stock - (part.reservedStock || 0)) === 0}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background border border-border text-foreground hover:bg-accent hover:border-accent hover:text-white transition-all disabled:opacity-50 shadow-sm"
                             aria-label="Add to Quote"
                           >

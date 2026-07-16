@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -28,12 +28,14 @@ model Customer {
   authId      String   @unique // Auth user ID from Supabase
   email       String   @unique
   displayName String?  @default("")
+  companyName String?  @default("")
   phoneNumber String?  @default("")
   photoURL    String?  @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  savedParts Part[] @relation("CustomerSavedParts")
+  savedParts Part[]            @relation("CustomerSavedParts")
+  addresses  CustomerAddress[]
 }
 
 model Part {
@@ -47,6 +49,7 @@ model Part {
   primarySupplier Supplier? @relation("SupplierPrimaryParts", fields: [supplierId], references: [id])
   price           Float
   stock           Int       @default(0)
+  reservedStock   Int       @default(0)
   min_stock       Int       @default(0)
   compatibility   String?   @default("")
   compatibleWith  Json      @default("[]") // Replaces compatibleWith array
@@ -124,6 +127,7 @@ model Transaction {
   customerName    String   @default("Walk-in Customer")
   customerContact String   @default("N/A")
   userId          String?
+  stripeSessionId String?  @unique
   discount        Float    @default(0)
   tax             Float    @default(12)
   subtotal        Float
@@ -189,12 +193,26 @@ model Setting {
 }
 
 model StockAdjustment {
-  id          String   @id @default(uuid()) @db.Uuid
-  partId      String   @db.Uuid
-  part        Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
-  oldStock    Int
-  newStock    Int
-  difference  Int
-  reason      String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  partId     String   @db.Uuid
+  part       Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
+  oldStock   Int
+  newStock   Int
+  difference Int
+  reason     String
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAddress {
+  id                String   @id @default(uuid()) @db.Uuid
+  customerId        String   @db.Uuid
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label             String   @default("Office")
+  fullAddress       String
+  isDefaultShipping Boolean  @default(false)
+  isDefaultBilling  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([customerId])
 }

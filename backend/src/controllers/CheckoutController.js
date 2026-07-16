@@ -21,6 +21,26 @@ class CheckoutController extends BaseController {
     }
   };
 
+  verifySession = async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Session ID is required' });
+      }
+
+      const session = await checkoutService.stripe.checkout.sessions.retrieve(sessionId);
+      if (session.payment_status === 'paid') {
+        await checkoutService.processSuccessfulCheckout(session);
+        return res.json({ success: true, message: 'Session verified and order processed' });
+      } else {
+        return res.status(400).json({ error: 'Payment not completed' });
+      }
+    } catch (err) {
+      console.error('[verify session]', err);
+      this.handleError(res, err, 'Server error verifying session.');
+    }
+  };
+
   webhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
