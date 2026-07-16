@@ -1,6 +1,6 @@
 # 🚀 GEMINI.md - Comprehensive AI Agent Guidelines
 
-This document serves as the absolute source of truth for the Gemini AI agent operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology.
+This document serves as the absolute source of truth for the Gemini AI agent operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `CLAUDE.md` and `.opencode` configurations.
 
 Gemini, **you must read and adhere to these guidelines for every action you take.**
 
@@ -35,12 +35,17 @@ When encountering bugs, test failures, or console errors:
 - **Orchestration:** Docker Desktop & Docker Compose.
 - **Routing:** Frontend API requests MUST use relative paths (e.g., `/api/health`). Vite automatically proxies `/api/*` to the backend. **Never hardcode `http://localhost:5000` in the frontend.**
 
+### Folder Structure Rules
+- **Backend Scripts:** Standalone admin, test, or seed scripts MUST live in `backend/scripts/`.
+- **Database Files:** SQL dumps and Prisma configurations MUST live in `backend/prisma/`.
+- **Playwright Debugs:** Playwright debug artifacts (`debug-*`) are strictly banned from version control. Ensure they are caught by `.gitignore`.
+
 ---
 
 ## 💻 3. Development Workflow & Commands
 
 All execution commands should be run from the repository root.
-- **Start Cluster:** `make up` (Mac/Linux) or `.\run.bat` (Windows).
+- **Start Cluster:** `make up` (Mac/Linux), `.\run.bat` (Windows), or manually using `docker-compose up -d --build`.
 - **Stop Cluster:** `make down` (Mac/Linux) or `docker-compose down` (Windows).
 - **Manual Frontend:** `npm run dev` inside `/frontend`.
 - **Manual Backend:** `npm run dev` inside `/backend`.
@@ -48,21 +53,9 @@ All execution commands should be run from the repository root.
 
 ### Integrating AI MCP Servers
 This repository provides a template for Model Context Protocol (MCP) servers (`mcp-config.example.json`) which gives the AI agent superpowers to natively query Postgres, Stripe, and GitHub.
-1. Copy `mcp-config.example.json` into your local IDE's MCP settings (e.g., `~/.gemini/config/mcp.json` or Cursor's MCP configuration).
-2. Replace the placeholder API keys with your own (or use the team's shared vault). 
+1. Copy `mcp-config.example.json` into your local IDE's MCP settings.
+2. Replace the placeholder API keys with your own. 
 3. **DO NOT commit your actual API keys to the repository.**
-
-### Installing ECC with Antigravity Target
-To install Everything Claude Code (ECC) skills specifically for Antigravity, use the following scripts:
-
-```bash
-# Install ECC with Antigravity target
-./install.sh --target antigravity typescript
-
-# Or with multiple language modules
-./install.sh --target antigravity typescript python go
-```
-
 
 ---
 
@@ -73,8 +66,8 @@ You enforce two distinct design systems depending on the portal you are editing.
 ### Area A: Customer Storefront (`/`, `/catalog`, auth modals)
 **Directive: `premium-ui-ux-design` & `high-end-visual-design`**
 - **Aesthetics:** Enforce a premium, "high-budget" feel. Use curated HSL palettes. Avoid default raw HTML colors.
-- **Depth:** Favor translucent overlays (`backdrop-filter: blur()`), subtle white borders, and heavy, soft shadows (`box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15)`) over solid panels.
-- **Motion:** All interactive elements must feel alive using cubic-bezier transitions (`transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)`). Use micro-interactions like scale-ups (`scale: 1.02`), group-hover effects, and icon nudges.
+- **Depth:** Favor translucent overlays (`backdrop-filter: blur()`), subtle white borders, and heavy, soft shadows.
+- **Motion:** All interactive elements must feel alive using cubic-bezier transitions. Use micro-interactions like scale-ups (`scale: 1.02`), group-hover effects, and icon nudges.
 
 ### Area B: Admin Dashboard & POS (`/admin`, `/staff`)
 **Directive: `minimalist-ui`**
@@ -84,7 +77,6 @@ You enforce two distinct design systems depending on the portal you are editing.
 
 ### Global Anti-Slop Rules
 - No three-equal-card feature rows. Use asymmetric grids or zig-zags.
-- No AI-purple mesh gradients unless explicitly requested.
 - Standardize on `lucide-react` or `Phosphor Icons` for vectors.
 
 ---
@@ -103,24 +95,30 @@ You enforce two distinct design systems depending on the portal you are editing.
 We use the **GitHub for Jira** integration.
 - **Commit Formatting:** Every commit MUST follow the format `type(TICKET-ID): brief description`. 
   - *Example:* `feat(TTP-12): implement purchasing module`
-  - *Example:* `fix(TTP-8): resolve docker port conflict`
   - *Invalid:* `feat(sprint-2): added purchasing` (Missing the TTP-XX identifier).
 - **Staging:** Keep commits focused and atomic. Never automatically stage everything without user alignment.
 - **NO AUTO-PUSH:** You are explicitly forbidden from running `git push`. You may only commit locally. You must wait for the user to explicitly type "push this" or "push to remote" before executing a push command.
 
 ---
 
-## 📝 7. Planning & Communication Protocols
+## 📝 7. Planning, Agents, & Communication Protocols
+
+### Specialized Agents (`.opencode`)
+We utilize specialized subagents defined in `.opencode/opencode.json` to handle distinct workflows:
+- **`planner` & `architect`**: For system design, architecture, and feature planning.
+- **`code-reviewer` & `security-reviewer`**: For PR analysis and vulnerability detection.
+- **`tdd-guide` & `e2e-runner`**: For enforcing test-driven development and Playwright E2E testing (`npx playwright test`).
+- **`refactor-cleaner`**: For safely removing dead code and deduplicating logic.
 
 ### Comprehensive Planning (`comprehensive-planning-options`)
 When the user asks for a feature or architectural decision:
 1. **Research First:** Read the code, trace the flow, and check the Jira docs.
 2. **Provide 3 Options:** Always propose 3 distinct approaches based on the codebase constraints.
-3. **Trace Skills:** Explicitly mention which skills (e.g., `ponytail`, `stitch-design-taste`) you are leveraging for each option.
+3. **Trace Skills:** Explicitly mention which skills you are leveraging for each option.
 4. **Await Approval:** Ask the user which option they prefer before writing code.
 
 ### General Communication
 - Keep responses concise and use GitHub-flavored markdown.
-- Create clickable links for files `[filename](file:///path/to/file)`.
+- Create clickable links for files.
 - Use `activity-log.md` in `/docs` to document massive changes, but do not auto-commit it.
-- Mark intentional codebase simplifications with a `// ponytail:` comment, noting the limitation and the upgrade path.
+- Mark intentional codebase simplifications with a `// ponytail:` comment.

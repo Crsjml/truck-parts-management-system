@@ -65,14 +65,23 @@ VITE_SUPABASE_URL="https://zzefrhwkiydjgvejnkmd.supabase.co"
 VITE_SUPABASE_ANON_KEY="sb_publishable_PDRqOyG3VNmWnL4pOdS8xg_UXh4TjIz"
 ```
 
-### Step 3 — Start the app (Windows)
+### Step 3 — Start the app
+
+You can start the app using your platform's helper script, or by using Docker manually.
+
+**Using Windows Helper:**
 ```powershell
 .\run.bat
 ```
 
-### Step 3 — Start the app (Mac / Linux)
+**Using Mac/Linux Helper:**
 ```bash
 make up
+```
+
+**Using Docker Manually (Any Platform):**
+```bash
+docker-compose up -d --build
 ```
 
 ### Step 4 — Open the app
@@ -88,12 +97,13 @@ make up
 
 ```powershell
 # Start everything
-.\run.bat          # Windows
-make up            # Mac/Linux
+.\run.bat                     # Windows
+make up                       # Mac/Linux
+docker-compose up -d --build  # Manual
 
 # Stop everything
-docker-compose down
-make down          # Mac/Linux
+docker-compose down           # Windows / Manual
+make down                     # Mac/Linux
 ```
 
 > **Note:** On first run, Docker builds the images and runs `npm install` inside the containers automatically. Subsequent starts are faster since images are cached.
