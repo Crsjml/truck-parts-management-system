@@ -166,7 +166,8 @@ export const fetchCustomerProfile = async () => {
 export const updateCustomerProfile = async (profileData) => {
   try {
     const { ok, data } = await apiPut('/api/customers/me', profileData, { supabase });
-    return ok ? data : null;
+    if (!ok) throw new Error(data?.msg || 'Failed to update profile');
+    return data;
   } catch (err) {
     console.error('Failed to update customer profile:', err);
     throw err;

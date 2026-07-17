@@ -41,6 +41,7 @@ async function request(method, path, { body, timeoutMs = 8000, supabase } = {}) 
     headers,
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(timeoutMs),
+    cache: method === 'GET' ? 'no-cache' : 'default',
   });
   const contentType = res.headers.get('content-type');
   const data = contentType?.includes('application/json')
