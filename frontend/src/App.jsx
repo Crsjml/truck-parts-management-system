@@ -482,20 +482,19 @@ export default function App() {
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
-        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 custom-scrollbar">
-          <div className="flex items-center justify-between px-1 py-2">
-            {!isSidebarCollapsed && <Logo className="w-14 h-14" showText={true} />}
-            {isSidebarCollapsed && <Logo className="w-10 h-10 mx-auto" showText={false} />}
-            {!isSidebarCollapsed && (
-              <button onClick={() => setIsSidebarCollapsed(true)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors">
-                <List weight="duotone" className="w-5 h-5" />
-              </button>
+        <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-5 custom-scrollbar">
+          <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} px-1 py-2`}>
+            {!isSidebarCollapsed ? (
+              <Logo className="w-14 h-14 shrink-0" showText={true} />
+            ) : (
+              <Logo className="w-10 h-10 shrink-0" showText={false} />
             )}
-            {isSidebarCollapsed && (
-              <button onClick={() => setIsSidebarCollapsed(false)} className="p-1.5 mt-2 mx-auto text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors block">
-                <List weight="duotone" className="w-5 h-5" />
-              </button>
-            )}
+            <button 
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0"
+            >
+              <List weight="duotone" className="w-5 h-5" />
+            </button>
           </div>
 
           <nav className="space-y-1">
@@ -898,7 +897,7 @@ export default function App() {
                     onAddLog={addLog} 
                     parts={parts} 
                     onPartsUpdated={async () => {
-                      const updatedParts = await fetchParts();
+                      const updatedParts = await fetchParts('', 'All', {}, true);
                       setParts(updatedParts);
                     }} 
                     transactions={transactions}
@@ -976,7 +975,7 @@ export default function App() {
                           setIsAlertDrawerOpen(false);
                           setPage('purchasing');
                         }}
-                        className="w-full mt-2 ml-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-foreground text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
+                        className="w-full mt-2 ml-2 py-1.5 bg-foreground hover:bg-foreground/90 text-background text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
                       >
                         <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
                         Restock Now
