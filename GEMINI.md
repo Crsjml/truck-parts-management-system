@@ -96,6 +96,7 @@ We use the **GitHub for Jira** integration.
 - **Commit Formatting:** Every commit MUST follow the format `type(TICKET-ID): brief description`. 
   - *Example:* `feat(TTP-12): implement purchasing module`
   - *Invalid:* `feat(sprint-2): added purchasing` (Missing the TTP-XX identifier).
+- **Mandatory Ticket Lookup:** Before proposing or formatting any commit, you MUST read `docs/jira/jira-breakdown.csv` to map your changes to the correct `TTP-ID`. You are explicitly forbidden from inventing fake ticket IDs or committing without checking the CSV first.
 - **Staging:** Keep commits focused and atomic. Never automatically stage everything without user alignment.
 - **NO AUTO-PUSH:** You are explicitly forbidden from running `git push`. You may only commit locally. You must wait for the user to explicitly type "push this" or "push to remote" before executing a push command.
 

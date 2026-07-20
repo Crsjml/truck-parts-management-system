@@ -28,8 +28,9 @@ Every commit message **MUST** contain a Jira Ticket ID (e.g., `TTP-12`) to autom
 - ❌ Incorrect: `Added phone authentication` (Missing type and ticket ID!)
 
 ## Workflow when committing:
-1. **DO NOT AUTOMATICALLY STAGE OR COMMIT.** Unless the user explicitly says "stage everything" or "commit all", you must ask the user which specific files or features they want to group together.
-2. Propose the commit message to the user for approval using the format `type(TTP-XX): your message`.
-   - *Note: If the user did not provide a specific ticket number, use a placeholder like `TTP-00` or ask them what ticket number they are working on.*
-3. Once approved, stage the agreed-upon files using `git add <files>` and execute the `git commit`.
-4. **DO NOT PUSH.** Under the core project rules, you are explicitly forbidden from running `git push` automatically. You may only push if the user explicitly says "push this" or "push to remote".
+1. **MANDATORY TICKET LOOKUP:** You MUST read the `docs/jira/jira-breakdown.csv` file to find the correct `TTP-ID` for the changes you are about to commit. Do not invent a ticket ID.
+2. **DO NOT AUTOMATICALLY STAGE OR COMMIT.** Unless the user explicitly says "stage everything" or "commit all", you must ask the user which specific files or features they want to group together.
+3. Propose the commit message to the user for approval using the format `type(TTP-XX): your message`.
+   - *Note: If the user did not provide a specific ticket number, use the one you found in the CSV or ask them what ticket number they are working on.*
+4. Once approved, stage the agreed-upon files using `git add <files>` and execute the `git commit`.
+5. **DO NOT PUSH.** Under the core project rules, you are explicitly forbidden from running `git push` automatically. You may only push if the user explicitly says "push this" or "push to remote".
