@@ -1,14 +1,42 @@
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Download, Package, CheckCircle, Clock, Truck, CaretDown, Receipt } from '@phosphor-icons/react';
+import { Download, Package, CheckCircle, Clock, Truck, CaretDown, Receipt, Star, X } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createReview } from '../authStore';
 
 export default function MyOrders({ customerName, customerEmail, userId, transactions }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
   const [expandedRow, setExpandedRow] = useState(null);
+  
+  // Review Modal State
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, partId: null, partName: '' });
+  const [newRating, setNewRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [newReviewBody, setNewReviewBody] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!newRating || !reviewModal.partId) return;
+    setSubmittingReview(true);
+    const res = await createReview({
+      partId: reviewModal.partId,
+      rating: newRating,
+      body: newReviewBody
+    });
+    setSubmittingReview(false);
+    if (res.ok) {
+      alert('Review submitted successfully!');
+      setReviewModal({ isOpen: false, partId: null, partName: '' });
+      setNewRating(0);
+      setNewReviewBody('');
+    } else {
+      alert(res.error || 'Failed to submit review.');
+    }
+  };
 
   const customerTx = (transactions || []).filter(
     (tx) => 
@@ -277,7 +305,17 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                               <p className="text-[11px] font-medium text-muted-foreground mt-0.5 font-mono">Qty: {item.quantity}</p>
                             </div>
                           </div>
-                          <p className="text-sm font-bold text-foreground shrink-0 font-mono">{formatCurrency(item.price * item.quantity)}</p>
+                          <div className="flex items-center gap-4 shrink-0">
+                            {featuredOrder.status === 'Completed' && (
+                              <button 
+                                onClick={() => setReviewModal({ isOpen: true, partId: item.partId || item.id, partName: item.name })}
+                                className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-[11px] font-bold rounded-lg transition-colors border border-accent/20"
+                              >
+                                Leave Review
+                              </button>
+                            )}
+                            <p className="text-sm font-bold text-foreground font-mono">{formatCurrency(item.price * item.quantity)}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -419,6 +457,72 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
           ))}
         </div>
       )}
+      {/* Review Modal */}
+      <AnimatePresence>
+        {reviewModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+              onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '' })}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-secondary border border-border shadow-2xl rounded-3xl overflow-hidden p-6"
+            >
+              <button 
+                onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '' })}
+                className="absolute top-4 right-4 p-2 bg-background hover:bg-muted text-muted-foreground hover:text-foreground rounded-full transition-colors"
+              >
+                <X weight="bold" className="w-4 h-4" />
+              </button>
+              
+              <h3 className="text-xl font-bold font-display text-foreground mb-1">Write a Review</h3>
+              <p className="text-sm text-muted-foreground mb-6 line-clamp-1">For: <span className="font-bold text-foreground">{reviewModal.partName}</span></p>
+
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div className="flex gap-2 justify-center mb-6">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setNewRating(i)}
+                      onMouseEnter={() => setHoverRating(i)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="focus:outline-none transition-transform hover:scale-110"
+                    >
+                      <Star
+                        weight={(hoverRating || newRating) >= i ? "fill" : "regular"}
+                        className={`w-8 h-8 ${(hoverRating || newRating) >= i ? 'text-amber-500 dark:text-amber-400' : 'text-slate-300 dark:text-slate-600'} transition-colors`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                
+                <textarea
+                  value={newReviewBody}
+                  onChange={e => setNewReviewBody(e.target.value)}
+                  placeholder="Share your experience with this product..."
+                  className="w-full bg-background rounded-xl border border-border px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent resize-none h-28 text-foreground placeholder:text-muted-foreground/60"
+                  required
+                ></textarea>
+                
+                <button
+                  type="submit"
+                  disabled={submittingReview || newRating === 0}
+                  className="w-full py-3 bg-accent text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors"
+                >
+                  {submittingReview ? 'Submitting...' : 'Post Review'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

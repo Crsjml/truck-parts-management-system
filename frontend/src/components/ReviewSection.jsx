@@ -71,7 +71,7 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
       <Star 
         key={i} 
         weight={i < Math.round(count) ? "fill" : "regular"} 
-        className={`w-4 h-4 ${i < Math.round(count) ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} 
+        className={`w-4 h-4 ${i < Math.round(count) ? 'text-amber-500 dark:text-amber-400' : 'text-slate-300 dark:text-slate-600'}`}
       />
     ));
   };
@@ -139,7 +139,7 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
               >
                 <Star
                   weight={(hoverRating || newRating) >= i ? "fill" : "regular"}
-                  className={`w-6 h-6 ${(hoverRating || newRating) >= i ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600'} transition-colors`}
+                  className={`w-6 h-6 ${(hoverRating || newRating) >= i ? 'text-amber-500 dark:text-amber-400' : 'text-slate-300 dark:text-slate-600'} transition-colors`}
                 />
               </button>
             ))}
@@ -180,7 +180,7 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
                     <p className="text-sm font-bold text-foreground flex items-center gap-2">
                       {review.userName}
                       {review.purchaseVerified && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-950/40 border border-emerald-900/50 text-emerald-500 text-[9px] rounded-md uppercase tracking-wider font-bold" title="Verified Purchase">
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-500 text-[9px] rounded-md uppercase tracking-wider font-bold" title="Verified Purchase">
                           <ShieldCheck weight="fill" className="w-3 h-3" /> Verified
                         </span>
                       )}
