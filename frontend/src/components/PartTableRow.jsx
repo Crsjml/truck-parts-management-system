@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { getCategoryPlaceholder } from '../utils/categoryIcons';
+import { getCategoryPlaceholder, getCategoryIconAndColor } from '../utils/categoryIcons';
 
 const PartTableRow = memo(({ 
   part, 
@@ -14,11 +14,14 @@ const PartTableRow = memo(({
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md overflow-hidden bg-secondary border border-border/20 shrink-0">
+          <div className="w-10 h-10 rounded-md overflow-hidden bg-secondary border border-border/20 shrink-0 flex items-center justify-center">
             {part.image ? (
               <img src={part.image} alt={part.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
-              <img src={getCategoryPlaceholder(part.category)} alt={part.name} loading="lazy" decoding="async" className="w-full h-full object-cover opacity-80" />
+              (() => {
+                const { Icon } = getCategoryIconAndColor(part.category, null, null);
+                return <Icon weight="duotone" className="w-6 h-6 text-muted-foreground/40" />;
+              })()
             )}
           </div>
           <span className="font-bold text-foreground hover:text-red-400 transition-colors">{part.name}</span>

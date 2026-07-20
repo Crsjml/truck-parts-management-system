@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Warning, Star, Truck, PaperPlaneRight, ShoppingCart, Sliders, Wrench, XCircle } from '@phosphor-icons/react';
-import { getCategoryPlaceholder } from '../utils/categoryIcons';
+import { getCategoryPlaceholder, getCategoryIconAndColor } from '../utils/categoryIcons';
 
 const PartCard = memo(({
   part,
@@ -38,19 +38,22 @@ const PartCard = memo(({
         {part.image ? (
           <img src={part.image} alt={part.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (
-          <img src={getCategoryPlaceholder(part.category)} alt={part.name} loading="lazy" decoding="async" className="w-full h-full object-cover opacity-80" />
+          (() => {
+            const { Icon } = getCategoryIconAndColor(part.category, null, null);
+            return <Icon weight="duotone" className="w-16 h-16 text-muted-foreground/30" />;
+          })()
         )}
       </div>
 
       {/* Card Top */}
       <div className="space-y-3">
         <div className="space-y-1">
-          <div className="flex justify-between items-start">
-            <span className="text-2xs font-bold uppercase tracking-widest text-brandBlue-400">
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-2xs font-bold uppercase tracking-widest text-brandBlue-400 break-words flex-1">
               {part.category}
             </span>
             {part.reviewStats?.totalReviews > 0 && (
-              <div className="flex items-center gap-1 text-2xs font-bold text-amber-400">
+              <div className="flex items-center gap-1 text-2xs font-bold text-amber-400 shrink-0">
                 <Star weight="fill" />
                 <span>{part.reviewStats.averageRating} ({part.reviewStats.totalReviews})</span>
               </div>
@@ -58,7 +61,7 @@ const PartCard = memo(({
           </div>
           <h4 
             onClick={() => openDetailsModal(part)}
-            className="font-bold text-foreground hover:text-red-400 cursor-pointer transition-colors leading-snug font-display"
+            className="font-bold text-foreground hover:text-red-400 cursor-pointer transition-colors leading-snug font-display line-clamp-2"
           >
             {part.name}
           </h4>
@@ -67,12 +70,29 @@ const PartCard = memo(({
         <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-xs border-y border-slate-900 py-2">
           <div>
             <span className="text-muted-foreground block">SKU</span>
-            <span className="font-mono text-muted-foreground font-semibold">{part.sku}</span>
+            <span className="font-mono text-muted-foreground font-semibold break-all">{part.sku}</span>
           </div>
           <div>
             <span className="text-muted-foreground block">OEM Part No.</span>
-            <span className="font-mono text-muted-foreground font-semibold truncate block">{part.oem}</span>
+            <span className="font-mono text-muted-foreground font-semibold break-all block">{part.oem}</span>
           </div>
+          
+          {(part.series || part.years) && (
+            <>
+              {part.series && (
+                <div className="col-span-1">
+                  <span className="text-muted-foreground block">Series</span>
+                  <span className="font-semibold text-foreground">{part.series}</span>
+                </div>
+              )}
+              {part.years && (
+                <div className="col-span-1">
+                  <span className="text-muted-foreground block">Years</span>
+                  <span className="font-semibold text-foreground">{part.years}</span>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {part.compatibility && (

@@ -46,6 +46,8 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const [adjustNewStock, setAdjustNewStock] = useState('');
   const [adjustError, setAdjustError] = useState('');
   const [adjustmentsLog, setAdjustmentsLog] = useState([]);
+  const [globalAuditLogs, setGlobalAuditLogs] = useState([]);
+  const [isLoadingGlobalLogs, setIsLoadingGlobalLogs] = useState(false);
   const [isLoadingAdjustments, setIsLoadingAdjustments] = useState(false);
   const [originalStock, setOriginalStock] = useState(0);
   const [editAdjustmentReason, setEditAdjustmentReason] = useState('');
@@ -61,6 +63,27 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedCategory, showLowStockOnly, sortOrder]);
+
+  useEffect(() => {
+    if (viewMode === 'auditLog' && !isReadOnly) {
+      const fetchLogs = async () => {
+        setIsLoadingGlobalLogs(true);
+        try {
+          const res = await fetch('/api/parts/adjustments/all', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken') || ''}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setGlobalAuditLogs(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        setIsLoadingGlobalLogs(false);
+      };
+      fetchLogs();
+    }
+  }, [viewMode, isReadOnly]);
 
   useEffect(() => {
     const handleFilter = (e) => {
@@ -531,6 +554,18 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
             <GridFour weight={viewMode === 'grid4' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">Detailed</span>
           </button>
+          {!isReadOnly && (
+            <>
+              <div className="w-px h-4 bg-border mx-1"></div>
+              <button 
+                onClick={() => setViewMode('auditLog')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'auditLog' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+              >
+                <ShieldCheck weight={viewMode === 'auditLog' ? 'fill' : 'duotone'} className="w-4 h-4" />
+                <span className="hidden sm:inline">Audit Log</span>
+              </button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -579,7 +614,64 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
         </div>
       ) : (
         <>
-          {viewMode === 'table' ? (
+          {viewMode === 'auditLog' && !isReadOnly ? (
+            <div className="w-full glass-panel rounded-2xl border border-border/50 overflow-hidden">
+              <div className="p-5 border-b border-border bg-secondary/30">
+                <h3 className="text-lg font-bold font-display text-foreground flex items-center gap-2">
+                  <ShieldCheck weight="duotone" className="w-5 h-5 text-emerald-500" />
+                  Stock Adjustment Audit Log
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">Global history of manual stock adjustments across all parts.</p>
+              </div>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-secondary/50 border-b border-border/50 text-xs uppercase text-muted-foreground tracking-wider font-semibold">
+                    <tr>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Part Name</th>
+                      <th className="px-4 py-3 text-center">Previous</th>
+                      <th className="px-4 py-3 text-center">Difference</th>
+                      <th className="px-4 py-3 text-center">New</th>
+                      <th className="px-4 py-3">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {isLoadingGlobalLogs ? (
+                      <tr>
+                        <td colSpan="6" className="px-4 py-8 text-center text-muted-foreground animate-pulse">Loading logs...</td>
+                      </tr>
+                    ) : globalAuditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-4 py-8 text-center text-muted-foreground">No stock adjustments recorded.</td>
+                      </tr>
+                    ) : (
+                      globalAuditLogs.map(log => {
+                        const prevStock = log.newStock - log.difference;
+                        const isAddition = log.difference >= 0;
+                        return (
+                          <tr key={log.id || log._id} className="hover:bg-secondary/30 transition-colors">
+                            <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{new Date(log.createdAt || Date.now()).toLocaleString()}</td>
+                            <td className="px-4 py-3 text-xs font-bold text-foreground">
+                              {log.part?.name || 'Unknown Part'}
+                              <span className="block text-2xs font-mono text-muted-foreground font-normal">{log.part?.sku || ''}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center text-xs font-mono text-muted-foreground">{prevStock}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${isAddition ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                                {isAddition ? '+' : ''}{log.difference}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center text-xs font-bold text-foreground">{log.newStock}</td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground max-w-xs truncate" title={log.reason}>{log.reason}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : viewMode === 'table' ? (
             <div className="w-full overflow-x-auto glass-panel rounded-2xl border border-border/50">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-secondary/50 border-b border-border/50 text-xs uppercase text-muted-foreground tracking-wider font-semibold">
