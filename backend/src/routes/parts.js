@@ -70,6 +70,21 @@ router.post('/', async (req, res) => partsController.createPart(req, res));
 // ── Update part record ───────────────────────────────────────────────────────
 router.put('/:id', async (req, res) => partsController.updatePart(req, res));
 
+// ── Get all stock adjustments globally ───────────────────────────────────────
+router.get('/adjustments/all', requireAuth, async (req, res) => {
+  try {
+    const adjustments = await prisma.stockAdjustment.findMany({
+      include: { part: { select: { name: true, sku: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 500
+    });
+    res.json(adjustments);
+  } catch (err) {
+    console.error('[get all adjustments]', err);
+    res.status(500).json({ msg: 'Server error fetching global stock adjustments.' });
+  }
+});
+
 // ── Get stock adjustments for a specific part ─────────────────────────────────
 router.get('/:id/adjustments', async (req, res) => {
   try {
