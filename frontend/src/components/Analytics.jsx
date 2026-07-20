@@ -122,14 +122,14 @@ export default function Analytics({ parts, transactions }) {
   const CustomPieLegend = (props) => {
     const { payload } = props;
     return (
-      <div className="flex flex-wrap justify-center gap-3 mt-8">
+      <div className="flex flex-wrap justify-center gap-3 mt-4">
         {payload.map((entry, index) => {
           const IconProps = getCategoryIconAndColor(entry.value);
           const IconComponent = IconProps?.icon || Package;
           return (
-            <div key={`legend-${index}`} className="flex items-center gap-1.5 px-2 py-1 bg-slate-800/30 rounded-lg">
-              <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color || 'text-slate-400'}`} />
-              <span className="text-[10px] leading-tight text-slate-400 font-medium max-w-[120px] break-words whitespace-normal">
+            <div key={`legend-${index}`} className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-lg">
+              <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color || 'text-muted-foreground'}`} />
+              <span className="text-[10px] leading-tight text-foreground font-medium max-w-[120px] break-words whitespace-normal">
                 {entry.value}
               </span>
             </div>
@@ -364,11 +364,11 @@ export default function Analytics({ parts, transactions }) {
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No categories found.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 30, right: 0, bottom: 40, left: 0 }}>
+                <PieChart margin={{ top: 10, right: 0, bottom: 20, left: 0 }}>
                   <Pie
                     data={categoryBreakdown.filter(c => c.name !== 'All')}
                     cx="50%"
-                    cy="45%"
+                    cy="50%"
                     innerRadius={50}
                     outerRadius={85}
                     paddingAngle={5}
@@ -539,11 +539,11 @@ export default function Analytics({ parts, transactions }) {
                       </Bar>
                     </BarChart>
                   ) : (
-                    <PieChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+                    <PieChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
                       <Pie
                         data={categoryBreakdown.filter(c => c.name !== 'All')}
                         cx="50%"
-                        cy="45%"
+                        cy="50%"
                         innerRadius={130}
                         outerRadius={190}
                         paddingAngle={4}
