@@ -371,7 +371,7 @@ export default function CustomerStorefront({
                       </button>
                     </div>
                     <div className="p-1.5 border-t border-border/50 bg-secondary/10">
-                      <button onClick={() => { setCart([]); onLogoutCustomer(); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition flex items-center gap-3">
+                      <button onClick={() => { setCart([]); setStorefrontTab('home'); onLogoutCustomer(); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition flex items-center gap-3">
                         <SignIn weight="duotone" className="w-4 h-4"/> Logout
                       </button>
                     </div>
@@ -512,7 +512,7 @@ export default function CustomerStorefront({
                   </div>
 
                   {/* Sub Category Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+                  <div className="flex flex-wrap justify-center gap-4 mt-2">
                     {nestedCategories.filter(c => c.parentCategory?.name === activeMainCat).map(subCat => {
                       const { Icon: SubIcon, color: subColor } = getCategoryIconAndColor(subCat.name, subCat.iconName, subCat.colorTheme);
                       return (
@@ -522,7 +522,7 @@ export default function CustomerStorefront({
                             setSelectedCategory(subCat.name);
                             setStorefrontTab('catalog');
                           }}
-                          className="group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
+                          className="flex-1 min-w-[140px] max-w-[180px] sm:max-w-[220px] group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
                         >
                           <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-110 transition-transform duration-300 shadow-inner ${subColor}`}>
                             {SubIcon ? <SubIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />}
@@ -827,9 +827,9 @@ export default function CustomerStorefront({
 
       {/* Global Footer */}
       {storefrontTab === 'home' ? (
-        <Footer />
+        <Footer className="pb-14" />
       ) : (
-        <Footer variant="dark" className="mt-auto border-t-0 bg-transparent shadow-none !rounded-none !pt-6 !pb-6 !px-6" />
+        <Footer variant="dark" className="mt-auto border-t-0 bg-transparent shadow-none !rounded-none !pt-6 !pb-14 !px-6" />
       )}
 
       {/* Success Modal */}

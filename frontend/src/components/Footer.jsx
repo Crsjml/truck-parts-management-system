@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Wrench, ChartLineUp, MapPin, Envelope, Phone, FacebookLogo, TwitterLogo, InstagramLogo } from '@phosphor-icons/react';
 import Logo from './Logo';
 
@@ -36,10 +37,10 @@ export default function Footer({ className = "", variant = "default" }) {
         <div>
           <h4 className={`font-bold ${headingClass} text-[13px] mb-4 uppercase tracking-[0.15em]`}>Quick Links</h4>
           <ul className={`space-y-3 text-xs font-semibold ${textClass}`}>
-            <li><a href="#" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Home</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Parts Catalog</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Wholesale Inquiry</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Return Policy</a></li>
+            <li><Link to="/" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Home</Link></li>
+            <li><Link to="/catalog" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Parts Catalog</Link></li>
+            <li><Link to="/contact" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Wholesale Inquiry</Link></li>
+            <li><Link to="/policy" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Return Policy</Link></li>
           </ul>
         </div>
 
