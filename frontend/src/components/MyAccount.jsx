@@ -3,8 +3,10 @@ import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, C
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
+import { useNavigate } from 'react-router-dom';
 
 export default function MyAccount({ user, transactions = [], onGoBack }) {
+  const navigate = useNavigate();
   // Tabs
   const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'company', 'security'
 
@@ -225,6 +227,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
+      navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -415,7 +418,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
               </AnimatePresence>
             </div>
 
-            <h2 className="text-2xl font-bold text-foreground truncate w-full mt-3">
+            <h2 className="text-2xl font-bold text-foreground truncate w-full max-w-full px-2 mt-3">
               {isFetchingProfile ? (
                  <div className="h-8 bg-secondary rounded animate-pulse w-3/4 mx-auto" />
               ) : displayName ? displayName : <span className="text-muted-foreground italic text-lg">Complete Your Profile</span>}
@@ -423,7 +426,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
             {isFetchingProfile ? (
                <div className="h-4 bg-secondary rounded animate-pulse w-1/2 mx-auto mt-2" />
             ) : (
-               <p className="text-sm font-medium text-muted-foreground truncate w-full">{email}</p>
+               <p className="text-sm font-medium text-muted-foreground truncate w-full max-w-full px-2">{email}</p>
             )}
             
             <div className="w-full mt-6 pt-6 border-t border-border/50 flex items-center justify-center gap-2 text-[11px] font-bold tracking-wider uppercase text-emerald-500">
@@ -539,7 +542,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         value={displayName}
                         onChange={(e) => { setDisplayName(e.target.value); setIsEditing(true); }}
                         disabled={!isEditing}
-                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
+                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium text-base sm:text-sm"
                         placeholder="Your full name"
                       />
                     </div>
@@ -556,7 +559,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         value={email}
                         onChange={(e) => { setEmail(e.target.value); setIsEditing(true); }}
                         disabled={!isEditing}
-                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
+                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium text-base sm:text-sm"
                         placeholder="juan@example.com"
                       />
                     </div>
@@ -573,7 +576,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         value={phoneNumber}
                         onChange={(e) => { setPhoneNumber(e.target.value); setIsEditing(true); }}
                         disabled={!isEditing}
-                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
+                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium text-base sm:text-sm"
                         placeholder="+63 917 123 4567"
                       />
                     </div>
@@ -594,7 +597,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                         value={companyName}
                         onChange={(e) => { setCompanyName(e.target.value); setIsEditing(true); }}
                         disabled={!isEditing}
-                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium"
+                        className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium text-base sm:text-sm"
                         placeholder="Enter your company name (Optional)"
                       />
                     </div>
@@ -693,7 +696,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                             type="text"
                             value={addressQuery}
                             onChange={handleAddressSearch}
-                            className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all font-medium text-sm"
+                            className="w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all font-medium text-base sm:text-sm"
                             placeholder="Type an address to search Google Maps / OSM..."
                           />
                           {isSearchingAddress && (

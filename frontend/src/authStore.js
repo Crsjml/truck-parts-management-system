@@ -112,7 +112,7 @@ const apiCatch = (fn) => async (...args) => {
 
 // ── Parts & Categories fetching ─────────────────────────────────────────────
 
-export const fetchParts = async (search = '', category = 'All', filters = {}) => {
+export const fetchParts = async (search = '', category = 'All', filters = {}, forceRefresh = false) => {
   try {
     let query = '';
     const params = new URLSearchParams();
@@ -121,6 +121,7 @@ export const fetchParts = async (search = '', category = 'All', filters = {}) =>
     if (filters.brand) params.append('brand', filters.brand);
     if (filters.series) params.append('series', filters.series);
     if (filters.engineCode) params.append('engineCode', filters.engineCode);
+    if (forceRefresh) params.append('_t', Date.now());
     if (params.toString()) query = `?${params.toString()}`;
 
     const { ok, data } = await apiGet(`/api/parts${query}`, { supabase });

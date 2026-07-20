@@ -23,7 +23,7 @@ router.get('/me', requireAuth, async (req, res) => {
           email,
           displayName: req.auth.user_metadata?.full_name || req.auth.name || '',
           photoURL: req.auth.user_metadata?.avatar_url || req.auth.picture || '',
-          phone: req.auth.user_metadata?.contact_number || req.auth.phone || ''
+          phoneNumber: req.auth.user_metadata?.contact_number || req.auth.phone || ''
         }
       });
     }
