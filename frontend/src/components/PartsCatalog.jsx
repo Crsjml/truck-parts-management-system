@@ -89,8 +89,8 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
   const getCategoryStyles = (cat) => {
     const category = categoriesList.find(c => c.name === cat);
-    const { Icon, color } = getCategoryIconAndColor(cat, category?.iconName, category?.colorTheme);
-    return { icon: Icon, color };
+    const { Icon, color, bg } = getCategoryIconAndColor(cat, category?.iconName, category?.colorTheme);
+    return { icon: Icon, color, bg };
   };
   
   // Modals state

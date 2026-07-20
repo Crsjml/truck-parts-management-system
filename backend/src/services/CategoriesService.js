@@ -89,7 +89,7 @@ class CategoriesService {
 
     return await categoriesRepository.update(id, {
       name: normalizedName,
-      parentCategoryId: parentCategory === null ? null : parentId,
+      parentCategoryId: (parentCategory === null || parentCategory === '') ? null : parentId,
       ...(iconName !== undefined && { iconName: iconName || null }),
       ...(colorTheme !== undefined && { colorTheme: colorTheme || null })
     });

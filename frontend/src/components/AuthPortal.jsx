@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell, DeviceMobile, At, Hash } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { supabase } from '../supabaseClient';
@@ -59,7 +59,12 @@ export default function AuthPortal({
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-
+  // Phone / OTP login state
+  const [loginMethod, setLoginMethod] = useState('email'); // 'email' | 'phone'
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
 
   const [shake, setShake] = useState(false);
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
@@ -129,11 +134,77 @@ export default function AuthPortal({
   const resetFeedback = () => {
     setNotice('');
     setErrors({});
+    setPhoneError('');
     clearRegisterErrors();
     clearLoginErrors();
   };
 
+  const resetPhoneState = () => {
+    setPhoneNumber('');
+    setOtpCode('');
+    setOtpSent(false);
+    setPhoneError('');
+  };
+
+  // ── Phone OTP: request OTP ────────────────────────────────────────────────
+  const handlePhoneOtpRequest = async (e) => {
+    e.preventDefault();
+    setPhoneError('');
+    const cleaned = phoneNumber.replace(/\s/g, '');
+    if (!cleaned || cleaned.length < 10) {
+      setPhoneError('Enter a valid phone number (e.g. +639171234567).');
+      return;
+    }
+    // Auto-prefix +63 if user enters 09...
+    const e164 = cleaned.startsWith('0') ? '+63' + cleaned.slice(1) : cleaned;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone: e164 });
+      if (error) throw error;
+      setOtpSent(true);
+      setPhoneNumber(e164); // store normalized
+      setNotice(`OTP sent to ${e164}. Check your SMS.`);
+    } catch (err) {
+      setPhoneError(err.message || 'Failed to send OTP. Ensure phone auth is enabled in Supabase.');
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Phone OTP: verify OTP ────────────────────────────────────────────────
+  const handlePhoneOtpVerify = async (e) => {
+    e.preventDefault();
+    setPhoneError('');
+    if (!otpCode || otpCode.length < 6) {
+      setPhoneError('Enter the 6-digit OTP code.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: phoneNumber,
+        token: otpCode,
+        type: 'sms',
+      });
+      if (error) throw error;
+      // App.jsx onAuthStateChange handles routing
+    } catch (err) {
+      setPhoneError(err.message || 'Invalid OTP. Please try again.');
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const inputClass = 'w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20';
+
+  // ponytail: shared rate-limit detector for Supabase email errors
+  const isRateLimitError = (err) =>
+    err?.status === 429 ||
+    /rate.?limit|over_email_send_rate_limit|email.*quota|too many|security purposes/i.test(
+      err?.message || err?.code || ''
+    );
 
   const onCustomerRegister = async (data) => {
     setLoading(true);
@@ -157,8 +228,8 @@ export default function AuthPortal({
           setLoading(false);
           return;
         }
-        if (error.status === 429 || error.message?.includes('rate limit')) {
-          setNotice('Too many attempts. Please wait a moment and try again.');
+        if (isRateLimitError(error)) {
+          setNotice('Email sending limit reached. Please wait a few minutes before trying again, or contact support.');
           setLoading(false);
           return;
         }
@@ -225,11 +296,22 @@ export default function AuthPortal({
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail);
-      if (error) throw error;
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: window.location.origin,
+      });
+      if (error) {
+        if (isRateLimitError(error)) {
+          setNotice('Email sending limit reached. Please wait a few minutes before requesting another reset link.');
+          return;
+        }
+        throw error;
+      }
       setNotice('Password reset link sent to your email. Please check your inbox.');
     } catch (err) {
-      setNotice(err.message || 'Failed to request reset.');
+      setNotice(isRateLimitError(err)
+        ? 'Email sending limit reached. Please wait a few minutes before trying again.'
+        : (err.message || 'Failed to request reset.')
+      );
     } finally {
       setLoading(false);
     }
@@ -456,7 +538,25 @@ export default function AuthPortal({
             )}
 
              {isCustomerMode && activeTab === 'login' && (
-              <form onSubmit={handleLoginSubmit(onCustomerLogin)} className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
+              <div className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
+                {/* Login method toggle */}
+                <div className="flex rounded-xl border border-border bg-background p-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLoginMethod('email'); resetPhoneState(); resetFeedback(); }}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition ${loginMethod === 'email' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <At weight="duotone" className="w-3.5 h-3.5" /> Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLoginMethod('phone'); resetFeedback(); }}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition ${loginMethod === 'phone' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <DeviceMobile weight="duotone" className="w-3.5 h-3.5" /> Phone
+                  </button>
+                </div>
+
                 {lockoutTimeLeft > 0 ? (
                   <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
                     <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
@@ -470,8 +570,9 @@ export default function AuthPortal({
                       {formatLockoutTime(lockoutTimeLeft)}
                     </div>
                   </div>
-                ) : (
-                  <>
+                ) : loginMethod === 'email' ? (
+                  /* ── Email + Password login ── */
+                  <form onSubmit={handleLoginSubmit(onCustomerLogin)} className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
                       <input
@@ -506,12 +607,9 @@ export default function AuthPortal({
                     </div>
 
                     <div className="flex justify-end mt-1">
-                      <button 
-                        type="button" 
-                        onClick={() => {
-                          setActiveTab('forgot');
-                          resetFeedback();
-                        }}
+                      <button
+                        type="button"
+                        onClick={() => { setActiveTab('forgot'); resetFeedback(); }}
                         className="text-xs text-accent hover:text-accent/80 transition font-bold"
                       >
                         Forgot Password?
@@ -526,10 +624,81 @@ export default function AuthPortal({
                       {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <LockKey weight="duotone" className="h-4 w-4" />}
                       Sign in
                     </button>
-
-                  </>
+                  </form>
+                ) : (
+                  /* ── Phone OTP login ── */
+                  <div className="space-y-4">
+                    {!otpSent ? (
+                      /* Step 1: Enter phone number */
+                      <form onSubmit={handlePhoneOtpRequest} className="space-y-4">
+                        <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-3.5 text-xs text-sky-800 dark:text-sky-300 leading-relaxed">
+                          Enter your registered phone number. An OTP will be sent via SMS.
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Phone Number</label>
+                          <div className="relative">
+                            <DeviceMobile weight="duotone" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <input
+                              type="tel"
+                              value={phoneNumber}
+                              onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(''); }}
+                              placeholder="+63 917 123 4567"
+                              className={`${inputClass} pl-10 ${phoneError ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+                            />
+                          </div>
+                          {phoneError && <p className="text-xs text-red-400 font-semibold">{phoneError}</p>}
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <DeviceMobile weight="duotone" className="h-4 w-4" />}
+                          Send OTP
+                        </button>
+                      </form>
+                    ) : (
+                      /* Step 2: Enter OTP code */
+                      <form onSubmit={handlePhoneOtpVerify} className="space-y-4">
+                        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                          OTP sent to <span className="font-bold">{phoneNumber}</span>. Enter the 6-digit code below.
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">OTP Code</label>
+                          <div className="relative">
+                            <Hash weight="duotone" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              value={otpCode}
+                              onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, '')); setPhoneError(''); }}
+                              placeholder="123456"
+                              className={`${inputClass} pl-10 tracking-[0.5em] font-mono text-lg ${phoneError ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+                            />
+                          </div>
+                          {phoneError && <p className="text-xs text-red-400 font-semibold">{phoneError}</p>}
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <CheckCircle weight="duotone" className="h-4 w-4" />}
+                          Verify & Sign In
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setOtpSent(false); setOtpCode(''); setPhoneError(''); }}
+                          className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition font-semibold"
+                        >
+                          ← Change phone number
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 )}
-              </form>
+              </div>
             )}
 
             {isCustomerMode && activeTab === 'forgot' && (
