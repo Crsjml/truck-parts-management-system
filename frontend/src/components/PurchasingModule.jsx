@@ -4,7 +4,7 @@ import {
   Buildings, User, Plus, Trash, X, CheckCircle, MagnifyingGlass,
   CaretRight, Package, CurrencyDollar, ShoppingCart, PencilSimple,
   Star, Funnel, ArrowsDownUp, ChartBar, Receipt, EnvelopeSimple,
-  Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf,
+  Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf, Clock,
   TrendUp, ClockCounterClockwise, Truck, ListDashes, SquaresFour,
   WarningCircle, CheckSquare, Timer, HandPointing, CalendarBlank
 } from '@phosphor-icons/react';
