@@ -41,26 +41,33 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 (Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
 
 # Permanent Active Skills
-The following skills MUST be strictly adhered to and kept actively loaded in the background at all times without the user explicitly needing to request them.
+The following skills MUST be strictly adhered to and kept actively loaded in the background at all times without the user explicitly needing to request them. All 20 folders below exist under `.agents/skills/` — no phantom names.
 
-### Aesthetics & Design
-1. **`ponytail` (Lazy Senior Dev Mode)**: Applies everywhere. Prioritize minimalism, avoid bloat, and delete unused code.
-2. **`high-end-visual-design` & `premium-ui-ux-design`**: Enforce premium aesthetics (Customer Storefront).
-3. **`minimalist-ui`**: Enforce extreme readability and flat bento grids (Admin Dashboard).
-4. **`motion-ui`**: Use production-ready React animations where motion is needed.
-5. **`design-system`**: Generate/audit design systems for visual consistency across components.
+### Coding Discipline & Standards
+1. **`ponytail`** (+ `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `ponytail-review`) — Lazy Senior Dev Mode. Prioritize minimalism, avoid bloat, delete unused code before adding new code.
+2. **`karpathy-principles`**: Think before coding (surface assumptions/tradeoffs), simplicity first, surgical changes only, goal-driven execution with verifiable success criteria. Pairs with ponytail — ponytail governs how much code survives, this governs how you get there.
+3. **`coding-standards`**: Baseline cross-project conventions for naming, readability, immutability, and code-quality review.
 
-### Quality Gates & Debugging
-6. **`lint-and-validate`**: MANDATORY: Run appropriate validation tools (tests/linters) after EVERY code change.
-7. **`systematic-debugging`**: MANDATORY: Do root cause investigation before fixing bugs.
+### Backend & Data
+4. **`backend-patterns`**: Node/Express/Next.js API design, server-side architecture, and caching strategies.
+5. **`api-design`**: REST API design — resource naming, status codes, pagination, filtering, error responses, versioning, rate limiting.
+6. **`postgres-patterns`**: PostgreSQL query optimization, schema design, indexing, and Supabase-specific security.
+7. **`database-migrations`**: Schema/data migration best practices, rollbacks, zero-downtime deploys (Prisma-relevant).
+8. **`error-handling`**: Typed errors, error boundaries, retries, circuit breakers, user-facing error messages.
+9. **`docker-patterns`**: Docker Compose patterns for local dev, container security, networking, volume strategy — this repo's Docker Desktop cluster.
 
-### Architecture & Standards
-8. **`backend-patterns`**: Node/Express API design and caching strategies.
-9. **`frontend-patterns`**: React/Next.js UI best practices and performance.
-10. **`coding-standards`**: Baseline cross-project conventions.
-11. **`postgres-patterns`**: Database schema design, indexing, and Supabase optimization.
-12. **`api-patterns`**: REST API design principles.
-13. **`security-review`**: Enforce strict security scanning.
+### Frontend & Design
+10. **`frontend-patterns`**: React/Vite UI best practices, state management, performance.
+11. **`design-system`**: Generate/audit design systems for visual consistency. Backs BOTH §4 design directives in CLAUDE.md — Customer Storefront (premium tokens) and Admin Dashboard (minimalist tokens) are two token modes of the same skill.
+
+### Testing & Quality Gates
+12. **`tdd-workflow`**: MANDATORY: test-driven development, 80%+ coverage (unit/integration/E2E), before declaring a feature done.
+13. **`e2e-testing`**: Playwright patterns, Page Object Model, CI/CD integration for this repo's `npx playwright test` suite.
+14. **`verification-loop`**: MANDATORY: run the appropriate validation (tests/linters/build) after EVERY code change — this is the project's quality gate, replacing the old `lint-and-validate` phantom reference.
+
+### Security & Debugging
+15. **`security-review`**: MANDATORY: security checklist for auth, user input, secrets, API endpoints, and payment/sensitive features.
+16. **Systematic debugging** (prose, see § below): MANDATORY root-cause investigation before any bug fix — backed by `verification-loop` for the confirm-the-fix step and `security-review` when the bug touches a security-sensitive path.
 
 # Comprehensive Planning Workflow
 When the user asks for a plan, an architectural decision, or proposes a feature:
