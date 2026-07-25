@@ -189,7 +189,7 @@ export class PartsService {
     const newStock = stock !== undefined ? Number(stock) : oldStock;
     let difference = 0;
 
-    if (stock !== undefined && newStock !== oldStock) {
+    if ((stock !== undefined && newStock !== oldStock) || (adjustmentReason && adjustmentReason.trim() !== '')) {
       isStockAdjustment = true;
       difference = newStock - oldStock;
       if (!adjustmentReason || adjustmentReason.trim() === '') {
