@@ -136,7 +136,8 @@ export default function AuthPortal({
   // ponytail: shared rate-limit detector for Supabase email errors
   const isRateLimitError = (err) =>
     err?.status === 429 ||
-    /rate.?limit|over_email_send_rate_limit|email.*quota|too many|security purposes/i.test(
+    err?.status === 500 ||
+    /rate.?limit|over_email_send_rate_limit|email.*quota|too many|security purposes|confirmation email|unexpected_failure/i.test(
       err?.message || err?.code || ''
     );
 
@@ -163,7 +164,7 @@ export default function AuthPortal({
           return;
         }
         if (isRateLimitError(error)) {
-          setNotice('Email sending limit reached. Please wait a few minutes before trying again, or contact support.');
+          setNotice('Email verification service limit reached. Please wait a few minutes before trying again, or contact support.');
           setLoading(false);
           return;
         }
