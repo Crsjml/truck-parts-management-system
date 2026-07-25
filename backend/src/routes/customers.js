@@ -8,23 +8,17 @@ const getOrCreateCustomer = async (auth) => {
   const authId = auth.userId;
   const email = auth.email || '';
 
-  let customer = await prisma.customer.findUnique({
-    where: { authId }
+  return await prisma.customer.upsert({
+    where: { authId },
+    create: {
+      authId,
+      email,
+      displayName: auth.user_metadata?.full_name || auth.name || '',
+      photoURL: auth.user_metadata?.avatar_url || auth.picture || '',
+      phoneNumber: auth.user_metadata?.contact_number || auth.phone || ''
+    },
+    update: {}
   });
-
-  if (!customer) {
-    customer = await prisma.customer.create({
-      data: {
-        authId,
-        email,
-        displayName: auth.user_metadata?.full_name || auth.name || '',
-        photoURL: auth.user_metadata?.avatar_url || auth.picture || '',
-        phoneNumber: auth.user_metadata?.contact_number || auth.phone || ''
-      }
-    });
-  }
-
-  return customer;
 };
 
 // GET /api/customers/me
