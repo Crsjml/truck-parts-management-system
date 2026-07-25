@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Download, Package, CheckCircle, Clock, Truck, CaretDown, Receipt, Star, X } from '@phosphor-icons/react';
+import { Download, Package, CheckCircle, Clock, Truck, CaretDown, Receipt, Star, X, ShoppingCart, ClipboardText } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createReview } from '../authStore';
 
-export default function MyOrders({ customerName, customerEmail, userId, transactions }) {
+export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -47,7 +47,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
       (tx.customerEmail && customerName && tx.customerEmail.toLowerCase().includes(customerName.toLowerCase().replace(/\s+/g, '.')))
   ).map(tx => ({
     ...tx,
-    status: tx.status || 'Pending' 
+    status: tx.status || 'ORDER_PLACED' 
   })).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
 
   const filteredTx = customerTx.filter(tx => {
@@ -55,15 +55,15 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     return tx.status === activeTab;
   });
 
-  const activeOrders = customerTx.filter(tx => tx.status !== 'Completed');
-  const historicalOrders = customerTx.filter(tx => tx.status === 'Completed');
+  const activeOrders = customerTx.filter(tx => tx.status !== 'COMPLETED');
+  const historicalOrders = customerTx.filter(tx => tx.status === 'COMPLETED');
   const featuredOrder = activeOrders.length > 0 ? activeOrders[0] : (historicalOrders.length > 0 ? historicalOrders[0] : null);
 
   const tabs = [
-    { id: 'All', label: 'Dashboard', icon: Package },
-    { id: 'Pending', label: 'Pending Quotes', icon: Clock },
-    { id: 'In Transit', label: 'In Transit', icon: Truck },
-    { id: 'Completed', label: 'Completed', icon: CheckCircle },
+    { id: 'All', label: 'All Purchases', icon: Package },
+    { id: 'ORDER_PLACED', label: 'Order Placed', icon: ClipboardText },
+    { id: 'READY_FOR_PICKUP', label: 'Ready for Pickup', icon: Truck },
+    { id: 'COMPLETED', label: 'Completed', icon: CheckCircle },
   ];
 
   const handleDownloadPDF = (tx, e) => {
@@ -140,11 +140,12 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     }
   };
 
+  const formatStatus = (s) => s ? s.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : '';
   const getStatusColor = (status) => {
     switch(status) {
-      case 'Completed': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case 'In Transit': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-      case 'Pending': return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+      case 'COMPLETED': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+      case 'READY_FOR_PICKUP': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
+      case 'ORDER_PLACED': return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
       default: return 'text-muted-foreground bg-secondary border-border';
     }
   };
@@ -155,9 +156,9 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
       <div className="relative overflow-hidden rounded-[2.5rem] bg-secondary/80 backdrop-blur-xl border border-border/50 p-8 shadow-sm group transition-all hover:shadow-xl hover:border-accent/30">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none transition-all duration-700 group-hover:bg-accent/10 group-hover:scale-110" />
         <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground font-display mb-2">Order History</p>
-        <h1 className="text-3xl font-bold text-foreground font-display">My Purchase Orders</h1>
+        <h1 className="text-3xl font-bold text-foreground font-display">My Purchases</h1>
         <p className="text-muted-foreground text-sm mt-2 max-w-2xl leading-relaxed">
-          Track in-transit shipments, download past invoices, and review your purchase history. Click on any order to view details.
+          Track pickup availability, download past invoices, and review your purchase history. Click on any order to view details.
         </p>
       </div>
 
@@ -249,8 +250,8 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ 
-                          width: featuredOrder.status === 'Completed' ? '100%' : 
-                                 featuredOrder.status === 'In Transit' ? '50%' : '10%' 
+                          width: featuredOrder.status === 'COMPLETED' ? '100%' : 
+                                 featuredOrder.status === 'READY_FOR_PICKUP' ? '50%' : '10%' 
                         }}
                         transition={{ duration: 1, ease: 'easeOut' }}
                         className="h-full bg-accent"
@@ -259,22 +260,22 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                     
                     <div className="flex justify-between relative z-10">
                       {[
-                        { status: 'Pending', icon: Clock },
-                        { status: 'In Transit', icon: Truck },
-                        { status: 'Completed', icon: CheckCircle }
+                        { label: 'Order Placed', statusMatch: 'ORDER_PLACED', icon: ClipboardText },
+                        { label: 'Ready for Pickup', statusMatch: 'READY_FOR_PICKUP', icon: Truck },
+                        { label: 'Completed', statusMatch: 'COMPLETED', icon: CheckCircle }
                       ].map((step, idx) => {
                         const isActive = 
-                          (featuredOrder.status === 'Completed') || 
-                          (featuredOrder.status === 'In Transit' && idx <= 1) ||
-                          (featuredOrder.status === 'Pending' && idx === 0);
+                          featuredOrder.status === 'COMPLETED' || 
+                          (featuredOrder.status === 'READY_FOR_PICKUP' && idx <= 1) ||
+                          (featuredOrder.status === 'ORDER_PLACED' && idx === 0);
                         
                         return (
-                          <div key={step.status} className="flex flex-col items-center gap-2">
+                          <div key={step.label} className="flex flex-col items-center gap-2">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors duration-500 border-4 border-background ${isActive ? 'bg-accent text-background' : 'bg-secondary text-muted-foreground'}`}>
                               <step.icon weight={isActive ? "fill" : "duotone"} className="w-5 h-5" />
                             </div>
                             <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {step.status}
+                              {step.label}
                             </span>
                           </div>
                         );
@@ -283,15 +284,26 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                   </div>
 
                   <div className="flex-1 bg-background/50 rounded-3xl p-6 border border-border/50 flex flex-col">
-                    <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4 border-b border-border/50 pb-2 flex items-center justify-between">
+                     <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4 border-b border-border/50 pb-2 flex items-center justify-between">
                        <span>Line Items ({featuredOrder.items.length})</span>
-                       <button 
-                         onClick={(e) => handleDownloadPDF(featuredOrder, e)} 
-                         aria-label="Download PDF Invoice" 
-                         className="text-foreground hover:text-accent flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md px-2"
-                       >
-                         <Download weight="bold" /> PDF
-                       </button>
+                       <div className="flex items-center gap-2">
+                         {featuredOrder.status === 'COMPLETED' && onReorder && (
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); onReorder(featuredOrder); }} 
+                             aria-label="Order Again" 
+                             className="text-foreground hover:text-accent flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md px-2"
+                           >
+                             <ShoppingCart weight="bold" /> Order Again
+                           </button>
+                         )}
+                         <button 
+                           onClick={(e) => handleDownloadPDF(featuredOrder, e)} 
+                           aria-label="Download PDF Invoice" 
+                           className="text-foreground hover:text-accent flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md px-2"
+                         >
+                           <Download weight="bold" /> PDF
+                         </button>
+                       </div>
                     </h5>
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                       {featuredOrder.items.map((item, idx) => (
@@ -306,7 +318,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                             </div>
                           </div>
                           <div className="flex items-center gap-4 shrink-0">
-                            {featuredOrder.status === 'Completed' && (
+                            {featuredOrder.status === 'COMPLETED' && (
                               <button 
                                 onClick={() => setReviewModal({ isOpen: true, partId: item.partId || item.id, partName: item.name })}
                                 className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-[11px] font-bold rounded-lg transition-colors border border-accent/20"
@@ -379,7 +391,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                 <div className="flex items-center gap-6">
                   <div className="w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform relative overflow-hidden">
                     <Receipt weight="duotone" className="w-7 h-7 text-muted-foreground relative z-10" />
-                    {tx.status !== 'Completed' && (
+                    {tx.status !== 'COMPLETED' && (
                        <motion.div
                          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
                          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
@@ -391,7 +403,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                     <div className="flex items-center gap-3 mb-1.5">
                       <h4 className="text-lg font-bold text-foreground font-mono">{tx.invoiceNumber}</h4>
                       <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${getStatusColor(tx.status)}`}>
-                        {tx.status !== 'Completed' && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                        {tx.status !== 'COMPLETED' && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
                         {tx.status}
                       </span>
                     </div>
@@ -401,19 +413,28 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 sm:gap-8 border-t sm:border-t-0 border-border/50 pt-4 sm:pt-0">
-                  <div className="text-left sm:text-right flex-1 sm:flex-none">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total Amount</p>
-                    <p className="text-xl font-black text-foreground font-mono">{formatCurrency(tx.total)}</p>
+                  <div className="flex items-center gap-6 sm:gap-8 border-t sm:border-t-0 border-border/50 pt-4 sm:pt-0">
+                  <div className="flex items-center gap-2">
+                    {tx.status === 'COMPLETED' && onReorder && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onReorder(tx); }}
+                        className="p-3 rounded-xl bg-background border border-border text-foreground hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all shadow-sm group-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent flex items-center gap-2"
+                        aria-label="Order Again"
+                        title="Order Again"
+                      >
+                        <ShoppingCart weight="bold" className="w-5 h-5" />
+                        <span className="hidden sm:inline text-sm font-bold">Order Again</span>
+                      </button>
+                    )}
+                    <button 
+                      onClick={(e) => handleDownloadPDF(tx, e)}
+                      className="p-3 rounded-xl bg-background border border-border text-foreground hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm group-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      aria-label="Download Invoice"
+                      title="Download Invoice"
+                    >
+                      <Download weight="bold" className="w-5 h-5" />
+                    </button>
                   </div>
-                  <button 
-                    onClick={(e) => handleDownloadPDF(tx, e)}
-                    className="p-3 rounded-xl bg-background border border-border text-foreground hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm group-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    aria-label="Download Invoice"
-                    title="Download Invoice"
-                  >
-                    <Download weight="bold" className="w-5 h-5" />
-                  </button>
                   <CaretDown weight="bold" className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${expandedRow === tx.id ? 'rotate-180 text-foreground' : ''}`} />
                 </div>
               </div>
@@ -444,9 +465,15 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                                   <p className="text-[11px] font-medium text-muted-foreground mt-0.5 font-mono">Qty: {item.quantity}</p>
                                 </div>
                               </div>
-                              <p className="text-sm font-black text-foreground shrink-0 font-mono">{formatCurrency(item.price * item.quantity)}</p>
+                              <p className="text-sm font-medium text-foreground shrink-0 font-mono">{formatCurrency(item.price * item.quantity)}</p>
                             </div>
                           ))}
+                        </div>
+                        
+                        {/* Footer Total */}
+                        <div className="mt-6 pt-6 border-t border-border/50 flex justify-between items-center bg-secondary/30 -mx-6 -mb-6 p-6 sm:px-8">
+                          <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Order Total</span>
+                          <span className="text-2xl font-black text-foreground font-mono">{formatCurrency(tx.total)}</span>
                         </div>
                       </div>
                     </div>

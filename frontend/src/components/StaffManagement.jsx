@@ -230,7 +230,7 @@ export default function StaffManagement() {
                       <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${permissions.canProcessOrders ? 'bg-accent border-accent text-white' : 'border-border bg-secondary group-hover:border-slate-500'}`}>
                         {permissions.canProcessOrders && <CheckCircle weight="bold" className="w-3.5 h-3.5" />}
                       </div>
-                      <span className="text-sm font-medium">Process Orders & Quotes</span>
+                      <span className="text-sm font-medium">Process Orders</span>
                       <input type="checkbox" className="hidden" checked={permissions.canProcessOrders} onChange={() => setPermissions(p => ({ ...p, canProcessOrders: !p.canProcessOrders }))} />
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer group">

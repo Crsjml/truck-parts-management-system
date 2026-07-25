@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell, DeviceMobile, At, Hash } from '@phosphor-icons/react';
 import Logo from './Logo';
-import Footer from './Footer';
+
 import { supabase } from '../supabaseClient';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -425,7 +425,7 @@ export default function AuthPortal({
             </div>
           </div>
 
-          <Footer className="w-full mt-2" />
+
         </section>
 
         {/* Right Side: Form Panel */}
