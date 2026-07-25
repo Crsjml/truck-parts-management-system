@@ -6,6 +6,12 @@
 @tailwind utilities;
 
 @layer base {
+  /* overflow-y: scroll forces the page scrollbar track to always be present,
+     preventing layout width shifts when switching between tabs of different heights */
+  html {
+    overflow-y: scroll;
+  }
+  
   :root {
     --background: 210 40% 98%;
     --foreground: 222 47% 11%;
@@ -140,24 +146,29 @@
   }
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
+/* Custom Scrollbar — scoped to .custom-scrollbar class only to prevent global layout scrollbars */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) rgba(15, 23, 42, 0.3);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.3);
   border-radius: var(--radius);
 }
 
-::-webkit-scrollbar-thumb {
+.custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: var(--radius);
   border: 2px solid rgba(15, 23, 42, 0.3);
 }
 
-::-webkit-scrollbar-thumb:hover {
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(220, 38, 38, 0.3);
 }
 

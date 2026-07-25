@@ -1,9 +1,9 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+
 import { Wrench, ChartLineUp, MapPin, Envelope, Phone, FacebookLogo, TwitterLogo, InstagramLogo } from '@phosphor-icons/react';
 import Logo from './Logo';
 
-export default function Footer({ className = "", variant = "default" }) {
+export default function Footer({ className = "", variant = "default", onOpenPolicy, onGoHome, onGoCatalog }) {
   const currentYear = new Date().getFullYear();
   
   const isDark = variant === "dark";
@@ -37,10 +37,10 @@ export default function Footer({ className = "", variant = "default" }) {
         <div>
           <h4 className={`font-bold ${headingClass} text-[13px] mb-4 uppercase tracking-[0.15em]`}>Quick Links</h4>
           <ul className={`space-y-3 text-xs font-semibold ${textClass}`}>
-            <li><Link to="/" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Home</Link></li>
-            <li><Link to="/catalog" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Parts Catalog</Link></li>
-            <li><Link to="/contact" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Wholesale Inquiry</Link></li>
-            <li><Link to="/policy" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Return Policy</Link></li>
+            <li><button onClick={onGoHome} className="hover:text-accent transition-colors flex items-center gap-2 w-full text-left"><div className="w-1 h-1 rounded-full bg-accent/50" /> Home</button></li>
+            <li><button onClick={onGoCatalog} className="hover:text-accent transition-colors flex items-center gap-2 w-full text-left"><div className="w-1 h-1 rounded-full bg-accent/50" /> Parts Catalog</button></li>
+            <li><a href="mailto:wholesale@tarlactruckparts.local" className="hover:text-accent transition-colors flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-accent/50" /> Wholesale Inquiry</a></li>
+            <li><button onClick={onOpenPolicy} className="hover:text-accent transition-colors flex items-center gap-2 w-full text-left"><div className="w-1 h-1 rounded-full bg-accent/50" /> Return Policy</button></li>
           </ul>
         </div>
 
