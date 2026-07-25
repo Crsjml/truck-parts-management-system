@@ -13,6 +13,7 @@ import ProductGrid from './ProductGrid';
 import StorefrontFilters from './StorefrontFilters';
 import MyOrders from './MyOrders';
 import MyAccount from './MyAccount';
+import ReturnPolicyModal from './ReturnPolicyModal';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
 import { motion, AnimatePresence } from 'framer-motion';
 export default function CustomerStorefront({
@@ -29,7 +30,13 @@ export default function CustomerStorefront({
   const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [cartOpen, setCartOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
+  const [modalQuantity, setModalQuantity] = useState(1);
+  useEffect(() => {
+    if (selectedPart) setModalQuantity(1);
+  }, [selectedPart]);
+  const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState('specs');
   const [storefrontTab, setStorefrontTab] = useState('home');
   const [sortOrder, setSortOrder] = useState('recommended');
@@ -49,7 +56,7 @@ export default function CustomerStorefront({
   const [nestedCategories, setNestedCategories] = useState([]);
   const [activeMainCat, setActiveMainCat] = useState('');
 
-  const itemsPerPage = 12;
+  const itemsPerPage = 10;
   const loading = parts.length === 0 && categories.length <= 1;
 
   useEffect(() => {
@@ -160,20 +167,52 @@ export default function CustomerStorefront({
   const cartTotalAmount = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
-  const addToCart = (part) => {
+  const addToCart = (part, quantity = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === part.id);
       const availableStock = part.stock - (part.reservedStock || 0);
       if (existing) {
-        if (existing.quantity >= availableStock) return prev;
-        return prev.map(item => item.id === part.id ? { ...item, quantity: item.quantity + 1 } : item);
+        const newQty = existing.quantity + quantity;
+        if (newQty > availableStock) {
+          alert(`Cannot add more. Only ${availableStock} units of ${part.name} are available.`);
+          return prev;
+        }
+        return prev.map(item => item.id === part.id ? { ...item, quantity: newQty } : item);
       }
-      return [...prev, { ...part, quantity: 1 }];
+      if (quantity > availableStock) {
+        alert(`Cannot add ${quantity}. Only ${availableStock} units available.`);
+        return prev;
+      }
+      return [...prev, { ...part, quantity }];
     });
   };
 
   const removeFromCart = (partId) => {
     setCart(prev => prev.filter(item => item.id !== partId));
+  };
+
+  const handleReorder = (transaction) => {
+    setCart(prev => {
+      let newCart = [...prev];
+      for (const item of transaction.items) {
+        const fullPart = parts.find(p => p.id === (item.partId || item.id));
+        if (fullPart) {
+          const availableStock = fullPart.stock - (fullPart.reservedStock || 0);
+          if (availableStock <= 0) continue;
+          const existingIndex = newCart.findIndex(c => c.id === fullPart.id);
+          if (existingIndex >= 0) {
+            newCart[existingIndex] = {
+              ...newCart[existingIndex],
+              quantity: Math.min(newCart[existingIndex].quantity + item.quantity, availableStock)
+            };
+          } else {
+            newCart.push({ ...fullPart, quantity: Math.min(item.quantity, availableStock) });
+          }
+        }
+      }
+      return newCart;
+    });
+    setCartOpen(true);
   };
 
   const updateCartQuantity = (partId, delta, stock) => {
@@ -364,7 +403,7 @@ export default function CustomerStorefront({
                     </div>
                     <div className="p-1.5">
                       <button onClick={() => setStorefrontTab('orders')} className="w-full text-left px-3 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition flex items-center gap-3">
-                        <ClipboardText weight="duotone" className="w-4 h-4 text-accent"/> My POs & Quotes
+                        <ClipboardText weight="duotone" className="w-4 h-4 text-accent"/> My Purchases
                       </button>
                       <button onClick={() => setStorefrontTab('profile')} className="w-full text-left px-3 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition flex items-center gap-3">
                         <Gear weight="duotone" className="w-4 h-4 text-accent"/> My Profile
@@ -524,7 +563,7 @@ export default function CustomerStorefront({
                           }}
                           className="flex-1 min-w-[140px] max-w-[180px] sm:max-w-[220px] group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
                         >
-                          <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-110 transition-transform duration-300 shadow-inner ${subColor}`}>
+                          <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-105 transition-transform duration-300 shadow-inner ${subColor}`}>
                             {SubIcon ? <SubIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />}
                           </div>
                           <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors text-center leading-tight">
@@ -610,7 +649,7 @@ export default function CustomerStorefront({
                 />
               </div>
 
-              <div className="w-full">
+              <div id="parts-catalog" className="w-full">
                 {loading ? (
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
@@ -644,6 +683,7 @@ export default function CustomerStorefront({
               customerEmail={customerSession?.user?.email}
               userId={customerSession?.user?.id}
               transactions={transactions} 
+              onReorder={handleReorder}
             />
           )}
 
@@ -703,22 +743,22 @@ export default function CustomerStorefront({
             </div>
 
             {/* Scrollable Content */}
-            <div className="overflow-y-auto flex-1 p-6 custom-scrollbar bg-background">
+            <div className="overflow-y-scroll flex-1 p-6 custom-scrollbar bg-background">
               {modalTab === 'specs' ? (
                 <div className="grid gap-8 lg:grid-cols-2">
                   <div className="space-y-6">
-                    <div className="rounded-3xl border border-border/50 bg-black/20 shadow-inner overflow-hidden aspect-[4/3] relative flex items-center justify-center p-2 group">
+                    <div className="rounded-3xl border border-border/50 bg-white/95 shadow-inner overflow-hidden aspect-[4/3] relative flex items-center justify-center p-4 group">
                       {selectedPart.image ? (
                         <img 
                           src={selectedPart.image} 
                           alt={selectedPart.name} 
                           onError={(e) => { e.target.onerror = null; e.target.src = getCategoryPlaceholder(selectedPart.category); }}
-                          className="object-cover w-full h-full rounded-2xl group-hover:scale-105 transition-transform duration-700" 
+                          className="object-contain w-full h-full rounded-2xl" 
                         />
                       ) : (
-                        <img src={getCategoryPlaceholder(selectedPart.category)} alt={selectedPart.name} className="object-cover w-full h-full rounded-2xl opacity-80 group-hover:scale-105 transition-transform duration-700" />
+                        <img src={getCategoryPlaceholder(selectedPart.category)} alt={selectedPart.name} className="object-contain w-full h-full rounded-2xl opacity-80" />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none rounded-3xl" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none rounded-3xl" />
                     </div>
                     <div>
                       <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
@@ -741,15 +781,19 @@ export default function CustomerStorefront({
                               <th className="px-4 py-3 font-semibold">Years</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-border">
+                          <tbody className="divide-y divide-border break-words whitespace-normal">
                             {selectedPart.compatibleWith && selectedPart.compatibleWith.length > 0 ? (
                               selectedPart.compatibleWith.map((comp, idx) => (
                                 <tr key={idx} className="hover:bg-background/50 transition-colors">
                                   <td className="px-4 py-3 font-medium text-foreground">{comp.brand || 'Universal'}</td>
-                                  <td className="px-4 py-3 text-muted-foreground">{comp.series || 'All Models'}</td>
+                                  <td className="px-4 py-3 text-muted-foreground break-all">{comp.series || 'All Models'}</td>
                                   <td className="px-4 py-3 text-muted-foreground">{comp.year || 'Any'}</td>
                                 </tr>
                               ))
+                            ) : selectedPart.compatibility ? (
+                              <tr>
+                                <td colSpan={3} className="px-4 py-3 font-medium text-foreground text-sm leading-relaxed whitespace-pre-wrap">{selectedPart.compatibility}</td>
+                              </tr>
                             ) : (
                               <tr>
                                 <td colSpan={3} className="px-4 py-3 font-medium text-foreground">Universal Fit</td>
@@ -767,7 +811,7 @@ export default function CustomerStorefront({
                       </div>
                       <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-5 flex flex-col justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stock Status</span>
-                        <div className="flex items-center gap-2 mb-8">
+                        <div className="flex items-center gap-2">
                           { (selectedPart.stock - (selectedPart.reservedStock || 0)) > 0 ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -778,13 +822,9 @@ export default function CustomerStorefront({
                           )}
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Min. Alert</span>
-                        <span className="text-sm font-bold text-foreground">{selectedPart.minStock} units</span>
-                      </div>
-                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
+                      <div className="col-span-2 rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Category</span>
-                        <span className="text-sm font-bold text-foreground truncate">{selectedPart.category}</span>
+                        <span className="text-[11px] leading-tight font-bold text-foreground line-clamp-2">{selectedPart.category}</span>
                       </div>
                     </div>
                   </div>
@@ -807,13 +847,31 @@ export default function CustomerStorefront({
             </div>
 
             {/* Frosted Sticky Footer */}
-            <div className="p-6 border-t border-border/50 bg-background/60 backdrop-blur-2xl shrink-0 flex items-center justify-between gap-6 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-              <div className="text-xs font-bold text-muted-foreground hidden sm:block">
-                All parts backed by a <span className="text-foreground">90-day fitment guarantee</span>.
+            <div className="p-6 border-t border-border/50 bg-background/60 backdrop-blur-2xl shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+              <div className="flex items-center gap-4 w-full sm:w-auto justify-center bg-secondary/80 rounded-2xl p-2 border border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setModalQuantity(q => Math.max(1, q - 1))}
+                  disabled={modalQuantity <= 1 || (selectedPart.stock - (selectedPart.reservedStock || 0)) === 0}
+                  className="p-3 bg-background hover:bg-muted rounded-xl shadow-sm transition-all disabled:opacity-50"
+                >
+                  <Minus className="w-5 h-5 text-foreground" />
+                </button>
+                <span className="w-12 text-center font-bold text-lg text-foreground font-display">
+                  {modalQuantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setModalQuantity(q => Math.min((selectedPart.stock - (selectedPart.reservedStock || 0)), q + 1))}
+                  disabled={modalQuantity >= (selectedPart.stock - (selectedPart.reservedStock || 0))}
+                  className="p-3 bg-background hover:bg-muted rounded-xl shadow-sm transition-all disabled:opacity-50"
+                >
+                  <Plus className="w-5 h-5 text-foreground" />
+                </button>
               </div>
               <button
                 type="button"
-                onClick={() => { addToCart(selectedPart); setSelectedPart(null); }}
+                onClick={() => { addToCart(selectedPart, modalQuantity); setSelectedPart(null); }}
                 disabled={(selectedPart.stock - (selectedPart.reservedStock || 0)) === 0}
                 className="w-full sm:flex-1 py-4 bg-accent hover:bg-accent/90 text-white font-black text-lg rounded-2xl shadow-xl shadow-accent/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -827,9 +885,20 @@ export default function CustomerStorefront({
 
       {/* Global Footer */}
       {storefrontTab === 'home' ? (
-        <Footer className="pb-14" />
+        <Footer 
+          className="pb-14" 
+          onOpenPolicy={() => setPolicyModalOpen(true)}
+          onGoHome={() => window.scrollTo({top: 0, behavior: 'smooth'})}
+          onGoCatalog={() => document.getElementById('parts-catalog')?.scrollIntoView({behavior: 'smooth'})}
+        />
       ) : (
-        <Footer variant="dark" className="mt-auto border-t-0 bg-transparent shadow-none !rounded-none !pt-6 !pb-14 !px-6" />
+        <Footer 
+          variant="dark" 
+          className="mt-auto border-t-0 bg-transparent shadow-none !rounded-none !pt-6 !pb-14 !px-6" 
+          onOpenPolicy={() => setPolicyModalOpen(true)}
+          onGoHome={() => { setStorefrontTab('home'); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+          onGoCatalog={() => document.getElementById('parts-catalog')?.scrollIntoView({behavior: 'smooth'})}
+        />
       )}
 
       {/* Success Modal */}
@@ -877,6 +946,12 @@ export default function CustomerStorefront({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Return Policy Modal */}
+      <ReturnPolicyModal 
+        isOpen={policyModalOpen} 
+        onClose={() => setPolicyModalOpen(false)} 
+      />
 
       {/* Sliding Cart Modal */}
       <CartDrawer 

@@ -5,7 +5,9 @@ import { getCategoryPlaceholder, getCategoryIconAndColor } from '../utils/catego
 const PartCard = memo(({
   part,
   isReadOnly,
+  isAdmin,
   formatCurrency,
+  formatBaseCurrency,
   openDetailsModal,
   setInquiryPart,
   setInquiryQty,
@@ -110,9 +112,14 @@ const PartCard = memo(({
         <div className="flex items-end justify-between bg-secondary/20 p-3 rounded-xl border border-border/50">
           <div>
             <span className="text-2xs text-muted-foreground uppercase tracking-wider block">Unit Price</span>
-            <span className="text-lg font-bold text-emerald-400">
+            <span className="text-lg font-bold text-emerald-400 block leading-none mb-1 mt-0.5">
               {formatCurrency(part.price)}
             </span>
+            {isAdmin && (
+              <span className="text-xs text-foreground/50 block font-medium" title="Wholesale / Base Cost">
+                {formatBaseCurrency(part.price)} <span className="text-[10px] text-muted-foreground uppercase ml-0.5">Wholesale</span>
+              </span>
+            )}
           </div>
           <div className="text-right">
             <span className="text-2xs text-muted-foreground uppercase tracking-wider block">{isReadOnly ? 'Stock Status' : 'Quantity'}</span>
@@ -148,11 +155,11 @@ const PartCard = memo(({
 
             <div className="grid grid-cols-2 gap-2">
               <button 
-                onClick={() => openAdjustStockModal(part)}
-                className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors border border-border"
+                onClick={(e) => { e.stopPropagation(); openAdjustStockModal(part); }}
+                className="flex-1 py-1.5 px-3 bg-background hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500 text-xs font-semibold rounded border border-border/50 hover:border-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
                 title="Adjust Stock Count"
               >
-                <Sliders weight="duotone" className="w-3.5 h-3.5" />
+                <Sliders weight="duotone" className="w-3.5 h-3.5" /> Adjust Stock
               </button>
               <button 
                 onClick={() => openEditModal(part)}
