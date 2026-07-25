@@ -768,9 +768,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             </div>
             <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-purple-500/20 group-hover:bg-purple-500 transition-colors" />
-              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-purple-400" /> Pending RFQs</span>
+              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-purple-400" /> Pending Orders</span>
               <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.pendingRfqs} <span className="text-sm text-muted-foreground font-semibold">requests</span></span>
-              <span className="text-2xs text-muted-foreground mt-2">Drafts and sent quotes</span>
+              <span className="text-2xs text-muted-foreground mt-2">Drafts and pending POs</span>
             </div>
           </div>
 
