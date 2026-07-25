@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut, Buildings, X } from '@phosphor-icons/react';
+import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut, Buildings, X, UserCircle, IdentificationCard, ShoppingBag, BookmarkSimple } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
@@ -397,24 +397,27 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
       </div>
 
       {/* ── Bento Row (Personal + Company) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Personal Card */}
-        <div className="md:col-span-7 bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
-          <div className="px-8 py-5 border-b border-border/50 flex items-center justify-between bg-background/30">
-            <div>
-              <h3 className="text-lg font-bold text-foreground">Personal Details</h3>
+        <div className="lg:col-span-7 bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
+          <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-background/30">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-accent/10 text-accent dark:bg-accent/20">
+                <IdentificationCard weight="duotone" className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">Personal Details</h3>
             </div>
             {!editingPersonal && (
-              <button onClick={handleEditPersonal} className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border text-foreground font-bold text-xs rounded-xl hover:border-accent hover:text-accent transition-all shadow-sm active:translate-y-[1px]">
+              <button onClick={handleEditPersonal} className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-background border border-border text-foreground font-bold text-xs rounded-xl hover:border-accent hover:text-accent transition-all shadow-sm active:translate-y-[1px]">
                 <PencilSimple weight="bold" className="w-3.5 h-3.5" /> Edit
               </button>
             )}
           </div>
-          <div className="p-8">
-            <form onSubmit={handleSavePersonal} className="space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="personal-name" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
+          <div className="p-6">
+            <form onSubmit={handleSavePersonal} className="space-y-4">
+              <div className="space-y-1">
+                <label htmlFor="personal-name" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
                 {editingPersonal ? (
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -423,12 +426,15 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                     <input id="personal-name" type="text" value={draftName} onChange={e => setDraftName(e.target.value)} className={INPUT_CLS} autoFocus />
                   </div>
                 ) : (
-                  <p className="font-medium text-foreground py-2">{displayName || '—'}</p>
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-background/50 border border-border/40 text-sm font-medium text-foreground">
+                    <User weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span>{displayName || '—'}</span>
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="personal-email" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
+              <div className="space-y-1">
+                <label htmlFor="personal-email" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
                 {editingPersonal ? (
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -437,12 +443,15 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                     <input id="personal-email" type="email" value={draftEmail} onChange={e => setDraftEmail(e.target.value)} className={INPUT_CLS} />
                   </div>
                 ) : (
-                  <p className="font-medium text-foreground py-2">{email || '—'}</p>
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-background/50 border border-border/40 text-sm font-medium text-foreground">
+                    <EnvelopeSimple weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span>{email || '—'}</span>
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="personal-phone" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Contact Number</label>
+              <div className="space-y-1">
+                <label htmlFor="personal-phone" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Contact Number</label>
                 {editingPersonal ? (
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -451,17 +460,20 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                     <input id="personal-phone" type="text" value={draftPhone} onChange={e => setDraftPhone(e.target.value)} className={INPUT_CLS} />
                   </div>
                 ) : (
-                  <p className="font-medium text-foreground py-2">{phoneNumber || '—'}</p>
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-background/50 border border-border/40 text-sm font-medium text-foreground">
+                    <Phone weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span>{phoneNumber || 'No phone number'}</span>
+                  </div>
                 )}
               </div>
 
               <AnimatePresence>
                 {editingPersonal && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pt-4 flex gap-3 overflow-hidden">
-                    <button type="submit" disabled={isLoading} className="flex-1 py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg active:translate-y-[1px] text-sm">
-                      {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Save'}
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pt-3 flex gap-3 overflow-hidden">
+                    <button type="submit" disabled={isLoading} className="flex-1 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg active:translate-y-[1px] text-xs">
+                      {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Save Changes'}
                     </button>
-                    <button type="button" onClick={handleCancelPersonal} className="flex-1 py-3 bg-secondary hover:bg-muted text-foreground font-bold rounded-xl border border-border transition-all text-sm">
+                    <button type="button" onClick={handleCancelPersonal} className="flex-1 py-2.5 bg-secondary hover:bg-muted text-foreground font-bold rounded-xl border border-border transition-all text-xs">
                       Cancel
                     </button>
                   </motion.div>
@@ -472,21 +484,24 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
         </div>
 
         {/* Company Card */}
-        <div className="md:col-span-5 bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
-          <div className="px-8 py-5 border-b border-border/50 flex items-center justify-between bg-background/30">
-            <div>
-              <h3 className="text-lg font-bold text-foreground">Company</h3>
+        <div className="lg:col-span-5 bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
+          <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-background/30">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-accent/10 text-accent dark:bg-accent/20">
+                <Buildings weight="duotone" className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">Company</h3>
             </div>
             {!editingCompany && (
-              <button onClick={handleEditCompany} className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border text-foreground font-bold text-xs rounded-xl hover:border-accent hover:text-accent transition-all shadow-sm active:translate-y-[1px]">
+              <button onClick={handleEditCompany} className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-background border border-border text-foreground font-bold text-xs rounded-xl hover:border-accent hover:text-accent transition-all shadow-sm active:translate-y-[1px]">
                 <PencilSimple weight="bold" className="w-3.5 h-3.5" /> Edit
               </button>
             )}
           </div>
-          <div className="p-8">
-            <form onSubmit={handleSaveCompany} className="space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="company-name" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Company Name</label>
+          <div className="p-6">
+            <form onSubmit={handleSaveCompany} className="space-y-4">
+              <div className="space-y-1">
+                <label htmlFor="company-name" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Company Name</label>
                 {editingCompany ? (
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -495,17 +510,20 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
                     <input id="company-name" type="text" value={draftCompany} onChange={e => setDraftCompany(e.target.value)} className={INPUT_CLS} autoFocus />
                   </div>
                 ) : (
-                  <p className="font-medium text-foreground py-2">{companyName || '—'}</p>
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-background/50 border border-border/40 text-sm font-medium text-foreground">
+                    <Buildings weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span>{companyName || '— (No company assigned)'}</span>
+                  </div>
                 )}
               </div>
 
               <AnimatePresence>
                 {editingCompany && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pt-4 flex gap-3 overflow-hidden">
-                    <button type="submit" disabled={isLoading} className="flex-1 py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg active:translate-y-[1px] text-sm">
-                      {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Save'}
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pt-3 flex gap-3 overflow-hidden">
+                    <button type="submit" disabled={isLoading} className="flex-1 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg active:translate-y-[1px] text-xs">
+                      {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Save Changes'}
                     </button>
-                    <button type="button" onClick={handleCancelCompany} className="flex-1 py-3 bg-secondary hover:bg-muted text-foreground font-bold rounded-xl border border-border transition-all text-sm">
+                    <button type="button" onClick={handleCancelCompany} className="flex-1 py-2.5 bg-secondary hover:bg-muted text-foreground font-bold rounded-xl border border-border transition-all text-xs">
                       Cancel
                     </button>
                   </motion.div>
@@ -518,16 +536,19 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
 
       {/* ── Security Card ── */}
       <div className="w-full bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
-        <div className="px-8 py-5 border-b border-border/50 flex items-center justify-between bg-background/30">
-          <div>
-            <h3 className="text-lg font-bold text-foreground">Security</h3>
+        <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-background/30">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-accent/10 text-accent dark:bg-accent/20">
+              <LockKey weight="duotone" className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-foreground">Security</h3>
           </div>
         </div>
-        <div className="p-8">
-          <form onSubmit={handleReauth} className="max-w-md space-y-5">
-            <div className="space-y-1.5">
-              <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-sm">
-                <div className="flex items-center gap-2 mb-1.5">
+        <div className="p-6">
+          <form onSubmit={handleReauth} className="max-w-md space-y-4">
+            <div className="space-y-1">
+              <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs">
+                <div className="flex items-center gap-2 mb-1">
                   <LockKey weight="fill" className="w-4 h-4 shrink-0 text-amber-500" />
                   <p className="font-bold text-amber-600 dark:text-amber-400">Security Verification Required</p>
                 </div>
@@ -535,8 +556,8 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
               </div>
             </div>
             
-            <div className="space-y-1.5">
-              <label htmlFor="security-password" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Current Password</label>
+            <div className="space-y-1">
+              <label htmlFor="security-password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Current Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <LockKey weight="regular" className="w-5 h-5 text-muted-foreground" />
@@ -545,8 +566,8 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
               </div>
             </div>
 
-            <div className="space-y-1.5 pt-2">
-              <button type="button" className="w-full py-3.5 bg-accent/50 text-white font-bold rounded-xl cursor-not-allowed text-sm transition-all flex justify-center items-center gap-2" disabled aria-disabled="true">
+            <div className="pt-1">
+              <button type="button" className="w-full py-3 bg-accent/50 text-white font-bold rounded-xl cursor-not-allowed text-xs transition-all flex justify-center items-center gap-2" disabled aria-disabled="true">
                 <LockKey weight="bold" className="w-4 h-4" />
                 Verify & Continue
               </button>
