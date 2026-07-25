@@ -104,11 +104,11 @@ class CheckoutService {
         }
       });
 
-      // 2. Deduct inventory stock
+      // 2. Reserve inventory stock (Deducted upon Completed status)
       for (const item of cartItems) {
         await tx.part.update({
           where: { id: item.id },
-          data: { stock: { decrement: item.quantity } }
+          data: { reservedStock: { increment: item.quantity } }
         });
       }
     });
