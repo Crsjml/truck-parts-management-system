@@ -72,6 +72,33 @@ export const SettingsProvider = ({ children }) => {
     }).format(finalAmount);
   };
 
+  const formatBaseCurrency = (amount) => {
+    let finalAmount = amount;
+    const baseRate = exchangeRates[settings.base_currency] || 1;
+    const targetRate = exchangeRates[displayCurrency] || 1;
+    finalAmount = finalAmount * (targetRate / baseRate);
+
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: displayCurrency,
+      minimumFractionDigits: 2,
+    }).format(finalAmount);
+  };
+
+  const formatCompactBaseCurrency = (amount) => {
+    let finalAmount = amount;
+    const baseRate = exchangeRates[settings.base_currency] || 1;
+    const targetRate = exchangeRates[displayCurrency] || 1;
+    finalAmount = finalAmount * (targetRate / baseRate);
+
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: displayCurrency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(finalAmount);
+  };
+
   const toggleDisplayCurrency = (currencyCode) => {
     setDisplayCurrency(currencyCode);
   };
@@ -84,6 +111,8 @@ export const SettingsProvider = ({ children }) => {
       toggleDisplayCurrency,
       formatCurrency,
       formatCompactCurrency,
+      formatBaseCurrency,
+      formatCompactBaseCurrency,
       loading
     }}>
       {children}

@@ -190,7 +190,8 @@ export const fetchStaffRoles = async () => {
 export const checkStaffRole = async (email) => {
   try {
     const { ok, data } = await apiPost('/api/staff/check', { email }, { supabase });
-    return ok ? data : null;
+    if (!ok || (data && data.authorized === false)) return null;
+    return data;
   } catch (err) {
     console.error('Failed to check staff role:', err);
     return null;
@@ -482,10 +483,20 @@ export const updatePart = api(async (id, partData) => {
 export const fetchPartAdjustments = async (id) => {
   try {
     const { ok, data } = await apiGet(`/api/parts/${id}/adjustments`, { supabase });
-    return ok ? { ok: true, adjustments: data } : { ok: false, error: data.msg || 'Failed to fetch adjustments.' };
+    return ok ? { ok: true, adjustments: data } : { ok: false, adjustments: [] };
   } catch (err) {
     console.error('[fetchPartAdjustments Error]', err);
-    return { ok: false, error: err.message || 'Server connection failed.' };
+    return { ok: false, adjustments: [] };
+  }
+};
+
+export const fetchGlobalAuditLogs = async () => {
+  try {
+    const { ok, data } = await apiGet('/api/parts/adjustments/all', { supabase });
+    return ok ? { ok: true, adjustments: data } : { ok: false, adjustments: [] };
+  } catch (err) {
+    console.error('[fetchGlobalAuditLogs Error]', err);
+    return { ok: false, adjustments: [] };
   }
 };
 
@@ -614,4 +625,21 @@ export const createReview = api(async (reviewData) => {
 export const deleteReview = api(async (id) => {
   const { ok, data } = await apiDelete(`/api/reviews/${id}`, { supabase });
   return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete review.' };
+});
+
+// ── Saved Parts (Wishlist) ───────────────────────────────────────────────────
+
+export const fetchSavedParts = api(async () => {
+  const { ok, data } = await apiGet('/api/customers/saved-parts', { supabase });
+  return ok ? data : { partIds: [], savedPartsCount: 0 };
+});
+
+export const savePart = api(async (partId) => {
+  const { ok, data } = await apiPost(`/api/customers/saved-parts/${partId}`, {}, { supabase });
+  return ok ? { ok: true, savedPartsCount: data.savedPartsCount } : { ok: false, error: data.msg || 'Failed to save part.' };
+});
+
+export const unsavePart = api(async (partId) => {
+  const { ok, data } = await apiDelete(`/api/customers/saved-parts/${partId}`, { supabase });
+  return ok ? { ok: true, savedPartsCount: data.savedPartsCount } : { ok: false, error: data.msg || 'Failed to unsave part.' };
 });

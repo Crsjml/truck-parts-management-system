@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import AuthPortal from './components/AuthPortal';
@@ -19,6 +19,7 @@ const CategoryManagement = lazy(() => import('./components/CategoryManagement'))
 const PurchasingModule = lazy(() => import('./components/PurchasingModule'));
 const MyAccount = lazy(() => import('./components/MyAccount'));
 const StaffManagement = lazy(() => import('./components/StaffManagement'));
+const AdminSettings = lazy(() => import('./components/AdminSettings'));
 
 // Sleek loading fallback for Suspense
 const PageLoader = () => (
@@ -34,7 +35,7 @@ const PageLoader = () => (
 );
 
 
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs } from './authStore';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -50,6 +51,7 @@ export default function App() {
   const [parts, setParts] = useState([]);
   const [categories, setCategories] = useState(['All']);
   const [isAlertDrawerOpen, setIsAlertDrawerOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [myRfqStats, setMyRfqStats] = useState({ sent: 0, lateRfq: 0, notAck: 0, lateReceipt: 0 });
   const [transactions, setTransactions] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -178,7 +180,7 @@ export default function App() {
 
   const customerSession = isSignedIn && !supabaseUser?.staffData ? {
     user: { 
-      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email, 
+      fullName: customerProfile?.displayName || supabaseUser.user_metadata?.full_name || supabaseUser.email, 
       email: supabaseUser.email, 
       role: 'customer',
       uid: supabaseUser.id,
@@ -482,7 +484,7 @@ export default function App() {
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
-        <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-5 custom-scrollbar">
+        <div className="flex-1 space-y-6 overflow-y-scroll overflow-x-hidden px-4 py-5 custom-scrollbar">
           <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} px-1 py-2`}>
             {!isSidebarCollapsed ? (
               <Logo className="w-14 h-14 shrink-0" showText={true} />
@@ -576,20 +578,30 @@ export default function App() {
               {!isSidebarCollapsed && <span>Purchasing</span>}
             </button>
 
-            {/* SUPER ADMIN ONLY: Staff Management */}
+            {/* SUPER ADMIN ONLY: Staff Management & Settings */}
             {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && (
-              <button
-                onClick={() => setPage('staff')}
-                title="Staff Management"
-                className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                  page === 'staff'
-                    ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-                }`}
-              >
-                <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
-                {!isSidebarCollapsed && <span>Staff Management</span>}
-              </button>
+              <>
+                <button
+                  onClick={() => setPage('staff')}
+                  title="Staff Management"
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    page === 'staff'
+                      ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                  }`}
+                >
+                  <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
+                  {!isSidebarCollapsed && <span>Staff Management</span>}
+                </button>
+                <button
+                  onClick={() => setIsSettingsModalOpen(true)}
+                  title="System Settings"
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent`}
+                >
+                  <Gear weight="duotone" className="w-5 h-5 shrink-0" />
+                  {!isSidebarCollapsed && <span>System Settings</span>}
+                </button>
+              </>
             )}
 
           </nav>
@@ -628,7 +640,7 @@ export default function App() {
       {isSidebarOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm">
           <aside className="w-72 bg-background border-r border-border flex flex-col justify-between overflow-hidden animate-slideRight">
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 custom-scrollbar">
+            <div className="flex-1 space-y-6 overflow-y-scroll px-5 py-5 custom-scrollbar">
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <Logo className="w-12 h-12" showText={true} />
                 <button
@@ -883,6 +895,7 @@ export default function App() {
                     onRestockPart={handleRestockPart}
                     setPage={setPage}
                     onFetchPartAdjustments={fetchPartAdjustments}
+                    onFetchGlobalAuditLogs={fetchGlobalAuditLogs}
                   />
                 )}
 
@@ -988,6 +1001,13 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* System Settings Modal */}
+      {isSettingsModalOpen && (
+        <Suspense fallback={null}>
+          <AdminSettings onClose={() => setIsSettingsModalOpen(false)} />
+        </Suspense>
+      )}
 
       <FloatingSettingsWidget 
         onAdminLogin={handleAutoAdminLogin}
