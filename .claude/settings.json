@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk brew *)",
+      "Bash(rtk find *)",
+      "Bash(rtk git *)",
+      "Bash(rtk read *)",
+      "Bash(xargs -n1 basename)",
+      "Bash(rtk grep *)"
+    ]
+  }
+}

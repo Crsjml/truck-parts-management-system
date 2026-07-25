@@ -79,6 +79,23 @@ You enforce two distinct design systems depending on the portal you are editing,
 - No three-equal-card feature rows. Use asymmetric grids or zig-zags.
 - Standardize on `lucide-react` or `Phosphor Icons` for vectors.
 
+### Skill Routing Map (per codebase part)
+
+When you work on a given part of the codebase, consult the mapped skills **before** writing code. All skills below are pinned in `.agents/skills/` (portable, teammate-shared) unless marked *(built-in)* — `dataviz` ships with the agent runtime and is always available but not vendored. Skills are model-invoked: read this map and invoke the relevant ones.
+
+| Codebase part | Representative files | Skills to use |
+|---|---|---|
+| **1. Storefront** (customer UI) | `CustomerStorefront.jsx`, `ProductGrid.jsx`, `PartCard.jsx`, `PartsCatalog.jsx`, `StorefrontFilters.jsx`, `CartDrawer.jsx`, `ReviewSection.jsx`, `MyAccount.jsx`, `MyOrders.jsx` | `design-taste-frontend` · `high-end-visual-design` · `web-design-guidelines` · `tailwind-design-system` · `accessibility` · `design-system` |
+| **2. Admin + POS** (staff UI) | `Dashboard.jsx`, `PurchasingModule.jsx`, `TransactionPOS.jsx`, `StaffManagement.jsx`, `CategoryManagement.jsx`, `AddPartDrawer.jsx` | `minimalist-ui` · `kpi-dashboard-design` · `tailwind-design-system` · `design-system` · `frontend-patterns` |
+| **3. Analytics / data-viz** | `Analytics.jsx` (recharts) | `dataviz` *(built-in)* · `frontend-patterns` |
+| **4. Auth** | `AuthPortal.jsx`, `authStore.js`, `supabaseClient.js`, `UpdatePasswordModal.jsx` | `security-review` · `frontend-patterns` · `accessibility` |
+| **5. Shared UI primitives** | `components/ui/`, `SettingsContext.jsx`, `ToastNotification.jsx`, `StatusBar.jsx` | `design-system` · `tailwind-design-system` · `frontend-patterns` |
+| **6. Backend API** | `backend/src/routes/`, `services/`, `controllers/`, `middleware/`, `validators/` | `backend-patterns` · `api-design` · `error-handling` · `security-review` |
+| **7. Payments** | `checkout.js`, `stripe.js`, `CheckoutService.js` | `security-review` · `backend-patterns` · `error-handling` |
+| **8. Database** | `backend/prisma/schema.prisma`, migrations, seed | `supabase-postgres-best-practices` · `prisma-client-api` · `postgres-patterns` · `database-migrations` |
+| **9. Testing** | `frontend/tests/` (Playwright), unit tests | `tdd-workflow` · `e2e-testing` · `verification-loop` |
+| **Always-on (any code)** | — | `ponytail` · `karpathy-principles` · `coding-standards` |
+
 ---
 
 ## ⚙️ 5. Backend & Database Standards
@@ -169,18 +186,26 @@ how you get there without guessing or drifting from the request.
 
 ## 🛠️ 10. Recommended Agent Tooling
 
-Two token-compression tools sit at different scopes — do not conflate them:
+Two token-compression tools sit at different scopes — do not conflate them.
+Both are now installed globally on the developer machine (per-machine
+tooling; neither is vendored into this repo — see below):
 
-- **`rtk`** (recommended, always-on): compresses raw **shell output**
-  tokens only. Per-machine install (`brew install rtk` or the curl
-  installer), then `rtk init -g` once globally. Safe to leave on — it
-  never touches authored prose or markdown, so it can't interact with
-  the file-link formatting §7 requires.
+- **`rtk`** (always-on): compresses raw **shell output** tokens only.
+  Installed via `brew install rtk` + `rtk init -g`, which registers a
+  `PreToolUse`/`Bash` hook (`rtk hook claude`) in `~/.claude/settings.json`.
+  Safe to leave on — it never touches authored prose or markdown, so it
+  can't interact with the file-link formatting §7 requires.
 - **`caveman`** (opt-in only, invoke explicitly with `/caveman`): compresses
-  **prose output**. Do NOT add this to `.agents/AGENTS.md`'s always-on
-  skill list — it rewrites the text you write, which risks mangling the
-  markdown links §7 mandates for file references. Use it deliberately,
-  never as a standing background skill.
+  **prose output**. Installed as a Claude Code plugin (`caveman@caveman`,
+  scope: user) and a Gemini CLI extension, but its default mode is pinned
+  to `"off"` via `~/.config/caveman/config.json` (`{"defaultMode": "off"}`)
+  so it never auto-activates — it stays command-triggered, matching how
+  `.agents/AGENTS.md`'s always-on skill list treats it (not included there).
+  **Link-preservation guard**: whenever caveman *is* toggled on, always
+  preserve `[text](path)` markdown links intact (§7) — caveman keeps
+  code/URLs/paths byte-preserved by design at every intensity level, so
+  links must survive compression. `/caveman` or "normal mode" toggles it
+  off again.
 
 Neither tool's source is vendored into this repo — both are per-machine
 developer tooling, installed and configured on the developer's own
