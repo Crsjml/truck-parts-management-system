@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 export default function TransactionPOS({ parts, onCheckout }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [cart, setCart] = useState([]);
   
   // Customer info
@@ -269,14 +270,14 @@ export default function TransactionPOS({ parts, onCheckout }) {
               type="text" 
               placeholder="Filter list by part name, SKU, or OEM No..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-red-600 transition-all text-foreground"
             />
           </div>
 
           {/* Quick list of items */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {filteredParts.map(part => {
+            {filteredParts.slice((currentPage - 1) * 10, currentPage * 10).map(part => {
               const cartItem = cart.find(item => item.id === part.id);
               const availableStock = part.stock - (part.reservedStock || 0);
               const remaining = availableStock - (cartItem ? cartItem.quantity : 0);
@@ -306,6 +307,31 @@ export default function TransactionPOS({ parts, onCheckout }) {
               );
             })}
           </div>
+          
+          {/* Pagination Controls */}
+          {filteredParts.length > 10 && (
+            <div className="flex items-center justify-between border-t border-border pt-4 mt-2">
+              <span className="text-xs text-muted-foreground">
+                Showing {(currentPage - 1) * 10 + 1}-{Math.min(currentPage * 10, filteredParts.length)} of {filteredParts.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 bg-secondary text-xs rounded-lg hover:bg-muted disabled:opacity-50 transition-colors"
+                >
+                  Prev
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredParts.length / 10), p + 1))}
+                  disabled={currentPage === Math.ceil(filteredParts.length / 10)}
+                  className="px-3 py-1 bg-secondary text-xs rounded-lg hover:bg-muted disabled:opacity-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
