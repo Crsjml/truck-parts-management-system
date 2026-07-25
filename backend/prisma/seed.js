@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import { fetchPartImage } from './fetch_images.js';
+import { deriveCompatibility } from '../scripts/migrate_compatibility.js';
 
 const prisma = new PrismaClient();
 
@@ -277,7 +278,7 @@ async function main() {
             min_stock: faker.number.int({ min: 2, max: 10 }),
             description: `High quality surplus B2B truck part imported from Japan/US. Thoroughly inspected and ready for fleet installation. Brand: ${brand}`,
             image: finalImage,
-            compatibleWith: [{ brand, series: "Various", engineCode: "N/A" }]
+            compatibleWith: deriveCompatibility(partName)
           }
         });
         parts.push(part);
