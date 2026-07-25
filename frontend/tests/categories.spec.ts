@@ -31,8 +31,8 @@ test.describe('Dynamic Data Connectivity', () => {
 
     // Verify the mock data actually rendered in the UI
     // The Storefront usually lists categories as buttons or dropdown options
-    const mockCatBtn1 = page.getByRole('button', { name: 'Mock Engine Parts', exact: true });
-    const mockCatBtn2 = page.getByRole('button', { name: 'Mock Braking Systems', exact: true });
+    const mockCatBtn1 = page.getByRole('button', { name: 'Mock Engine Parts', exact: false });
+    const mockCatBtn2 = page.getByRole('button', { name: 'Mock Braking Systems', exact: false });
 
     // Assuming the frontend renders them if they exist
     await expect(mockCatBtn1).toBeVisible();

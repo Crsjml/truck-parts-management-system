@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Order Tracking E2E Flow', () => {
   // Use a mocked or real API test to verify status updates
-  test('should allow admin to update order status to In Transit and Completed', async ({ request }) => {
+  test('should allow admin to update order status to Ready for Pickup and Completed', async ({ request }) => {
     // 1. Fetch transactions to get a sample order ID
     // (Assuming the backend is running on localhost:5000)
     const txResponse = await request.get('http://localhost:5000/api/transactions');
@@ -16,25 +16,26 @@ test.describe('Order Tracking E2E Flow', () => {
 
     const testTxId = txs[0].id;
 
-    // 2. Update to "In Transit"
-    const inTransitResp = await request.put(`http://localhost:5000/api/transactions/${testTxId}/status`, {
-      data: { status: 'In Transit' }
+    // 2. Update to "Ready for Pickup"
+    const updateReq = await request.put(`http://localhost:5000/api/transactions/${testTxId}/status`, {
+      data: { status: 'READY_FOR_PICKUP' }
     });
-    expect(inTransitResp.ok()).toBeTruthy();
-    let updatedTx = await inTransitResp.json();
-    expect(updatedTx.status).toBe('In Transit');
+    expect(updateReq.ok()).toBeTruthy();
+
+    const updatedTx = await updateReq.json();
+    expect(updatedTx.status).toBe('READY_FOR_PICKUP');
 
     // 3. Update to "Completed"
     const completedResp = await request.put(`http://localhost:5000/api/transactions/${testTxId}/status`, {
-      data: { status: 'Completed' }
+      data: { status: 'COMPLETED' }
     });
     expect(completedResp.ok()).toBeTruthy();
     updatedTx = await completedResp.json();
-    expect(updatedTx.status).toBe('Completed');
+    expect(updatedTx.status).toBe('COMPLETED');
     
-    // Cleanup/Reset to Pending for future manual tests
+    // Cleanup/Reset to Order Placed for future manual tests
     await request.put(`http://localhost:5000/api/transactions/${testTxId}/status`, {
-      data: { status: 'Pending' }
+      data: { status: 'ORDER_PLACED' }
     });
   });
 });
