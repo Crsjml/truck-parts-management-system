@@ -446,7 +446,8 @@ export const getVerificationNotice = (email, code) =>
 export const fetchCategoriesList = async () => {
   try {
     const { ok, data } = await apiGet('/api/categories', { supabase });
-    return ok ? data : [];
+    if (!ok) return [];
+    return Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
   } catch (err) {
     console.error('Failed to fetch categories list:', err);
     return [];
