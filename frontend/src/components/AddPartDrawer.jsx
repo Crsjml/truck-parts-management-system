@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, CheckCircle, WarningCircle, ArrowRight, ArrowLeft, 
-  Package, ListDashes, Tag, Funnel, Truck, CurrencyDollar, Image, SquaresFour 
+  Package, ListDashes, Tag, Funnel, Truck, CurrencyDollar, Image, SquaresFour, Plus, Trash 
 } from '@phosphor-icons/react';
 import { z } from 'zod';
 import Select from 'react-select';
@@ -40,8 +40,8 @@ export default function AddPartDrawer({
   const [formCategory, setFormCategory] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
-  const [formMinStock, setFormMinStock] = useState('');
-  const [formCompatibility, setFormCompatibility] = useState('');
+  const [formMinStock, setFormMinStock] = useState(0);
+  const [formCompatibleWith, setFormCompatibleWith] = useState([{ brand: '', series: '', year: '' }]);
   const [formDescription, setFormDescription] = useState('');
   const [formImage, setFormImage] = useState('');
 
@@ -56,7 +56,7 @@ export default function AddPartDrawer({
       setFormPrice('');
       setFormStock('');
       setFormMinStock('');
-      setFormCompatibility('');
+      setFormCompatibleWith([{ brand: '', series: '', year: '' }]);
       setFormDescription('');
       setFormImage('');
       setFormErrors({});
@@ -101,7 +101,8 @@ export default function AddPartDrawer({
       price: parseFloat(formPrice),
       stock: parseInt(formStock),
       minStock: parseInt(formMinStock),
-      compatibility: formCompatibility.trim(),
+      compatibility: '',
+      compatibleWith: formCompatibleWith.filter(c => c.brand.trim() || c.series.trim() || c.year.trim()),
       description: formDescription.trim(),
       image: formImage
     };
@@ -193,7 +194,7 @@ export default function AddPartDrawer({
                             setFormMinStock(p.min_stock || p.minStock || 0);
                             setFormStock(0);
                             setFormSku('');
-                            setFormCompatibility(p.compatibility || '');
+                            setFormCompatibleWith(p.compatibleWith?.length ? p.compatibleWith : [{ brand: p.compatibility || '', series: '', year: '' }]);
                             setFormDescription(p.description || '');
                             setFormErrors({});
                           }
@@ -295,16 +296,62 @@ export default function AddPartDrawer({
               {step === 2 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                      <Truck weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Compatibility Models
+                    <label className="text-xs font-semibold uppercase flex items-center justify-between gap-1.5 text-muted-foreground">
+                      <div className="flex items-center gap-1.5"><Truck weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Compatibility Models</div>
+                      <button type="button" onClick={() => setFormCompatibleWith([...formCompatibleWith, { brand: '', series: '', year: '' }])} className="flex items-center gap-1 text-[10px] bg-brandBlue-500/10 text-brandBlue-500 px-2 py-1 rounded hover:bg-brandBlue-500/20 transition-colors">
+                        <Plus className="w-3 h-3" /> Add Row
+                      </button>
                     </label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Isuzu ELF NPR, Forward, Hino 300"
-                      value={formCompatibility}
-                      onChange={(e) => setFormCompatibility(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
-                    />
+                    <div className="space-y-2">
+                      {formCompatibleWith.map((comp, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="Make (e.g. Isuzu)"
+                            value={comp.brand}
+                            onChange={(e) => {
+                              const newArr = [...formCompatibleWith];
+                              newArr[idx].brand = e.target.value;
+                              setFormCompatibleWith(newArr);
+                            }}
+                            className="flex-1 min-w-0 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                          />
+                          <input 
+                            type="text" 
+                            placeholder="Model/Series (e.g. ELF NPR)"
+                            value={comp.series}
+                            onChange={(e) => {
+                              const newArr = [...formCompatibleWith];
+                              newArr[idx].series = e.target.value;
+                              setFormCompatibleWith(newArr);
+                            }}
+                            className="flex-1 min-w-0 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                          />
+                          <input 
+                            type="text" 
+                            placeholder="Years (e.g. 1998-2005)"
+                            value={comp.year}
+                            onChange={(e) => {
+                              const newArr = [...formCompatibleWith];
+                              newArr[idx].year = e.target.value;
+                              setFormCompatibleWith(newArr);
+                            }}
+                            className="flex-1 min-w-0 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (formCompatibleWith.length === 1) return;
+                              setFormCompatibleWith(formCompatibleWith.filter((_, i) => i !== idx));
+                            }}
+                            disabled={formCompatibleWith.length === 1}
+                            className={`p-2 rounded-xl border border-border transition-colors ${formCompatibleWith.length === 1 ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-muted-foreground' : 'hover:bg-red-500/10 hover:border-red-500/30 text-red-400'}`}
+                          >
+                            <Trash weight="bold" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">

@@ -4,7 +4,8 @@ import { getCategoryPlaceholder, getCategoryIconAndColor } from '../utils/catego
 const PartTableRow = memo(({ 
   part, 
   openDetailsModal, 
-  formatCurrency 
+  formatCurrency,
+  formatBaseCurrency 
 }) => {
   const isLowStock = part.stock <= part.minStock;
   return (
@@ -29,13 +30,18 @@ const PartTableRow = memo(({
       </td>
       <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
         {part.sku}<br/>
-        <span className="text-brandBlue-400/80">{part.oem}</span>
+        <span className="text-brandBlue-600 dark:text-brandBlue-400/80">{part.oem}</span>
       </td>
       <td className="px-4 py-3">
         <span className="px-2 py-1 bg-secondary rounded-md text-xs font-semibold border border-border/50">{part.category}</span>
       </td>
-      <td className="px-4 py-3 text-right font-semibold text-emerald-400">
-        {formatCurrency(part.price)}
+      <td className="px-4 py-3 text-right">
+        <div className="flex flex-col items-end">
+          <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(part.price)}</span>
+          <span className="text-xs text-muted-foreground/70 font-medium" title="Wholesale / Base Cost">
+            {formatBaseCurrency(part.price)}
+          </span>
+        </div>
       </td>
       <td className="px-4 py-3 text-right font-mono font-bold">
         {part.stock}

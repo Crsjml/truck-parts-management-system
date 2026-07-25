@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders, CurrencyDollar } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders, CurrencyDollar, Info } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
@@ -20,8 +20,8 @@ const partSchema = z.object({
   minStock: z.number().min(0, "Safety min stock must be non-negative.")
 });
 
-export default function PartsCatalog({ parts, categories, structuredCategories = [], selectedCategory, setSelectedCategory, onAddPart, onEditPart, onDeletePart, onRestockPart, onAddLog, adminSession, isReadOnly = false, setPage, onFetchPartAdjustments }) {
-  const { formatCurrency } = useSettings();
+export default function PartsCatalog({ parts, categories, structuredCategories = [], selectedCategory, setSelectedCategory, onAddPart, onEditPart, onDeletePart, onRestockPart, onAddLog, adminSession, isReadOnly = false, setPage, onFetchPartAdjustments, onFetchGlobalAuditLogs }) {
+  const { formatCurrency, formatBaseCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState('recommended');
   const [viewMode, setViewMode] = useState('grid4'); // 'grid3', 'grid4', 'table'
@@ -33,7 +33,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
-  const itemsPerPage = 12;
+  const itemsPerPage = 10;
 
   const [categoriesList, setCategoriesList] = useState([]);
   const [formImage, setFormImage] = useState('');
@@ -65,25 +65,20 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   }, [search, selectedCategory, showLowStockOnly, sortOrder]);
 
   useEffect(() => {
-    if (viewMode === 'auditLog' && !isReadOnly) {
+    if (viewMode === 'auditLog' && !isReadOnly && onFetchGlobalAuditLogs) {
       const fetchLogs = async () => {
         setIsLoadingGlobalLogs(true);
-        try {
-          const res = await fetch('/api/parts/adjustments/all', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken') || ''}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setGlobalAuditLogs(data);
-          }
-        } catch (e) {
-          console.error(e);
+        const { ok, adjustments } = await onFetchGlobalAuditLogs();
+        if (ok) {
+          setGlobalAuditLogs(adjustments);
+        } else {
+          setGlobalAuditLogs([]);
         }
         setIsLoadingGlobalLogs(false);
       };
       fetchLogs();
     }
-  }, [viewMode, isReadOnly]);
+  }, [viewMode, isReadOnly, onFetchGlobalAuditLogs]);
 
   useEffect(() => {
     const handleFilter = (e) => {
@@ -135,7 +130,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const handleRequestQuoteSubmit = (e) => {
     e.preventDefault();
     if (onAddLog && inquiryPart) {
-      onAddLog('system', `Quote request submitted by Customer for ${inquiryQty}x ${inquiryPart.name}.`);
+      onAddLog('system', `Inquiry submitted by Customer for ${inquiryQty}x ${inquiryPart.name}.`);
     }
     setInquirySuccess(true);
     setIsInquiryModalOpen(false);
@@ -679,7 +674,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                     <th className="px-4 py-3">Part Name</th>
                     <th className="px-4 py-3">SKU / OEM</th>
                     <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3 text-right">Price</th>
+                    <th className="px-4 py-3 text-right">Pricing (Retail / Cost)</th>
                     <th className="px-4 py-3 text-right">Stock</th>
                     <th className="px-4 py-3 text-center">Status</th>
                   </tr>
@@ -690,7 +685,8 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         key={part.id} 
                         part={part} 
                         openDetailsModal={openDetailsModal} 
-                        formatCurrency={formatCurrency} 
+                        formatCurrency={formatCurrency}
+                        formatBaseCurrency={formatBaseCurrency} 
                       />
                   ))}
                 </tbody>
@@ -702,8 +698,10 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 <PartCard 
                   key={part.id} 
                   part={part} 
+                  isAdmin={true}
                   isReadOnly={isReadOnly}
                   formatCurrency={formatCurrency}
+                  formatBaseCurrency={formatBaseCurrency}
                   openDetailsModal={openDetailsModal}
                   setInquiryPart={typeof setInquiryPart !== 'undefined' ? setInquiryPart : () => {}}
                   setInquiryQty={typeof setInquiryQty !== 'undefined' ? setInquiryQty : () => {}}
@@ -778,57 +776,74 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
             {/* Body */}
             {modalType === 'details' ? (
-              <div className="p-6 space-y-5">
-                <div className="space-y-1 bg-background p-4 rounded-xl border border-border flex items-center gap-4">
-                  <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border/10">
-                    {selectedPart?.image ? (
-                      <img src={selectedPart.image} alt={selectedPart.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <img src={getCategoryPlaceholder(selectedPart?.category)} alt={selectedPart?.name} className="w-full h-full object-cover opacity-80" />
+              <div className="p-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Left Column: Image + Description */}
+                  <div className="w-full md:w-2/5 flex flex-col gap-6">
+                    <div className="w-full aspect-square rounded-2xl overflow-hidden bg-secondary flex items-center justify-center border border-border/50 shadow-inner">
+                      {selectedPart?.image ? (
+                        <img src={selectedPart.image} alt={selectedPart.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={getCategoryPlaceholder(selectedPart?.category)} alt={selectedPart?.name} className="w-full h-full object-cover opacity-80" />
+                      )}
+                    </div>
+                    
+                    {selectedPart?.description && (
+                      <div className="space-y-2 bg-background/30 p-4 rounded-xl border border-border/30">
+                        <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-1.5"><Info weight="duotone" className="w-4 h-4" /> Technical Description</span>
+                        <p className="text-muted-foreground text-sm leading-relaxed">{selectedPart.description}</p>
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <span className="text-2xs font-bold text-brandBlue-400 uppercase tracking-widest">{selectedPart?.category}</span>
-                    <h2 className="text-lg font-bold text-foreground font-display leading-tight">{selectedPart?.name}</h2>
+
+                  {/* Right Column: Details */}
+                  <div className="w-full md:w-3/5 flex flex-col space-y-5">
+                    <div>
+                      {(() => {
+                        const { icon: CatIcon, color: catColor, bg: catBg } = getCategoryStyles(selectedPart?.category);
+                        const ActualIcon = CatIcon || Package;
+                        return (
+                          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3 border border-border/50 ${catBg || 'bg-slate-800/10'}`}>
+                            <ActualIcon weight="duotone" className={`w-4 h-4 ${catColor || 'text-slate-400'}`} />
+                            <span className={`text-xs font-bold ${catColor || 'text-slate-400'}`}>{selectedPart?.category || 'Uncategorized'}</span>
+                          </div>
+                        );
+                      })()}
+                      <h2 className="text-2xl font-bold text-foreground font-display leading-tight">{selectedPart?.name}</h2>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-5 bg-background/50 p-5 rounded-2xl border border-border/50 shadow-sm">
+                      <div className="min-w-0">
+                        <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><Tag weight="fill" className="text-brandBlue-400" /> SKU / Code</span>
+                        <p className="font-mono font-bold text-foreground mt-1 text-sm break-all" title={selectedPart?.sku}>{selectedPart?.sku}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><Wrench weight="fill" className="text-emerald-500" /> OEM Part No.</span>
+                        <p className="font-mono font-bold text-foreground mt-1 text-sm break-all" title={selectedPart?.oem}>{selectedPart?.oem}</p>
+                      </div>
+                      
+                      <div className="mt-2 min-w-0">
+                        <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><CurrencyDollar weight="fill" className="text-amber-500" /> Unit Retail Price</span>
+                        <p className="font-extrabold text-xl sm:text-lg lg:text-xl text-foreground mt-1 break-words" title={formatCurrency(selectedPart?.price || 0)}>{formatCurrency(selectedPart?.price || 0)}</p>
+                      </div>
+                      <div className="mt-2 min-w-0">
+                        <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><Package weight="fill" className="text-indigo-400" /> Inventory Qty</span>
+                        <p className={`font-extrabold text-xl mt-1 break-words ${selectedPart?.stock <= selectedPart?.minStock ? 'text-red-500' : 'text-emerald-400'}`}>
+                          {selectedPart?.stock} <span className="text-xs font-medium text-muted-foreground uppercase ml-1">units</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedPart?.compatibility && (
+                      <div className="space-y-1.5 bg-background/50 p-5 rounded-2xl border border-border/50 shadow-sm">
+                        <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <Truck weight="duotone" className="w-4 h-4 text-red-500" /> Compatible Models
+                        </span>
+                        <p className="text-foreground text-sm leading-relaxed font-medium">{selectedPart.compatibility}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 bg-background p-4 rounded-xl border border-border">
-                  <div>
-                    <span className="text-xs text-muted-foreground uppercase">SKU / Warehouse Stock Code</span>
-                    <p className="font-mono font-bold text-muted-foreground mt-0.5">{selectedPart?.sku}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground uppercase">OEM Part Identification</span>
-                    <p className="font-mono font-bold text-muted-foreground mt-0.5">{selectedPart?.oem}</p>
-                  </div>
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground uppercase">Unit Retail Price</span>
-                    <p className="font-semibold text-lg text-foreground mt-0.5">{formatCurrency(selectedPart?.price || 0)}</p>
-                  </div>
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground uppercase">Inventory Quantity</span>
-                    <p className={`font-extrabold text-lg mt-0.5 ${selectedPart?.stock <= selectedPart?.minStock ? 'text-red-500' : 'text-emerald-400'}`}>
-                      {selectedPart?.stock} units (min: {selectedPart?.minStock})
-                    </p>
-                  </div>
-                </div>
-
-                {selectedPart?.compatibility && (
-                  <div className="space-y-1 bg-background p-4 rounded-xl border border-border">
-                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1.5">
-                      <Truck weight="duotone" className="w-4 h-4 text-red-500" /> Compatible Models
-                    </span>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{selectedPart.compatibility}</p>
-                  </div>
-                )}
-
-                {selectedPart?.description && (
-                  <div className="space-y-1.5">
-                    <span className="text-xs text-muted-foreground uppercase font-semibold">Technical Description</span>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{selectedPart.description}</p>
-                  </div>
-                )}
 
                 {/* Inventory Adjustment History Log */}
                 {!isReadOnly && (
@@ -1324,7 +1339,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
             <div className="space-y-2">
               <h3 className="text-lg font-bold text-foreground font-display">Inquiry Received!</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Quote request submitted successfully. The warehouse team will email or call you regarding **{inquiryPart.name}**.
+                Inquiry submitted successfully. The warehouse team will email or call you regarding **{inquiryPart.name}**.
               </p>
             </div>
 
