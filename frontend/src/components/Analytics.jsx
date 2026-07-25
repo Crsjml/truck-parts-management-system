@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package } from '@phosphor-icons/react';
+import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../supabaseClient';
 
 export default function Analytics({ parts, transactions }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
+  const [ledgerPage, setLedgerPage] = useState(1);
   const [zoomedChart, setZoomedChart] = useState(null); // 'bar' | 'pie' | null
   const [localTransactions, setLocalTransactions] = useState(transactions);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   // Sync with props if transactions change from App.jsx
   React.useEffect(() => {
@@ -20,16 +23,22 @@ export default function Analytics({ parts, transactions }) {
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+
       const response = await fetch(`/api/transactions/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken') || ''}` // Use admin token if available
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ status: newStatus })
       });
       if (response.ok) {
         setLocalTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, status: newStatus } : tx));
+        if (selectedInvoice?.id === id) {
+          setSelectedInvoice(prev => ({ ...prev, status: newStatus }));
+        }
       } else {
         console.error('Failed to update status');
         alert('Failed to update status. Please try again.');
@@ -51,6 +60,24 @@ export default function Analytics({ parts, transactions }) {
     if (classStr.includes('indigo') || classStr.includes('purple') || classStr.includes('violet')) return '#8b5cf6';
     if (classStr.includes('pink')) return '#ec4899';
     return '#94a3b8'; // slate/gray fallback
+  };
+
+  const getStatusIcon = (status) => {
+    switch(status) {
+      case 'Completed': return CheckCircle;
+      case 'Ready for Pickup': return Truck;
+      case 'Cancelled': return X;
+      default: return Clock;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'Completed': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+      case 'Ready for Pickup': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
+      case 'Cancelled': return 'text-red-500 bg-red-500/10 border-red-500/20';
+      default: return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+    }
   };
 
   // Computations
@@ -75,7 +102,7 @@ export default function Analytics({ parts, transactions }) {
     .map(([name, qty]) => {
       const partObj = parts.find(p => p.name === name || (name.endsWith('...') && p.name.startsWith(name.slice(0, -3))));
       return {
-        name: name.length > 20 ? name.substring(0, 20) + '...' : name,
+        name: name,
         fullName: name,
         category: partObj ? partObj.category : 'Uncategorized',
         quantity: qty
@@ -90,27 +117,16 @@ export default function Analytics({ parts, transactions }) {
     const IconProps = getCategoryIconAndColor(item?.category);
     const IconComponent = IconProps?.icon || Package;
     
-    // Split long names into two lines
     const name = payload.value || '';
-    let line1 = name;
-    let line2 = '';
-    
-    if (name.length > 15 && name.includes(' ')) {
-      const splitIndex = name.lastIndexOf(' ', 15);
-      if (splitIndex !== -1) {
-        line1 = name.substring(0, splitIndex);
-        line2 = name.substring(splitIndex + 1);
-      }
-    }
     
     return (
       <g transform={`translate(${x},${y})`}>
-        <foreignObject x="-200" y={line2 ? "-16" : "-12"} width="195" height="32">
+        <foreignObject x="-220" y="-18" width="215" height="36">
           <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
-            <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color}`} />
+            <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color || 'text-muted-foreground'}`} />
             <div className="flex flex-col items-end leading-tight text-right w-full overflow-hidden">
-              <span className="text-11px text-slate-300 font-medium break-words whitespace-normal w-full" title={item?.fullName || name} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                {line1}
+              <span className="text-[11px] text-foreground font-medium break-words whitespace-normal w-full text-right" title={name} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                {name}
               </span>
             </div>
           </div>
@@ -407,7 +423,10 @@ export default function Analytics({ parts, transactions }) {
               type="text" 
               placeholder="Search invoice or customer..."
               value={searchInvoice}
-              onChange={(e) => setSearchInvoice(e.target.value)}
+              onChange={(e) => {
+                setSearchInvoice(e.target.value);
+                setLedgerPage(1);
+              }}
               className="w-full bg-background border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-red-600 transition-all text-foreground"
             />
           </div>
@@ -430,54 +449,101 @@ export default function Analytics({ parts, transactions }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {filteredTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-secondary transition-colors">
-                    <td className="py-3 px-3 font-semibold text-red-500">{tx.invoiceNumber}</td>
-                    <td className="py-3 px-3 text-muted-foreground">
-                      {new Date(tx.transactionDate).toLocaleDateString(undefined, { 
-                        year: 'numeric', 
-                        month: 'short', 
-                        day: 'numeric' 
-                      })}
-                    </td>
-                    <td className="py-3 px-3 font-medium text-foreground">{tx.customerName}</td>
-                    <td className="py-3 px-3 text-center text-muted-foreground">
-                      {tx.items.reduce((s, i) => s + i.quantity, 0)} items
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-foreground">
-                      {formatCurrency(tx.total)}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <select 
-                        value={tx.status || 'Pending'}
-                        onChange={(e) => handleStatusUpdate(tx.id, e.target.value)}
-                        className={`text-xs font-bold rounded-md px-2 py-1 border outline-none cursor-pointer appearance-none text-center
-                          ${(!tx.status || tx.status === 'Pending') ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
-                            tx.status === 'In Transit' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
-                            'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}
-                        `}
-                      >
-                        <option value="Pending" className="bg-background text-foreground">Pending</option>
-                        <option value="In Transit" className="bg-background text-foreground">In Transit</option>
-                        <option value="Completed" className="bg-background text-foreground">Completed</option>
-                      </select>
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button 
-                        onClick={() => handleDownloadPDF(tx)}
-                        className="p-1 px-2.5 bg-slate-850 hover:bg-secondary text-muted-foreground hover:text-foreground rounded border border-border transition-colors inline-flex items-center gap-1 font-semibold"
-                        title="Download Invoice PDF"
-                      >
-                        <Download weight="duotone" className="w-3 h-3" /> PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {(() => {
+                  const itemsPerPage = 5;
+                  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+                  const paginatedTransactions = filteredTransactions.slice(
+                    (ledgerPage - 1) * itemsPerPage,
+                    ledgerPage * itemsPerPage
+                  );
+                  return (
+                    <>
+                      {paginatedTransactions.map((tx) => (
+                        <tr 
+                          key={tx.id} 
+                          className="hover:bg-secondary transition-colors cursor-pointer"
+                          onDoubleClick={() => setSelectedInvoice(tx)}
+                          title="Double-click to view details"
+                        >
+                          <td className="py-3 px-3 font-semibold text-red-500">{tx.invoiceNumber}</td>
+                          <td className="py-3 px-3 text-muted-foreground">
+                            {new Date(tx.transactionDate).toLocaleDateString(undefined, { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </td>
+                          <td className="py-3 px-3 font-medium text-foreground">{tx.customerName}</td>
+                          <td className="py-3 px-3 text-center text-muted-foreground">
+                            {tx.items.reduce((s, i) => s + i.quantity, 0)} items
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold text-foreground">
+                            {formatCurrency(tx.total)}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="relative inline-flex items-center group cursor-pointer" title="Click to change order status">
+                              <select 
+                                value={tx.status || 'Order Placed'}
+                                onChange={(e) => handleStatusUpdate(tx.id, e.target.value)}
+                                className={`text-xs pl-3 pr-8 py-1.5 rounded-md border appearance-none outline-none text-left cursor-pointer font-bold transition-all shadow-sm group-hover:shadow focus-visible:ring-2 focus-visible:ring-accent
+                                  ${tx.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 group-hover:border-emerald-500/40' : 
+                                    tx.status === 'Ready for Pickup' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 group-hover:border-blue-500/40' : 
+                                    tx.status === 'Cancelled' ? 'bg-red-500/10 text-red-500 border-red-500/20 group-hover:border-red-500/40' : 
+                                    'bg-amber-500/10 text-amber-500 border-amber-500/20 group-hover:border-amber-500/40'}`}
+                              >
+                                <option value="Order Placed" className="bg-background text-foreground font-medium">ORDER_PLACED</option>
+                                <option value="Ready for Pickup" className="bg-background text-foreground font-medium">Ready for Pickup</option>
+                                <option value="Completed" className="bg-background text-foreground font-medium">Completed</option>
+                                <option value="Cancelled" className="bg-background text-foreground font-medium">Cancelled</option>
+                              </select>
+                              <CaretDown weight="bold" className="w-3.5 h-3.5 absolute right-2.5 pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button 
+                              onClick={() => handleDownloadPDF(tx)}
+                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all mx-auto"
+                              title="Download Invoice"
+                            >
+                              <Download weight="duotone" className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })()}
               </tbody>
             </table>
           )}
         </div>
+        
+        {/* Pagination Controls */}
+        {filteredTransactions.length > 5 && (
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">
+              Showing {((ledgerPage - 1) * 5) + 1} to {Math.min(ledgerPage * 5, filteredTransactions.length)} of {filteredTransactions.length} entries
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                disabled={ledgerPage === 1}
+                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all text-foreground"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setLedgerPage(p => Math.min(Math.ceil(filteredTransactions.length / 5), p + 1))}
+                disabled={ledgerPage >= Math.ceil(filteredTransactions.length / 5)}
+                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all text-foreground"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
       {/* ZOOM MODAL */}
       <AnimatePresence>
         {zoomedChart && (
@@ -567,6 +633,126 @@ export default function Analytics({ parts, transactions }) {
                   )}
                 </ResponsiveContainer>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SELECTED INVOICE SIDE-DRAWER */}
+      <AnimatePresence>
+        {selectedInvoice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm"
+          >
+            {/* Backdrop click to close */}
+            <div className="absolute inset-0" onClick={() => setSelectedInvoice(null)} />
+            
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="w-full max-w-2xl bg-secondary h-full border-l border-border shadow-2xl flex flex-col relative z-10"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-background shrink-0">
+                <div>
+                  <h3 className="text-xl font-bold text-foreground font-display flex items-center gap-2">
+                    <Receipt className="w-6 h-6 text-accent" />
+                    Invoice {selectedInvoice.invoiceNumber}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {new Date(selectedInvoice.transactionDate).toLocaleString(undefined, { 
+                      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedInvoice(null)} 
+                  className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-full transition-all bg-background border border-border hover:border-muted-foreground/30 shadow-sm"
+                >
+                  <X weight="bold" className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-background custom-scrollbar">
+                
+                {/* Status & Customer Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Customer Card */}
+                  <div className="bg-secondary/50 rounded-xl p-5 border border-border/50">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Customer Details</p>
+                    <p className="font-bold text-foreground text-lg">{selectedInvoice.customerName}</p>
+                    <p className="text-sm text-muted-foreground">ID: {selectedInvoice.userId}</p>
+                  </div>
+
+                  {/* Status Card */}
+                  <div className={`rounded-xl p-5 border ${getStatusColor(selectedInvoice.status)}`}>
+                    <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-2">Order Status</p>
+                    <div className="flex items-center gap-3">
+                      {React.createElement(getStatusIcon(selectedInvoice.status), { weight: 'fill', className: 'w-8 h-8' })}
+                      <div className="flex-1 relative group cursor-pointer" title="Click to change status">
+                        <select 
+                          value={selectedInvoice.status || 'Order Placed'}
+                          onChange={(e) => handleStatusUpdate(selectedInvoice.id, e.target.value)}
+                          className="w-full appearance-none bg-transparent font-bold text-xl outline-none cursor-pointer"
+                        >
+                          <option value="Order Placed" className="bg-background text-foreground text-base">ORDER_PLACED</option>
+                          <option value="Ready for Pickup" className="bg-background text-foreground text-base">Ready for Pickup</option>
+                          <option value="Completed" className="bg-background text-foreground text-base">Completed</option>
+                          <option value="Cancelled" className="bg-background text-foreground text-base">Cancelled</option>
+                        </select>
+                        <CaretDown weight="bold" className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Line Items */}
+                <div>
+                  <h4 className="font-bold text-foreground mb-4 text-lg border-b border-border/50 pb-2">Line Items</h4>
+                  <div className="space-y-3">
+                    {selectedInvoice.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 border border-border/50 hover:bg-secondary/50 transition-colors">
+                        <div className="w-12 h-12 rounded-lg bg-background border border-border/50 flex items-center justify-center shrink-0">
+                          <Package className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">SKU: {item.sku || 'N/A'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">{formatCurrency(item.price * item.quantity)}</p>
+                          <p className="text-xs text-muted-foreground">{item.quantity} × {formatCurrency(item.price)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div className="bg-secondary/50 rounded-xl p-5 border border-border/50 flex justify-between items-center">
+                  <span className="text-muted-foreground font-semibold uppercase tracking-wider text-sm">Total Amount</span>
+                  <span className="text-2xl font-bold text-accent">{formatCurrency(selectedInvoice.total)}</span>
+                </div>
+              </div>
+              
+              {/* Footer Actions */}
+              <div className="p-4 border-t border-border bg-background shrink-0">
+                <button 
+                  onClick={() => handleDownloadPDF(selectedInvoice)}
+                  className="w-full py-3 bg-brandBlue-600 hover:bg-brandBlue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all hover:shadow-lg shadow-brandBlue-500/20"
+                >
+                  <Download weight="bold" className="w-5 h-5" />
+                  Download PDF Invoice
+                </button>
+              </div>
+
             </motion.div>
           </motion.div>
         )}

@@ -59,7 +59,7 @@ router.post('/check', async (req, res) => {
     });
 
     if (!staff) {
-      return res.status(404).json({ msg: 'Not authorized as staff' });
+      return res.status(200).json({ authorized: false, msg: 'Not authorized as staff' });
     }
     
     res.json({
