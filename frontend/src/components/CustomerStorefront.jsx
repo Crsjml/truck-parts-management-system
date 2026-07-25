@@ -704,7 +704,7 @@ export default function CustomerStorefront({
                 <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent/10 text-accent dark:bg-accent/20 dark:text-red-300">
                   {(() => {
                     const cat = nestedCategories.find(c => c.name === selectedPart.category);
-                    const { icon: DetailIcon } = getCategoryIconAndColor(selectedPart.category, cat?.iconName, cat?.colorTheme);
+                    const { Icon: DetailIcon } = getCategoryIconAndColor(selectedPart.category, cat?.iconName, cat?.colorTheme);
                     return DetailIcon ? <DetailIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />;
                   })()}
                 </div>
@@ -787,7 +787,7 @@ export default function CustomerStorefront({
                                 <tr key={idx} className="hover:bg-background/50 transition-colors">
                                   <td className="px-4 py-3 font-medium text-foreground">{comp.brand || 'Universal'}</td>
                                   <td className="px-4 py-3 text-muted-foreground break-all">{comp.series || 'All Models'}</td>
-                                  <td className="px-4 py-3 text-muted-foreground">{comp.year || 'Any'}</td>
+                                  <td className="px-4 py-3 text-muted-foreground">{comp.years || comp.year || 'Any'}</td>
                                 </tr>
                               ))
                             ) : selectedPart.compatibility ? (
@@ -824,7 +824,16 @@ export default function CustomerStorefront({
                       </div>
                       <div className="col-span-2 rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Category</span>
-                        <span className="text-[11px] leading-tight font-bold text-foreground line-clamp-2">{selectedPart.category}</span>
+                        {(() => {
+                          const cat = nestedCategories.find(c => c.name === selectedPart.category);
+                          const { Icon: CatIcon, color: catColor } = getCategoryIconAndColor(selectedPart.category, cat?.iconName, cat?.colorTheme);
+                          return (
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold w-fit ${catColor}`}>
+                              {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5 shrink-0" />}
+                              <span className="line-clamp-1">{selectedPart.category}</span>
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
