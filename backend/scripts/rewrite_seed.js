@@ -243,7 +243,7 @@ async function main() {
         subtotal,
         taxAmount,
         total: subtotal + taxAmount,
-        status: faker.helpers.arrayElement(["Pending", "In Transit", "Completed"]),
+        status: faker.helpers.arrayElement(["ORDER_PLACED", "READY_FOR_PICKUP", "COMPLETED"]),
         transactionDate: faker.date.recent({ days: 30 }),
         items: { create: items }
       }
@@ -275,7 +275,7 @@ async function main() {
   }
 
   // Create Purchase Orders (Admin B2B Purchasing Module)
-  const poStatuses = ['Draft', 'RFQ Sent', 'Acknowledged', 'In Transit', 'Completed', 'Delayed'];
+  const poStatuses = ['Draft', 'RFQ Sent', 'Acknowledged', 'Ready for Pickup', 'Completed', 'Delayed'];
   for (let i = 0; i < 40; i++) {
     const supplier = faker.helpers.arrayElement(suppliers);
     const orderParts = faker.helpers.arrayElements(parts, faker.number.int({ min: 2, max: 10 }));
