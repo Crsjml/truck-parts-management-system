@@ -8,6 +8,13 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum OrderStatus {
+  ORDER_PLACED     @map("Order Placed")
+  READY_FOR_PICKUP @map("Ready for Pickup")
+  COMPLETED        @map("Completed")
+  CANCELLED        @map("Cancelled")
+}
+
 model Category {
   id               String     @id @default(uuid()) @db.Uuid
   name             String     @unique
@@ -133,7 +140,7 @@ model Transaction {
   subtotal        Float
   taxAmount       Float
   total           Float
-  status          String   @default("Pending")
+  status          OrderStatus @default(ORDER_PLACED)
   transactionDate DateTime @default(now())
 
   items TransactionItem[]
