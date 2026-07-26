@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createReview } from '../authStore';
+import OrderCard from './OrderCard';
 
 export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder }) {
   const { formatCurrency, displayCurrency } = useSettings();
@@ -201,286 +202,25 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
           <h3 className="text-2xl font-display font-bold text-foreground mb-3">No {activeTab !== 'All' ? activeTab.toLowerCase() : ''} records found</h3>
           <p className="text-sm text-muted-foreground max-w-sm">Submitting a quote request or placing an order will generate a record here.</p>
         </div>
-      ) : activeTab === 'All' ? (
-        // BENTO ARCHITECTURE GRID (For Dashboard View)
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Active Order Card: 2fr */}
-          <div className="lg:col-span-8 flex flex-col">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Active Order Breakdown</h3>
-            {featuredOrder ? (
-               <div className="rounded-[2rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-8 shadow-sm flex-1 flex flex-col group transition-colors hover:border-accent/30">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
-                     <div className="flex items-center gap-4">
-                       <div className="w-14 h-14 rounded-2xl bg-background border border-border/50 flex items-center justify-center shadow-sm relative overflow-hidden">
-                          <Receipt weight="duotone" className="w-7 h-7 text-foreground relative z-10" />
-                          {featuredOrder.status !== 'Completed' && (
-                             <motion.div
-                               animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                               className="absolute inset-0 bg-accent/20 pointer-events-none"
-                             />
-                          )}
-                       </div>
-                       <div>
-                         <h4 className="text-2xl font-bold text-foreground font-mono">{featuredOrder.invoiceNumber}</h4>
-                         <p className="text-xs font-medium text-muted-foreground">
-                           {new Date(featuredOrder.transactionDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                         </p>
-                       </div>
-                     </div>
-                     <div className="text-left sm:text-right">
-                        <div className="flex items-center gap-2 sm:justify-end mb-1">
-                          {featuredOrder.status !== 'Completed' && (
-                            <span className="relative flex h-2.5 w-2.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent"></span>
-                            </span>
-                          )}
-                          <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(featuredOrder.status)}`}>
-                            {featuredOrder.status}
-                          </span>
-                        </div>
-                        <p className="text-3xl font-black text-foreground font-mono tracking-tight">{formatCurrency(featuredOrder.total)}</p>
-                     </div>
-                  </div>
-
-                  {/* Order Status Timeline */}
-                  <div className="mb-8 p-6 rounded-3xl bg-background/50 border border-border/50 relative">
-                    <div className="absolute top-1/2 left-[10%] right-[10%] h-1 bg-secondary -translate-y-1/2 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ 
-                          width: featuredOrder.status === 'COMPLETED' ? '100%' : 
-                                 featuredOrder.status === 'READY_FOR_PICKUP' ? '50%' : '10%' 
-                        }}
-                        transition={{ duration: 1, ease: 'easeOut' }}
-                        className="h-full bg-accent"
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between relative z-10">
-                      {[
-                        { label: 'Order Placed', statusMatch: 'ORDER_PLACED', icon: ClipboardText },
-                        { label: 'Ready for Pickup', statusMatch: 'READY_FOR_PICKUP', icon: Truck },
-                        { label: 'Completed', statusMatch: 'COMPLETED', icon: CheckCircle }
-                      ].map((step, idx) => {
-                        const isActive = 
-                          featuredOrder.status === 'COMPLETED' || 
-                          (featuredOrder.status === 'READY_FOR_PICKUP' && idx <= 1) ||
-                          (featuredOrder.status === 'ORDER_PLACED' && idx === 0);
-                        
-                        return (
-                          <div key={step.label} className="flex flex-col items-center gap-2">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors duration-500 border-4 border-background ${isActive ? 'bg-accent text-background' : 'bg-secondary text-muted-foreground'}`}>
-                              <step.icon weight={isActive ? "fill" : "duotone"} className="w-5 h-5" />
-                            </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {step.label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 bg-background/50 rounded-3xl p-6 border border-border/50 flex flex-col">
-                     <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4 border-b border-border/50 pb-2 flex items-center justify-between">
-                       <span>Line Items ({featuredOrder.items.length})</span>
-                       <div className="flex items-center gap-2">
-                         {featuredOrder.status === 'COMPLETED' && onReorder && (
-                           <button 
-                             onClick={(e) => { e.stopPropagation(); onReorder(featuredOrder); }} 
-                             aria-label="Order Again" 
-                             className="text-foreground hover:text-accent flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md px-2"
-                           >
-                             <ShoppingCart weight="bold" /> Order Again
-                           </button>
-                         )}
-                         <button 
-                           onClick={(e) => handleDownloadPDF(featuredOrder, e)} 
-                           aria-label="Download PDF Invoice" 
-                           className="text-foreground hover:text-accent flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md px-2"
-                         >
-                           <Download weight="bold" /> PDF
-                         </button>
-                       </div>
-                    </h5>
-                    <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                      {featuredOrder.items.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between gap-4 p-3 rounded-2xl hover:bg-secondary transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center shrink-0">
-                              <Package weight="duotone" className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-foreground line-clamp-1">{item.name}</p>
-                              <p className="text-[11px] font-medium text-muted-foreground mt-0.5 font-mono">Qty: {item.quantity}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 shrink-0">
-                            {featuredOrder.status === 'COMPLETED' && (
-                              <button 
-                                onClick={() => setReviewModal({ isOpen: true, partId: item.partId || item.id, partName: item.name })}
-                                className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-[11px] font-bold rounded-lg transition-colors border border-accent/20"
-                              >
-                                Leave Review
-                              </button>
-                            )}
-                            <p className="text-sm font-bold text-foreground font-mono">{formatCurrency(item.price * item.quantity)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-               </div>
-            ) : (
-               <div className="flex-1 rounded-[2rem] border border-border/50 bg-secondary/80 flex items-center justify-center text-muted-foreground text-sm font-bold p-8 text-center">
-                 No active orders to track right now.
-               </div>
-            )}
-          </div>
-
-          {/* Historical Orders List: 1fr */}
-          <div className="lg:col-span-4 flex flex-col">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Past Orders</h3>
-            <div className="flex-1 rounded-[2rem] border border-border/50 bg-secondary/80 backdrop-blur-xl p-6 shadow-sm overflow-hidden flex flex-col">
-               <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar max-h-[480px]">
-                 {historicalOrders.length > 0 ? historicalOrders.map(tx => (
-                   <button 
-                     key={tx.id || tx.id} 
-                     onClick={(e) => handleDownloadPDF(tx, e)}
-                     aria-label={`Download historical order ${tx.invoiceNumber}`}
-                     className="w-full text-left p-4 rounded-2xl border border-border bg-background/50 hover:bg-background hover:border-accent/40 transition-all group flex flex-col gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                   >
-                     <div className="flex justify-between items-center w-full">
-                       <span className="text-sm font-bold font-mono text-foreground group-hover:text-accent transition-colors">{tx.invoiceNumber}</span>
-                       <Download weight="bold" className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
-                     </div>
-                     <div className="flex justify-between items-center w-full">
-                       <span className="text-[11px] font-medium text-muted-foreground">
-                         {new Date(tx.transactionDate).toLocaleDateString()}
-                       </span>
-                       <span className="text-xs font-bold font-mono text-foreground">{formatCurrency(tx.total)}</span>
-                     </div>
-                   </button>
-                 )) : (
-                   <div className="h-full flex items-center justify-center">
-                     <p className="text-sm text-muted-foreground text-center font-medium">No past orders yet.</p>
-                   </div>
-                 )}
-               </div>
-            </div>
-          </div>
-        </div>
       ) : (
-        // Standard List View for specific tabs
-        <div className="space-y-4">
-          {filteredTx.map((tx) => (
-            <div key={tx.id || tx.id} className={`rounded-[2rem] border transition-all duration-500 ease-spring-physics bg-secondary/80 backdrop-blur-xl shadow-sm overflow-hidden ${expandedRow === tx.id ? 'border-accent/50 shadow-2xl scale-[1.01]' : 'border-border/50 hover:border-accent/30 hover:shadow-xl hover:-translate-y-1'}`}>
-              
-              {/* Order Header (Always visible) */}
-              <div 
-                onClick={() => setExpandedRow(expandedRow === tx.id ? null : tx.id)}
-                className="p-6 sm:p-8 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-6 group"
-                role="button"
-                tabIndex={0}
-                aria-expanded={expandedRow === tx.id}
-                aria-label={`Toggle details for order ${tx.invoiceNumber}`}
-                onKeyDown={(e) => e.key === 'Enter' && setExpandedRow(expandedRow === tx.id ? null : tx.id)}
-              >
-                <div className="flex items-center gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform relative overflow-hidden">
-                    <Receipt weight="duotone" className="w-7 h-7 text-muted-foreground relative z-10" />
-                    {tx.status !== 'COMPLETED' && (
-                       <motion.div
-                         animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
-                         transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                         className="absolute inset-0 bg-accent/10 pointer-events-none"
-                       />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3 mb-1.5">
-                      <h4 className="text-lg font-bold text-foreground font-mono">{tx.invoiceNumber}</h4>
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${getStatusColor(tx.status)}`}>
-                        {tx.status !== 'COMPLETED' && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
-                        {tx.status}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {new Date(tx.transactionDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                  <div className="flex items-center gap-6 sm:gap-8 border-t sm:border-t-0 border-border/50 pt-4 sm:pt-0">
-                  <div className="flex items-center gap-2">
-                    {tx.status === 'COMPLETED' && onReorder && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onReorder(tx); }}
-                        className="p-3 rounded-xl bg-background border border-border text-foreground hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all shadow-sm group-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent flex items-center gap-2"
-                        aria-label="Order Again"
-                        title="Order Again"
-                      >
-                        <ShoppingCart weight="bold" className="w-5 h-5" />
-                        <span className="hidden sm:inline text-sm font-bold">Order Again</span>
-                      </button>
-                    )}
-                    <button 
-                      onClick={(e) => handleDownloadPDF(tx, e)}
-                      className="p-3 rounded-xl bg-background border border-border text-foreground hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm group-hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                      aria-label="Download Invoice"
-                      title="Download Invoice"
-                    >
-                      <Download weight="bold" className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <CaretDown weight="bold" className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${expandedRow === tx.id ? 'rotate-180 text-foreground' : ''}`} />
-                </div>
-              </div>
-
-              {/* Order Details (Expandable) */}
-              <AnimatePresence>
-                {expandedRow === tx.id && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="border-t border-border/50 bg-background/50 overflow-hidden"
-                  >
-                    <div className="p-6 sm:p-8">
-                      {/* Items List */}
-                      <div>
-                        <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-4 border-b border-border/50 pb-2">Items in this order ({tx.items.length})</h5>
-                        <div className="space-y-3">
-                          {tx.items.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between gap-4 p-3 rounded-xl hover:bg-secondary/50 transition-colors">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center shrink-0">
-                                  <Package weight="duotone" className="w-5 h-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-bold text-foreground line-clamp-1">{item.name}</p>
-                                  <p className="text-[11px] font-medium text-muted-foreground mt-0.5 font-mono">Qty: {item.quantity}</p>
-                                </div>
-                              </div>
-                              <p className="text-sm font-medium text-foreground shrink-0 font-mono">{formatCurrency(item.price * item.quantity)}</p>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Footer Total */}
-                        <div className="mt-6 pt-6 border-t border-border/50 flex justify-between items-center bg-secondary/30 -mx-6 -mb-6 p-6 sm:px-8">
-                          <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Order Total</span>
-                          <span className="text-2xl font-black text-foreground font-mono">{formatCurrency(tx.total)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredTx.map(tx => (
+            <OrderCard
+              key={tx.id || tx.invoiceNumber}
+              transaction={tx}
+              displayCurrency={displayCurrency}
+              formatCurrency={formatCurrency}
+              onDownloadPDF={(txn) => handleDownloadPDF(txn, null)}
+              onReview={(partId, partName) => {
+                setReviewModal({ isOpen: true, partId, partName });
+              }}
+              onReorder={(items) => {
+                if (onReorder) {
+                  const reorderPayload = Array.isArray(items) ? { items } : items;
+                  onReorder(reorderPayload);
+                }
+              }}
+            />
           ))}
         </div>
       )}
