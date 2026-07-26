@@ -29,7 +29,6 @@ vi.mock('../context/SettingsContext', () => ({
 const mockParts = [
   {
     _id: '1',
-    _id: '1',
     name: 'Brake Pad Set',
     sku: 'BRK-1',
     oem: '',
@@ -41,7 +40,6 @@ const mockParts = [
     compatibleWith: [{ brand: 'Isuzu', series: 'ELF' }]
   },
   {
-    _id: '2',
     _id: '2',
     name: 'Oil Filter',
     sku: 'OIL-1',
