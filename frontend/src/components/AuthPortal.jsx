@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell, User, Phone, EnvelopeSimple, Eye, EyeSlash } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Warning, Bell, User, Phone, EnvelopeSimple, Eye, EyeSlash } from '@phosphor-icons/react';
 import Logo from './Logo';
 import GoogleSignInButton from './GoogleSignInButton';
 
@@ -18,7 +18,6 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('Valid email is required'),
   password: z.string().min(1, 'Password is required'),
-  rememberMe: z.boolean().optional(),
 });
 
 const customerRegisterDefaults = {
@@ -30,8 +29,7 @@ const customerRegisterDefaults = {
 
 const customerLoginDefaults = {
   email: '',
-  password: '',
-  rememberMe: true
+  password: ''
 };
 
 export default function AuthPortal({
@@ -121,15 +119,18 @@ export default function AuthPortal({
   const [registerPasswordValue, setRegisterPasswordValue] = useState('');
 
   // ponytail: simple weighted checklist, not a real entropy estimate — good enough for UI feedback
-  const getPasswordStrength = (password) => {
-    const requirements = [
-      { label: 'At least 8 characters', met: password.length >= 8 },
-      { label: 'Contains a number', met: /\d/.test(password) },
-      { label: 'Contains an uppercase letter or symbol', met: /[A-Z]|[^A-Za-z0-9]/.test(password) },
-    ];
-    const metCount = requirements.filter((r) => r.met).length;
-    const levels = ['Weak', 'Fair', 'Good', 'Strong'];
-    return { requirements, metCount, label: levels[metCount], percent: (metCount / requirements.length) * 100 };
+  const getPasswordStrength = (pass) => {
+    if (!pass) return { score: 0, label: '', color: 'bg-secondary', text: 'text-muted-foreground', metCount: 0 };
+    const met = {
+      length: pass.length >= 8,
+      number: /\d/.test(pass),
+      special: /[A-Z!@#$%^&*(),.?":{}|<>]/.test(pass),
+    };
+    const metCount = Object.values(met).filter(Boolean).length;
+    // ponytail: simple 3-tier heuristic (1/2/3 criteria met). Replaced heavy zxcvbn library to save bundle size.
+    if (metCount <= 1) return { score: 1, label: 'Weak', color: 'bg-red-500', text: 'text-red-400', metCount, percent: 33 };
+    if (metCount === 2) return { score: 2, label: 'Good', color: 'bg-amber-500', text: 'text-amber-400', metCount, percent: 66 };
+    return { score: 3, label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-400', metCount, percent: 100 };
   };
 
   useEffect(() => {
@@ -337,16 +338,12 @@ export default function AuthPortal({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 lg:p-12 relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.06),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.06),_transparent_35%),linear-gradient(160deg,_rgba(248,250,252,1),_rgba(241,245,249,1))] dark:bg-[radial-gradient(circle_at_top_left,_rgba(220,38,38,0.15),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(37,99,235,0.15),_transparent_35%),linear-gradient(160deg,_rgba(9,15,30,1),_rgba(2,6,23,1))] text-foreground font-sans">
-      {/* Visual background ambient details */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600/5 rounded-full filter blur-[100px] animate-pulse pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brandBlue-600/5 rounded-full filter blur-[100px] animate-pulse pointer-events-none" />
-
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 lg:p-12 relative overflow-hidden bg-dot-[#00000020] dark:bg-dot-[#ffffff20] text-foreground font-sans">
       {/* Main Glass Container */}
       <div className="w-full max-w-5xl rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-slate-100/40 dark:bg-slate-900/30 backdrop-blur-2xl shadow-2xl flex flex-col lg:flex-row overflow-hidden min-h-[550px] animate-scaleUp">
         
         {/* Left Side: Brand Panel */}
-        <section className="relative flex lg:w-[45%] flex-col justify-between overflow-hidden p-6 lg:p-8 bg-gradient-to-b from-slate-200/30 to-slate-100/10 dark:from-slate-950/40 dark:to-slate-950/20 border-b lg:border-b-0 lg:border-r border-slate-200/50 dark:border-white/5">
+        <section className="relative flex lg:w-[45%] flex-col justify-between overflow-hidden p-6 lg:p-8 border-b lg:border-b-0 lg:border-r border-slate-200/50 dark:border-white/5">
           <div className="relative space-y-4">
             <button
               type="button"
@@ -359,50 +356,33 @@ export default function AuthPortal({
 
             <Logo className="w-12 h-12" showText={true} />
 
-            <div className="max-w-xl space-y-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-2xs font-bold uppercase tracking-[0.28em] text-red-600 dark:text-red-300">
-                Premium Truck Spare Parts
-              </span>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Tarlac Truck Pitstop
-              </h1>
-              <p className="max-w-lg text-xs leading-5 text-muted-foreground sm:text-sm">
-                We specialize in sourcing and distributing premium grade, heavy-duty truck accessories and spare components. Offering wholesale and retail solutions across Tarlac City and regional logistics networks.
-              </p>
-            </div>
           </div>
 
-          <div className="relative space-y-2 my-4 lg:my-0">
-            {/* Compatibility */}
-            <div className="flex gap-3 p-3 rounded-2xl border border-transparent border-l-2 hover:border-l-brandBlue-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
-              <div className="p-1.5 bg-brandBlue-500/10 dark:bg-brandBlue-900/30 border border-brandBlue-500/20 dark:border-brandBlue-800/30 text-brandBlue-600 dark:text-brandBlue-400 rounded-lg h-8 w-8 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <Truck weight="duotone" className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="font-bold text-foreground text-sm">Wide Compatibility</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">Tailored replacement components for Isuzu, Hino, Fuso, and Toyota Dyna models.</p>
-              </div>
-            </div>
+          <div className="relative z-10">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold uppercase tracking-wider bg-accent/10 text-accent border border-accent/20 mb-6">
+              Heavy-duty parts · Tarlac City
+            </span>
+            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground leading-tight mb-4">
+              Tarlac Truck Pitstop
+            </h1>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-8">
+              Wholesale and retail truck parts for fleet operators across Tarlac City and Central Luzon.
+            </p>
 
-            {/* Wholesale Pricing */}
-            <div className="flex gap-3 p-3 rounded-2xl border border-transparent border-l-2 hover:border-l-emerald-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
-              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg h-8 w-8 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <Percent weight="duotone" className="w-4 h-4" />
+            <div className="space-y-4 pt-4 border-t border-border/60">
+              <div className="flex items-start gap-3">
+                <Truck className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Brands stocked</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Isuzu · Hino · Fuso · Toyota Dyna</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-bold text-foreground text-sm">VIP Wholesale Pricing</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">Bulk volume deductibles and quotation rates directly mapped for freight operators.</p>
-              </div>
-            </div>
-
-            {/* OEM Certified Sourcing */}
-            <div className="flex gap-3 p-3 rounded-2xl border border-transparent border-l-2 hover:border-l-rose-500 hover:border-slate-200/30 dark:hover:border-white/5 hover:bg-slate-200/15 dark:hover:bg-white/5 transition-all duration-300 group">
-              <div className="p-1.5 bg-rose-500/10 dark:bg-rose-900/30 border border-rose-500/20 dark:border-rose-800/30 text-rose-600 dark:text-rose-400 rounded-lg h-8 w-8 shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <ShieldCheck weight="duotone" className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="font-bold text-foreground text-sm">OEM Certified Sourcing</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">All inventory matches exact manufacturer OEM specifications to guarantee reliability.</p>
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">OEM-spec sourcing</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Parts match manufacturer specification. Wholesale and retail pricing available.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -466,7 +446,7 @@ export default function AuthPortal({
                       <input
                         className={`${inputClass} ${registerErrors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                         {...registerRegister('fullName')}
-                        placeholder="Your full name"
+                        placeholder="Juan Dela Cruz"
                       />
                     </div>
                     {registerErrors.fullName && <p className="text-xs text-red-400 font-semibold">{registerErrors.fullName.message}</p>}
@@ -482,11 +462,7 @@ export default function AuthPortal({
                         placeholder="+63 917 123 4567"
                       />
                     </div>
-                    {registerErrors.contactNumber ? (
-                      <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Used for fleet delivery SMS notifications</p>
-                    )}
+                    {registerErrors.contactNumber && <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>}
                   </div>
                 </div>
 
@@ -502,11 +478,7 @@ export default function AuthPortal({
                         placeholder="customer@domain.com"
                       />
                     </div>
-                    {registerErrors.email ? (
-                      <p className="text-xs text-red-400 font-semibold">{registerErrors.email.message}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Invoices and order confirmations will be sent here</p>
-                    )}
+                    {registerErrors.email && <p className="text-xs text-red-400 font-semibold">{registerErrors.email.message}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -518,7 +490,7 @@ export default function AuthPortal({
                         className={`${passwordInputClass} ${registerErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                         {...registerPasswordField}
                         onChange={(e) => { registerPasswordField.onChange(e); setRegisterPasswordValue(e.target.value); }}
-                        placeholder="Minimum 8 characters"
+                        placeholder="8+ chars, 1 number, 1 caps or symbol"
                       />
                       <button
                         type="button"
@@ -531,29 +503,19 @@ export default function AuthPortal({
                     </div>
                     {registerErrors.password && <p className="text-xs text-red-400 font-semibold">{registerErrors.password.message}</p>}
 
-                    {registerPasswordValue && (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                passwordStrength.metCount <= 1 ? 'bg-red-500' : passwordStrength.metCount === 2 ? 'bg-amber-500' : 'bg-emerald-500'
-                              }`}
-                              style={{ width: `${passwordStrength.percent}%` }}
-                            />
-                          </div>
-                          <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">{passwordStrength.label}</span>
-                        </div>
-                        <ul className="grid gap-0.5">
-                          {passwordStrength.requirements.map((req) => (
-                            <li key={req.label} className={`flex items-center gap-1.5 text-2xs ${req.met ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-                              <CheckCircle weight={req.met ? 'fill' : 'regular'} className="h-3 w-3 shrink-0" />
-                              {req.label}
-                            </li>
-                          ))}
-                        </ul>
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            passwordStrength.metCount <= 1 ? 'bg-red-500' : passwordStrength.metCount === 2 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: registerPasswordValue ? `${passwordStrength.percent}%` : '0%' }}
+                        />
                       </div>
-                    )}
+                      <span className="w-12 shrink-0 text-right text-2xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {registerPasswordValue ? passwordStrength.label : ''}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -565,6 +527,9 @@ export default function AuthPortal({
                   {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <CheckCircle weight="duotone" className="h-4 w-4" />}
                   Create account
                 </button>
+                <p className="text-center text-xs leading-5 text-muted-foreground">
+                  We text delivery updates to your number. Invoices and order confirmations go to your email.
+                </p>
               </form>
             )}
 
@@ -614,7 +579,6 @@ export default function AuthPortal({
                           type={showLoginPassword ? 'text' : 'password'}
                           className={`${passwordInputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                           {...registerLogin('password')}
-                          placeholder="Enter your password"
                         />
                         <button
                           type="button"
@@ -628,15 +592,7 @@ export default function AuthPortal({
                       {loginErrors.password && <p className="text-xs text-red-400 font-semibold">{loginErrors.password.message}</p>}
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <label className="flex items-center gap-2.5 text-xs font-medium text-muted-foreground cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          {...registerLogin('rememberMe')}
-                          className="h-4 w-4 rounded border-border bg-background text-accent focus:ring-accent"
-                        />
-                        Remember me on this device
-                      </label>
+                    <div className="flex justify-end pt-1">
                       <button
                         type="button"
                         onClick={() => { setActiveTab('forgot'); resetFeedback(); }}
