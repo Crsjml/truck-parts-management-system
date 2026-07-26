@@ -62,19 +62,34 @@ test.describe('Authentication Flows (TTP-103, TTP-104)', () => {
   test('should show errors on invalid login inputs', async ({ page, testUser }) => {
     // Provide incorrect password
     seedUser(testUser.email, testUser.password);
-    
+
     await authPage.openAuthModal();
     if (await authPage.loginTab.isVisible()) {
       await authPage.loginTab.click();
     }
-    
+
     await authPage.emailInput.fill(testUser.email);
     await authPage.passwordInput.fill('WrongPassword!');
     await authPage.submitButton.click();
-    
+
     // Check for error toast or inline error
-    const errorMsg = page.locator('text=Invalid login credentials').first();
+    const errorMsg = page.locator('text=Invalid email or password').first();
     await expect(errorMsg).toBeVisible({ timeout: 15000 });
+  });
+
+  test('shows a neutral hint with a Google option on failed password login (scenario C)', async ({ page, testUser }) => {
+    // Supabase returns the same invalid_credentials error whether the password is wrong
+    // or the account has no password set (Google-only signup) — we can't tell them apart
+    // client-side, so the same neutral hint + Google button must show either way.
+    seedUser(testUser.email, testUser.password);
+
+    await authPage.login(testUser.email, 'WrongPassword!');
+
+    const hint = page.locator('text=If you originally signed up with Google').first();
+    await expect(hint).toBeVisible({ timeout: 15000 });
+
+    const googleButton = page.getByRole('button', { name: /Continue with Google/i }).first();
+    await expect(googleButton).toBeVisible();
   });
 
   test('should show errors on invalid registration inputs', async ({ page }) => {

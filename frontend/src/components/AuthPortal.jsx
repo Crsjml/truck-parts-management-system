@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell, GoogleLogo } from '@phosphor-icons/react';
 import Logo from './Logo';
 
 import { supabase } from '../supabaseClient';
@@ -114,6 +114,7 @@ export default function AuthPortal({
   };
 
   const [forgotEmail, setForgotEmail] = useState('');
+  const [magicLinkEmail, setMagicLinkEmail] = useState('');
 
   useEffect(() => {
     setCurrentRole(mode);
@@ -157,8 +158,13 @@ export default function AuthPortal({
         }
       });
       if (error) {
-        if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
-          setNotice('An account with this email already exists. Please log in.');
+        if (
+          error.message?.includes('already registered') ||
+          error.message?.includes('already been registered') ||
+          error.message?.includes('user_already_exists') ||
+          error.code === 'user_already_exists'
+        ) {
+          setNotice('An account with this email already exists. If you signed up with Google, use the Google button to sign in — otherwise, log in with your password.');
           setActiveTab('login');
           setLoading(false);
           return;
@@ -197,9 +203,15 @@ export default function AuthPortal({
           setLoading(false);
           return;
         }
+        if (error.message?.includes('Invalid login credentials')) {
+          setNotice('Invalid email or password. If you originally signed up with Google, use the Google button below instead.');
+          triggerShake();
+          setLoading(false);
+          return;
+        }
         throw error;
       }
-      
+
       const user = authData.user;
       
       // Enforce email verification on login
@@ -246,6 +258,54 @@ export default function AuthPortal({
       setNotice(isRateLimitError(err)
         ? 'Email sending limit reached. Please wait a few minutes before trying again.'
         : (err.message || 'Failed to request reset.')
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    resetFeedback();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      setNotice(error.message || 'Google sign-in failed.');
+      triggerShake();
+    }
+  };
+
+  const handleMagicLinkRequest = async (e) => {
+    e.preventDefault();
+    resetFeedback();
+    if (!magicLinkEmail) {
+      setErrors({ magicLinkEmail: 'Email is required' });
+      return;
+    }
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: magicLinkEmail,
+        options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
+      });
+      if (error) {
+        if (isRateLimitError(error)) {
+          setNotice('Email sending limit reached. Please wait a few minutes before requesting another link.');
+          return;
+        }
+        // "Signups not allowed" (no account) must not be distinguished from success —
+        // otherwise this form becomes a registered-email oracle. Same message either way.
+        if (!/signups not allowed|not.*found|no.*user|user.*not.*exist/i.test(error.message || '')) {
+          throw error;
+        }
+      }
+      setNotice('If an account exists for this email, a sign-in link has been sent. Check your inbox.');
+    } catch (err) {
+      setNotice(isRateLimitError(err)
+        ? 'Email sending limit reached. Please wait a few minutes before trying again.'
+        : (err.message || 'Failed to send magic link.')
       );
     } finally {
       setLoading(false);
@@ -372,7 +432,7 @@ export default function AuthPortal({
                 {isCustomerMode ? 'Customer account' : 'Admin sign-in'}
               </p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'forgot' ? 'Reset password' : 'Customer login') : 'Admin login'}
+                {isCustomerMode ? (activeTab === 'register' ? 'Create your account' : activeTab === 'forgot' ? 'Reset password' : activeTab === 'magic' ? 'Sign in with magic link' : 'Customer login') : 'Admin login'}
               </h2>
             </div>
 
@@ -408,6 +468,16 @@ export default function AuthPortal({
                 >
                   Reset
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('magic');
+                    resetFeedback();
+                  }}
+                  className={`flex-1 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${activeTab === 'magic' ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Magic Link
+                </button>
               </div>
             )}
 
@@ -415,6 +485,19 @@ export default function AuthPortal({
 
              {isCustomerMode && activeTab === 'register' && (
               <form noValidate onSubmit={handleRegisterSubmit(onCustomerRegister)} className={`space-y-4 ${shake && activeTab === 'register' ? 'animate-shake' : ''}`}>
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-bold text-foreground transition hover:bg-secondary/60"
+                >
+                  <GoogleLogo weight="bold" className="h-4 w-4" />
+                  Continue with Google
+                </button>
+                <div className="relative flex items-center">
+                  <div className="flex-grow border-t border-border" />
+                  <span className="mx-3 text-2xs font-bold uppercase tracking-[0.25em] text-muted-foreground">or</span>
+                  <div className="flex-grow border-t border-border" />
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Full name</label>
@@ -474,6 +557,19 @@ export default function AuthPortal({
 
              {isCustomerMode && activeTab === 'login' && (
               <div className={`space-y-4 ${shake && activeTab === 'login' ? 'animate-shake' : ''}`}>
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-bold text-foreground transition hover:bg-secondary/60"
+                >
+                  <GoogleLogo weight="bold" className="h-4 w-4" />
+                  Continue with Google
+                </button>
+                <div className="relative flex items-center">
+                  <div className="flex-grow border-t border-border" />
+                  <span className="mx-3 text-2xs font-bold uppercase tracking-[0.25em] text-muted-foreground">or</span>
+                  <div className="flex-grow border-t border-border" />
+                </div>
                 {lockoutTimeLeft > 0 ? (
                   <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-4 animate-scaleUp">
                     <LockKey weight="duotone" className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
@@ -572,6 +668,35 @@ export default function AuthPortal({
                       Request Reset Link
                     </button>
                   </form>
+              </div>
+            )}
+
+            {isCustomerMode && activeTab === 'magic' && (
+              <div className="space-y-4">
+                <form onSubmit={handleMagicLinkRequest} className={`space-y-4 ${shake && activeTab === 'magic' ? 'animate-shake' : ''}`}>
+                  <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm text-sky-800 dark:text-sky-300">
+                    Enter your email and we'll send a secure sign-in link. No password needed.
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
+                    <input
+                      type="email"
+                      className={`${inputClass} ${errors.magicLinkEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                      value={magicLinkEmail}
+                      onChange={(e) => setMagicLinkEmail(e.target.value)}
+                      placeholder="customer@domain.com"
+                    />
+                    {errors.magicLinkEmail && <p className="text-xs text-red-400 font-semibold">{errors.magicLinkEmail}</p>}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {loading ? <CircleNotch weight="duotone" className="h-4 w-4 animate-spin" /> : <EnvelopeOpen weight="duotone" className="h-4 w-4" />}
+                    Send Magic Link
+                  </button>
+                </form>
               </div>
             )}
 
