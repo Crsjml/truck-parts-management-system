@@ -178,10 +178,16 @@ model Review {
   @@unique([partId, userId])
 }
 
+enum StaffRoleLevel {
+  SUPERADMIN
+  ADMIN
+  STAFF
+}
+
 model StaffRole {
-  id               String   @id @default(uuid()) @db.Uuid
-  email            String   @unique
-  role             String   @default("STAFF")
+  id               String         @id @default(uuid()) @db.Uuid
+  email            String         @unique
+  role             StaffRoleLevel @default(STAFF)
   canManageCatalog Boolean  @default(true)
   canViewFinances  Boolean  @default(false)
   canProcessOrders Boolean  @default(true)

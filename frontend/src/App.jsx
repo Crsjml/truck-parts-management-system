@@ -82,7 +82,11 @@ export default function App() {
   useEffect(() => {
     const handleUserChange = async (currentUser) => {
       if (currentUser) {
-        if (!currentUser.email_confirmed_at && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com') && !currentUser.email?.includes('lionel.messi') && !currentUser.email?.includes('staff')) {
+        // Google is pre-verified by the provider — don't gate it on email_confirmed_at,
+        // which can lag briefly right after the OAuth redirect and would otherwise
+        // bounce a legitimate Google sign-in back to logged-out.
+        const isGoogleVerified = currentUser.app_metadata?.provider === 'google';
+        if (!currentUser.email_confirmed_at && !isGoogleVerified && !currentUser.email?.includes('admin') && !currentUser.email?.includes('lakers.com') && !currentUser.email?.includes('warriors.com') && !currentUser.email?.includes('suns.com') && !currentUser.email?.includes('bucks.com') && !currentUser.email?.includes('mavericks.com') && !currentUser.email?.includes('lionel.messi') && !currentUser.email?.includes('staff')) {
           setSupabaseUser(null);
           setIsSignedIn(false);
           setIsLoaded(true);
@@ -93,21 +97,7 @@ export default function App() {
         
         // Fetch RBAC staff role
         let staffData = await checkStaffRole(email);
-        
-        // Hardcode fallback for default developer admin account
-        if (!staffData && email === 'admin@tarlactruckparts.local') {
-          staffData = {
-            role: 'SUPERADMIN',
-            name: 'System Admin',
-            email: 'admin@tarlactruckparts.local',
-            permissions: {
-              inventory: 'manage',
-              sales: 'manage',
-              purchasing: 'manage',
-              reports: 'manage'
-            }
-          };
-        }
+
         
         const isAdmin = !!staffData;
         
@@ -579,7 +569,7 @@ export default function App() {
             </button>
 
             {/* SUPER ADMIN ONLY: Staff Management & Settings */}
-            {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && (
+            {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
               <>
                 <button
                   onClick={() => setPage('staff')}
@@ -738,7 +728,7 @@ export default function App() {
                 </button>
                 
                 {/* SUPER ADMIN ONLY: Staff Management (Mobile) */}
-                {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && (
+                {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
                   <button
                     onClick={() => {
                       setPage('staff');
@@ -904,7 +894,7 @@ export default function App() {
                 {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
                 {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
                 {page === 'account' && <MyAccount user={supabaseUser} onGoBack={() => setPage('dashboard')} />}
-                {(adminSession?.user?.staffData?.role === 'SUPERADMIN' || adminSession?.user?.fullName?.includes('admin')) && page === 'staff' && <StaffManagement />}
+                {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && page === 'staff' && <StaffManagement />}
                 {page === 'purchasing' && (
                   <PurchasingModule 
                     onAddLog={addLog} 
