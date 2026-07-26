@@ -6,6 +6,24 @@ import { deriveCompatibility } from '../scripts/migrate_compatibility.js';
 
 const prisma = new PrismaClient();
 
+const PH_MOBILE_PREFIXES = [
+  '917', '918', '919', '920', '921', '927', '928', '939', 
+  '945', '956', '966', '977', '995', '915', '922', '932'
+];
+
+function generatePHMobile() {
+  const prefix = faker.helpers.arrayElement(PH_MOBILE_PREFIXES);
+  const mid = faker.string.numeric(3);
+  const end = faker.string.numeric(4);
+  return `+63 ${prefix} ${mid} ${end}`;
+}
+
+function generatePHLandline() {
+  const mid = faker.string.numeric(3);
+  const end = faker.string.numeric(4);
+  return `+63 (2) 8${mid} ${end}`;
+}
+
 const CATEGORY_HIERARCHY = [
   {
     name: 'Engine & Powertrain', icon: 'Engine', theme: 'primary',
@@ -213,7 +231,7 @@ async function main() {
         authId: SUPABASE_AUTH_IDS[email] || faker.string.uuid(),
         email: email,
         displayName: player.name,
-        phoneNumber: faker.phone.number(),
+        phoneNumber: generatePHMobile(),
         photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random&color=fff&size=256`
       }
     });
@@ -235,7 +253,7 @@ async function main() {
         type: "Wholesaler",
         contactPerson: faker.person.fullName(),
         email: faker.internet.email(),
-        phone: faker.phone.number()
+        phone: faker.helpers.arrayElement([generatePHMobile(), generatePHLandline()])
       }
     }));
   }
