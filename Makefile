@@ -23,20 +23,22 @@ build:
 	@echo "${GREEN}Building Docker Images...${NC}"
 	BUILDKIT_COLORS="run=green:info=cyan:error=red:warn=yellow" docker-compose build --progress=plain --parallel
 
-# Run cluster with clean logs (Mongo in background, Web services attached)
+# Run cluster with clean logs (Web services attached)
 up:
 	@echo "\033[1;32m🛑 Stopping any currently running servers...\033[0m"
 	docker-compose down
+	@docker network rm isande_itisdev_default 2>/dev/null || true
 
 	@echo "\n\033[1;32m🚀 Web Application is spinning up!\033[0m"
 	@echo "\033[1;36m🔗 Frontend:\033[0m http://localhost:5173\n"
 	@echo "🟢 Live success/bug messages below..."
 	@echo "⏹️  Press Ctrl+C to stop the servers at any time.\n"
-	docker-compose --ansi always up --build backend frontend
+	docker-compose up --build backend frontend
 
 down:
 	@echo "${GREEN}Stopping containers...${NC}"
 	docker-compose down
+	@docker network rm isande_itisdev_default 2>/dev/null || true
 
 # Color-coded interleved logs
 logs:

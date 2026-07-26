@@ -61,40 +61,76 @@ This repository provides a template for Model Context Protocol (MCP) servers (`m
 
 ## 🎨 4. Frontend & UI/UX Standards
 
-You enforce two distinct design systems depending on the portal you are editing, both driven by the single **`design-system`** skill (`.agents/skills/design-system/`) — it generates and audits design systems for visual consistency, applied here as two token modes rather than two separate skills.
+### Design System Architecture
 
-### Area A: Customer Storefront (`/`, `/catalog`, auth modals)
-**Directive: `design-system` — premium token mode**
-- **Aesthetics:** Enforce a premium, "high-budget" feel. Use curated HSL palettes. Avoid default raw HTML colors.
-- **Depth:** Favor translucent overlays (`backdrop-filter: blur()`), subtle white borders, and heavy, soft shadows.
-- **Motion:** All interactive elements must feel alive using cubic-bezier transitions. Use micro-interactions like scale-ups (`scale: 1.02`), group-hover effects, and icon nudges.
+You enforce two distinct design systems depending on the portal, both driven by **`design-system`** skill applied as two token modes:
 
-### Area B: Admin Dashboard & POS (`/admin`, `/staff`)
-**Directive: `design-system` — minimalist token mode**
-- **Aesthetics:** Optimize for extreme readability and data density.
-- **Structure:** Flat bento grids, warm monochrome palettes, and muted pastels. Zero visual fatigue.
-- **Bans:** Ban complex gradients, heavy shadows, and excessive motion in staff areas to ensure maximum operational efficiency.
+#### Area A: Customer Storefront (`/`, `/catalog`, auth modals) — Premium Tier
+**Directive: `design-system` — premium token mode + `high-end-visual-design`**
+- **Aesthetics:** Premium, "high-budget" feel. Curated HSL palettes, no default colors.
+- **Depth:** Translucent overlays (`backdrop-filter: blur()`), subtle white borders, soft shadows.
+- **Motion:** Cubic-bezier transitions, micro-interactions (scale-ups, group-hover, icon nudges).
+
+#### Area B: Admin Dashboard & POS (`/admin`, `/staff`) — Minimalist Tier
+**Directive: `design-system` — minimalist token mode + `minimalist-ui`**
+- **Aesthetics:** Extreme readability, data density, warm monochrome, muted pastels.
+- **Structure:** Flat bento grids, zero visual fatigue, no gradients/shadows.
+- **Bans:** Complex gradients, heavy shadows, excessive motion (staff operational efficiency).
 
 ### Global Anti-Slop Rules
-- No three-equal-card feature rows. Use asymmetric grids or zig-zags.
-- Standardize on `lucide-react` or `Phosphor Icons` for vectors.
+- No three-equal-card rows. Use asymmetric grids or zig-zags.
+- Standardize on Phosphor Icons.
 
-### Skill Routing Map (per codebase part)
+---
 
-When you work on a given part of the codebase, consult the mapped skills **before** writing code. All skills below are pinned in `.agents/skills/` (portable, teammate-shared) unless marked *(built-in)* — `dataviz` ships with the agent runtime and is always available but not vendored. Skills are model-invoked: read this map and invoke the relevant ones.
+### TIER 1: Section-Level Skill Routing
 
-| Codebase part | Representative files | Skills to use |
+| Section | Tier | Core Skills | Secondary Skills |
+|---------|------|-------------|-----------------|
+| **Storefront (All Pages)** | Premium | `high-end-visual-design` · `design-taste-frontend` · `frontend-design` · `impeccable` | `emil-design-eng` · `ui-ux-pro-max` · `canvas-design` |
+| **Auth Pages** | Trust | `web-design-guidelines` · `frontend-design` · `impeccable` | `vercel-composition-patterns` · `tailwind-design-system` |
+| **Admin Dashboard** | Admin | `minimalist-ui` · `kpi-dashboard-design` · `ui-ux-pro-max` | `impeccable` · `web-design-guidelines` |
+| **Admin Operations** | Admin | `minimalist-ui` · `web-design-guidelines` · `vercel-composition-patterns` | `impeccable` · `extract-design-system` |
+| **Analytics/Data-Viz** | Data | `kpi-dashboard-design` · `ui-ux-pro-max` · `dataviz` *(built-in)* | `impeccable` · `tailwind-design-system` |
+| **Shared Primitives** | System | `tailwind-design-system` · `design-system` · `vercel-composition-patterns` | `frontend-patterns` · `web-design-guidelines` |
+
+---
+
+### TIER 2: Page-Level Skill Routing (16 pages)
+
+**Storefront:** Landing, Auth, Catalog, Detail, Cart/Checkout, My Account, My Orders
+**Admin:** Dashboard, Parts Mgmt, Inventory, Purchasing, POS, Staff, Analytics, Categories, Settings
+
+**Full table in CLAUDE.md §4** — consult before editing any page.
+
+---
+
+### TIER 3: Component/Section-Level Skill Mapping
+
+| Component Type | Example | Applicable Skills |
 |---|---|---|
-| **1. Storefront** (customer UI) | `CustomerStorefront.jsx`, `ProductGrid.jsx`, `PartCard.jsx`, `PartsCatalog.jsx`, `StorefrontFilters.jsx`, `CartDrawer.jsx`, `ReviewSection.jsx`, `MyAccount.jsx`, `MyOrders.jsx` | `design-taste-frontend` · `high-end-visual-design` · `web-design-guidelines` · `tailwind-design-system` · `accessibility` · `design-system` |
-| **2. Admin + POS** (staff UI) | `Dashboard.jsx`, `PurchasingModule.jsx`, `TransactionPOS.jsx`, `StaffManagement.jsx`, `CategoryManagement.jsx`, `AddPartDrawer.jsx` | `minimalist-ui` · `kpi-dashboard-design` · `tailwind-design-system` · `design-system` · `frontend-patterns` |
-| **3. Analytics / data-viz** | `Analytics.jsx` (recharts) | `dataviz` *(built-in)* · `frontend-patterns` |
-| **4. Auth** | `AuthPortal.jsx`, `authStore.js`, `supabaseClient.js`, `UpdatePasswordModal.jsx` | `security-review` · `frontend-patterns` · `accessibility` |
-| **5. Shared UI primitives** | `components/ui/`, `SettingsContext.jsx`, `ToastNotification.jsx`, `StatusBar.jsx` | `design-system` · `tailwind-design-system` · `frontend-patterns` |
-| **6. Backend API** | `backend/src/routes/`, `services/`, `controllers/`, `middleware/`, `validators/` | `backend-patterns` · `api-design` · `error-handling` · `security-review` |
-| **7. Payments** | `checkout.js`, `stripe.js`, `CheckoutService.js` | `security-review` · `backend-patterns` · `error-handling` |
-| **8. Database** | `backend/prisma/schema.prisma`, migrations, seed | `supabase-postgres-best-practices` · `prisma-client-api` · `postgres-patterns` · `database-migrations` |
-| **9. Testing** | `frontend/tests/` (Playwright), unit tests | `tdd-workflow` · `e2e-testing` · `verification-loop` |
-| **Always-on (any code)** | — | `ponytail` · `karpathy-principles` · `coding-standards` |
+| **Hero Section** | Landing hero | `high-end-visual-design`, `impeccable`, `canvas-design`, `emil-design-eng` |
+| **Card Grids** | Product cards | `high-end-visual-design`, `ui-ux-pro-max`, `impeccable`, `emil-design-eng` |
+| **Filter Sidebar** | Storefront filters | `web-design-guidelines`, `vercel-composition-patterns`, `impeccable` |
+| **Modal Dialogs** | Detail drawer, auth modals | `impeccable`, `web-design-guidelines` |
+| **Form Fields** | Auth, profile, checkout | `vercel-composition-patterns`, `web-design-guidelines`, `impeccable` |
+| **Data Tables** | Parts table, order history, metrics | `kpi-dashboard-design`, `web-design-guidelines`, `minimalist-ui` |
+| **Charts & Graphs** | Analytics dashboard | `dataviz`, `kpi-dashboard-design`, `ui-ux-pro-max`, `impeccable` |
+
+**Full mapping in CLAUDE.md §4** — consult Tier 3 before writing component code.
+
+---
+
+### Workflow: When to Invoke Skills
+
+**BEFORE** writing any UI/storefront code:
+1. Identify the page (use Tier 2 table in CLAUDE.md)
+2. Identify the component type within the page (use Tier 3 table in CLAUDE.md)
+3. Invoke the **core skills** listed for that combination
+4. Invoke secondary skills if the component requires advanced refinement
+
+**Example:** Editing `PartCard.jsx` hover state → Page: "Catalog (Premium)" → Component: "Card Grids"
+→ Invoke: `high-end-visual-design`, `impeccable`, `emil-design-eng`
 
 ---
 

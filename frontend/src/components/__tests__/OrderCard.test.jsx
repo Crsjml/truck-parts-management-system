@@ -1,0 +1,84 @@
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import OrderCard from '../OrderCard';
+
+describe('OrderCard', () => {
+  const mockTransaction = {
+    id: '1',
+    invoiceNumber: 'INV-001',
+    transactionDate: '2026-07-26T10:00:00Z',
+    status: 'READY_FOR_PICKUP',
+    items: [
+      { id: '1', name: 'Brake Pads', price: 500, quantity: 2 }
+    ],
+    total: 1120,
+    subtotal: 1000,
+    taxAmount: 120,
+    discount: 0,
+    customerName: 'John Doe',
+    customerContact: '09171234567'
+  };
+
+  const mockHandlers = {
+    onDownloadPDF: vi.fn(),
+    onReview: vi.fn(),
+    onReorder: vi.fn()
+  };
+
+  it('renders order card with header, body, footer', () => {
+    render(
+      <OrderCard
+        transaction={mockTransaction}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+      />
+    );
+    
+    // Header assertions
+    expect(screen.getByText(/INV-001/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ready for Pickup/i)).toBeInTheDocument();
+    
+    // Body assertions
+    expect(screen.getByText('Brake Pads')).toBeInTheDocument();
+    
+    // Footer assertions
+    expect(screen.getByText(/₱ 1120/)).toBeInTheDocument(); // total (bold)
+  });
+
+  it('renders action buttons (PDF, Reorder, Review)', () => {
+    render(
+      <OrderCard
+        transaction={mockTransaction}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+      />
+    );
+    
+    expect(screen.getByRole('button', { name: /download/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reorder/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review/i })).toBeInTheDocument();
+  });
+
+  it('calls onDownloadPDF when PDF button clicked', () => {
+    render(
+      <OrderCard
+        transaction={mockTransaction}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+      />
+    );
+    
+    fireEvent.click(screen.getByRole('button', { name: /download/i }));
+    expect(mockHandlers.onDownloadPDF).toHaveBeenCalledWith(mockTransaction);
+  });
+});
