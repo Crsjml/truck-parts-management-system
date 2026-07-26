@@ -137,7 +137,7 @@ function DrawerPanel({
         animate={reduceMotion ? { opacity: 1 } : (panelVariants?.animate ?? { opacity: 1 })}
         exit={reduceMotion ? { opacity: 0 } : (panelVariants?.exit ?? { opacity: 0 })}
         transition={panelTransition}
-        className={`pointer-events-auto relative ${panelClassName}`}
+        className={`pointer-events-auto ${panelClassName}`}
         style={panelStyle}
       >
         {children}

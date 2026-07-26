@@ -146,7 +146,7 @@ export default function PartDetailDrawer({ part, nestedCategories, customerSessi
       labelledBy={headingId}
       wrapperClassName="flex justify-end p-4 sm:p-6 lg:p-8"
       overlayClassName="bg-black/40 backdrop-blur-sm"
-      panelClassName="w-full max-w-3xl rounded-[2.5rem] border border-border/50 bg-secondary/95 backdrop-blur-3xl shadow-2xl flex flex-col h-full overflow-hidden"
+      panelClassName="relative w-full max-w-3xl rounded-[2.5rem] border border-border/50 bg-secondary/95 backdrop-blur-3xl shadow-2xl flex flex-col h-full overflow-hidden"
       panelVariants={panelVariants}
     >
       {/* Header - Fixed */}
@@ -360,7 +360,7 @@ export default function PartDetailDrawer({ part, nestedCategories, customerSessi
           className="w-full sm:flex-1 py-4 bg-accent hover:bg-accent/90 text-white font-black text-lg rounded-2xl shadow-xl shadow-accent/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ShoppingCart weight="bold" className="w-6 h-6" aria-hidden="true" />
-          {available === 0 ? 'Out of Stock' : 'Add to Quote'}
+          {available === 0 ? 'Out of Stock' : 'Add to Cart'}
         </button>
       </div>
     </Drawer>

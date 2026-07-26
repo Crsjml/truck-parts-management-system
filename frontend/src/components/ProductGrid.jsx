@@ -313,7 +313,7 @@ export default function ProductGrid({
                             onClick={() => addToCart(part)}
                             disabled={(part.stock - (part.reservedStock || 0)) === 0}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background border border-border text-foreground hover:bg-accent hover:border-accent hover:text-white transition-all disabled:opacity-50 shadow-sm"
-                            aria-label="Add to Quote"
+                            aria-label="Add to Cart"
                           >
                             <Plus weight="bold" className="w-4 h-4" />
                           </button>
