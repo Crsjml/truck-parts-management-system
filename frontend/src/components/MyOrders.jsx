@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Package, CheckCircle, Truck, Star, X, ClipboardText } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
@@ -8,7 +8,7 @@ import { createReview } from '../authStore';
 import OrderCard from './OrderCard';
 
 export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder }) {
-  const { formatCurrency, displayCurrency } = useSettings();
+  const { displayCurrency, formatBaseCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
   
   // Review Modal State
@@ -96,9 +96,9 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
       doc.text(`Contact Phone: ${tx.customerContact}`, 15, 68);
       const tableRows = tx.items.map((item, i) => [
         i + 1, item.name,
-        `${displayCurrency} ${item.price}`,
+        formatBaseCurrency(item.price),
         item.quantity,
-        `${displayCurrency} ${(item.price * item.quantity)}`,
+        formatBaseCurrency(item.price * item.quantity),
       ]);
       autoTable(doc, {
         startY: 76,
@@ -114,17 +114,17 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
       doc.setFontSize(9.5);
       doc.setFont('Helvetica', 'normal');
       doc.text('Subtotal:', 130, finalY);
-      doc.text(`${displayCurrency} ${tx.subtotal}`, 195, finalY, { align: 'right' });
+      doc.text(formatBaseCurrency(tx.subtotal), 195, finalY, { align: 'right' });
       doc.text('Discount Deductions:', 130, finalY + 5.5);
-      doc.text(`-${formatCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
+      doc.text(`-${formatBaseCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
       doc.text('VAT Amount (12%):', 130, finalY + 11);
-      doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, finalY + 11, { align: 'right' });
+      doc.text(formatBaseCurrency(tx.taxAmount), 195, finalY + 11, { align: 'right' });
       doc.setFillColor(27, 54, 93);
       doc.rect(128, finalY + 15, 68, 7.5, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('Helvetica', 'bold');
       doc.text('NET TOTAL:', 131, finalY + 20);
-      doc.text(`${displayCurrency} ${tx.total}`, 193, finalY + 20, { align: 'right' });
+      doc.text(formatBaseCurrency(tx.total), 193, finalY + 20, { align: 'right' });
       doc.setTextColor(100, 116, 139);
       doc.setFont('Helvetica', 'italic');
       doc.setFontSize(8.5);
@@ -194,7 +194,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
               key={tx.id || tx.invoiceNumber}
               transaction={tx}
               displayCurrency={displayCurrency}
-              formatCurrency={formatCurrency}
+              formatCurrency={formatBaseCurrency}
               onDownloadPDF={(txn) => handleDownloadPDF(txn, null)}
               onReview={(partId, partName) => {
                 setReviewModal({ isOpen: true, partId, partName });
