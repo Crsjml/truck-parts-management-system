@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell, GoogleLogo } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Percent, Warning, Bell, GoogleLogo, User, Phone, EnvelopeSimple, Eye, EyeSlash } from '@phosphor-icons/react';
 import Logo from './Logo';
 
 import { supabase } from '../supabaseClient';
@@ -115,6 +115,22 @@ export default function AuthPortal({
 
   const [forgotEmail, setForgotEmail] = useState('');
   const [magicLinkEmail, setMagicLinkEmail] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [registerPasswordValue, setRegisterPasswordValue] = useState('');
+
+  // ponytail: simple weighted checklist, not a real entropy estimate — good enough for UI feedback
+  const getPasswordStrength = (password) => {
+    const requirements = [
+      { label: 'At least 8 characters', met: password.length >= 8 },
+      { label: 'Contains a number', met: /\d/.test(password) },
+      { label: 'Contains an uppercase letter or symbol', met: /[A-Z]|[^A-Za-z0-9]/.test(password) },
+    ];
+    const metCount = requirements.filter((r) => r.met).length;
+    const levels = ['Weak', 'Fair', 'Good', 'Strong'];
+    return { requirements, metCount, label: levels[metCount], percent: (metCount / requirements.length) * 100 };
+  };
 
   useEffect(() => {
     setCurrentRole(mode);
@@ -132,7 +148,12 @@ export default function AuthPortal({
     clearLoginErrors();
   };
 
-  const inputClass = 'w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20';
+  const inputClass = 'w-full rounded-xl border border-border bg-background pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-slate-600 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20';
+  const passwordInputClass = inputClass.replace('pr-4', 'pr-10');
+  const fieldIconClass = 'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground';
+  const passwordToggleClass = 'absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground';
+  const registerPasswordField = registerRegister('password');
+  const passwordStrength = getPasswordStrength(registerPasswordValue);
 
   // ponytail: shared rate-limit detector for Supabase email errors
   const isRateLimitError = (err) =>
@@ -501,46 +522,99 @@ export default function AuthPortal({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Full name</label>
-                    <input
-                      className={`${inputClass} ${registerErrors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      {...registerRegister('fullName')}
-                      placeholder="Your full name"
-                    />
+                    <div className="relative">
+                      <User weight="bold" className={fieldIconClass} />
+                      <input
+                        className={`${inputClass} ${registerErrors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerRegister('fullName')}
+                        placeholder="Your full name"
+                      />
+                    </div>
                     {registerErrors.fullName && <p className="text-xs text-red-400 font-semibold">{registerErrors.fullName.message}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Contact number</label>
-                    <input
-                      className={`${inputClass} ${registerErrors.contactNumber ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      {...registerRegister('contactNumber')}
-                      placeholder="+63 917 123 4567"
-                    />
-                    {registerErrors.contactNumber && <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>}
+                    <div className="relative">
+                      <Phone weight="bold" className={fieldIconClass} />
+                      <input
+                        className={`${inputClass} ${registerErrors.contactNumber ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerRegister('contactNumber')}
+                        placeholder="+63 917 123 4567"
+                      />
+                    </div>
+                    {registerErrors.contactNumber ? (
+                      <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Used for fleet delivery SMS notifications</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
-                    <input
-                      type="email"
-                      className={`${inputClass} ${registerErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      {...registerRegister('email')}
-                      placeholder="customer@domain.com"
-                    />
-                    {registerErrors.email && <p className="text-xs text-red-400 font-semibold">{registerErrors.email.message}</p>}
+                    <div className="relative">
+                      <EnvelopeSimple weight="bold" className={fieldIconClass} />
+                      <input
+                        type="email"
+                        className={`${inputClass} ${registerErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerRegister('email')}
+                        placeholder="customer@domain.com"
+                      />
+                    </div>
+                    {registerErrors.email ? (
+                      <p className="text-xs text-red-400 font-semibold">{registerErrors.email.message}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Invoices and order confirmations will be sent here</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
-                    <input
-                      type="password"
-                      className={`${inputClass} ${registerErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      {...registerRegister('password')}
-                      placeholder="Minimum 8 characters"
-                    />
+                    <div className="relative">
+                      <LockKey weight="bold" className={fieldIconClass} />
+                      <input
+                        type={showRegisterPassword ? 'text' : 'password'}
+                        className={`${passwordInputClass} ${registerErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        {...registerPasswordField}
+                        onChange={(e) => { registerPasswordField.onChange(e); setRegisterPasswordValue(e.target.value); }}
+                        placeholder="Minimum 8 characters"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterPassword((v) => !v)}
+                        className={passwordToggleClass}
+                        aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showRegisterPassword ? <EyeSlash weight="bold" className="h-4 w-4" /> : <Eye weight="bold" className="h-4 w-4" />}
+                      </button>
+                    </div>
                     {registerErrors.password && <p className="text-xs text-red-400 font-semibold">{registerErrors.password.message}</p>}
+
+                    {registerPasswordValue && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                passwordStrength.metCount <= 1 ? 'bg-red-500' : passwordStrength.metCount === 2 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${passwordStrength.percent}%` }}
+                            />
+                          </div>
+                          <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">{passwordStrength.label}</span>
+                        </div>
+                        <ul className="grid gap-0.5">
+                          {passwordStrength.requirements.map((req) => (
+                            <li key={req.label} className={`flex items-center gap-1.5 text-2xs ${req.met ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                              <CheckCircle weight={req.met ? 'fill' : 'regular'} className="h-3 w-3 shrink-0" />
+                              {req.label}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -588,23 +662,37 @@ export default function AuthPortal({
                   <form onSubmit={handleLoginSubmit(onCustomerLogin)} className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
-                      <input
-                        type="email"
-                        className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerLogin('email')}
-                        placeholder="customer@domain.com"
-                      />
+                      <div className="relative">
+                        <EnvelopeSimple weight="bold" className={fieldIconClass} />
+                        <input
+                          type="email"
+                          className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                          {...registerLogin('email')}
+                          placeholder="customer@domain.com"
+                        />
+                      </div>
                       {loginErrors.email && <p className="text-xs text-red-400 font-semibold">{loginErrors.email.message}</p>}
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
-                      <input
-                        type="password"
-                        className={`${inputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerLogin('password')}
-                        placeholder="Enter your password"
-                      />
+                      <div className="relative">
+                        <LockKey weight="bold" className={fieldIconClass} />
+                        <input
+                          type={showLoginPassword ? 'text' : 'password'}
+                          className={`${passwordInputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                          {...registerLogin('password')}
+                          placeholder="Enter your password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword((v) => !v)}
+                          className={passwordToggleClass}
+                          aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showLoginPassword ? <EyeSlash weight="bold" className="h-4 w-4" /> : <Eye weight="bold" className="h-4 w-4" />}
+                        </button>
+                      </div>
                       {loginErrors.password && <p className="text-xs text-red-400 font-semibold">{loginErrors.password.message}</p>}
                     </div>
 
@@ -650,13 +738,16 @@ export default function AuthPortal({
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
-                      <input
-                        type="email"
-                        className={`${inputClass} ${errors.forgotEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="customer@domain.com"
-                      />
+                      <div className="relative">
+                        <EnvelopeSimple weight="bold" className={fieldIconClass} />
+                        <input
+                          type="email"
+                          className={`${inputClass} ${errors.forgotEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          placeholder="customer@domain.com"
+                        />
+                      </div>
                       {errors.forgotEmail && <p className="text-xs text-red-400 font-semibold">{errors.forgotEmail}</p>}
                     </div>
                     <button
@@ -679,13 +770,16 @@ export default function AuthPortal({
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Email</label>
-                    <input
-                      type="email"
-                      className={`${inputClass} ${errors.magicLinkEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                      value={magicLinkEmail}
-                      onChange={(e) => setMagicLinkEmail(e.target.value)}
-                      placeholder="customer@domain.com"
-                    />
+                    <div className="relative">
+                      <EnvelopeSimple weight="bold" className={fieldIconClass} />
+                      <input
+                        type="email"
+                        className={`${inputClass} ${errors.magicLinkEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                        value={magicLinkEmail}
+                        onChange={(e) => setMagicLinkEmail(e.target.value)}
+                        placeholder="customer@domain.com"
+                      />
+                    </div>
                     {errors.magicLinkEmail && <p className="text-xs text-red-400 font-semibold">{errors.magicLinkEmail}</p>}
                   </div>
                   <button
@@ -723,23 +817,37 @@ export default function AuthPortal({
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Admin email</label>
-                      <input
-                        type="email"
-                        className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerLogin('email')}
-                        placeholder="admin@tarlactruckparts.local"
-                      />
+                      <div className="relative">
+                        <EnvelopeSimple weight="bold" className={fieldIconClass} />
+                        <input
+                          type="email"
+                          className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                          {...registerLogin('email')}
+                          placeholder="admin@tarlactruckparts.local"
+                        />
+                      </div>
                       {loginErrors.email && <p className="text-xs text-red-400 font-semibold">{loginErrors.email.message}</p>}
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Password</label>
-                      <input
-                        type="password"
-                        className={`${inputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerLogin('password')}
-                        placeholder="Enter admin password"
-                      />
+                      <div className="relative">
+                        <LockKey weight="bold" className={fieldIconClass} />
+                        <input
+                          type={showAdminPassword ? 'text' : 'password'}
+                          className={`${passwordInputClass} ${loginErrors.password ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
+                          {...registerLogin('password')}
+                          placeholder="Enter admin password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAdminPassword((v) => !v)}
+                          className={passwordToggleClass}
+                          aria-label={showAdminPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showAdminPassword ? <EyeSlash weight="bold" className="h-4 w-4" /> : <Eye weight="bold" className="h-4 w-4" />}
+                        </button>
+                      </div>
                       {loginErrors.password && <p className="text-xs text-red-400 font-semibold">{loginErrors.password.message}</p>}
                     </div>
 
