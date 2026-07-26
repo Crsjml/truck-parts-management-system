@@ -93,7 +93,7 @@ export default function OrderCard({
         <div className="flex gap-2">
           <button
             onClick={() => onDownloadPDF && onDownloadPDF(transaction)}
-            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label="Download PDF invoice"
           >
             <Download weight="bold" className="w-4 h-4 shrink-0" />
@@ -101,7 +101,7 @@ export default function OrderCard({
           </button>
           <button
             onClick={() => onReorder && onReorder(transaction.items)}
-            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label="Reorder items"
           >
             <ArrowClockwise weight="bold" className="w-4 h-4 shrink-0" />
@@ -109,7 +109,7 @@ export default function OrderCard({
           </button>
           <button
             onClick={() => onReview && onReview(transaction.items?.[0]?.partId || transaction.items?.[0]?.id, transaction.items?.[0]?.name)}
-            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label="Leave review"
           >
             <Star weight="bold" className="w-4 h-4 shrink-0" />

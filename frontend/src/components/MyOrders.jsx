@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Download, Package, CheckCircle, Clock, Truck, CaretDown, Receipt, Star, X, ShoppingCart, ClipboardText } from '@phosphor-icons/react';
+import { Package, CheckCircle, Truck, Star, X, ClipboardText } from '@phosphor-icons/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +10,6 @@ import OrderCard from './OrderCard';
 export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
-  const [expandedRow, setExpandedRow] = useState(null);
   
   // Review Modal State
   const [reviewModal, setReviewModal] = useState({ isOpen: false, partId: null, partName: '' });
@@ -55,10 +54,6 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     if (activeTab === 'All') return true;
     return tx.status === activeTab;
   });
-
-  const activeOrders = customerTx.filter(tx => tx.status !== 'COMPLETED');
-  const historicalOrders = customerTx.filter(tx => tx.status === 'COMPLETED');
-  const featuredOrder = activeOrders.length > 0 ? activeOrders[0] : (historicalOrders.length > 0 ? historicalOrders[0] : null);
 
   const tabs = [
     { id: 'All', label: 'All Purchases', icon: Package },
@@ -138,16 +133,6 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
       doc.save(`Invoice_${tx.invoiceNumber}.pdf`);
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const formatStatus = (s) => s ? s.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : '';
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'COMPLETED': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case 'READY_FOR_PICKUP': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-      case 'ORDER_PLACED': return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
-      default: return 'text-muted-foreground bg-secondary border-border';
     }
   };
 
