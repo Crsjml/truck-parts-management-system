@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { prisma } from '../config/prisma.js';
 
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -31,9 +32,27 @@ export const requireAuth = async (req, res, next) => {
 };
 
 export const requireAdmin = async (req, res, next) => {
-  if (!req.auth || !req.auth.userId) {
+  if (!req.auth || !req.auth.email) {
     return res.status(401).json({ msg: 'Not authenticated.' });
   }
-  // Note: Admin claims will be checked against the StaffRole Prisma table in a later step
+  try {
+    const staff = await prisma.staffRole.findUnique({
+      where: { email: req.auth.email.toLowerCase() }
+    });
+    if (!staff) {
+      return res.status(403).json({ msg: 'Insufficient privileges.' });
+    }
+    req.staff = staff;
+    next();
+  } catch (err) {
+    console.error('[requireAdmin]', err);
+    return res.status(500).json({ msg: 'Authorization check failed.' });
+  }
+};
+
+export const requirePermission = (flag) => (req, res, next) => {
+  if (!req.staff || !req.staff[flag]) {
+    return res.status(403).json({ msg: 'Permission denied.' });
+  }
   next();
 };

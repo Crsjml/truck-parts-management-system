@@ -1,9 +1,10 @@
 import express from "express";
 import { prisma } from "../config/prisma.js";
+import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// GET /api/settings - Retrieve global settings
+// GET /api/settings - Retrieve global settings (public — frontend reads it)
 router.get("/", async (req, res) => {
   try {
     let settings = await prisma.setting.findFirst();
@@ -22,8 +23,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/settings - Update global settings
-router.post("/", async (req, res) => {
+// POST /api/settings - Update global settings (admin only)
+router.post("/", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { base_currency, active_markup } = req.body;
     let settings = await prisma.setting.findFirst();

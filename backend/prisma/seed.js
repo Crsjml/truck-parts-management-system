@@ -185,6 +185,18 @@ async function main() {
     }
   });
 
+  await prisma.staffRole.create({
+    data: {
+      email: "rbenedict.maagma@gmail.com",
+      role: "SUPERADMIN",
+      canManageCatalog: true,
+      canViewFinances: true,
+      canProcessOrders: true,
+      canManageStaff: true,
+      addedBy: "seed"
+    }
+  });
+
   const SUPABASE_AUTH_IDS = {
     'lionel.messi@example.com': 'cd49a5af-e48a-4e98-be96-54a3eb0299ec',
     'cristiano.ronaldo@example.com': 'e918fc28-45c2-41cb-aa7b-08764a5421a3',
