@@ -1,0 +1,142 @@
+DEVELOPMENT AGENT EXECUTION PROMPT — Auth Login/Register Restructure
+
+Read this plan first:
+  docs/superpowers/plans/2026-07-26-auth-restructure-implementation.md
+
+Your mission: Execute all 5 tasks autonomously. Dispatch specialized sub-agents per task. Keep execution flowing without pausing for user approval between tasks.
+
+============================================================================
+AGENT DISPATCH STRATEGY
+============================================================================
+
+Task 1: GoogleSignInButton Component
+  - Complexity: Simple single-component creation + tests
+  - Dispatch: caveman:cavecrew-builder to write component + tests
+  - You: Review code, run tests locally, verify SVG rendering
+  - Dispatch model: haiku (fast, code transcription)
+
+Task 2: CompleteProfileModal Component
+  - Complexity: Modal with form, validation, focus trap, a11y
+  - Dispatch: caveman:cavecrew-builder to write component + tests
+  - You: Review a11y (focus trap, ARIA), run tests, verify non-dismissable
+  - Dispatch model: sonnet (focus trap + a11y needs judgment)
+
+Task 3: Refactor AuthPortal.jsx
+  - Complexity: Multi-file refactoring, remove/replace multiple sections
+  - Dispatch: caveman:cavecrew-builder to make edits (step-by-step)
+  - You: Verify tab button removal, Google button replacement, forgot link addition
+  - Dispatch model: sonnet (multi-step surgical edits need care)
+
+Task 4: Modify App.jsx
+  - Complexity: Logic addition to existing effect, new render branch
+  - Dispatch: caveman:cavecrew-builder to add logic
+  - You: Verify profile-complete trigger logic, render branch placement
+  - Dispatch model: haiku (straightforward logic addition)
+
+Task 5: E2E Testing
+  - Complexity: Manual browser tests + accessibility audit
+  - Dispatch: NONE (you do this manually — browser testing)
+  - You: Test password signup, Google signup, forgot password, dark mode, a11y
+  - Report findings
+
+============================================================================
+EXECUTION FLOW
+============================================================================
+
+Sequential execution (dependencies between tasks):
+
+1. TASK 1: GoogleSignInButton
+   - Dispatch caveman:cavecrew-builder
+   - Builder writes component + tests
+   - You review & verify SVG renders correctly
+   - Commit if clean
+   - Move to Task 2
+
+2. TASK 2: CompleteProfileModal
+   - Dispatch caveman:cavecrew-builder
+   - Builder writes modal + tests
+   - You verify a11y (focus trap works, ARIA present)
+   - Run modal tests in isolation
+   - Commit if clean
+   - Move to Task 3
+
+3. TASK 3: AuthPortal.jsx Refactor
+   - Dispatch caveman:cavecrew-builder (Step 1-14)
+   - Builder makes edits in sequence:
+     * Add GoogleSignInButton import
+     * Remove magic link tab button
+     * Remove reset tab button
+     * Replace both Google buttons
+     * Add forgot password inline link
+     * Update forgot password view with back button
+   - You review each change, verify logic
+   - Run AuthPortal tests
+   - Commit if clean
+   - Move to Task 4
+
+4. TASK 4: App.jsx Modification
+   - Dispatch caveman:cavecrew-builder
+   - Builder adds:
+     * CompleteProfileModal import
+     * Profile-fetch effect logic (phoneNumber check)
+     * Render branch for complete-profile view
+   - You verify logic placement, no conflicts
+   - Commit if clean
+   - Move to Task 5
+
+5. TASK 5: E2E Testing (Manual — you do this)
+   - Password signup flow
+   - Google signup + profile completion
+   - Forgot password inline link
+   - Dark/light mode Google button
+   - Accessibility audit (focus trap, ARIA)
+   - Console error check
+   - Final commit
+
+============================================================================
+SUBAGENT COMMUNICATION TEMPLATE
+============================================================================
+
+When dispatching caveman:cavecrew-builder, provide:
+
+1. Task number and file path
+2. Exact step reference from plan (e.g., "Task 1, Step 3")
+3. Code to write (copy from plan verbatim)
+4. Verification steps (run tests, check console)
+
+Example dispatch:
+"
+Task 1, Step 1: Write GoogleSignInButton.jsx
+File: frontend/src/components/GoogleSignInButton.jsx
+Write this code exactly as specified in the plan (copy provided).
+After writing, I will run npm test to verify it renders correctly.
+"
+
+============================================================================
+REPORT FILE & PROGRESS TRACKING
+============================================================================
+
+Create report as you execute:
+  docs/superpowers/reports/2026-07-26-auth-restructure-report.md
+
+Update report after each task:
+  - Task 1 ✅ GoogleSignInButton created + tested + committed
+  - Task 2 ✅ CompleteProfileModal created + tested + committed
+  - Task 3 ✅ AuthPortal refactored + tested + committed
+  - Task 4 ✅ App.jsx modified + committed
+  - Task 5 ✅ E2E tests passed
+
+If task fails: Stop, report the failure + root cause in report. Don't skip ahead.
+
+============================================================================
+SUCCESS CRITERIA
+============================================================================
+
+All tasks complete when:
+✅ 5 commits created (one per task)
+✅ All tests pass locally (npm test)
+✅ Manual e2e tests all scenarios pass (password, Google, forgot, dark mode, a11y)
+✅ No console errors during testing
+✅ Report file populated with results
+
+Begin with Task 1. Dispatch caveman:cavecrew-builder to write GoogleSignInButton.jsx now.
