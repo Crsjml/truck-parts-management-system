@@ -1,6 +1,8 @@
 @echo off
+chcp 65001 >nul
 echo 🛑 Stopping any currently running servers...
 docker-compose down
+docker network rm isande_itisdev_default >nul 2>nul
 
 
 echo.
@@ -11,4 +13,4 @@ echo 🟢 Live success/bug messages below...
 echo ⏹️  Press Ctrl+C to stop the servers at any time.
 echo.
 
-docker-compose --ansi always up --build backend frontend
+docker-compose up --build backend frontend

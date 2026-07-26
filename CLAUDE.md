@@ -61,40 +61,139 @@ This repository provides a template for Model Context Protocol (MCP) servers (`m
 
 ## 🎨 4. Frontend & UI/UX Standards
 
-You enforce two distinct design systems depending on the portal you are editing, both driven by the single **`design-system`** skill (`.agents/skills/design-system/`) — it generates and audits design systems for visual consistency, applied here as two token modes rather than two separate skills.
+### Design System Architecture
 
-### Area A: Customer Storefront (`/`, `/catalog`, auth modals)
-**Directive: `design-system` — premium token mode**
-- **Aesthetics:** Enforce a premium, "high-budget" feel. Use curated HSL palettes. Avoid default raw HTML colors.
-- **Depth:** Favor translucent overlays (`backdrop-filter: blur()`), subtle white borders, and heavy, soft shadows.
-- **Motion:** All interactive elements must feel alive using cubic-bezier transitions. Use micro-interactions like scale-ups (`scale: 1.02`), group-hover effects, and icon nudges.
+You enforce two distinct design systems depending on the portal, both driven by **`design-system`** skill applied as two token modes:
 
-### Area B: Admin Dashboard & POS (`/admin`, `/staff`)
-**Directive: `design-system` — minimalist token mode**
-- **Aesthetics:** Optimize for extreme readability and data density.
-- **Structure:** Flat bento grids, warm monochrome palettes, and muted pastels. Zero visual fatigue.
-- **Bans:** Ban complex gradients, heavy shadows, and excessive motion in staff areas to ensure maximum operational efficiency.
+#### Area A: Customer Storefront (`/`, `/catalog`, auth modals) — Premium Tier
+**Directive: `design-system` — premium token mode + `high-end-visual-design`**
+- **Aesthetics:** Premium, "high-budget" feel. Curated HSL palettes, no default colors.
+- **Depth:** Translucent overlays (`backdrop-filter: blur()`), subtle white borders, soft shadows.
+- **Motion:** Cubic-bezier transitions, micro-interactions (scale-ups, group-hover, icon nudges).
+
+#### Area B: Admin Dashboard & POS (`/admin`, `/staff`) — Minimalist Tier
+**Directive: `design-system` — minimalist token mode + `minimalist-ui`**
+- **Aesthetics:** Extreme readability, data density, warm monochrome, muted pastels.
+- **Structure:** Flat bento grids, zero visual fatigue, no gradients/shadows.
+- **Bans:** Complex gradients, heavy shadows, excessive motion (staff operational efficiency).
 
 ### Global Anti-Slop Rules
-- No three-equal-card feature rows. Use asymmetric grids or zig-zags.
-- Standardize on `lucide-react` or `Phosphor Icons` for vectors.
+- No three-equal-card rows. Use asymmetric grids or zig-zags.
+- Standardize on Phosphor Icons.
 
-### Skill Routing Map (per codebase part)
+---
 
-When you work on a given part of the codebase, consult the mapped skills **before** writing code. All skills below are pinned in `.agents/skills/` (portable, teammate-shared) unless marked *(built-in)* — `dataviz` ships with the agent runtime and is always available but not vendored. Skills are model-invoked: read this map and invoke the relevant ones.
+### TIER 1: Section-Level Skill Routing
 
-| Codebase part | Representative files | Skills to use |
+| Section | Tier | Core Skills | Secondary Skills |
+|---------|------|-------------|-----------------|
+| **Storefront (All Pages)** | Premium | `high-end-visual-design` · `design-taste-frontend` · `frontend-design` · `impeccable` | `emil-design-eng` · `ui-ux-pro-max` · `canvas-design` |
+| **Auth Pages** | Trust | `web-design-guidelines` · `frontend-design` · `impeccable` | `vercel-composition-patterns` · `tailwind-design-system` |
+| **Admin Dashboard** | Admin | `minimalist-ui` · `kpi-dashboard-design` · `ui-ux-pro-max` | `impeccable` · `web-design-guidelines` |
+| **Admin Operations** | Admin | `minimalist-ui` · `web-design-guidelines` · `vercel-composition-patterns` | `impeccable` · `extract-design-system` |
+| **Analytics/Data-Viz** | Data | `kpi-dashboard-design` · `ui-ux-pro-max` · `dataviz` *(built-in)* | `impeccable` · `tailwind-design-system` |
+| **Shared Primitives** | System | `tailwind-design-system` · `design-system` · `vercel-composition-patterns` | `frontend-patterns` · `web-design-guidelines` |
+
+---
+
+### TIER 2: Page-Level Skill Routing
+
+#### **STOREFRONT PAGES**
+
+| Page | File | Visual Tier | Core Skills | Component-Level Skills |
+|------|------|-------------|-------------|----------------------|
+| **Landing** | `CustomerStorefront.jsx` | Premium | `high-end-visual-design`, `design-taste-frontend`, `frontend-design` | Hero: `impeccable`, `canvas-design` · Nav: `web-design-guidelines` · CTA: `impeccable` |
+| **Auth (Register/Login/PW Reset)** | `AuthPortal.jsx` | Trust | `web-design-guidelines`, `frontend-design` | Form: `vercel-composition-patterns`, `impeccable` · Error states: `impeccable` · Success: `impeccable` |
+| **Parts Catalog & Search** | `PartsCatalog.jsx`, `StorefrontFilters.jsx`, `PartCard.jsx` | Premium | `high-end-visual-design`, `ui-ux-pro-max` | Cards: `impeccable`, `emil-design-eng` · Filters: `web-design-guidelines`, `vercel-composition-patterns` · Pagination: `frontend-patterns` |
+| **Part Detail** | `PartDetailDrawer.jsx`, `ReviewSection.jsx` | Premium | `high-end-visual-design`, `impeccable` | Gallery: `emil-design-eng` · Reviews: `ui-ux-pro-max` · CTA: `impeccable` |
+| **Cart & Checkout** | `CartDrawer.jsx`, Stripe checkout | Trust | `web-design-guidelines`, `kpi-dashboard-design` | Cart items: `impeccable` · Price breakdown: `kpi-dashboard-design` · Checkout form: `vercel-composition-patterns` |
+| **My Account / Profile** | `MyAccount.jsx` | Utility | `minimalist-ui`, `web-design-guidelines` | Form sections: `vercel-composition-patterns`, `impeccable` · Settings toggles: `impeccable` |
+| **My Orders** | `MyOrders.jsx` | Utility | `kpi-dashboard-design`, `ui-ux-pro-max` | Order table: `kpi-dashboard-design`, `web-design-guidelines` · Expandables: `impeccable` |
+
+#### **ADMIN PAGES**
+
+| Page | File | Visual Tier | Core Skills | Component-Level Skills |
+|------|------|-------------|-------------|----------------------|
+| **Dashboard** | `Dashboard.jsx` | Admin | `minimalist-ui`, `kpi-dashboard-design` | Metric cards: `kpi-dashboard-design`, `ui-ux-pro-max` · Charts: `dataviz` · Refresh: `impeccable` |
+| **Parts Management** | `PartsCatalog.jsx` (admin mode), `AddPartDrawer.jsx` | Admin | `minimalist-ui`, `web-design-guidelines` | Table: `kpi-dashboard-design`, `web-design-guidelines` · Forms: `vercel-composition-patterns`, `impeccable` · Modals: `impeccable` |
+| **Inventory/Stock Adjustments** | Dashboard widget + adjustment flows | Admin | `kpi-dashboard-design`, `minimalist-ui` | Number inputs: `web-design-guidelines`, `impeccable` · Confirmations: `impeccable` |
+| **Purchasing/Vendor** | `PurchasingModule.jsx` | Admin | `kpi-dashboard-design`, `minimalist-ui` | Multi-step form: `vercel-composition-patterns`, `impeccable` · Status tracking: `kpi-dashboard-design` |
+| **POS / Transaction** | `TransactionPOS.jsx` | Speed | `minimalist-ui`, `web-design-guidelines` | Barcode input: `web-design-guidelines` · Tender feedback: `impeccable` · Receipt: `kpi-dashboard-design` |
+| **Staff Management** | `StaffManagement.jsx` | Admin | `minimalist-ui`, `web-design-guidelines` | Table: `kpi-dashboard-design`, `web-design-guidelines` · Role dropdowns: `impeccable` |
+| **Analytics** | `Analytics.jsx` (Recharts) | Data | `kpi-dashboard-design`, `ui-ux-pro-max`, `dataviz` | Charts: `dataviz`, `ui-ux-pro-max` · Filters: `web-design-guidelines`, `impeccable` |
+| **Category Management** | `CategoryManagement.jsx` | Admin | `minimalist-ui`, `ui-ux-pro-max` | Icon picker: `impeccable`, `ui-ux-pro-max` · Color picker: `impeccable` · Drag-reorder: `impeccable` |
+| **Admin Settings** | `AdminSettings.jsx` | Admin | `minimalist-ui`, `web-design-guidelines` | Settings form: `vercel-composition-patterns`, `impeccable` · Toggles: `impeccable` |
+
+---
+
+### TIER 3: Component/Section-Level Skill Mapping
+
+#### **Storefront Component Patterns**
+
+| Component Type | Example Files | Applicable Skills |
 |---|---|---|
-| **1. Storefront** (customer UI) | `CustomerStorefront.jsx`, `ProductGrid.jsx`, `PartCard.jsx`, `PartsCatalog.jsx`, `StorefrontFilters.jsx`, `CartDrawer.jsx`, `ReviewSection.jsx`, `MyAccount.jsx`, `MyOrders.jsx` | `design-taste-frontend` · `high-end-visual-design` · `web-design-guidelines` · `tailwind-design-system` · `accessibility` · `design-system` |
-| **2. Admin + POS** (staff UI) | `Dashboard.jsx`, `PurchasingModule.jsx`, `TransactionPOS.jsx`, `StaffManagement.jsx`, `CategoryManagement.jsx`, `AddPartDrawer.jsx` | `minimalist-ui` · `kpi-dashboard-design` · `tailwind-design-system` · `design-system` · `frontend-patterns` |
-| **3. Analytics / data-viz** | `Analytics.jsx` (recharts) | `dataviz` *(built-in)* · `frontend-patterns` |
-| **4. Auth** | `AuthPortal.jsx`, `authStore.js`, `supabaseClient.js`, `UpdatePasswordModal.jsx` | `security-review` · `frontend-patterns` · `accessibility` |
-| **5. Shared UI primitives** | `components/ui/`, `SettingsContext.jsx`, `ToastNotification.jsx`, `StatusBar.jsx` | `design-system` · `tailwind-design-system` · `frontend-patterns` |
-| **6. Backend API** | `backend/src/routes/`, `services/`, `controllers/`, `middleware/`, `validators/` | `backend-patterns` · `api-design` · `error-handling` · `security-review` |
-| **7. Payments** | `checkout.js`, `stripe.js`, `CheckoutService.js` | `security-review` · `backend-patterns` · `error-handling` |
-| **8. Database** | `backend/prisma/schema.prisma`, migrations, seed | `supabase-postgres-best-practices` · `prisma-client-api` · `postgres-patterns` · `database-migrations` |
-| **9. Testing** | `frontend/tests/` (Playwright), unit tests | `tdd-workflow` · `e2e-testing` · `verification-loop` |
-| **Always-on (any code)** | — | `ponytail` · `karpathy-principles` · `coding-standards` |
+| **Hero Section** | Landing hero in `CustomerStorefront.jsx` | `high-end-visual-design`, `impeccable`, `canvas-design`, `emil-design-eng` |
+| **Card Grids** | `ProductGrid.jsx`, `PartCard.jsx` | `high-end-visual-design`, `ui-ux-pro-max`, `impeccable`, `emil-design-eng` |
+| **Filter Sidebar** | `StorefrontFilters.jsx` | `web-design-guidelines`, `vercel-composition-patterns`, `impeccable` |
+| **Modal Dialogs** | `PartDetailDrawer.jsx`, auth modals | `impeccable`, `web-design-guidelines` |
+| **Form Fields** | Auth, profile, checkout forms | `vercel-composition-patterns`, `web-design-guidelines`, `impeccable` |
+| **Review Display** | `ReviewSection.jsx` | `ui-ux-pro-max`, `kpi-dashboard-design`, `impeccable` |
+| **Price Breakdown** | Cart summary, checkout | `kpi-dashboard-design`, `impeccable` |
+
+#### **Admin Component Patterns**
+
+| Component Type | Example Files | Applicable Skills |
+|---|---|---|
+| **Data Tables** | `Dashboard.jsx` metrics, parts table, staff table | `kpi-dashboard-design`, `web-design-guidelines`, `minimalist-ui` |
+| **Metric Cards** | `Dashboard.jsx` KPIs | `kpi-dashboard-design`, `ui-ux-pro-max`, `impeccable` |
+| **Charts & Graphs** | `Analytics.jsx` | `dataviz`, `kpi-dashboard-design`, `ui-ux-pro-max`, `impeccable` |
+| **Multi-Step Forms** | `PurchasingModule.jsx`, `AddPartDrawer.jsx` | `vercel-composition-patterns`, `impeccable`, `web-design-guidelines` |
+| **Number Inputs** | Inventory adjustments, POS | `web-design-guidelines`, `impeccable`, `minimalist-ui` |
+| **Confirmation Dialogs** | Delete/save confirmations | `impeccable`, `web-design-guidelines` |
+| **Settings Toggles** | `AdminSettings.jsx` | `minimalist-ui`, `impeccable`, `web-design-guidelines` |
+| **Icon/Color Pickers** | `CategoryManagement.jsx` | `impeccable`, `ui-ux-pro-max`, `web-design-guidelines` |
+
+#### **Shared/Always-On Components**
+
+| Component | File | Skills |
+|-----------|------|--------|
+| Navigation/Header | `App.jsx`, nav logic | `web-design-guidelines`, `tailwind-design-system`, `frontend-patterns` |
+| Footer | `Footer.jsx` | `tailwind-design-system`, `minimalist-ui` |
+| Notifications | `ToastNotification.jsx` | `impeccable`, `frontend-patterns`, `tailwind-design-system` |
+| Status Bar | `StatusBar.jsx` | `tailwind-design-system`, `minimalist-ui` |
+| Settings Context | `SettingsContext.jsx` | `frontend-patterns`, `tailwind-design-system` |
+
+---
+
+### Skill Library Reference
+
+All installed skills in `.agents/skills/` (invoke before writing code):
+
+**Premium/Taste-Forward:** `high-end-visual-design` (Awwwards-tier), `design-taste-frontend` (anti-slop briefs), `frontend-design` (aesthetics + typography), `canvas-design` (visual art generation)
+
+**Refinement/Polish:** `impeccable` (polish, critique, bolder, delight, distill, quieter), `emil-design-eng` (motion, detail, craftsmanship)
+
+**Minimalist/Operational:** `minimalist-ui` (editorial, warm monochrome, bento grids), `web-design-guidelines` (spacing, typography, interaction, a11y)
+
+**Data & Metrics:** `kpi-dashboard-design` (metrics, dashboards, visualizations), `ui-ux-pro-max` (192 palettes, 74 font pairs, 84 styles, 25 charts, 22 stacks)
+
+**Systems & Architecture:** `tailwind-design-system` (Tailwind v4, tokens, components), `design-system` (audit, generate, consistency), `extract-design-system` (extract tokens from code), `vercel-composition-patterns` (React composition, flexible APIs)
+
+**Patterns & Standards:** `frontend-patterns` (React, state mgmt, perf), `sleek-design-mobile-apps` (iOS/Android), `dataviz` *(built-in)* (chart implementation)
+
+---
+
+### Workflow: When to Invoke Skills
+
+**BEFORE** writing any UI/storefront code:
+1. Identify the page (use Tier 2 table above)
+2. Identify the component type within the page (use Tier 3 table above)
+3. Invoke the **core skills** listed for that combination
+4. Invoke secondary skills if the component requires advanced refinement
+
+**Example:** Editing `PartCard.jsx` hover state
+→ Page-level routing says "Parts Catalog → Premium" + component-level says "Card Grids"
+→ Invoke: `high-end-visual-design`, `impeccable`, `emil-design-eng`
 
 ---
 

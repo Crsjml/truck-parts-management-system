@@ -61,11 +61,16 @@ The following skills MUST be strictly adhered to and kept actively loaded in the
 ### Frontend & Design
 10. **`frontend-patterns`**: React/Vite UI best practices, state management, performance.
 11. **`design-system`**: Generate/audit design systems for visual consistency. Backs BOTH §4 design directives in CLAUDE.md — Customer Storefront (premium tokens) and Admin Dashboard (minimalist tokens) are two token modes of the same skill.
-12. **`accessibility`**: WCAG 2.2 AA compliance for the storefront and checkout flow.
-   - **Storefront (Area A)** — `design-taste-frontend`, `high-end-visual-design`, `web-design-guidelines`, `tailwind-design-system`. Premium, anti-slop.
-   - **Admin + POS (Area B)** — `minimalist-ui`, `kpi-dashboard-design`, `tailwind-design-system`. Dense, minimalist.
-   - **Analytics** — `dataviz` *(built-in runtime skill, not vendored)* for any recharts/chart work.
-   - Which fires on which files is governed by the **Skill Routing Map** in CLAUDE.md §4.
+12. **UI/UX Skill Routing** — Use the **3-Tier Routing Map** in CLAUDE.md §4:
+    - **TIER 1: Section-Level** (6 sections: Storefront, Auth, Admin Dashboard, Admin Operations, Analytics, Shared)
+    - **TIER 2: Page-Level** (16 pages: Landing, Auth, Catalog, Detail, Cart, Account, Orders, Dashboard, Parts Mgmt, Inventory, Purchasing, POS, Staff, Analytics, Categories, Settings)
+    - **TIER 3: Component-Level** (specific component types per page: Hero, Cards, Forms, Tables, Modals, etc.)
+    - Which skill fires on which code is governed by this map. ALWAYS consult before writing UI code.
+13. **`accessibility`**: WCAG 2.2 AA compliance for the storefront and checkout flow.
+    - **Storefront (Area A)** — Premium tier: `high-end-visual-design`, `design-taste-frontend`, `frontend-design`, `impeccable`
+    - **Admin + POS (Area B)** — Minimalist tier: `minimalist-ui`, `kpi-dashboard-design`
+    - **Analytics** — Data tier: `kpi-dashboard-design`, `ui-ux-pro-max`, `dataviz` *(built-in)*
+    - **Shared primitives** — System tier: `tailwind-design-system`, `design-system`, `vercel-composition-patterns`
 
 ### Testing & Quality Gates
 13. **`tdd-workflow`**: MANDATORY: test-driven development, 80%+ coverage (unit/integration/E2E), before declaring a feature done.
