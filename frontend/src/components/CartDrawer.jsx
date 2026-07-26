@@ -1,12 +1,12 @@
-import { ShoppingCart, X, Minus, Plus, Trash } from '@phosphor-icons/react';
+import { ShoppingCart, Minus, Plus, Trash } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
 import { Drawer } from './ui/Drawer';
 
 const panelVariants = {
-  initial: { opacity: 0, y: -10, scale: 0.95 },
+  initial: { opacity: 0, y: -8, scale: 0.92 },
   animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -10, scale: 0.95 },
-  transition: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
+  exit: { opacity: 0, y: -8, scale: 0.92 },
+  transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
 };
 
 const headingId = 'cart-drawer-heading';
@@ -30,10 +30,16 @@ export default function CartDrawer({
       isOpen={isCartOpen}
       onClose={onClose}
       labelledBy={headingId}
-      panelClassName="fixed top-24 right-4 sm:right-6 lg:right-8 w-full max-w-[360px] bg-background/90 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] flex flex-col border border-border/60 rounded-[2rem] overflow-hidden"
-      panelStyle={{ maxHeight: 'calc(100vh - 120px)' }}
+      panelClassName="fixed top-24 right-4 sm:right-6 lg:right-8 w-full max-w-[360px] bg-background/90 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] flex flex-col border border-border/60 rounded-[2rem]"
+      panelStyle={{ maxHeight: 'calc(100vh - 120px)', transformOrigin: 'top right' }}
       panelVariants={panelVariants}
     >
+      {/* pointer aimed at the header cart icon */}
+      <div
+        aria-hidden="true"
+        className="absolute -top-1.5 right-7 h-3 w-3 rotate-45 rounded-[3px] border-l border-t border-border/60 bg-background/90"
+      />
+      <div className="flex flex-1 flex-col overflow-hidden rounded-[2rem] min-h-0">
       <div className="flex items-center justify-between border-b border-border/50 p-5 bg-background/60">
         <h2 id={headingId} className="text-lg font-bold text-foreground inline-flex items-center gap-2.5">
           <ShoppingCart weight="fill" className="h-5 w-5 text-accent" aria-hidden="true" />
@@ -44,10 +50,10 @@ export default function CartDrawer({
         </h2>
         <button
           onClick={onClose}
-          aria-label="Close cart"
+          aria-label="Minimize cart"
           className="rounded-full bg-transparent p-1.5 text-muted-foreground transition-all hover:text-foreground hover:bg-secondary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <X weight="bold" className="h-4 w-4" />
+          <Minus weight="bold" className="h-4 w-4" />
         </button>
       </div>
 
@@ -100,16 +106,11 @@ export default function CartDrawer({
             disabled={isCheckingOut}
             className="w-full rounded-xl bg-foreground px-4 py-3.5 text-center text-sm font-bold text-background hover:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shadow-lg shadow-black/10 flex items-center justify-center gap-2"
           >
-            {isCheckingOut ? (
-              'Processing…'
-            ) : (
-              <>
-                Submit PO / Quote
-              </>
-            )}
+            {isCheckingOut ? 'Processing…' : 'Checkout'}
           </button>
         </div>
       )}
+      </div>
     </Drawer>
   );
 }
