@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, X, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, CarProfile, Faders, ShoppingCart, Plus, Minus, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
+import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
@@ -9,6 +9,7 @@ import { supabase } from '../supabaseClient';
 import CompatibilityFilter from './CompatibilityFilter';
 import ReviewSection from './ReviewSection';
 import CartDrawer from './CartDrawer';
+import PartDetailDrawer from './PartDetailDrawer';
 import ProductGrid from './ProductGrid';
 import StorefrontFilters from './StorefrontFilters';
 import MyOrders from './MyOrders';
@@ -32,12 +33,7 @@ export default function CustomerStorefront({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
-  const [modalQuantity, setModalQuantity] = useState(1);
-  useEffect(() => {
-    if (selectedPart) setModalQuantity(1);
-  }, [selectedPart]);
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
-  const [modalTab, setModalTab] = useState('specs');
   const [storefrontTab, setStorefrontTab] = useState('home');
   const [sortOrder, setSortOrder] = useState('recommended');
   const [minPrice, setMinPrice] = useState('');
@@ -693,204 +689,14 @@ export default function CustomerStorefront({
         </main>
       </div>
 
-      {selectedPart && (
-        <div className="fixed inset-0 z-50 flex justify-end pointer-events-none p-4 sm:p-6 lg:p-8">
-          <div className="fixed inset-0 pointer-events-auto bg-black/40 backdrop-blur-sm" onClick={() => setSelectedPart(null)} />
-          
-          <div className="pointer-events-auto relative w-full max-w-3xl rounded-[2.5rem] border border-border/50 bg-secondary/95 backdrop-blur-3xl shadow-2xl flex flex-col h-full overflow-hidden animate-in slide-in-from-right duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
-            {/* Header - Fixed */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-background/50 backdrop-blur shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent/10 text-accent dark:bg-accent/20 dark:text-red-300">
-                  {(() => {
-                    const cat = nestedCategories.find(c => c.name === selectedPart.category);
-                    const { Icon: DetailIcon } = getCategoryIconAndColor(selectedPart.category, cat?.iconName, cat?.colorTheme);
-                    return DetailIcon ? <DetailIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />;
-                  })()}
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-foreground">{selectedPart.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border">
-                      SKU: {selectedPart.sku}
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border">
-                      OEM: {selectedPart.oem}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setSelectedPart(null)} className="rounded-full border border-border bg-background p-2 text-muted-foreground transition hover:border-border hover:text-foreground hover:bg-secondary shadow-sm">
-                <X weight="bold" className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Tabs - Fixed */}
-            <div className="flex px-6 pt-4 border-b border-border bg-background/30 shrink-0 gap-6">
-              <button 
-                onClick={() => setModalTab('specs')}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${modalTab === 'specs' ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-              >
-                Description & Specs
-              </button>
-              <button 
-                onClick={() => setModalTab('reviews')}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${modalTab === 'reviews' ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-              >
-                Customer Reviews
-                <span className="px-1.5 py-0.5 rounded bg-secondary border border-border text-xs font-semibold">{selectedPart.reviewStats?.totalReviews || 0}</span>
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="overflow-y-scroll flex-1 p-6 custom-scrollbar bg-background">
-              {modalTab === 'specs' ? (
-                <div className="grid gap-8 lg:grid-cols-2">
-                  <div className="space-y-6">
-                    <div className="rounded-3xl border border-border/50 bg-white/95 shadow-inner overflow-hidden aspect-[4/3] relative flex items-center justify-center p-4 group">
-                      {selectedPart.image ? (
-                        <img 
-                          src={selectedPart.image} 
-                          alt={selectedPart.name} 
-                          onError={(e) => { e.target.onerror = null; e.target.src = getCategoryPlaceholder(selectedPart.category); }}
-                          className="object-contain w-full h-full rounded-2xl" 
-                        />
-                      ) : (
-                        <img src={getCategoryPlaceholder(selectedPart.category)} alt={selectedPart.name} className="object-contain w-full h-full rounded-2xl opacity-80" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none rounded-3xl" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
-                        <Tag weight="duotone" className="w-4 h-4" /> Product Description
-                      </h4>
-                      <p className="text-base leading-relaxed text-foreground">{selectedPart.description}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
-                        <CarProfile weight="duotone" className="w-4 h-4" /> Vehicle Compatibility
-                      </h4>
-                      <div className="rounded-2xl border border-border bg-secondary overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-background border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                            <tr>
-                              <th className="px-4 py-3 font-semibold">Make</th>
-                              <th className="px-4 py-3 font-semibold">Model / Series</th>
-                              <th className="px-4 py-3 font-semibold">Years</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border break-words whitespace-normal">
-                            {selectedPart.compatibleWith && selectedPart.compatibleWith.length > 0 ? (
-                              selectedPart.compatibleWith.map((comp, idx) => (
-                                <tr key={idx} className="hover:bg-background/50 transition-colors">
-                                  <td className="px-4 py-3 font-medium text-foreground">{comp.brand || 'Universal'}</td>
-                                  <td className="px-4 py-3 text-muted-foreground break-all">{comp.series || 'All Models'}</td>
-                                  <td className="px-4 py-3 text-muted-foreground">{comp.years || comp.year || 'Any'}</td>
-                                </tr>
-                              ))
-                            ) : selectedPart.compatibility ? (
-                              <tr>
-                                <td colSpan={3} className="px-4 py-3 font-medium text-foreground text-sm leading-relaxed whitespace-pre-wrap">{selectedPart.compatibility}</td>
-                              </tr>
-                            ) : (
-                              <tr>
-                                <td colSpan={3} className="px-4 py-3 font-medium text-foreground">Universal Fit</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-5 flex flex-col justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Unit Price</span>
-                        <span className="text-2xl font-black text-foreground">{formatCurrency(selectedPart.price)}</span>
-                      </div>
-                      <div className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-5 flex flex-col justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stock Status</span>
-                        <div className="flex items-center gap-2">
-                          { (selectedPart.stock - (selectedPart.reservedStock || 0)) > 0 ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              {(selectedPart.stock - (selectedPart.reservedStock || 0))} in stock
-                            </span>
-                          ) : (
-                            <span className="text-lg font-bold text-red-500">Out of Stock</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="col-span-2 rounded-2xl border border-border/50 bg-background/50 backdrop-blur-sm p-4 flex flex-col justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Category</span>
-                        {(() => {
-                          const cat = nestedCategories.find(c => c.name === selectedPart.category);
-                          const { Icon: CatIcon, color: catColor } = getCategoryIconAndColor(selectedPart.category, cat?.iconName, cat?.colorTheme);
-                          return (
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold w-fit ${catColor}`}>
-                              {CatIcon && <CatIcon weight="duotone" className="w-3.5 h-3.5 shrink-0" />}
-                              <span className="line-clamp-1">{selectedPart.category}</span>
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-3xl mx-auto">
-                  <ReviewSection 
-                    partId={selectedPart.id} 
-                    currentUserId={customerSession?.user?.id || customerSession?.user?.uid} 
-                    hasPurchased={
-                      !!customerSession && (transactions || []).some(tx => 
-                        (tx.userId === (customerSession.user?.id || customerSession.user?.uid) || 
-                         tx.customerContact === customerSession.user?.email) &&
-                        (tx.items || []).some(item => item.partId === selectedPart.id)
-                      )
-                    }
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Frosted Sticky Footer */}
-            <div className="p-6 border-t border-border/50 bg-background/60 backdrop-blur-2xl shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-              <div className="flex items-center gap-4 w-full sm:w-auto justify-center bg-secondary/80 rounded-2xl p-2 border border-border/50">
-                <button
-                  type="button"
-                  onClick={() => setModalQuantity(q => Math.max(1, q - 1))}
-                  disabled={modalQuantity <= 1 || (selectedPart.stock - (selectedPart.reservedStock || 0)) === 0}
-                  className="p-3 bg-background hover:bg-muted rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  <Minus className="w-5 h-5 text-foreground" />
-                </button>
-                <span className="w-12 text-center font-bold text-lg text-foreground font-display">
-                  {modalQuantity}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setModalQuantity(q => Math.min((selectedPart.stock - (selectedPart.reservedStock || 0)), q + 1))}
-                  disabled={modalQuantity >= (selectedPart.stock - (selectedPart.reservedStock || 0))}
-                  className="p-3 bg-background hover:bg-muted rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  <Plus className="w-5 h-5 text-foreground" />
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => { addToCart(selectedPart, modalQuantity); setSelectedPart(null); }}
-                disabled={(selectedPart.stock - (selectedPart.reservedStock || 0)) === 0}
-                className="w-full sm:flex-1 py-4 bg-accent hover:bg-accent/90 text-white font-black text-lg rounded-2xl shadow-xl shadow-accent/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ShoppingCart weight="bold" className="w-6 h-6" />
-                {(selectedPart.stock - (selectedPart.reservedStock || 0)) === 0 ? 'Out of Stock' : 'Add to Quote'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PartDetailDrawer
+        part={selectedPart}
+        nestedCategories={nestedCategories}
+        customerSession={customerSession}
+        transactions={transactions}
+        addToCart={addToCart}
+        onClose={() => setSelectedPart(null)}
+      />
 
       {/* Global Footer */}
       {storefrontTab === 'home' ? (
