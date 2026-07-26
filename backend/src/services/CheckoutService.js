@@ -3,14 +3,26 @@ import Stripe from 'stripe';
 import { prisma } from '../config/prisma.js';
 import transactionsRepository from '../repositories/TransactionsRepository.js';
 
+/**
+ * Part.price is the wholesale base price; the customer-facing selling price is
+ * that value plus the global Setting.active_markup percentage.
+ */
+export function computeSellingPrice(basePrice, markupPercent) {
+  const markup = Number(markupPercent) || 0;
+  return Math.round(basePrice * (1 + markup / 100) * 100) / 100;
+}
+
 class CheckoutService {
   constructor() {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   }
 
-  async getBaseCurrency() {
+  async getSettings() {
     const setting = await prisma.setting.findFirst();
-    return (setting?.base_currency || 'PHP').toLowerCase();
+    return {
+      currency: (setting?.base_currency || 'PHP').toLowerCase(),
+      markup: setting?.active_markup || 0,
+    };
   }
 
   async createCheckoutSession(items, userEmail, userId) {
@@ -18,29 +30,53 @@ class CheckoutService {
       throw new Error('Cart is empty');
     }
 
-    const currency = await this.getBaseCurrency();
+    const { currency, markup } = await this.getSettings();
 
-    // Map cart items to Stripe line_items
-    const lineItems = items.map((item) => {
+    // Never trust a client-supplied price. Re-resolve every line from the DB.
+    const ids = items.map((i) => i.id || i._id);
+    const parts = await prisma.part.findMany({ where: { id: { in: ids } } });
+    const partsById = new Map(parts.map((p) => [p.id, p]));
+
+    const pricedItems = items.map((item) => {
+      const id = item.id || item._id;
+      const part = partsById.get(id);
+      if (!part) throw new Error(`Part ${id} not found`);
+
+      const quantity = Number(item.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        throw new Error(`Invalid quantity for part ${id}`);
+      }
+
       return {
-        price_data: {
-          currency,
-          product_data: {
-            name: item.name,
-            description: `SKU: ${item.sku}`,
-            images: item.imageUrl ? [item.imageUrl] : [],
-          },
-          unit_amount: Math.round(item.price * 100), // Stripe expects cents
-        },
-        quantity: item.quantity,
+        id,
+        name: part.name,
+        sku: part.sku,
+        imageUrl: part.imageUrl,
+        quantity,
+        price: computeSellingPrice(part.price, markup),
       };
     });
+
+    const lineItems = pricedItems.map((item) => ({
+      price_data: {
+        currency,
+        product_data: {
+          name: item.name,
+          description: `SKU: ${item.sku}`,
+          images: item.imageUrl ? [item.imageUrl] : [],
+        },
+        unit_amount: Math.round(item.price * 100), // Stripe expects cents
+      },
+      quantity: item.quantity,
+    }));
 
     // We store metadata so the webhook knows what to update in the DB
     const metadata = {
       userId: userId || 'N/A',
       userEmail: userEmail || 'customer@example.com',
-      cartItems: JSON.stringify(items.map(i => ({ id: i.id || i._id, quantity: i.quantity, price: i.price, name: i.name }))),
+      cartItems: JSON.stringify(
+        pricedItems.map((i) => ({ id: i.id, quantity: i.quantity, price: i.price, name: i.name }))
+      ),
       currency,
     };
 

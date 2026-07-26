@@ -1,4 +1,8 @@
 TYPE,KEY,SUMMARY,STATUS
+Bug,TTP-173,Charge server-computed selling price and stop trusting client cart prices,In Progress
+Task,TTP-172,Migrate CartDrawer onto the shared accessible drawer primitive and improve UI,In Progress
+Task,TTP-171,Improve auth form UX with icons password toggle and strength meter,Done
+Task,TTP-170,Add Google OAuth and email magic-link sign-in,Done
 Subtask,TTP-169,Link categories to parts records,Done
 Subtask,TTP-168,Allow creation and editing of categories and subcategories,Done
 Subtask,TTP-167,Build category management UI,Done
