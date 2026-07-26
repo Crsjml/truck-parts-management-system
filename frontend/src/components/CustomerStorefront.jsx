@@ -430,9 +430,16 @@ export default function CustomerStorefront({
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-secondary transition border border-transparent hover:border-border/50">
                   {isDarkMode ? <Sun weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-foreground"/> : <Moon weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-foreground"/>}
                 </button>
-                <button onClick={onOpenAdminAuth} className="p-2 rounded-full hover:bg-secondary transition border border-transparent hover:border-border/50">
-                  <ShieldCheck weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-brandBlue-400" />
-                </button>
+                {!customerSession && (
+                  <button
+                    onClick={onOpenAdminAuth}
+                    aria-label="Staff sign-in"
+                    title="Staff sign-in"
+                    className="p-2 rounded-full hover:bg-secondary transition border border-transparent hover:border-border/50"
+                  >
+                    <ShieldCheck weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-brandBlue-400" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

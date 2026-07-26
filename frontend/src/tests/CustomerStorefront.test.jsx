@@ -96,4 +96,15 @@ describe('CustomerStorefront Component Tests', () => {
     // Modal should appear
     expect(await screen.findByLabelText(/close part details/i)).toBeInTheDocument();
   });
+
+  it('renders staff sign-in button when no customer is signed in', () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={null} />);
+    expect(screen.getByRole('button', { name: /staff sign-in/i })).toBeInTheDocument();
+  });
+
+  it('hides staff sign-in button when a customer is signed in', () => {
+    const mockSession = { user: { id: 'cust-1', email: 'test@customer.com' } };
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={mockSession} />);
+    expect(screen.queryByRole('button', { name: /staff sign-in/i })).not.toBeInTheDocument();
+  });
 });
