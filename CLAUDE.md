@@ -139,6 +139,7 @@ When the user asks for a feature or architectural decision:
 - Keep responses concise and use GitHub-flavored markdown.
 - Create clickable links for files.
 - Use `activity-log.md` in `/docs` to document massive changes, but do not auto-commit it.
+  Routine per-turn history is recorded automatically in `docs/memory/session.md` — see §12.
 - Mark intentional codebase simplifications with a `// ponytail:` comment.
 
 ---
@@ -233,3 +234,48 @@ the same behavior with or without the global harness installed:
 See `docs/claude-md-audit.md` for the full audit of what was phantom,
 orphaned, or drifted before this slice was cut, and for one known,
 intentionally out-of-scope finding involving `.opencode/opencode.json`.
+
+---
+
+## 🧵 12. Session Memory & Cross-Terminal Continuity
+
+Multiple terminal sessions work this repo concurrently. Continuity is
+handled by **hooks, not skills** — a skill is model-invoked (I decide
+whether it applies), so it can never guarantee "every turn." This is the
+same Layer 2 vs Layer 3 split as §8: deciding *what* to record is my job,
+*actually recording it* is deterministic code.
+
+Two layers run in parallel. They are complementary — do not treat either
+as the source of truth for the other:
+
+| Layer | Mechanism | Storage | Read it when |
+|---|---|---|---|
+| **`session-memory`** (own) | `Stop` + `SessionStart` hooks in `~/.claude/settings.json` → `~/.claude/hooks/session-memory.py` | **`docs/memory/session.md`** — plain markdown, git-tracked | You need the human-readable trail of what other sessions did |
+| **`claude-mem`** (3rd-party) | 6 plugin hooks (`claude-mem@thedotmack`) | SQLite + FTS5 at `~/.claude-mem/`, **not** in git | You need semantic search across long history |
+
+### `docs/memory/session.md` rules
+
+- **Auto-maintained. Never hand-edit it** — the Stop hook rewrites the
+  whole file each turn, so manual edits are silently lost.
+- Newest entry first, rolling cap of **60 entries**; older ones are pruned.
+- Each entry is `## <timestamp> · <branch> · <repo>` plus `Ask` / `Did` /
+  `Files`. Prompt and response text are clipped (180 / 420 chars) — it is
+  an index, not a transcript.
+- The last 5 entries are injected into context at `SessionStart`, so at
+  the top of a session you already know what the previous session did.
+- It **is** committed. Treat it like a lockfile: regenerate, don't edit,
+  and don't fight merge conflicts — take either side and let the hook
+  rewrite it.
+
+### Relationship to the existing docs
+
+- `docs/activity-log.md` — still **manual**, still for *massive* changes
+  only (§7). Session memory is the automatic, granular layer beneath it;
+  it does not replace the activity log.
+- `docs/agent-session.md` — the older hand-maintained session notes.
+  Superseded in practice by `docs/memory/session.md`; leave it in place
+  as historical record, don't append to it.
+- Claude Code's native auto-memory (`~/.claude/projects/*/memory/`) is
+  left at its default and **intentionally unused** here — it lives
+  outside the repo, so teammates never see it. `docs/memory/session.md`
+  is the shareable equivalent.
