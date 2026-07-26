@@ -31,7 +31,6 @@ export default function CustomerStorefront({
   const { formatCurrency, displayCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [cartOpen, setCartOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [storefrontTab, setStorefrontTab] = useState('home');
@@ -164,23 +163,25 @@ export default function CustomerStorefront({
   const cartTotalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
   const addToCart = (part, quantity = 1) => {
+    const availableStock = part.stock - (part.reservedStock || 0);
+    const existing = cart.find(item => item.id === part.id);
+    const requested = existing ? existing.quantity + quantity : quantity;
+
+    if (requested > availableStock) {
+      alert(`Cannot add more. Only ${availableStock} units of ${part.name} are available.`);
+      return;
+    }
+
     setCart(prev => {
-      const existing = prev.find(item => item.id === part.id);
-      const availableStock = part.stock - (part.reservedStock || 0);
-      if (existing) {
-        const newQty = existing.quantity + quantity;
-        if (newQty > availableStock) {
-          alert(`Cannot add more. Only ${availableStock} units of ${part.name} are available.`);
-          return prev;
-        }
-        return prev.map(item => item.id === part.id ? { ...item, quantity: newQty } : item);
-      }
-      if (quantity > availableStock) {
-        alert(`Cannot add ${quantity}. Only ${availableStock} units available.`);
-        return prev;
+      const found = prev.find(item => item.id === part.id);
+      if (found) {
+        return prev.map(item =>
+          item.id === part.id ? { ...item, quantity: item.quantity + quantity } : item
+        );
       }
       return [...prev, { ...part, quantity }];
     });
+    setIsCartOpen(true);
   };
 
   const removeFromCart = (partId) => {
@@ -208,7 +209,7 @@ export default function CustomerStorefront({
       }
       return newCart;
     });
-    setCartOpen(true);
+    setIsCartOpen(true);
   };
 
   const updateCartQuantity = (partId, delta, stock) => {

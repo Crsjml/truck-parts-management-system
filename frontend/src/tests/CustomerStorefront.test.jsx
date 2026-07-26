@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import CustomerStorefront from '../components/CustomerStorefront';
 
@@ -28,7 +28,7 @@ vi.mock('../context/SettingsContext', () => ({
 
 const mockParts = [
   {
-    _id: '1',
+    id: '1',
     name: 'Brake Pad Set',
     sku: 'BRK-1',
     oem: '',
@@ -40,7 +40,7 @@ const mockParts = [
     compatibleWith: [{ brand: 'Isuzu', series: 'ELF' }]
   },
   {
-    _id: '2',
+    id: '2',
     name: 'Oil Filter',
     sku: 'OIL-1',
     oem: '',
@@ -57,6 +57,10 @@ describe('CustomerStorefront Component Tests', () => {
   it('renders product listing correctly', async () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
     
+    // Go to catalog tab
+    const catalogBtn = screen.getByRole('button', { name: /^catalog$/i });
+    fireEvent.click(catalogBtn);
+
     // Check if parts are displayed
     expect(await screen.findByText('Brake Pad Set')).toBeInTheDocument();
     expect(screen.getByText('Oil Filter')).toBeInTheDocument();
@@ -66,7 +70,7 @@ describe('CustomerStorefront Component Tests', () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
     
     // Go to catalog tab
-    const catalogBtn = screen.getByRole('button', { name: /browse catalog/i });
+    const catalogBtn = screen.getByRole('button', { name: /^catalog$/i });
     fireEvent.click(catalogBtn);
 
     // Find search input
@@ -75,21 +79,21 @@ describe('CustomerStorefront Component Tests', () => {
     
     // Brake pad should be visible, Oil filter should not
     expect(await screen.findByText('Brake Pad Set')).toBeInTheDocument();
-    expect(screen.queryByText('Oil Filter')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Oil Filter')).not.toBeInTheDocument());
   });
 
   it('opens product details modal when part is clicked', async () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
     
     // Go to catalog tab
-    const catalogBtn = screen.getByRole('button', { name: /browse catalog/i });
+    const catalogBtn = screen.getByRole('button', { name: /^catalog$/i });
     fireEvent.click(catalogBtn);
 
     // Click the "View Details" arrow button (has aria-label="View details")
-    const viewButtons = await screen.findAllByRole('button', { name: /view details/i });
+    const viewButtons = await screen.findAllByRole('button', { name: /details/i });
     fireEvent.click(viewButtons[0]); // Click Brake Pad Set
     
     // Modal should appear
-    expect(await screen.findByText(/product detail/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/close part details/i)).toBeInTheDocument();
   });
 });
