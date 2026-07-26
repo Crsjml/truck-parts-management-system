@@ -44,6 +44,7 @@ describe('OrderCard', () => {
     
     // Body assertions
     expect(screen.getByText('Brake Pads')).toBeInTheDocument();
+    expect(screen.getByText(/× 2/i)).toBeInTheDocument();
     
     // Footer assertions
     expect(screen.getByText(/₱ 1120/)).toBeInTheDocument(); // total (bold)
@@ -80,5 +81,58 @@ describe('OrderCard', () => {
     
     fireEvent.click(screen.getByRole('button', { name: /download/i }));
     expect(mockHandlers.onDownloadPDF).toHaveBeenCalledWith(mockTransaction);
+  });
+
+  it('calls onReorder with items when Reorder button clicked', () => {
+    render(
+      <OrderCard
+        transaction={mockTransaction}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+      />
+    );
+    
+    fireEvent.click(screen.getByRole('button', { name: /reorder/i }));
+    expect(mockHandlers.onReorder).toHaveBeenCalledWith(mockTransaction.items);
+  });
+
+  it('calls onReview with partId and name when Review button clicked', () => {
+    const transactionWithPartId = {
+      ...mockTransaction,
+      items: [{ id: 'item-1', partId: 'part-123', name: 'Brake Pads', price: 500, quantity: 2 }]
+    };
+
+    render(
+      <OrderCard
+        transaction={transactionWithPartId}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+      />
+    );
+    
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
+    expect(mockHandlers.onReview).toHaveBeenCalledWith('part-123', 'Brake Pads');
+  });
+
+  it('calls onReview with id fallback when partId is missing', () => {
+    render(
+      <OrderCard
+        transaction={mockTransaction}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+      />
+    );
+    
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
+    expect(mockHandlers.onReview).toHaveBeenCalledWith('1', 'Brake Pads');
   });
 });

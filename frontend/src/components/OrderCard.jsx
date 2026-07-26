@@ -108,7 +108,7 @@ export default function OrderCard({
             <span>Reorder</span>
           </button>
           <button
-            onClick={() => onReview && onReview(transaction.items?.[0]?.id, transaction.items?.[0]?.name)}
+            onClick={() => onReview && onReview(transaction.items?.[0]?.partId || transaction.items?.[0]?.id, transaction.items?.[0]?.name)}
             className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
             aria-label="Leave review"
           >
