@@ -8,17 +8,29 @@ const getOrCreateCustomer = async (auth) => {
   const authId = auth.userId;
   const email = auth.email || '';
 
-  return await prisma.customer.upsert({
-    where: { authId },
-    create: {
-      authId,
-      email,
-      displayName: auth.user_metadata?.full_name || auth.name || '',
-      photoURL: auth.user_metadata?.avatar_url || auth.picture || '',
-      phoneNumber: auth.user_metadata?.contact_number || auth.phone || ''
-    },
-    update: {}
-  });
+  try {
+    return await prisma.customer.upsert({
+      where: { authId },
+      create: {
+        authId,
+        email,
+        displayName: auth.user_metadata?.full_name || auth.name || '',
+        photoURL: auth.user_metadata?.avatar_url || auth.picture || '',
+        phoneNumber: auth.user_metadata?.contact_number || auth.phone || ''
+      },
+      update: {}
+    });
+  } catch (err) {
+    // If the email already exists under an old authId (e.g. account was deleted and recreated),
+    // reconnect the existing customer record to the new authId.
+    if (err.code === 'P2002' && email) {
+      return await prisma.customer.update({
+        where: { email },
+        data: { authId }
+      });
+    }
+    throw err;
+  }
 };
 
 // GET /api/customers/me
@@ -53,16 +65,13 @@ router.get('/me', requireAuth, async (req, res) => {
 // PUT /api/customers/me
 router.put('/me', requireAuth, async (req, res) => {
   try {
-    const authId = req.auth.userId;
     const { displayName, phoneNumber, photoURL, companyName } = req.body;
 
-    const customer = await prisma.customer.findUnique({ where: { authId } });
-    if (!customer) {
-      return res.status(404).json({ msg: 'Customer profile not found.' });
-    }
+    // Guarantee the customer exists before updating
+    const customer = await getOrCreateCustomer(req.auth);
 
     const updatedCustomer = await prisma.customer.update({
-      where: { authId },
+      where: { id: customer.id },
       data: {
         ...(displayName !== undefined && { displayName }),
         ...(phoneNumber !== undefined && { phoneNumber }),
