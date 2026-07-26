@@ -9,6 +9,7 @@ import Footer from './components/Footer';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 import ToastNotification, { useToast } from './components/ToastNotification';
 import UpdatePasswordModal from './components/UpdatePasswordModal';
+import CompleteProfileModal from './components/CompleteProfileModal';
 
 // Lazy loaded page modules to optimize initial bundle size
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -177,6 +178,38 @@ export default function App() {
       photoURL: customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url
     }
   } : null;
+
+  const needsProfileCompletion = isSignedIn && supabaseUser && !supabaseUser.staffData && !supabaseUser.user_metadata?.contact_number;
+
+  const handleProfileComplete = async () => {
+    try {
+      const p = await fetchCustomerProfile();
+      setCustomerProfile(p);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.user_metadata?.contact_number) {
+        setSupabaseUser(user);
+      } else if (p?.phoneNumber || p?.contact_number) {
+        const contactNum = p.phoneNumber || p.contact_number;
+        const { data: updated } = await supabase.auth.updateUser({
+          data: { contact_number: contactNum }
+        });
+        if (updated?.user) {
+          setSupabaseUser(updated.user);
+        } else {
+          setSupabaseUser(prev => prev ? {
+            ...prev,
+            user_metadata: {
+              ...prev.user_metadata,
+              contact_number: contactNum
+            }
+          } : null);
+        }
+      }
+    } catch (err) {
+      console.error('Error updating profile complete state:', err);
+    }
+  };
 
   useEffect(() => {
     if (!adminSession?.user) return;
@@ -466,6 +499,9 @@ export default function App() {
         isLoggedIn={!!adminSession || !!customerSession}
       />
         <StatusBar />
+        {needsProfileCompletion && (
+          <CompleteProfileModal onComplete={handleProfileComplete} />
+        )}
       </>
     );
   }
@@ -1007,6 +1043,9 @@ export default function App() {
       />
       <StatusBar />
       <ToastNotification toasts={toasts} onDismiss={dismissToast} />
+      {needsProfileCompletion && (
+        <CompleteProfileModal onComplete={handleProfileComplete} />
+      )}
     </div>
   );
 }
