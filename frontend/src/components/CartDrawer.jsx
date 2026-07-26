@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShoppingCart, X, Minus, Plus, Trash } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
 import { Drawer } from './ui/Drawer';
@@ -23,7 +22,7 @@ export default function CartDrawer({
   handleCheckout,
   isCheckingOut
 }) {
-  const { formatCurrency, displayCurrency } = useSettings();
+  const { formatCurrency } = useSettings();
   const onClose = () => setIsCartOpen(false);
 
   return (
@@ -65,7 +64,12 @@ export default function CartDrawer({
             <div key={item.id} className="group flex items-start gap-3 rounded-2xl border border-border/40 p-3 bg-secondary/30 hover:bg-secondary/60 hover:border-border/80 transition-all">
               <div className="flex-1 min-w-0">
                 <h4 className="text-[13px] font-bold text-foreground leading-tight line-clamp-2 mb-1">{item.name}</h4>
-                <p className="text-xs font-black text-foreground font-mono">{displayCurrency} {item.price}</p>
+                <p className="text-xs font-semibold text-muted-foreground font-mono tabular-nums">
+                  {item.quantity} × {formatCurrency(item.price)}
+                </p>
+                <p className="text-[13px] font-black text-foreground font-mono tabular-nums">
+                  {formatCurrency(item.price * item.quantity)}
+                </p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/80 p-0.5">
