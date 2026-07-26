@@ -22,7 +22,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 2s
+      start_period: 5s
 
   # ------------------------------------------------------------
   # Frontend – Vite / React
@@ -51,6 +51,12 @@ services:
       backend:
         condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5173/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 
 
