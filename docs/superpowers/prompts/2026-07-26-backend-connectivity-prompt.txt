@@ -1,0 +1,65 @@
+DEVELOPMENT AGENT EXECUTION PROMPT
+
+Read this plan first:
+  docs/superpowers/plans/2026-07-26-backend-connectivity-fix.md
+
+Your mission: Execute all 4 tasks autonomously. Dispatch sub-agents for complex work.
+
+AGENT DISPATCH STRATEGY:
+============================================================================
+
+Task 1: Verification (Your hands-on work)
+  - Manual: Run commands, check logs, browser test
+  - No sub-agent needed (you can execute directly)
+  - Report findings to Task 2
+
+Task 2: Debug (If Task 1 save fails — optional)
+  - Complex multi-step diagnosis
+  - Dispatch: "caveman:cavecrew-investigator" to locate endpoint/schema
+  - You analyze results, propose root cause
+  - Report root cause findings
+
+Task 3: Docker Fix (Code change)
+  - Simple: Edit docker-compose.yml
+  - Dispatch: "caveman:cavecrew-builder" to make the changes
+  - You review the diff, verify syntax, commit
+
+Task 4: Cold-Start Test (Verification)
+  - Manual: Docker restart, bash commands, browser test
+  - No sub-agent needed (you execute)
+  - Confirm all tests pass
+
+============================================================================
+
+EXECUTION FLOW:
+
+1. Run Task 1 manually (browser test, logs check)
+   → If profile save WORKS: Skip Task 2, proceed to Task 3
+   → If profile save FAILS: Run Task 2 to diagnose
+
+2. Run Task 3 (dispatch caveman:cavecrew-builder to edit docker-compose.yml)
+   → Review changes
+   → Commit
+
+3. Run Task 4 manually (cold-start verification)
+   → Confirm success
+   → Commit test results
+
+AUTOMATION NOTES:
+============================================================================
+
+Task 1 & 4 are manual verification (you run commands, read outputs, test in browser).
+Task 2 is conditional (only if Task 1 fails).
+Task 3 is the only code change (dispatch to cavecrew-builder for the edit).
+
+Report file: docs/superpowers/reports/2026-07-26-backend-connectivity-report.md
+
+Create report as you go:
+- Task 1: Findings from browser test (save worked or failed?)
+- Task 2: Root cause diagnosis (if needed)
+- Task 3: Commit hash of docker-compose change
+- Task 4: Cold-start test results (healthy? API working?)
+
+At end: Summarize whether backend connectivity issue is FIXED or NEEDS_MORE_WORK.
+
+Begin with Task 1. Run it now.
