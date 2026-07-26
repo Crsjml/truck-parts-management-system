@@ -18,7 +18,7 @@ export function GoogleSignInButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`relative w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer bg-white text-[#3c4043] border border-[#dadce0] hover:bg-[#f8f9fa] hover:border-[#d2dce0] hover:shadow-sm dark:bg-[#131314] dark:text-white dark:border-[#8e918f] dark:hover:bg-[#202124] dark:hover:border-[#9aa0a6] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${className}`}
+      className={`relative w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer bg-white text-[#3c4043] border border-[#dadce0] hover:bg-[#f8f9fa] hover:border-[#d2dce0] hover:shadow-sm dark:bg-[#131314] dark:text-white dark:border-white/10 dark:hover:bg-[#202124] dark:hover:border-white/20 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${className}`}
       {...props}
     >
       <svg
