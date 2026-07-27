@@ -17,6 +17,7 @@ import MyAccount from './MyAccount';
 import AboutPage from './AboutPage';
 import ReturnPolicyModal from './ReturnPolicyModal';
 import ReorderRail from './ReorderRail';
+import Reveal from './ui/Reveal';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -27,6 +28,12 @@ const TRUSTED_BRANDS = [
   { label: 'MACK', className: 'text-xl font-black italic' },
   { label: 'HINO', className: 'text-xl font-bold tracking-widest' },
   { label: 'PACCAR', className: 'text-xl font-bold tracking-tighter' },
+];
+
+const VALUE_PROPS = [
+  { icon: Pulse, title: 'Live Inventory', description: 'Real-time stock levels directly from our Tarlac warehouse.' },
+  { icon: Truck, title: 'Heavy Logistics', description: 'Specialized freight handling for oversized engine blocks and chassis parts.' },
+  { icon: ClipboardText, title: 'B2B Wholesale', description: 'Exclusive volume discounts and priority allocation for registered fleets.' },
 ];
 
 export default function CustomerStorefront({
@@ -530,27 +537,17 @@ export default function CustomerStorefront({
 
                 {/* 3-Card Value Proposition Bento */}
                 <div className="relative z-10 w-full max-w-5xl mb-16 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-                  <div className="rounded-[2rem] bg-secondary/80 border border-border/50 p-6 backdrop-blur-md flex flex-col justify-center items-start gap-3 hover:border-accent/30 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent"><Pulse weight="duotone" className="w-5 h-5"/></div>
-                    <div>
-                      <h4 className="font-bold text-foreground text-sm">Live Inventory</h4>
-                      <p className="text-xs text-muted-foreground mt-1">Real-time stock levels directly from our Tarlac warehouse.</p>
-                    </div>
-                  </div>
-                  <div className="rounded-[2rem] bg-secondary/80 border border-border/50 p-6 backdrop-blur-md flex flex-col justify-center items-start gap-3 hover:border-accent/30 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent"><Truck weight="duotone" className="w-5 h-5"/></div>
-                    <div>
-                      <h4 className="font-bold text-foreground text-sm">Heavy Logistics</h4>
-                      <p className="text-xs text-muted-foreground mt-1">Specialized freight handling for oversized engine blocks and chassis parts.</p>
-                    </div>
-                  </div>
-                  <div className="rounded-[2rem] bg-secondary/80 border border-border/50 p-6 backdrop-blur-md flex flex-col justify-center items-start gap-3 hover:border-accent/30 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent"><ClipboardText weight="duotone" className="w-5 h-5"/></div>
-                    <div>
-                      <h4 className="font-bold text-foreground text-sm">B2B Wholesale</h4>
-                      <p className="text-xs text-muted-foreground mt-1">Exclusive volume discounts and priority allocation for registered fleets.</p>
-                    </div>
-                  </div>
+                  {VALUE_PROPS.map((item, i) => (
+                    <Reveal key={item.title} delay={i * 0.06}>
+                      <div className="rounded-[2rem] bg-secondary/80 border border-border/50 p-6 backdrop-blur-md flex flex-col justify-center items-start gap-3 transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/5">
+                        <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent"><item.icon weight="duotone" className="w-5 h-5"/></div>
+                        <div>
+                          <h4 className="font-bold text-foreground text-sm">{item.title}</h4>
+                          <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                        </div>
+                      </div>
+                    </Reveal>
+                  ))}
                 </div>
 
                 {/* Shop by Category Bento */}
