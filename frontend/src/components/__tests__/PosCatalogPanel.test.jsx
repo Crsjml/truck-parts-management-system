@@ -1,4 +1,3 @@
-// frontend/src/components/__tests__/PosCatalogPanel.test.jsx
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
@@ -58,6 +57,7 @@ describe('PosCatalogPanel', () => {
 
   it('filters by vehicle brand compatibility', () => {
     renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /vehicle filter/i }));
     fireEvent.change(screen.getByLabelText(/vehicle brand/i), { target: { value: 'Isuzu' } });
     expect(screen.getByText('Brake Pad Set')).toBeInTheDocument();
     expect(screen.queryByText('Oil Filter')).not.toBeInTheDocument();
@@ -82,4 +82,26 @@ describe('PosCatalogPanel', () => {
     fireEvent.change(screen.getByLabelText(/search parts/i), { target: { value: 'zzzzz' } });
     expect(screen.getByText(/no parts match/i)).toBeInTheDocument();
   });
+
+  it('shows every match in one scrolling list with no pagination', () => {
+    const many = Array.from({ length: 24 }, (_, i) => ({
+      id: `p${i}`, name: `Filter ${i}`, sku: `F-${i}`, oem: '', category: 'Filters',
+      price: 100, stock: 5, reservedStock: 0, compatibleWith: []
+    }));
+    renderPanel({ parts: many });
+
+    expect(screen.queryByRole('button', { name: /^next$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^prev$/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Filter 23')).toBeInTheDocument();
+  });
+
+  it('keeps the vehicle filters collapsed until asked for', () => {
+    renderPanel({});
+    expect(screen.queryByLabelText(/vehicle brand/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /vehicle filter/i }));
+    expect(screen.getByLabelText(/vehicle brand/i)).toBeInTheDocument();
+  });
 });
+
+
