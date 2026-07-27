@@ -18,7 +18,7 @@ import AboutPage from './AboutPage';
 import ReturnPolicyModal from './ReturnPolicyModal';
 import ReorderRail from './ReorderRail';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 const TRUSTED_BRANDS = [
   { label: 'CUMMINS', className: 'text-xl font-black italic tracking-tighter' },
@@ -41,6 +41,16 @@ export default function CustomerStorefront({
   transactions
 }) {
   const { formatCurrency, displayCurrency } = useSettings();
+  const shouldReduceMotion = useReducedMotion();
+
+  const heroContainerVariants = {
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.08 } },
+  };
+  const heroItemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.19, 1, 0.22, 1] } },
+  };
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPart, setSelectedPart] = useState(null);
@@ -461,22 +471,27 @@ export default function CustomerStorefront({
           {storefrontTab === 'home' && (
             <>
               <HeroHighlight containerClassName="rounded-[3rem] border border-border/30 p-8 sm:p-12 lg:p-16 mb-8 shadow-sm">
-                <div className="flex flex-col items-center text-center w-full z-10">
-                <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/60 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground backdrop-blur-md mb-8 shadow-sm">
+                <motion.div
+                  className="flex flex-col items-center text-center w-full z-10"
+                  initial={shouldReduceMotion ? false : "hidden"}
+                  animate="visible"
+                  variants={heroContainerVariants}
+                >
+                <motion.span variants={heroItemVariants} className="relative z-10 inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/60 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground backdrop-blur-md mb-8 shadow-sm">
                   <Sparkle weight="duotone" className="h-4 w-4 text-accent" />
                   premium truck parts marketplace
-                </span>
+                </motion.span>
                 
-                <h1 className="relative z-10 max-w-4xl text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl mb-6 leading-[1.05]">
+                <motion.h1 variants={heroItemVariants} className="relative z-10 max-w-4xl text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl mb-6 leading-[1.05]">
                   Find the exact part for your <Highlight>heavy fleet.</Highlight>
-                </h1>
+                </motion.h1>
                 
-                <p className="relative z-10 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg mb-12">
+                <motion.p variants={heroItemVariants} className="relative z-10 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg mb-12">
                   Search OEM-compatible parts or browse our massive catalog. Create a verified customer account for wholesale pricing, real-time stock alerts, and instant purchase orders.
-                </p>
+                </motion.p>
 
                 {/* Search Bar on Hero */}
-                <div className="relative z-10 w-full max-w-2xl mb-16">
+                <motion.div variants={heroItemVariants} className="relative z-10 w-full max-w-2xl mb-16">
                   <div className="relative flex items-center w-full h-16 rounded-[2rem] border border-border/50 bg-background/80 backdrop-blur-xl shadow-xl shadow-black/5 focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-accent/10 transition-all overflow-hidden pl-6 pr-2">
                     <MagnifyingGlass weight="bold" className="w-6 h-6 text-muted-foreground shrink-0" />
                     <input 
@@ -498,7 +513,7 @@ export default function CustomerStorefront({
                       Search
                     </button>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Trusted Brands Marquee */}
                 <div className="relative z-10 w-full max-w-4xl mb-12 flex flex-col items-center">
@@ -589,7 +604,7 @@ export default function CustomerStorefront({
                     })}
                   </div>
                 </div>
-                </div>
+                </motion.div>
               </HeroHighlight>
 
               <ReorderRail
