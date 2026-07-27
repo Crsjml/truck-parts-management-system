@@ -124,8 +124,10 @@ describe('TransactionPOS', () => {
       }));
     });
 
-    expect(await screen.findByText(/Sale complete/i)).toBeInTheDocument();
-    expect(screen.getAllByText('$50.00').length).toBeGreaterThan(0);
+    const receipt = await screen.findByTestId('pos-sale-complete');
+    expect(receipt).toHaveTextContent(/sale complete/i);
+    expect(receipt).toHaveTextContent('Change');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('Step 4: Repeat buyer', async () => {
@@ -247,13 +249,16 @@ describe('TransactionPOS', () => {
     fireEvent.click(addBtn);
 
     fireEvent.keyDown(document, { key: 'F4' });
-    expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Customer/i })).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByText(/Step 1 of 2/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Customer/i })).not.toBeInTheDocument();
+  });
 
-    expect(screen.getAllByText(/F2/)[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/F4/)[0]).toBeInTheDocument();
+  it('does not render a permanent shortcut legend', () => {
+    renderPos({});
+    expect(screen.queryByText(/search parts/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/clear \/ close/i)).not.toBeInTheDocument();
   });
 
   it('Step 10: Accessibility pass', async () => {
