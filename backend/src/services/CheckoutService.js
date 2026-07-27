@@ -12,6 +12,13 @@ export function computeSellingPrice(basePrice, markupPercent) {
   return Math.round(basePrice * (1 + markup / 100) * 100) / 100;
 }
 
+/**
+ * PH VAT is 12% and has been since 2006. Shelf prices are VAT-inclusive, so VAT
+ * is extracted from the total rather than added to it. Mirrored in
+ * frontend/src/utils/posMoney.js; change both together.
+ */
+const VAT_RATE = 0.12;
+
 class CheckoutService {
   constructor() {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -126,8 +133,8 @@ class CheckoutService {
           customerContact: session.metadata.userId,
           userId: session.metadata.userId !== 'N/A' ? session.metadata.userId : null,
           stripeSessionId: sessionId,
-          subtotal: totalAmount,
-          taxAmount: 0,
+          subtotal: Math.round((totalAmount / (1 + VAT_RATE)) * 100) / 100,
+          taxAmount: Math.round((totalAmount - totalAmount / (1 + VAT_RATE)) * 100) / 100,
           total: totalAmount,
           items: {
             create: cartItems.map(item => ({

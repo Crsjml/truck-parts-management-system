@@ -196,10 +196,6 @@ async function main() {
     data: {
       email: "admin@tarlactruckparts.local",
       role: "SUPERADMIN",
-      canManageCatalog: true,
-      canViewFinances: true,
-      canProcessOrders: true,
-      canManageStaff: true
     }
   });
 
@@ -207,10 +203,6 @@ async function main() {
     data: {
       email: "rbenedict.maagma@gmail.com",
       role: "SUPERADMIN",
-      canManageCatalog: true,
-      canViewFinances: true,
-      canProcessOrders: true,
-      canManageStaff: true,
       addedBy: "seed"
     }
   });
@@ -239,10 +231,14 @@ async function main() {
     credentialsList.push(`- **Name**: ${player.name} (${player.sport})\n  - **Email**: ${email}\n  - **Password**: ${password}\n`);
   }
 
-  const credsPath = '/Users/rbndct/.gemini/antigravity-ide/brain/c8eff186-255c-4966-a361-69e3aab24377/users_credentials.md';
-  const credsContent = `# User Credentials\n\nThese are the auto-generated users for testing the application.\n\n${credentialsList.join('\n')}`;
-  fs.writeFileSync(credsPath, credsContent);
-  console.log(`📄 Wrote user credentials to ${credsPath}`);
+  try {
+    const credsPath = '/Users/rbndct/.gemini/antigravity-ide/brain/c8eff186-255c-4966-a361-69e3aab24377/users_credentials.md';
+    const credsContent = `# User Credentials\n\nThese are the auto-generated users for testing the application.\n\n${credentialsList.join('\n')}`;
+    fs.writeFileSync(credsPath, credsContent);
+    console.log(`📄 Wrote user credentials to ${credsPath}`);
+  } catch (err) {
+    console.log(`⚠️ Skipped writing credentials file: ${err.message}`);
+  }
 
   console.log("🗂️ Creating B2B Categories, Suppliers & Parts...");
   const suppliers = [];
@@ -323,31 +319,40 @@ async function main() {
   const numTransactions = faker.number.int({ min: 120, max: 150 });
   const partPurchasers = {}; // Map partId -> Array of customers who bought it
 
+  const MARKUP_FACTOR = 1.15; // must match active_markup at line 192
+  const VAT_RATE = 0.12;
+  const round2 = (n) => Math.round(n * 100) / 100;
+
   for (let t = 0; t < numTransactions; t++) {
     const customer = faker.helpers.arrayElement(customers);
     const orderParts = faker.helpers.arrayElements(parts, faker.number.int({ min: 1, max: 5 }));
-    let subtotal = 0;
+    let total = 0;
     
     const items = orderParts.map(p => {
       const quantity = faker.number.int({ min: 1, max: 3 });
-      subtotal += (quantity * p.price);
+      // Store the selling price, matching what a customer actually paid.
+      const sellingPrice = round2(p.price * MARKUP_FACTOR);
+      total += quantity * sellingPrice;
       
       if(!partPurchasers[p.id]) partPurchasers[p.id] = new Set();
       partPurchasers[p.id].add(customer);
 
-      return { partId: p.id, name: p.name, quantity, price: p.price };
+      return { partId: p.id, name: p.name, quantity, price: sellingPrice };
     });
 
-    const taxAmount = subtotal * 0.12;
+    total = round2(total);
+    const vatableSale = round2(total / (1 + VAT_RATE));
+    const taxAmount = round2(total - vatableSale);
+
     await prisma.transaction.create({
       data: {
         invoiceNumber: `INV-${faker.date.recent().getTime()}-${faker.number.int({ min: 100, max: 999 })}`,
         customerName: customer.displayName,
         customerContact: customer.email,
         userId: customer.authId,
-        subtotal,
+        subtotal: vatableSale,
         taxAmount,
-        total: subtotal + taxAmount,
+        total,
         status: faker.helpers.arrayElement(["ORDER_PLACED", "READY_FOR_PICKUP", "COMPLETED"]),
         transactionDate: faker.date.recent({ days: 30 }),
         items: { create: items }
