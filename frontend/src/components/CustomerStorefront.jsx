@@ -18,6 +18,7 @@ import AboutPage from './AboutPage';
 import ReturnPolicyModal from './ReturnPolicyModal';
 import ReorderRail from './ReorderRail';
 import Reveal from './ui/Reveal';
+import NavToggle from './ui/NavToggle';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -34,6 +35,11 @@ const VALUE_PROPS = [
   { icon: Pulse, title: 'Live Inventory', description: 'Real-time stock levels directly from our Tarlac warehouse.' },
   { icon: Truck, title: 'Heavy Logistics', description: 'Specialized freight handling for oversized engine blocks and chassis parts.' },
   { icon: ClipboardText, title: 'B2B Wholesale', description: 'Exclusive volume discounts and priority allocation for registered fleets.' },
+];
+
+const STOREFRONT_NAV_ITEMS = [
+  { id: 'home', label: 'Home', icon: House },
+  { id: 'catalog', label: 'Catalog', icon: Tag },
 ];
 
 export default function CustomerStorefront({
@@ -410,32 +416,8 @@ export default function CustomerStorefront({
               <Logo className="w-10 h-10" showText={true} />
               
               {/* Main Nav */}
-              <nav className="hidden lg:flex items-center gap-1 bg-secondary/50 rounded-full p-1 border border-border/50">
-                {[
-                  { id: 'home', label: 'Home', icon: House },
-                  { id: 'catalog', label: 'Parts Catalog', icon: Tag }
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setStorefrontTab(item.id)}
-                    className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
-                      storefrontTab === item.id
-                        ? 'bg-background text-foreground shadow-sm border border-border/50'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50 border border-transparent'
-                    }`}
-                  >
-                    <item.icon weight={storefrontTab === item.id ? "fill" : "duotone"} className="w-4 h-4" />
-                    {item.label}
-                  </button>
-                ))}
-              </nav>
+              <NavToggle items={STOREFRONT_NAV_ITEMS} activeId={storefrontTab} onSelect={setStorefrontTab} />
             </div>
-
-            {/* Mobile Nav Toggle / Search could go here, but keeping simple for now */}
-            <nav className="flex lg:hidden items-center justify-center gap-2 pb-2 border-b border-border/50">
-               <button onClick={() => setStorefrontTab('home')} className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${storefrontTab === 'home' ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`}><House weight={storefrontTab === 'home' ? "fill" : "duotone"} className="w-3.5 h-3.5"/>Home</button>
-               <button onClick={() => setStorefrontTab('catalog')} className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${storefrontTab === 'catalog' ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`}><Tag weight={storefrontTab === 'catalog' ? "fill" : "duotone"} className="w-3.5 h-3.5"/>Catalog</button>
-            </nav>
 
             {/* User / Actions */}
             <div className="flex flex-wrap justify-center lg:justify-end items-center gap-3">
