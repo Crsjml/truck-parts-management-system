@@ -25,6 +25,10 @@ describe('requireRole', () => {
     findUnique.mockReset();
   });
 
+  it('throws an error if an invalid minimum role is specified', () => {
+    expect(() => requireRole('INVALID_ROLE')).toThrow();
+  });
+
   it('returns 401 when the request is not authenticated', async () => {
     const res = mockRes();
     const next = vi.fn();
