@@ -4,7 +4,7 @@ import { CheckCircle, Download } from '@phosphor-icons/react';
 import { lookupCustomers, verifyOverridePin } from '../authStore';
 import PosCatalogPanel from './pos/PosCatalogPanel';
 import PosCart from './pos/PosCart';
-import PosCheckoutModal from './pos/PosCheckoutModal';
+import PosCheckoutPane from './pos/PosCheckoutPane';
 import PosShortcutLegend from './pos/PosShortcutLegend';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { toSellingPrice, computePosTotals, VAT_RATE } from '../utils/posMoney';
@@ -98,7 +98,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
     if (submitting) return;
     setSubmitting(true);
 
-    const discountVal = Math.min(Number(payment.discount) || 0, totals.lineSum);
+    const discountVal = Math.min(Number(discount) || 0, totals.lineSum);
     const finalTotals = computePosTotals({ cart, discount: discountVal, vatRate: VAT_RATE });
 
     const txData = {
@@ -181,29 +181,30 @@ export default function TransactionPOS({ parts, onCheckout }) {
         </div>
 
         <div className="xl:col-span-2">
-          <PosCart
-            cart={cart}
-            onUpdateQuantity={updateQuantity}
-            onRemove={removeFromCart}
-            onCheckout={() => setMode('checkout')}
-            totals={totals}
-            formatCurrency={formatBaseCurrency}
-            warning={warning}
-          />
+          {mode === 'checkout' ? (
+            <PosCheckoutPane
+              totals={totals}
+              formatCurrency={formatBaseCurrency}
+              onBack={() => setMode('cart')}
+              onConfirm={handleConfirmSale}
+              onLookup={handleLookup}
+              onVerifyPin={handleVerifyPin}
+              onDiscountChange={setDiscount}
+              submitting={submitting}
+            />
+          ) : (
+            <PosCart
+              cart={cart}
+              onUpdateQuantity={updateQuantity}
+              onRemove={removeFromCart}
+              onCheckout={() => setMode('checkout')}
+              totals={totals}
+              formatCurrency={formatBaseCurrency}
+              warning={warning}
+            />
+          )}
         </div>
       </div>
-
-      {mode === 'checkout' && (
-        <PosCheckoutModal
-          subtotal={totals.lineSum}
-          total={totals.total}
-          formatCurrency={formatBaseCurrency}
-          onCancel={() => setMode('cart')}
-          onConfirm={handleConfirmSale}
-          onLookup={handleLookup}
-          onVerifyPin={handleVerifyPin}
-        />
-      )}
 
       {lastTx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
