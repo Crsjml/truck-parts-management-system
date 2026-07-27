@@ -181,4 +181,26 @@ describe('CustomerStorefront Component Tests', () => {
     fireEvent.mouseDown(document.body);
     expect(screen.getByRole('button', { name: /account menu/i })).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('gives icon-only header buttons a 44px-plus touch target and an aria-label', () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={null} />);
+
+    const cartBtn = screen.getByRole('button', { name: /view cart/i });
+    const themeBtn = screen.getByRole('button', { name: /toggle dark mode/i });
+    const staffBtn = screen.getByRole('button', { name: /staff sign-in/i });
+
+    [cartBtn, themeBtn, staffBtn].forEach((btn) => {
+      expect(btn.className).toMatch(/p-3\b/);
+      expect(btn.className).not.toMatch(/rounded-full/);
+    });
+  });
+
+  it('renders the auth switcher without pill (rounded-full) shapes', () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={null} />);
+
+    const loginBtn = screen.getByRole('button', { name: /^login$/i });
+    const registerBtn = screen.getByRole('button', { name: /^register$/i });
+    expect(loginBtn.className).not.toMatch(/rounded-full/);
+    expect(registerBtn.className).not.toMatch(/rounded-full/);
+  });
 });
