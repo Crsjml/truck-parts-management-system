@@ -522,6 +522,10 @@ export const fetchTransactions = apiCatch(async () => {
   return await apiGet('/api/transactions', { supabase });
 });
 
+export const fetchMyTransactions = apiCatch(async () => {
+  return await apiGet('/api/transactions/mine', { supabase });
+});
+
 // ── Settings & Adjustments ───────────────────────────────────────────────────
 
 export const fetchSettings = async () => {

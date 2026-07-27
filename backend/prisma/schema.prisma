@@ -164,6 +164,7 @@ model Transaction {
   @@index([transactionDate])
   @@index([customerContact])
   @@index([customerEmail])
+  @@index([userId])
 }
 
 model TransactionItem {

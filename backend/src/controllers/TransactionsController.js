@@ -30,6 +30,19 @@ class TransactionsController extends BaseController {
     }
   };
 
+  getMyTransactions = async (req, res) => {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) return res.status(401).json({ msg: 'Not authenticated.' });
+
+      const transactions = await transactionsService.getTransactionsByUserId(userId);
+      res.json(transactions);
+    } catch (err) {
+      console.error('[get my transactions]', err);
+      this.handleError(res, err, 'Server error fetching your orders.');
+    }
+  };
+
   updateStatus = async (req, res) => {
     try {
       const { id } = req.params;

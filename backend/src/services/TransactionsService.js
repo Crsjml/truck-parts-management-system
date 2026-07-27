@@ -6,6 +6,11 @@ class TransactionsService {
     return await transactionsRepository.findMany();
   }
 
+  async getTransactionsByUserId(userId) {
+    if (!userId) return [];
+    return await transactionsRepository.findManyByUserId(userId);
+  }
+
   async updateStatus(id, status) {
     return await transactionsRepository.executeTransaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({
