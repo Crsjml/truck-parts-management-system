@@ -101,7 +101,7 @@ export default function PosCart({
           </div>
           <div className="flex justify-between items-baseline pt-2 border-t border-border">
             <dt className="text-base font-bold text-foreground">Total</dt>
-            <dd className="text-2xl font-extrabold text-foreground font-mono">{formatCurrency(total)}</dd>
+            <dd data-testid="pos-total" className="text-2xl font-extrabold text-foreground font-mono">{formatCurrency(total)}</dd>
           </div>
         </dl>
 

@@ -1,7 +1,9 @@
 
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import TransactionPOS from '../TransactionPOS';
+import { SettingsContext } from '../../context/SettingsContext';
 import * as authStore from '../../authStore';
 
 vi.mock('../../authStore', () => ({
@@ -13,12 +15,22 @@ vi.mock('../../utils/invoicePdf', () => ({
   buildInvoicePdf: vi.fn()
 }));
 
-vi.mock('../../context/SettingsContext', () => ({
-  useSettings: () => ({
-    formatCurrency: (val) => `$${Number(val).toFixed(2)}`,
-    displayCurrency: 'USD'
-  })
-}));
+vi.mock('../../context/SettingsContext', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useSettings: () => {
+      const ctx = React.useContext(actual.SettingsContext);
+      if (ctx) return ctx;
+      return {
+        markupFactor: 1,
+        formatBaseCurrency: (val) => `$${Number(val).toFixed(2)}`,
+        formatCurrency: (val) => `$${Number(val).toFixed(2)}`,
+        displayCurrency: 'USD'
+      };
+    }
+  };
+});
 
 const mockParts = [
   { id: '1', name: 'Brake Pad', sku: 'BP-01', category: 'BRAKES', stock: 5, price: 50 },
@@ -29,6 +41,18 @@ const mockParts = [
 describe('TransactionPOS', () => {
   let onCheckoutMock;
 
+  const renderPos = ({ onCheckout = vi.fn(), parts = [] } = {}) =>
+    render(
+      <SettingsContext.Provider value={{
+        markupFactor: 1.2,
+        formatBaseCurrency: (n) => `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        formatCurrency: (n) => `PHP ${(n * 1.2).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+        displayCurrency: 'PHP'
+      }}>
+        <TransactionPOS parts={parts} onCheckout={onCheckout} />
+      </SettingsContext.Provider>
+    );
+
   beforeEach(() => {
     onCheckoutMock = vi.fn().mockResolvedValue(true);
     window.alert = vi.fn();
@@ -36,6 +60,22 @@ describe('TransactionPOS', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('charges the marked-up shelf price with VAT already inside it', async () => {
+    // Base price 1000 with a 20% markup is a 1200 shelf price. VAT is inside
+    // that 1200, so the customer pays 1200, not 1344.
+    const onCheckout = vi.fn().mockResolvedValue(true);
+    renderPos({ onCheckout, parts: [
+      { id: 'p1', name: 'Brake Chamber', sku: 'BC-1', oem: '', category: 'Brakes',
+        price: 1000, stock: 5, reservedStock: 0, compatibleWith: [] }
+    ]});
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Brake Chamber/i }));
+
+    const totals = screen.getByTestId('pos-total');
+    expect(totals).toHaveTextContent('1,200.00');
+    expect(totals).not.toHaveTextContent('1,344');
   });
 
   it('Step 3: First-time walk-in, cash, with change', async () => {
@@ -75,10 +115,10 @@ describe('TransactionPOS', () => {
         status: 'COMPLETED',
         paymentMethod: 'CASH',
         amountTendered: 100,
-        changeGiven: 44,
-        subtotal: 50,
-        taxAmount: 6,
-        total: 56,
+        changeGiven: 50,
+        subtotal: 44.64,
+        taxAmount: 5.36,
+        total: 50,
         customerName: 'John Doe',
         customerContact: '555-1234',
         customerEmail: 'john@example.com'
@@ -86,7 +126,7 @@ describe('TransactionPOS', () => {
     });
 
     expect(await screen.findByText(/Sale complete/i)).toBeInTheDocument();
-    expect(screen.getByText('$44.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$50.00').length).toBeGreaterThan(0);
   });
 
   it('Step 4: Repeat buyer', async () => {

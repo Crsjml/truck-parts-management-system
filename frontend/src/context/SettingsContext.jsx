@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { fetchSettings, updateSettings } from '../authStore';
 import { fetchExchangeRates } from '../utils/currency_api';
 
-const SettingsContext = createContext();
+export const SettingsContext = createContext();
 
 export const useSettings = () => useContext(SettingsContext);
 
