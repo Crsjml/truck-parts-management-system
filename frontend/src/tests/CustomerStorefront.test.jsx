@@ -203,4 +203,33 @@ describe('CustomerStorefront Component Tests', () => {
     expect(loginBtn.className).not.toMatch(/rounded-full/);
     expect(registerBtn.className).not.toMatch(/rounded-full/);
   });
+
+  it('preserves the cart and reassures the user when logging out', async () => {
+    const showToast = vi.fn();
+    const onLogoutCustomer = vi.fn();
+    const mockSession = { user: { id: 'cust-1', email: 'test@customer.com', fullName: 'Test Customer' } };
+    render(
+      <CustomerStorefront
+        parts={mockParts}
+        categories={['Brakes', 'Engine']}
+        customerSession={mockSession}
+        showToast={showToast}
+        onLogoutCustomer={onLogoutCustomer}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+    const addButtons = await screen.findAllByRole('button', { name: /^add$/i });
+    fireEvent.click(addButtons[0]); // Brake Pad Set into cart
+    fireEvent.click(screen.getByRole('button', { name: /minimize cart/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /account menu/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }));
+
+    expect(onLogoutCustomer).toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith('Signed out. Your cart is still here.', 'info');
+    // Cart survived: badge count still shows the item added before logout.
+    expect(await screen.findByText('1')).toBeInTheDocument();
+  });
 });
+

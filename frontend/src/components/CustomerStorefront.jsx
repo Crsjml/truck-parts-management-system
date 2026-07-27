@@ -459,7 +459,7 @@ export default function CustomerStorefront({
                         </button>
                       </div>
                       <div className="p-1.5 border-t border-border/50 bg-secondary/10">
-                        <button role="menuitem" onClick={() => { setIsAccountMenuOpen(false); setCart([]); setStorefrontTab('home'); onLogoutCustomer(); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition flex items-center gap-3">
+                        <button role="menuitem" onClick={() => { setIsAccountMenuOpen(false); setStorefrontTab('home'); showToast?.('Signed out. Your cart is still here.', 'info'); onLogoutCustomer(); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition flex items-center gap-3">
                           <SignIn weight="duotone" className="w-4 h-4"/> Logout
                         </button>
                       </div>
