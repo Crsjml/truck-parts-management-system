@@ -103,11 +103,14 @@ export const SettingsProvider = ({ children }) => {
     setDisplayCurrency(currencyCode);
   };
 
+  const markupFactor = 1 + ((settings.active_markup || 0) / 100);
+
   return (
     <SettingsContext.Provider value={{
       settings,
       setSettings,
       displayCurrency,
+      markupFactor,
       toggleDisplayCurrency,
       formatCurrency,
       formatCompactCurrency,

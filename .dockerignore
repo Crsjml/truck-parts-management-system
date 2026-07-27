@@ -3,7 +3,6 @@ node_modules
 .gitignore
 *.env
 *.env.local
-atlas-credentials.env
 .firebase
 archive
 frontend/dist
