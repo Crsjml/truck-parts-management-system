@@ -1,11 +1,11 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
-import { requireAuth, requireAdmin, requirePermission } from '../middleware/authMiddleware.js';
+import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Get all staff roles — auth + admin required
-router.get('/', requireAuth, requireAdmin, async (req, res) => {
+router.get('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const staff = await prisma.staffRole.findMany({
       orderBy: { createdAt: 'desc' }
@@ -69,7 +69,7 @@ router.post('/check', requireAuth, async (req, res) => {
 const VALID_ROLES = ['SUPERADMIN', 'ADMIN', 'STAFF'];
 
 // Create new staff role — SUPERADMIN only
-router.post('/', requireAuth, requireAdmin, requirePermission('canManageStaff'), async (req, res) => {
+router.post('/', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { email, role, permissions, addedBy } = req.body;
     if (!email) return res.status(400).json({ msg: 'Email is required' });
@@ -115,7 +115,7 @@ router.post('/', requireAuth, requireAdmin, requirePermission('canManageStaff'),
 });
 
 // Update staff role — SUPERADMIN only
-router.put('/:id', requireAuth, requireAdmin, requirePermission('canManageStaff'), async (req, res) => {
+router.put('/:id', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
     const { role, permissions } = req.body;
@@ -161,7 +161,7 @@ router.put('/:id', requireAuth, requireAdmin, requirePermission('canManageStaff'
 });
 
 // Delete staff role — SUPERADMIN only, with last-superadmin guard
-router.delete('/:id', requireAuth, requireAdmin, requirePermission('canManageStaff'), async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
 

@@ -1,7 +1,7 @@
 // backend/src/routes/categories.js
 import express from 'express';
 import categoriesController from '../controllers/CategoriesController.js';
-import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
+import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -9,12 +9,12 @@ const router = express.Router();
 router.get('/', categoriesController.getAllCategories);
 
 // ── POST create category / subcategory (admin only) ───────────────────────────
-router.post('/', requireAuth, requireAdmin, categoriesController.createCategory);
+router.post('/', requireAuth, requireRole('ADMIN'), categoriesController.createCategory);
 
 // ── PUT update category / subcategory (admin only) ────────────────────────────
-router.put('/:id', requireAuth, requireAdmin, categoriesController.updateCategory);
+router.put('/:id', requireAuth, requireRole('ADMIN'), categoriesController.updateCategory);
 
 // ── DELETE category (admin only) ──────────────────────────────────────────────
-router.delete('/:id', requireAuth, requireAdmin, categoriesController.deleteCategory);
+router.delete('/:id', requireAuth, requireRole('ADMIN'), categoriesController.deleteCategory);
 
 export default router;

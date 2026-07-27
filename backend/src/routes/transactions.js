@@ -1,6 +1,6 @@
 // backend/src/routes/transactions.js
 import express from 'express';
-import { requireAuth } from '../middleware/authMiddleware.js';
+import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 import transactionsController from '../controllers/TransactionsController.js';
 
 const router = express.Router();
@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/', requireAuth, transactionsController.createTransaction);
 
 // GET /api/transactions
-router.get('/', transactionsController.getTransactions);
+router.get('/', requireAuth, requireRole('ADMIN'), transactionsController.getTransactions);
 
 // PUT /api/transactions/:id/status - requires staff/admin auth ideally, but for now requireAuth
 router.put('/:id/status', requireAuth, transactionsController.updateStatus);

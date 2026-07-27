@@ -1,6 +1,6 @@
 import express from "express";
 import { prisma } from "../config/prisma.js";
-import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
+import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 import { hashPin, verifyPin } from '../utils/pin.js';
 
 const router = express.Router();
@@ -30,7 +30,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/settings - Update global settings (admin only)
-router.post("/", requireAuth, requireAdmin, async (req, res) => {
+router.post("/", requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { base_currency, active_markup } = req.body;
     let settings = await prisma.setting.findFirst();
