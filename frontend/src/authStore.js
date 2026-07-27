@@ -164,6 +164,11 @@ export const fetchCustomerProfile = async () => {
   }
 };
 
+export const lookupCustomers = api(async (term) => {
+  const { ok, data } = await apiGet(`/api/customers/lookup?q=${encodeURIComponent(term)}`, { supabase });
+  return ok ? { ok: true, results: data.results || [] } : { ok: false, results: [] };
+});
+
 export const updateCustomerProfile = async (profileData) => {
   try {
     const { ok, data } = await apiPut('/api/customers/me', profileData, { supabase });

@@ -177,4 +177,64 @@ router.delete('/saved-parts/:partId', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/customers/lookup?q=<phone|name|email>
+// Staff-facing repeat-buyer lookup. Searches completed walk-in and online
+// invoices, since walk-ins have no Customer account row to search.
+// ponytail: reads transaction history rather than adding a customerId FK to
+// Transaction. Upgrade path: add the FK and join, if walk-ins ever need to
+// merge with online accounts.
+router.get('/lookup', requireAuth, async (req, res) => {
+  try {
+    const staff = await prisma.staffRole.findUnique({ where: { email: req.auth.email } });
+    if (!staff) return res.status(403).json({ msg: 'Staff access required.' });
+
+    const q = String(req.query.q || '').trim();
+    if (q.length < 3) return res.json({ results: [] });
+
+    const matches = await prisma.transaction.findMany({
+      where: {
+        OR: [
+          { customerContact: { contains: q, mode: 'insensitive' } },
+          { customerName: { contains: q, mode: 'insensitive' } },
+          { customerEmail: { contains: q, mode: 'insensitive' } }
+        ],
+        NOT: { customerContact: 'N/A' }
+      },
+      orderBy: { transactionDate: 'desc' },
+      take: 100,
+      select: {
+        customerName: true,
+        customerContact: true,
+        customerEmail: true,
+        total: true,
+        transactionDate: true
+      }
+    });
+
+    // Collapse to one entry per contact number, newest first.
+    const byContact = new Map();
+    for (const tx of matches) {
+      const key = tx.customerContact;
+      const existing = byContact.get(key);
+      if (existing) {
+        existing.orderCount += 1;
+      } else {
+        byContact.set(key, {
+          customerName: tx.customerName,
+          customerContact: tx.customerContact,
+          customerEmail: tx.customerEmail || '',
+          orderCount: 1,
+          lastOrderDate: tx.transactionDate,
+          lastOrderTotal: tx.total
+        });
+      }
+    }
+
+    res.json({ results: Array.from(byContact.values()).slice(0, 5) });
+  } catch (err) {
+    console.error('[customer lookup]', err);
+    res.status(500).json({ msg: 'Server error looking up customer.' });
+  }
+});
+
 export default router;
