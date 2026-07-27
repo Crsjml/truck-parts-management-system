@@ -47,32 +47,44 @@ class TransactionsService {
     });
   }
 
-  async createTransaction(data, userId) {
+  async createTransaction(data, userId, processedBy = '') {
     const {
       invoiceNumber,
       customerName,
       customerContact,
+      customerEmail,
       items,
       discount,
       tax,
       subtotal,
       taxAmount,
       total,
-      transactionDate
+      transactionDate,
+      status,
+      paymentMethod,
+      amountTendered,
+      changeGiven,
+      chequeNumber,
+      chequeBank,
+      chequeDate
     } = data;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new Error('Transaction must contain at least one item.');
     }
 
+    // Walk-in counter sales are paid and collected on the spot, so they are
+    // created already COMPLETED and deduct stock outright. Online orders omit
+    // `status` and keep the original reserve-until-pickup behaviour.
+    const isImmediateSale = status === 'COMPLETED';
+
     return await transactionsRepository.executeTransaction(async (tx) => {
-      // Process stock deduction
       for (const item of items) {
         const part = await tx.part.findUnique({ where: { id: item.partId } });
         if (!part) {
           throw new Error(`Part not found: ${item.name} (${item.partId})`);
         }
-        
+
         const available = part.stock - part.reservedStock;
         if (available < item.quantity) {
           throw new Error(`Insufficient available stock for ${part.name}. Available: ${available}, Requested: ${item.quantity}`);
@@ -80,23 +92,33 @@ class TransactionsService {
 
         await tx.part.update({
           where: { id: item.partId },
-          data: { reservedStock: { increment: item.quantity } }
+          data: isImmediateSale
+            ? { stock: { decrement: item.quantity } }
+            : { reservedStock: { increment: item.quantity } }
         });
       }
 
-      // Create transaction record
       return await tx.transaction.create({
         data: {
           invoiceNumber,
           customerName: customerName || 'Walk-in Customer',
           customerContact: customerContact || 'N/A',
+          customerEmail: customerEmail || '',
           userId: userId || null,
           discount: Number(discount) || 0,
           tax: Number(tax) || 12,
           subtotal: Number(subtotal),
           taxAmount: Number(taxAmount),
           total: Number(total),
+          status: isImmediateSale ? 'COMPLETED' : 'ORDER_PLACED',
           transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
+          paymentMethod: paymentMethod || 'CASH',
+          processedBy: processedBy || '',
+          amountTendered: amountTendered != null ? Number(amountTendered) : null,
+          changeGiven: changeGiven != null ? Number(changeGiven) : null,
+          chequeNumber: chequeNumber || null,
+          chequeBank: chequeBank || null,
+          chequeDate: chequeDate ? new Date(chequeDate) : null,
           items: {
             create: items.map(i => ({
               partId: i.partId,

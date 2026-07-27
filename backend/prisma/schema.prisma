@@ -15,6 +15,13 @@ enum OrderStatus {
   CANCELLED        @map("Cancelled")
 }
 
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  CHEQUE
+}
+
 model Category {
   id               String     @id @default(uuid()) @db.Uuid
   name             String     @unique
@@ -133,6 +140,7 @@ model Transaction {
   invoiceNumber   String   @unique
   customerName    String   @default("Walk-in Customer")
   customerContact String   @default("N/A")
+  customerEmail   String   @default("")
   userId          String?
   stripeSessionId String?  @unique
   discount        Float    @default(0)
@@ -143,9 +151,19 @@ model Transaction {
   status          OrderStatus @default(ORDER_PLACED)
   transactionDate DateTime @default(now())
 
+  paymentMethod  PaymentMethod @default(CASH)
+  processedBy    String        @default("")
+  amountTendered Float?
+  changeGiven    Float?
+  chequeNumber   String?
+  chequeBank     String?
+  chequeDate     DateTime?
+
   items TransactionItem[]
 
   @@index([transactionDate])
+  @@index([customerContact])
+  @@index([customerEmail])
 }
 
 model TransactionItem {
@@ -181,20 +199,16 @@ model Review {
 enum StaffRoleLevel {
   SUPERADMIN
   ADMIN
-  STAFF
 }
 
 model StaffRole {
-  id               String         @id @default(uuid()) @db.Uuid
-  email            String         @unique
-  role             StaffRoleLevel @default(STAFF)
-  canManageCatalog Boolean  @default(true)
-  canViewFinances  Boolean  @default(false)
-  canProcessOrders Boolean  @default(true)
-  canManageStaff   Boolean  @default(false)
-  addedBy          String   @default("system")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id         String         @id @default(uuid()) @db.Uuid
+  email      String         @unique
+  role       StaffRoleLevel @default(ADMIN)
+  lastSeenAt DateTime?
+  addedBy    String   @default("system")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Setting {

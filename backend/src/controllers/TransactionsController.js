@@ -6,7 +6,7 @@ class TransactionsController extends BaseController {
   
   createTransaction = async (req, res) => {
     try {
-      const transaction = await transactionsService.createTransaction(req.body, req.auth?.userId);
+      const transaction = await transactionsService.createTransaction(req.body, req.auth?.userId, req.auth?.email || '');
       res.status(201).json({
         msg: 'Transaction created and stock deducted successfully.',
         transaction
