@@ -144,6 +144,25 @@
   .animate-shake {
     animation: shake 0.4s ease-in-out;
   }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-marquee {
+      animation: none;
+    }
+  }
 }
 
 /* Custom Scrollbar — scoped to .custom-scrollbar class only to prevent global layout scrollbars */
