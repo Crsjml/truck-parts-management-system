@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
+import PeriodSelector from './analytics/PeriodSelector';
+import KpiTile from './analytics/KpiTile';
+import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
@@ -14,9 +17,10 @@ export default function Analytics({ parts, transactions }) {
   const [zoomedChart, setZoomedChart] = useState(null); // 'bar' | 'pie' | null
   const [localTransactions, setLocalTransactions] = useState(transactions);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [period, setPeriod] = useState('30d');
 
   // Sync with props if transactions change from App.jsx
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalTransactions(transactions);
   }, [transactions]);
 
@@ -80,12 +84,10 @@ export default function Analytics({ parts, transactions }) {
   };
 
   // Computations
-  const totalSales = localTransactions.length;
-  const totalInvoicedAmount = localTransactions.reduce((sum, tx) => sum + tx.total, 0);
-  const averageInvoiceValue = totalSales > 0 ? totalInvoicedAmount / totalSales : 0;
-  const totalItemsSold = localTransactions.reduce((sum, tx) => 
-    sum + tx.items.reduce((s, i) => s + i.quantity, 0), 0
-  );
+  const range = useMemo(() => resolvePeriod(period), [period]);
+  const currentTx = useMemo(() => inRange(localTransactions, range.start, range.end), [localTransactions, range]);
+  const previousTx = useMemo(() => inRange(localTransactions, range.prevStart, range.prevEnd), [localTransactions, range]);
+  const kpis = useMemo(() => computeKpis(currentTx, previousTx), [currentTx, previousTx]);
 
   // Group sales quantities by part name to avoid "Unknown Part" if IDs mismatch
   const partSalesCounts = {};
@@ -176,56 +178,48 @@ export default function Analytics({ parts, transactions }) {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* KPI Stats Row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
+        <h2 className="text-xl font-bold text-foreground font-display">Sales Overview</h2>
+        <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
-          <div className="space-y-2">
-            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Total Net Sales</span>
-            <h3 className="text-2xl font-bold text-foreground font-display">
-              {formatCurrency(totalInvoicedAmount)}
-            </h3>
-            <p className="text-2xs text-emerald-400 flex items-center gap-1">
-              <TrendUp weight="duotone" className="w-3 h-3" /> Cumulative earnings
-            </p>
-          </div>
-          <div className="p-3 bg-emerald-950/40 text-emerald-400 rounded-xl border border-emerald-800/35">
-            <CurrencyDollar weight="duotone" className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
-          <div className="space-y-2">
-            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Processed Invoices</span>
-            <h3 className="text-2xl font-bold text-foreground font-display">{totalSales}</h3>
-            <p className="text-2xs text-muted-foreground">Customer payments complete</p>
-          </div>
-          <div className="p-3 bg-brandBlue-900/40 text-brandBlue-400 rounded-xl border border-brandBlue-700/30">
-            <FileText weight="duotone" className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
-          <div className="space-y-2">
-            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Average Invoice</span>
-            <h3 className="text-2xl font-bold text-foreground font-display">
-              {formatCurrency(averageInvoiceValue)}
-            </h3>
-            <p className="text-2xs text-muted-foreground">Value per customer checkout</p>
-          </div>
-          <div className="p-3 bg-amber-950/40 text-amber-500 rounded-xl border border-amber-800/35">
-            <TrendUp weight="duotone" className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5">
-          <div className="space-y-2">
-            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Total Items Dispatched</span>
-            <h3 className="text-2xl font-bold text-foreground font-display">{totalItemsSold} units</h3>
-            <p className="text-2xs text-muted-foreground">Truck parts sold out of warehouse</p>
-          </div>
-          <div className="p-3 bg-violet-950/40 text-violet-400 rounded-xl border border-violet-800/35">
-            <ShoppingCart weight="duotone" className="w-5 h-5" />
-          </div>
-        </div>
+        <KpiTile 
+          label="Total Revenue" 
+          value={formatCurrency(kpis.revenue)} 
+          delta={kpis.deltas?.revenue} 
+          icon={CurrencyDollar} 
+          iconBgClass="bg-emerald-950/40" 
+          iconColorClass="text-emerald-400" 
+          iconBorderClass="border-emerald-800/35" 
+        />
+        <KpiTile 
+          label="Total Invoices" 
+          value={kpis.invoices} 
+          delta={kpis.deltas?.invoices} 
+          icon={FileText} 
+          iconBgClass="bg-brandBlue-900/40" 
+          iconColorClass="text-brandBlue-400" 
+          iconBorderClass="border-brandBlue-700/30" 
+        />
+        <KpiTile 
+          label="Average Invoice" 
+          value={formatCurrency(kpis.avgInvoice)} 
+          delta={kpis.deltas?.avgInvoice} 
+          icon={TrendUp} 
+          iconBgClass="bg-amber-950/40" 
+          iconColorClass="text-amber-500" 
+          iconBorderClass="border-amber-800/35" 
+        />
+        <KpiTile 
+          label="Units per Invoice" 
+          value={kpis.unitsPerInvoice.toFixed(1)} 
+          delta={kpis.deltas?.unitsPerInvoice} 
+          icon={ShoppingCart} 
+          iconBgClass="bg-violet-950/40" 
+          iconColorClass="text-violet-400" 
+          iconBorderClass="border-violet-800/35" 
+        />
       </div>
 
       {/* Analytics Charts Grid */}
