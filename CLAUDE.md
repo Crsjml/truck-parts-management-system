@@ -83,6 +83,13 @@ You enforce two distinct design systems depending on the portal, both driven by 
 
 ---
 
+> **Precedence:** in the routing tables below, the **tier assignment** (which
+> portal a page belongs to, Premium vs Minimalist vs Data) is authoritative —
+> that is project knowledge no skill description can supply. The **skill names**
+> are indicative only. Skills get installed, renamed, and removed; this document
+> cannot verify them. On any conflict, the live loaded skill list wins — match on
+> skill *description*, not on a name remembered from this table.
+
 ### TIER 1: Section-Level Skill Routing
 
 | Section | Tier | Core Skills | Secondary Skills |
