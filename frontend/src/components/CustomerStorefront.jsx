@@ -45,7 +45,8 @@ export default function CustomerStorefront({
   onLogoutCustomer,
   isDarkMode,
   setIsDarkMode,
-  transactions
+  transactions,
+  showToast
 }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const shouldReduceMotion = useReducedMotion();

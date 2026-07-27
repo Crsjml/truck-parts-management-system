@@ -490,6 +490,7 @@ export default function App() {
           onLogoutCustomer={() => handleLogout('customer')}
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
+          showToast={showToast}
         />
       <FloatingSettingsWidget 
         onAdminLogin={handleAutoAdminLogin}
@@ -498,6 +499,7 @@ export default function App() {
         isLoggedIn={!!adminSession || !!customerSession}
       />
         <StatusBar />
+        <ToastNotification toasts={toasts} onDismiss={dismissToast} />
         {needsProfileCompletion && (
           <CompleteProfileModal onComplete={handleProfileComplete} />
         )}
