@@ -107,4 +107,50 @@ describe('CustomerStorefront Component Tests', () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={mockSession} />);
     expect(screen.queryByRole('button', { name: /staff sign-in/i })).not.toBeInTheDocument();
   });
+
+  it('opens the cart drawer on the first add but not on subsequent adds', async () => {
+    const showToast = vi.fn();
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} showToast={showToast} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+
+    const addButtons = await screen.findAllByRole('button', { name: /^add$/i });
+    fireEvent.click(addButtons[0]); // Brake Pad Set
+
+    expect(await screen.findByRole('heading', { name: /your cart/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /minimize cart/i }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /your cart/i })).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /^add$/i })[1]); // Oil Filter
+    expect(screen.queryByRole('heading', { name: /your cart/i })).not.toBeInTheDocument();
+
+    expect(showToast).toHaveBeenCalledWith('Brake Pad Set added to cart', 'success');
+    expect(showToast).toHaveBeenCalledWith('Oil Filter added to cart', 'success');
+  });
+
+  it('shows a toast instead of a blocking alert when stock is exceeded', async () => {
+    const showToast = vi.fn();
+    if (!window.alert) {
+      window.alert = () => {};
+    }
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const lowStockPart = { ...mockParts[0], id: '3', name: 'Rare Bolt', stock: 1 };
+
+    render(<CustomerStorefront parts={[lowStockPart]} categories={['Brakes']} showToast={showToast} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+
+    const addButton = await screen.findByRole('button', { name: /^add$/i });
+    fireEvent.click(addButton); // fills the only unit in stock
+    fireEvent.click(addButton); // requests a 2nd unit — exceeds stock
+
+    expect(showToast).toHaveBeenCalledWith(
+      'Cannot add more. Only 1 units of Rare Bolt are available.',
+      'error'
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
 });
