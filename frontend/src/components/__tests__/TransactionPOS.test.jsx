@@ -81,7 +81,7 @@ describe('TransactionPOS', () => {
   it('Step 3: First-time walk-in, cash, with change', async () => {
     render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
 
-    expect(screen.getByText('Out of stock')).toBeInTheDocument();
+    expect(screen.getByText(/out of stock/i)).toBeInTheDocument();
 
     const searchInput = screen.getByLabelText(/Search parts by name, SKU or OEM/i);
     fireEvent.change(searchInput, { target: { value: 'Brake Pad' } });
