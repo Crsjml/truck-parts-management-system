@@ -15,6 +15,7 @@ import StorefrontFilters from './StorefrontFilters';
 import MyOrders from './MyOrders';
 import MyAccount from './MyAccount';
 import ReturnPolicyModal from './ReturnPolicyModal';
+import ReorderRail from './ReorderRail';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
 import { motion, AnimatePresence } from 'framer-motion';
 export default function CustomerStorefront({
@@ -581,44 +582,15 @@ export default function CustomerStorefront({
                 </div>
               </HeroHighlight>
 
-              {/* Quick welcome overview */}
-              <section className="grid gap-6 md:grid-cols-2">
-                <div className="rounded-[2.5rem] border border-border/50 bg-gradient-to-b from-secondary/80 to-background p-8 flex flex-col justify-between transition-all duration-700 hover:border-border group">
-                  <div>
-                    <span className="flex items-center justify-center w-12 h-12 bg-accent/10 border border-accent/20 text-accent rounded-2xl mb-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]">
-                      <Truck weight="duotone" className="w-6 h-6" />
-                    </span>
-                    <h3 className="text-2xl font-bold text-foreground tracking-tight">Browse Full Catalog</h3>
-                    <p className="text-muted-foreground text-sm mt-3 leading-relaxed max-w-md">
-                      Search through hundreds of parts matching various truck models. Find immediate filter controls by type and compatibility tags.
-                    </p>
-                  </div>
-                  <button onClick={() => setStorefrontTab('catalog')} className="mt-8 inline-flex items-center w-max gap-2 rounded-full bg-foreground text-background px-6 py-3 text-sm font-bold transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]">
-                    Explore catalog 
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-background/20 group-hover:translate-x-1 transition-transform duration-700">
-                      <ArrowRight weight="bold" className="w-3 h-3" />
-                    </span>
-                  </button>
-                </div>
-
-                <div className="rounded-[2.5rem] border border-border/50 bg-gradient-to-b from-secondary/80 to-background p-8 flex flex-col justify-between transition-all duration-700 hover:border-border group">
-                  <div>
-                    <span className="flex items-center justify-center w-12 h-12 bg-secondary border border-border text-foreground rounded-2xl mb-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
-                      <UserPlus weight="duotone" className="w-6 h-6" />
-                    </span>
-                    <h3 className="text-2xl font-bold text-foreground tracking-tight">Customer Account</h3>
-                    <p className="text-muted-foreground text-sm mt-3 leading-relaxed max-w-md">
-                      Register a secure login to check parts inventories, save truck models, and secure priority wholesale reservations.
-                    </p>
-                  </div>
-                  <button onClick={() => onOpenCustomerAuth('register')} className="mt-8 inline-flex items-center w-max gap-2 rounded-full border border-border bg-secondary hover:bg-background px-6 py-3 text-sm font-bold text-foreground transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]">
-                    Create account 
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-foreground/5 group-hover:translate-x-1 transition-transform duration-700">
-                      <ArrowRight weight="bold" className="w-3 h-3 text-foreground" />
-                    </span>
-                  </button>
-                </div>
-              </section>
+              <ReorderRail
+                transactions={transactions}
+                parts={parts}
+                customerSession={customerSession}
+                addToCart={addToCart}
+                formatCurrency={formatCurrency}
+                onBrowseCatalog={() => setStorefrontTab('catalog')}
+                onSignIn={() => onOpenCustomerAuth('login')}
+              />
             </>
           )}
 
