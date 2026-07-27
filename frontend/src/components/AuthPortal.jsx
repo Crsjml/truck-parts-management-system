@@ -503,8 +503,11 @@ export default function AuthPortal({
                     </div>
                     {registerErrors.password && <p className="text-xs text-red-400 font-semibold">{registerErrors.password.message}</p>}
 
+                    {/* ponytail: the non-breaking space is load-bearing. An empty span is a
+                        zero-height flex item, so the row collapses to the 6px bar and jumps
+                        8px on the first keystroke, resizing the whole auth card. */}
                     <div className="flex items-center gap-2 pt-1">
-                      <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                      <div aria-hidden="true" className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${
                             passwordStrength.metCount <= 1 ? 'bg-red-500' : passwordStrength.metCount === 2 ? 'bg-amber-500' : 'bg-emerald-500'
@@ -512,8 +515,13 @@ export default function AuthPortal({
                           style={{ width: registerPasswordValue ? `${passwordStrength.percent}%` : '0%' }}
                         />
                       </div>
-                      <span className="w-12 shrink-0 text-right text-2xs font-bold uppercase tracking-wider text-muted-foreground">
-                        {registerPasswordValue ? passwordStrength.label : ''}
+                      <span
+                        data-testid="password-strength-label"
+                        role="status"
+                        aria-live="polite"
+                        className="w-12 shrink-0 text-right text-2xs font-bold uppercase tracking-wider text-muted-foreground"
+                      >
+                        {passwordStrength.label || '\u00A0'}
                       </span>
                     </div>
                   </div>
