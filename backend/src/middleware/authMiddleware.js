@@ -31,30 +31,41 @@ export const requireAuth = async (req, res, next) => {
   }
 };
 
-// Rank, not alphabetical order — a higher number satisfies every gate at or
-// below it. Previously `requireAdmin` only checked that a staff row existed,
-// which meant every staff account passed every admin gate.
-const ROLE_RANK = { ADMIN: 1, SUPERADMIN: 2 };
+const ROLE_RANK = Object.freeze(
+  Object.assign(Object.create(null), {
+    ADMIN: 1,
+    SUPERADMIN: 2
+  })
+);
 
-export const requireRole = (minimum) => async (req, res, next) => {
-  if (!req.auth || !req.auth.email) {
-    return res.status(401).json({ msg: 'Not authenticated.' });
+export const requireRole = (minimum) => {
+  const requiredRank = ROLE_RANK[minimum];
+  if (!requiredRank) {
+    throw new Error(`[requireRole] Invalid minimum role specified: "${minimum}"`);
   }
 
-  try {
-    const staff = await prisma.staffRole.findUnique({
-      where: { email: req.auth.email.toLowerCase() }
-    });
-
-    if (!staff || (ROLE_RANK[staff.role] ?? 0) < ROLE_RANK[minimum]) {
-      return res.status(403).json({ msg: 'Insufficient privileges.' });
+  return async (req, res, next) => {
+    if (!req.auth || !req.auth.email) {
+      return res.status(401).json({ msg: 'Not authenticated.' });
     }
 
-    req.staff = staff;
-    next();
-  } catch (err) {
-    console.error('[requireRole]', err);
-    return res.status(500).json({ msg: 'Authorization check failed.' });
-  }
+    try {
+      const staff = await prisma.staffRole.findUnique({
+        where: { email: req.auth.email.toLowerCase() }
+      });
+
+      const staffRank = ROLE_RANK[staff?.role] ?? 0;
+
+      if (!staff || staffRank < requiredRank) {
+        return res.status(403).json({ msg: 'Insufficient privileges.' });
+      }
+
+      req.staff = staff;
+      next();
+    } catch (err) {
+      console.error('[requireRole]', err);
+      return res.status(500).json({ msg: 'Authorization check failed.' });
+    }
+  };
 };
 
