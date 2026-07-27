@@ -191,6 +191,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
     return Math.max(...catRevenue.map(c => c.revenue || 0), 1);
   }, [catRevenue]);
 
+  // ponytail: top movers ranking by period with rank-change indicators
   const movers = useMemo(() => topMovers(currentTx, previousTx, 5), [currentTx, previousTx]);
 
   // Filtered transactions for the log
