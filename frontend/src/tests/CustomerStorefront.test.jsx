@@ -153,4 +153,32 @@ describe('CustomerStorefront Component Tests', () => {
 
     alertSpy.mockRestore();
   });
+
+  it('opens and closes the account menu by click and keyboard, not hover', async () => {
+    const mockSession = { user: { id: 'cust-1', email: 'test@customer.com', fullName: 'Test Customer' } };
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={mockSession} />);
+
+    const trigger = screen.getByRole('button', { name: /account menu/i });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('menuitem', { name: /my profile/i })).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('menuitem', { name: /my profile/i })).toBeVisible();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveFocus();
+  });
+
+  it('closes the account menu on outside click', async () => {
+    const mockSession = { user: { id: 'cust-1', email: 'test@customer.com', fullName: 'Test Customer' } };
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} customerSession={mockSession} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /account menu/i }));
+    expect(screen.getByRole('button', { name: /account menu/i })).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.mouseDown(document.body);
+    expect(screen.getByRole('button', { name: /account menu/i })).toHaveAttribute('aria-expanded', 'false');
+  });
 });

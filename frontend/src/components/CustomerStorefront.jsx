@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
 import Logo from './Logo';
@@ -108,6 +108,30 @@ export default function CustomerStorefront({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return;
+    const handlePointerDown = (e) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsAccountMenuOpen(false);
+        accountMenuRef.current?.querySelector('#account-menu-trigger')?.focus();
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isAccountMenuOpen]);
 
   useEffect(() => {
     const handleCheckoutSuccess = async () => {
@@ -416,35 +440,49 @@ export default function CustomerStorefront({
             {/* User / Actions */}
             <div className="flex flex-wrap justify-center lg:justify-end items-center gap-3">
               {customerSession ? (
-                <div className="relative group z-50">
-                  <button className="flex items-center gap-2 rounded-full border border-border/50 px-3 py-1.5 bg-secondary text-sm font-semibold transition hover:border-accent/50 hover:bg-background">
+                <div className="relative z-50" ref={accountMenuRef}>
+                  <button
+                    id="account-menu-trigger"
+                    type="button"
+                    aria-expanded={isAccountMenuOpen}
+                    aria-haspopup="menu"
+                    aria-label="Account menu"
+                    onClick={() => setIsAccountMenuOpen((open) => !open)}
+                    className="flex items-center gap-2 rounded-full border border-border/50 px-3 py-1.5 bg-secondary text-sm font-semibold transition hover:border-accent/50 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
                     {avatar ? (
-                      <img src={avatar} alt="Avatar" className="w-6 h-6 rounded-full object-cover" />
+                      <img src={avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
                     ) : (
                       <UserCircle weight="duotone" className="w-5 h-5 text-accent" />
                     )}
                     <span className="max-w-[120px] truncate text-xs">{customerSession.user.fullName}</span>
-                    <CaretDown weight="bold" className="w-3 h-3 text-muted-foreground group-hover:text-foreground" />
+                    <CaretDown weight="bold" className={`w-3 h-3 text-muted-foreground transition-transform ${isAccountMenuOpen ? 'rotate-180 text-foreground' : ''}`} />
                   </button>
-                  <div className="absolute right-0 top-[calc(100%+0.5rem)] w-56 rounded-2xl border border-border bg-background shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 overflow-hidden transform origin-top-right group-hover:scale-100 scale-95">
-                    <div className="p-3 bg-secondary/30 border-b border-border/50">
-                       <p className="text-2xs uppercase tracking-widest text-muted-foreground font-bold mb-1">Signed In As</p>
-                       <p className="text-sm font-bold text-foreground truncate">{customerSession.user.email}</p>
+                  {isAccountMenuOpen && (
+                    <div
+                      role="menu"
+                      aria-labelledby="account-menu-trigger"
+                      className="absolute right-0 top-[calc(100%+0.5rem)] w-56 rounded-2xl border border-border bg-background shadow-2xl transition-all duration-200 overflow-hidden transform origin-top-right opacity-100 visible scale-100"
+                    >
+                      <div className="p-3 bg-secondary/30 border-b border-border/50">
+                         <p className="text-2xs uppercase tracking-widest text-muted-foreground font-bold mb-1">Signed In As</p>
+                         <p className="text-sm font-bold text-foreground truncate">{customerSession.user.email}</p>
+                      </div>
+                      <div className="p-1.5">
+                        <button role="menuitem" onClick={() => { setStorefrontTab('orders'); setIsAccountMenuOpen(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition flex items-center gap-3">
+                          <ClipboardText weight="duotone" className="w-4 h-4 text-accent"/> My Purchases
+                        </button>
+                        <button role="menuitem" onClick={() => { setStorefrontTab('profile'); setIsAccountMenuOpen(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition flex items-center gap-3">
+                          <Gear weight="duotone" className="w-4 h-4 text-accent"/> My Profile
+                        </button>
+                      </div>
+                      <div className="p-1.5 border-t border-border/50 bg-secondary/10">
+                        <button role="menuitem" onClick={() => { setIsAccountMenuOpen(false); setCart([]); setStorefrontTab('home'); onLogoutCustomer(); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition flex items-center gap-3">
+                          <SignIn weight="duotone" className="w-4 h-4"/> Logout
+                        </button>
+                      </div>
                     </div>
-                    <div className="p-1.5">
-                      <button onClick={() => setStorefrontTab('orders')} className="w-full text-left px-3 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition flex items-center gap-3">
-                        <ClipboardText weight="duotone" className="w-4 h-4 text-accent"/> My Purchases
-                      </button>
-                      <button onClick={() => setStorefrontTab('profile')} className="w-full text-left px-3 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition flex items-center gap-3">
-                        <Gear weight="duotone" className="w-4 h-4 text-accent"/> My Profile
-                      </button>
-                    </div>
-                    <div className="p-1.5 border-t border-border/50 bg-secondary/10">
-                      <button onClick={() => { setCart([]); setStorefrontTab('home'); onLogoutCustomer(); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition flex items-center gap-3">
-                        <SignIn weight="duotone" className="w-4 h-4"/> Logout
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-full border border-border/50">
