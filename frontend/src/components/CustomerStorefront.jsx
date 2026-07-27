@@ -14,6 +14,7 @@ import ProductGrid from './ProductGrid';
 import StorefrontFilters from './StorefrontFilters';
 import MyOrders from './MyOrders';
 import MyAccount from './MyAccount';
+import AboutPage from './AboutPage';
 import ReturnPolicyModal from './ReturnPolicyModal';
 import ReorderRail from './ReorderRail';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
@@ -662,6 +663,8 @@ export default function CustomerStorefront({
               onReorder={handleReorder}
             />
           )}
+
+          {storefrontTab === 'about' && <AboutPage />}
 
           {storefrontTab === 'profile' && (
             <MyAccount user={customerSession?.user} transactions={transactions} onGoBack={() => setStorefrontTab('home')} />
