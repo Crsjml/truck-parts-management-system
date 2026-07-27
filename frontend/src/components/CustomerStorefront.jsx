@@ -679,22 +679,13 @@ export default function CustomerStorefront({
       />
 
       {/* Global Footer */}
-      {storefrontTab === 'home' ? (
-        <Footer 
-          className="pb-14" 
-          onOpenPolicy={() => setPolicyModalOpen(true)}
-          onGoHome={() => window.scrollTo({top: 0, behavior: 'smooth'})}
-          onGoCatalog={() => document.getElementById('parts-catalog')?.scrollIntoView({behavior: 'smooth'})}
-        />
-      ) : (
-        <Footer 
-          variant="dark" 
-          className="mt-auto border-t-0 bg-transparent shadow-none !rounded-none !pt-6 !pb-14 !px-6" 
-          onOpenPolicy={() => setPolicyModalOpen(true)}
-          onGoHome={() => { setStorefrontTab('home'); window.scrollTo({top: 0, behavior: 'smooth'}); }}
-          onGoCatalog={() => document.getElementById('parts-catalog')?.scrollIntoView({behavior: 'smooth'})}
-        />
-      )}
+      <Footer
+        className="mt-auto pb-14"
+        onOpenPolicy={() => setPolicyModalOpen(true)}
+        onGoHome={() => { setStorefrontTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        onGoCatalog={() => { setStorefrontTab('catalog'); document.getElementById('parts-catalog')?.scrollIntoView({ behavior: 'smooth' }); }}
+        onGoAbout={() => { setStorefrontTab('about'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+      />
 
       {/* Success Modal */}
       <AnimatePresence>
