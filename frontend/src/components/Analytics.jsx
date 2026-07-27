@@ -3,9 +3,9 @@ import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
 import KpiTile from './analytics/KpiTile';
-import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
+import { resolvePeriod, inRange, computeKpis, trendSeries } from '../utils/salesAnalytics';
 import { buildInvoicePdf } from '../utils/invoicePdf';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line, CartesianGrid, Treemap } from 'recharts';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
@@ -88,6 +88,7 @@ export default function Analytics({ parts, transactions }) {
   const currentTx = useMemo(() => inRange(localTransactions, range.start, range.end), [localTransactions, range]);
   const previousTx = useMemo(() => inRange(localTransactions, range.prevStart, range.prevEnd), [localTransactions, range]);
   const kpis = useMemo(() => computeKpis(currentTx, previousTx), [currentTx, previousTx]);
+  const trend = useMemo(() => trendSeries(currentTx, previousTx, range), [currentTx, previousTx, range]);
 
   // Group sales quantities by part name to avoid "Unknown Part" if IDs mismatch
   const partSalesCounts = {};
@@ -224,6 +225,43 @@ export default function Analytics({ parts, transactions }) {
 
       {/* Analytics Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trend (Full Width) */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col col-span-1 lg:col-span-2">
+          <div className="flex items-center gap-2 pb-3 border-b border-border">
+            <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
+          </div>
+          
+          <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
+            {trend.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                    tickFormatter={(val) => `₱${val.toLocaleString()}`} 
+                    dx={-10}
+                  />
+                  <Tooltip 
+                    cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                    itemStyle={{ color: '#f8fafc' }}
+                    formatter={(value) => [formatCurrency(value), undefined]}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                  <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+                  <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
         {/* Top Products Volume (Recharts Horizontal Bar) */}
         <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-border">
