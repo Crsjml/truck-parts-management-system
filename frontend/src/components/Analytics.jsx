@@ -3,7 +3,7 @@ import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
 import KpiTile from './analytics/KpiTile';
-import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers } from '../utils/salesAnalytics';
+import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, PAYMENT_METHODS, PAYMENT_COLORS, PAYMENT_LABELS } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, CartesianGrid, Treemap, Legend } from 'recharts';
@@ -14,7 +14,7 @@ const ZOOM_TITLES = {
   trend: 'Revenue Trend',
   movers: 'Top Movers',
   treemap: 'Category Revenue Allocation',
-  payments: 'Payment Method Breakdown'
+  payments: 'Payment Method Mix'
 };
 
 const ZOOM_ICONS = {
@@ -193,6 +193,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
 
   // ponytail: top movers ranking by period with rank-change indicators
   const movers = useMemo(() => topMovers(currentTx, previousTx, 5), [currentTx, previousTx]);
+  const payments = useMemo(() => paymentMix(currentTx, range), [currentTx, range]);
 
   // Filtered transactions for the log
   const filteredTransactions = localTransactions.filter(tx => 
@@ -209,42 +210,10 @@ export default function Analytics({ parts = [], transactions = [] }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <KpiTile 
-          label="Total Revenue" 
-          value={formatCurrency(kpis.revenue)} 
-          delta={kpis.deltas?.revenue} 
-          icon={CurrencyDollar} 
-          iconBgClass="bg-emerald-950/40" 
-          iconColorClass="text-emerald-400" 
-          iconBorderClass="border-emerald-800/35" 
-        />
-        <KpiTile 
-          label="Total Invoices" 
-          value={kpis.invoices} 
-          delta={kpis.deltas?.invoices} 
-          icon={FileText} 
-          iconBgClass="bg-brandBlue-900/40" 
-          iconColorClass="text-brandBlue-400" 
-          iconBorderClass="border-brandBlue-700/30" 
-        />
-        <KpiTile 
-          label="Average Invoice" 
-          value={formatCurrency(kpis.avgInvoice)} 
-          delta={kpis.deltas?.avgInvoice} 
-          icon={TrendUp} 
-          iconBgClass="bg-amber-950/40" 
-          iconColorClass="text-amber-500" 
-          iconBorderClass="border-amber-800/35" 
-        />
-        <KpiTile 
-          label="Units per Invoice" 
-          value={kpis.unitsPerInvoice.toFixed(1)} 
-          delta={kpis.deltas?.unitsPerInvoice} 
-          icon={ShoppingCart} 
-          iconBgClass="bg-violet-950/40" 
-          iconColorClass="text-violet-400" 
-          iconBorderClass="border-violet-800/35" 
-        />
+        <KpiTile label="Total Revenue" value={formatCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} iconBgClass="bg-emerald-950/40" iconColorClass="text-emerald-400" iconBorderClass="border-emerald-800/35" />
+        <KpiTile label="Total Invoices" value={kpis.invoices} delta={kpis.deltas?.invoices} icon={FileText} iconBgClass="bg-brandBlue-900/40" iconColorClass="text-brandBlue-400" iconBorderClass="border-brandBlue-700/30" />
+        <KpiTile label="Average Invoice" value={formatCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} iconBgClass="bg-amber-950/40" iconColorClass="text-amber-500" iconBorderClass="border-amber-800/35" />
+        <KpiTile label="Units per Invoice" value={kpis.unitsPerInvoice.toFixed(1)} delta={kpis.deltas?.unitsPerInvoice} icon={ShoppingCart} iconBgClass="bg-violet-950/40" iconColorClass="text-violet-400" iconBorderClass="border-violet-800/35" />
       </div>
 
       {/* Analytics Charts Grid */}
@@ -286,50 +255,6 @@ export default function Analytics({ parts = [], transactions = [] }) {
                   <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
                   <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
                 </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Top Movers Panel */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
-              <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
-            </div>
-            <button onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
-              <ArrowsOut weight="duotone" className="w-4 h-4" />
-            </button>
-          </div>
-          
-          <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {movers.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={movers}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={<MoverTick movers={movers} />}
-                    width={210}
-                  />
-                  <Tooltip 
-                    cursor={{ fill: '#1e293b' }}
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                    itemStyle={{ color: '#f8fafc' }}
-                    formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
-                  />
-                  <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#94a3b8', fontSize: 10 }} />
-                </BarChart>
               </ResponsiveContainer>
             )}
           </div>
@@ -383,6 +308,99 @@ export default function Analytics({ parts = [], transactions = [] }) {
                     formatter={(val) => [formatCurrency(val), 'Revenue']}
                   />
                 </Treemap>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Top Movers Panel */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
+              <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
+            </div>
+            <button onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <ArrowsOut weight="duotone" className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
+            {movers.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={movers}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    axisLine={false} 
+                    tickLine={false}
+                    tick={<MoverTick movers={movers} />}
+                    width={210}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#1e293b' }}
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                    itemStyle={{ color: '#f8fafc' }}
+                    formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
+                  />
+                  <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#94a3b8', fontSize: 10 }} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Method Mix (Full Width) */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col col-span-1 lg:col-span-2">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <CurrencyDollar weight="duotone" className="w-5 h-5 text-violet-400" />
+              <h3 className="text-base font-bold text-foreground font-display">Payment Method Mix</h3>
+            </div>
+            <button onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <ArrowsOut weight="duotone" className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
+            {payments.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={payments} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                    tickFormatter={(val) => `₱${val.toLocaleString()}`} 
+                    dx={-10}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#1e293b' }}
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                    itemStyle={{ color: '#f8fafc' }}
+                    formatter={(value) => [formatCurrency(value), undefined]}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                  {PAYMENT_METHODS.map((method) => (
+                    <Bar 
+                      key={method} 
+                      dataKey={method} 
+                      name={PAYMENT_LABELS[method]} 
+                      fill={PAYMENT_COLORS[method]} 
+                      stackId="a" 
+                    />
+                  ))}
+                </BarChart>
               </ResponsiveContainer>
             )}
           </div>
@@ -607,9 +625,27 @@ export default function Analytics({ parts = [], transactions = [] }) {
                   )}
 
                   {zoomedChart === 'payments' && (
-                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                      Payment breakdown zoom view
-                    </div>
+                    <BarChart data={payments} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
+                      <Tooltip 
+                        cursor={{ fill: '#1e293b' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                        itemStyle={{ color: '#f8fafc' }}
+                        formatter={(value) => [formatCurrency(value), undefined]}
+                      />
+                      <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                      {PAYMENT_METHODS.map((method) => (
+                        <Bar 
+                          key={method} 
+                          dataKey={method} 
+                          name={PAYMENT_LABELS[method]} 
+                          fill={PAYMENT_COLORS[method]} 
+                          stackId="a" 
+                        />
+                      ))}
+                    </BarChart>
                   )}
                 </ResponsiveContainer>
               </div>
