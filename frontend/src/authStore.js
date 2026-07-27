@@ -184,11 +184,11 @@ export const updateCustomerProfile = async (profileData) => {
 
 export const fetchStaffRoles = async () => {
   try {
-    const { ok, data } = await apiGet('/api/staff', { supabase });
-    return ok ? data : [];
+    const { ok, status, data } = await apiGet('/api/staff', { supabase });
+    return { ok, status, staff: ok && Array.isArray(data) ? data : [] };
   } catch (err) {
     console.error('Failed to fetch staff roles:', err);
-    return [];
+    return { ok: false, status: 0, staff: [] };
   }
 };
 
@@ -203,14 +203,14 @@ export const checkStaffRole = async (email) => {
   }
 };
 
-export const createStaffRole = api(async (payload) => {
-  const { ok, data } = await apiPost('/api/staff', payload, { supabase });
+export const createStaffRole = api(async ({ email, role }) => {
+  const { ok, data } = await apiPost('/api/staff', { email, role }, { supabase });
   return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to add staff' };
 });
 
-export const updateStaffRole = api(async (id, payload) => {
-  const { ok, data } = await apiPut(`/api/staff/${id}`, payload, { supabase });
-  return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to update staff' };
+export const updateStaffRole = api(async (id, role) => {
+  const { ok, data } = await apiPut(`/api/staff/${id}`, { role }, { supabase });
+  return ok ? { ok: true, data } : { ok: false, error: data.msg || 'Failed to update role' };
 });
 
 export const deleteStaffRole = api(async (id) => {

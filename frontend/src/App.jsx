@@ -248,11 +248,13 @@ export default function App() {
   useEffect(() => {
     
     const loadData = async () => {
+      const isAdmin = Boolean(adminSession?.user?.staffData);
+
       // Parallelize data fetching to prevent sequential waterfalls
       const [fetchedParts, fetchedCategories, fetchedTransactions] = await Promise.all([
         fetchParts(),
         fetchCategories(),
-        fetchTransactions()
+        isAdmin ? fetchTransactions() : Promise.resolve([])
       ]);
       setParts(fetchedParts);
       setCategories(fetchedCategories);
@@ -273,7 +275,7 @@ export default function App() {
 
     window.addEventListener('customerTransactionsUpdate', handleTransactionUpdate);
     return () => window.removeEventListener('customerTransactionsUpdate', handleTransactionUpdate);
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, adminSession?.user?.staffData]);
 
   const addLog = (type, message) => {
     const newLog = {
