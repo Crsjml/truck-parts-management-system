@@ -5,7 +5,7 @@ export const PERIODS = [
 ];
 
 export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER'];
-export const PAYMENT_COLORS = { CASH: '#4ade80', CARD: '#60a5fa', CHEQUE: '#facc15', BANK_TRANSFER: '#c084fc' };
+export const PAYMENT_COLORS = { CASH: '#059669', CARD: '#3b82f6', CHEQUE: '#d97706', BANK_TRANSFER: '#8b5cf6' };
 export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer' };
 
 export function resolvePeriod(key, now = new Date()) {
