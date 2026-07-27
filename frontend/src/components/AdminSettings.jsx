@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Percent, WarningCircle } from '@phosphor-icons/react';
+import { X, Percent, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
 
-import { updateSettings as saveSettingsApi } from '../authStore';
+import { updateSettings as saveSettingsApi, setOverridePin } from '../authStore';
 
 export default function AdminSettings({ onClose }) {
   const { settings, setSettings } = useSettings();
@@ -22,6 +22,30 @@ export default function AdminSettings({ onClose }) {
     
     setSettings({ ...settings, active_markup: newMarkupPercentage });
     await saveSettingsApi({ ...settings, active_markup: newMarkupPercentage });
+  };
+
+  const [newPin, setNewPin] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinMessage, setPinMessage] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [pinConfigured, setPinConfigured] = useState(Boolean(settings?.overridePinConfigured));
+
+  const handleSavePin = async () => {
+    setPinSaving(true);
+    setPinMessage('');
+
+    const result = await setOverridePin(newPin);
+
+    if (result.ok) {
+      setPinError(false);
+      setPinMessage('Override PIN updated.');
+      setPinConfigured(true);
+      setNewPin('');
+    } else {
+      setPinError(true);
+      setPinMessage(result.error);
+    }
+    setPinSaving(false);
   };
 
   return createPortal(
@@ -70,6 +94,49 @@ export default function AdminSettings({ onClose }) {
                 <span>0% (Cost)</span>
                 <span>100% (Double)</span>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-2 border-t border-border">
+            <div>
+              <label htmlFor="override-pin" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <Lock weight="duotone" className="w-3.5 h-3.5 text-accent" /> Discount Override PIN
+              </label>
+              <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                Staff must enter this PIN at the POS before any discount is applied.{' '}
+                {pinConfigured
+                  ? 'A PIN is currently set.'
+                  : 'No PIN is set yet — discounts stay blocked until one is.'}
+              </p>
+            </div>
+
+            <div className="bg-background p-4 rounded-xl border border-border space-y-3">
+              <input
+                id="override-pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                maxLength={6}
+                placeholder="Enter a 4–6 digit PIN"
+                value={newPin}
+                onChange={(e) => { setNewPin(e.target.value.replace(/\D/g, '')); setPinMessage(''); }}
+                className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-accent transition-colors"
+              />
+
+              <button
+                type="button"
+                onClick={handleSavePin}
+                disabled={!/^\d{4,6}$/.test(newPin) || pinSaving}
+                className="w-full px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {pinSaving ? 'Saving…' : pinConfigured ? 'Replace PIN' : 'Set PIN'}
+              </button>
+
+              {pinMessage && (
+                <p role="status" className={`text-xs font-semibold ${pinError ? 'text-red-500' : 'text-emerald-500'}`}>
+                  {pinMessage}
+                </p>
+              )}
             </div>
           </div>
 
