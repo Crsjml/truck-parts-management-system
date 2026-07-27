@@ -198,10 +198,13 @@ export default function CustomerStorefront({
     const requested = existing ? existing.quantity + quantity : quantity;
 
     if (requested > availableStock) {
-      alert(`Cannot add more. Only ${availableStock} units of ${part.name} are available.`);
+      showToast?.(`Cannot add more. Only ${availableStock} units of ${part.name} are available.`, 'error');
       return;
     }
 
+    if (cart.length === 0) {
+      setIsCartOpen(true);
+    }
     setCart(prev => {
       const found = prev.find(item => item.id === part.id);
       if (found) {
@@ -211,7 +214,7 @@ export default function CustomerStorefront({
       }
       return [...prev, { ...part, quantity }];
     });
-    setIsCartOpen(true);
+    showToast?.(`${part.name} added to cart`, 'success');
   };
 
   const removeFromCart = (partId) => {
