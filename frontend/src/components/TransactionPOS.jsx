@@ -186,10 +186,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
             onUpdateQuantity={updateQuantity}
             onRemove={removeFromCart}
             onCheckout={() => setMode('checkout')}
-            subtotal={totals.lineSum}
-            discount={totals.discount}
-            taxAmount={totals.vatAmount}
-            total={totals.total}
+            totals={totals}
             formatCurrency={formatBaseCurrency}
             warning={warning}
           />

@@ -6,10 +6,7 @@ export default function PosCart({
   onUpdateQuantity,
   onRemove,
   onCheckout,
-  subtotal,
-  discount,
-  taxAmount,
-  total,
+  totals,
   formatCurrency,
   warning
 }) {
@@ -55,18 +52,18 @@ export default function PosCart({
                   type="button"
                   onClick={() => onUpdateQuantity(item.id, -1)}
                   aria-label={`Decrease quantity of ${item.name}`}
-                  className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded transition-colors"
+                  className="p-2 min-w-[2rem] min-h-[2rem] flex items-center justify-center hover:bg-secondary text-muted-foreground hover:text-foreground rounded transition-transform duration-150 ease-out active:scale-[0.92]"
                 >
-                  <Minus weight="bold" className="w-3.5 h-3.5" />
+                  <Minus weight="bold" className="w-4 h-4" />
                 </button>
                 <span className="text-sm font-bold text-foreground w-6 text-center">{item.quantity}</span>
                 <button
                   type="button"
                   onClick={() => onUpdateQuantity(item.id, 1)}
                   aria-label={`Increase quantity of ${item.name}`}
-                  className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded transition-colors"
+                  className="p-2 min-w-[2rem] min-h-[2rem] flex items-center justify-center hover:bg-secondary text-muted-foreground hover:text-foreground rounded transition-transform duration-150 ease-out active:scale-[0.92]"
                 >
-                  <Plus weight="bold" className="w-3.5 h-3.5" />
+                  <Plus weight="bold" className="w-4 h-4" />
                 </button>
               </div>
 
@@ -74,7 +71,7 @@ export default function PosCart({
                 type="button"
                 onClick={() => onRemove(item.id)}
                 aria-label={`Remove ${item.name}`}
-                className="p-2 text-muted-foreground hover:text-red-500 rounded-lg transition-colors shrink-0"
+                className="p-2 text-muted-foreground hover:text-red-500 rounded-lg transition-transform duration-150 ease-out active:scale-[0.92] shrink-0"
               >
                 <Trash weight="bold" className="w-4 h-4" />
               </button>
@@ -84,32 +81,35 @@ export default function PosCart({
       </div>
 
       <div className="space-y-3 pt-3 border-t border-border">
-        <dl className="space-y-1.5 text-sm">
-          <div className="flex justify-between text-muted-foreground">
-            <dt>Subtotal</dt>
-            <dd className="font-mono">{formatCurrency(subtotal)}</dd>
-          </div>
-          {discount > 0 && (
-            <div className="flex justify-between text-muted-foreground">
+        <dl className="space-y-1">
+          {totals.discount > 0 && (
+            <div className="flex justify-between text-sm text-muted-foreground">
               <dt>Discount</dt>
-              <dd className="font-mono text-amber-500">− {formatCurrency(discount)}</dd>
+              <dd data-testid="pos-discount" className="font-mono text-amber-500">
+                - {formatCurrency(totals.discount)}
+              </dd>
             </div>
           )}
-          <div className="flex justify-between text-muted-foreground">
-            <dt>VAT (12%)</dt>
-            <dd className="font-mono">{formatCurrency(taxAmount)}</dd>
-          </div>
-          <div className="flex justify-between items-baseline pt-2 border-t border-border">
-            <dt className="text-base font-bold text-foreground">Total</dt>
-            <dd data-testid="pos-total" className="text-2xl font-extrabold text-foreground font-mono">{formatCurrency(total)}</dd>
+
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Total</dt>
+            <dd data-testid="pos-total" className="text-3xl font-extrabold tracking-tight text-foreground font-mono">
+              {formatCurrency(totals.total)}
+            </dd>
           </div>
         </dl>
+
+        {/* The shelf price already contains VAT. Showing the split keeps the
+            calculation visible without implying anything is being added. */}
+        <p data-testid="pos-vat-note" className="text-2xs text-muted-foreground">
+          Includes VAT 12%: {formatCurrency(totals.vatableSale)} sale + {formatCurrency(totals.vatAmount)} VAT
+        </p>
 
         <button
           type="button"
           onClick={onCheckout}
           disabled={cart.length === 0}
-          className="w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold transition-transform duration-150 ease-out active:scale-[0.97] flex items-center justify-center gap-2"
         >
           <CreditCard weight="bold" className="w-5 h-5" />
           Checkout
