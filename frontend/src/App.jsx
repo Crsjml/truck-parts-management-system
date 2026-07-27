@@ -36,7 +36,7 @@ const PageLoader = () => (
 );
 
 
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchMyTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs } from './authStore';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -254,23 +254,20 @@ export default function App() {
       const [fetchedParts, fetchedCategories, fetchedTransactions] = await Promise.all([
         fetchParts(),
         fetchCategories(),
-        isAdmin ? fetchTransactions() : Promise.resolve([])
+        isAdmin ? fetchTransactions() : fetchMyTransactions()
       ]);
       setParts(fetchedParts);
       setCategories(fetchedCategories);
-      if (fetchedTransactions && fetchedTransactions.length > 0) {
-        setTransactions(fetchedTransactions);
-      }
+      setTransactions(fetchedTransactions ?? []);
     };
 
     loadData();
 
     // Listen for transaction updates from CustomerStorefront (e.g. after checkout)
     const handleTransactionUpdate = async () => {
-      const fetchedTransactions = await fetchTransactions();
-      if (fetchedTransactions) {
-        setTransactions(fetchedTransactions);
-      }
+      const isAdmin = Boolean(adminSession?.user?.staffData);
+      const fetchedTransactions = isAdmin ? await fetchTransactions() : await fetchMyTransactions();
+      setTransactions(fetchedTransactions ?? []);
     };
 
     window.addEventListener('customerTransactionsUpdate', handleTransactionUpdate);

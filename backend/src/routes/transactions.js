@@ -8,6 +8,9 @@ const router = express.Router();
 // POST /api/transactions — requires login
 router.post('/', requireAuth, transactionsController.createTransaction);
 
+// GET /api/transactions/mine - customer order history
+router.get('/mine', requireAuth, transactionsController.getMyTransactions);
+
 // GET /api/transactions
 router.get('/', requireAuth, requireRole('ADMIN'), transactionsController.getTransactions);
 

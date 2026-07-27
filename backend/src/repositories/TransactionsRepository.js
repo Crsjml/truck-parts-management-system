@@ -10,6 +10,15 @@ class TransactionsRepository {
     });
   }
 
+  async findManyByUserId(userId) {
+    return await prisma.transaction.findMany({
+      where: { userId },
+      include: { items: { include: { part: true } } },
+      orderBy: { transactionDate: 'desc' },
+      take: 100
+    });
+  }
+
   async executeTransaction(callback) {
     return await prisma.$transaction(callback);
   }
