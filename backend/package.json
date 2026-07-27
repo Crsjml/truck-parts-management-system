@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "db:push": "prisma db push"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

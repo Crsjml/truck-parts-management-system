@@ -16,6 +16,9 @@ services:
       - ./backend/.env
     environment:
       - NODE_NO_WARNINGS=1
+    # Sync the DB to schema.prisma before boot. Without this a schema commit
+    # can outrun the database and every query on the new column 500s (TTP-15).
+    command: sh -c "npx prisma db push --skip-generate && node src/index.js"
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5000/api/ping || exit 1"]
