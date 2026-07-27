@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { CheckCircle, Download } from '@phosphor-icons/react';
 import { lookupCustomers, verifyOverridePin } from '../authStore';
@@ -7,17 +7,17 @@ import PosCart from './pos/PosCart';
 import PosCheckoutModal from './pos/PosCheckoutModal';
 import PosShortcutLegend from './pos/PosShortcutLegend';
 import { buildInvoicePdf } from '../utils/invoicePdf';
-
-const VAT_RATE = 0.12;
+import { toSellingPrice, computePosTotals, VAT_RATE } from '../utils/posMoney';
 
 export default function TransactionPOS({ parts, onCheckout }) {
-  const { formatCurrency, displayCurrency } = useSettings();
+  const { formatBaseCurrency, formatCurrency, displayCurrency, markupFactor = 1 } = useSettings();
 
   const [cart, setCart] = useState([]);
   const [warning, setWarning] = useState(null);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [mode, setMode] = useState('cart'); // 'cart' | 'checkout'
   const [lastTx, setLastTx] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [discount, setDiscount] = useState(0);
 
   const searchInputRef = useRef(null);
 
@@ -41,7 +41,9 @@ export default function TransactionPOS({ parts, onCheckout }) {
       const available = part.stock - (part.reservedStock || 0);
       setCart((prev) => {
         const existing = prev.find((i) => i.id === part.id);
-        if (!existing) return [...prev, { ...part, quantity: 1 }];
+        if (!existing) {
+          return [...prev, { ...part, price: toSellingPrice(part.price, markupFactor), quantity: 1 }];
+        }
 
         if (existing.quantity >= available) {
           setWarning(`Only ${available} of ${part.name} available — all are already in the cart.`);
@@ -50,7 +52,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
         return prev.map((i) => (i.id === part.id ? { ...i, quantity: i.quantity + 1 } : i));
       });
     },
-    []
+    [markupFactor]
   );
 
   const updateQuantity = useCallback(
@@ -77,9 +79,10 @@ export default function TransactionPOS({ parts, onCheckout }) {
     setCart((prev) => prev.filter((i) => i.id !== partId));
   }, []);
 
-  const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const taxAmount = subtotal * VAT_RATE;
-  const total = subtotal + taxAmount;
+  const totals = useMemo(
+    () => computePosTotals({ cart, discount, vatRate: VAT_RATE }),
+    [cart, discount]
+  );
 
   const handleLookup = useCallback(async (term) => {
     const result = await lookupCustomers(term);
@@ -95,10 +98,8 @@ export default function TransactionPOS({ parts, onCheckout }) {
     if (submitting) return;
     setSubmitting(true);
 
-    const discountVal = Math.min(Number(payment.discount) || 0, subtotal);
-    const taxable = Math.max(0, subtotal - discountVal);
-    const finalTax = taxable * VAT_RATE;
-    const finalTotal = taxable + finalTax;
+    const discountVal = Math.min(Number(payment.discount) || 0, totals.lineSum);
+    const finalTotals = computePosTotals({ cart, discount: discountVal, vatRate: VAT_RATE });
 
     const txData = {
       invoiceNumber: `TTP-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -114,11 +115,11 @@ export default function TransactionPOS({ parts, onCheckout }) {
         quantity: i.quantity,
         price: i.price
       })),
-      subtotal,
-      discount: discountVal,
+      subtotal: finalTotals.vatableSale,
+      discount: finalTotals.discount,
       tax: 12,
-      taxAmount: finalTax,
-      total: finalTotal,
+      taxAmount: finalTotals.vatAmount,
+      total: finalTotals.total,
       paymentMethod: payment.paymentMethod,
       amountTendered: payment.amountTendered,
       changeGiven: payment.changeGiven,
@@ -135,8 +136,9 @@ export default function TransactionPOS({ parts, onCheckout }) {
     }
 
     setLastTx(txData);
-    setCheckoutOpen(false);
     setCart([]);
+    setDiscount(0);
+    setMode('cart');
   };
 
   // Shortcuts. Bound at document level because focus may sit anywhere in the panel.
@@ -149,19 +151,19 @@ export default function TransactionPOS({ parts, onCheckout }) {
       }
       if (e.key === 'F4') {
         e.preventDefault();
-        if (cart.length > 0 && !lastTx) setCheckoutOpen(true);
+        if (cart.length > 0 && !lastTx) setMode('checkout');
         return;
       }
       if (e.key === 'Escape') {
         if (lastTx) setLastTx(null);
-        else if (checkoutOpen) setCheckoutOpen(false);
+        else if (mode === 'checkout') setMode('cart');
         else setCart([]);
       }
     };
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [cart.length, checkoutOpen, lastTx]);
+  }, [cart.length, mode, lastTx]);
 
   return (
     <div className="space-y-4 animate-fadeIn">
@@ -183,23 +185,23 @@ export default function TransactionPOS({ parts, onCheckout }) {
             cart={cart}
             onUpdateQuantity={updateQuantity}
             onRemove={removeFromCart}
-            onCheckout={() => setCheckoutOpen(true)}
-            subtotal={subtotal}
-            discount={0}
-            taxAmount={taxAmount}
-            total={total}
-            formatCurrency={formatCurrency}
+            onCheckout={() => setMode('checkout')}
+            subtotal={totals.lineSum}
+            discount={totals.discount}
+            taxAmount={totals.vatAmount}
+            total={totals.total}
+            formatCurrency={formatBaseCurrency}
             warning={warning}
           />
         </div>
       </div>
 
-      {checkoutOpen && (
+      {mode === 'checkout' && (
         <PosCheckoutModal
-          subtotal={subtotal}
-          total={total}
-          formatCurrency={formatCurrency}
-          onCancel={() => setCheckoutOpen(false)}
+          subtotal={totals.lineSum}
+          total={totals.total}
+          formatCurrency={formatBaseCurrency}
+          onCancel={() => setMode('cart')}
           onConfirm={handleConfirmSale}
           onLookup={handleLookup}
           onVerifyPin={handleVerifyPin}
@@ -222,16 +224,16 @@ export default function TransactionPOS({ parts, onCheckout }) {
             <dl className="bg-secondary p-4 rounded-xl text-left border border-border text-sm space-y-1.5 font-mono">
               <div className="flex justify-between"><dt className="text-muted-foreground">Invoice</dt><dd className="font-bold text-foreground">{lastTx.invoiceNumber}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">Customer</dt><dd className="font-bold text-foreground">{lastTx.customerName}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Total</dt><dd className="font-bold text-foreground">{formatCurrency(lastTx.total)}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">Total</dt><dd className="font-bold text-foreground">{formatBaseCurrency(lastTx.total)}</dd></div>
               {lastTx.changeGiven != null && lastTx.changeGiven > 0 && (
-                <div className="flex justify-between"><dt className="text-muted-foreground">Change</dt><dd className="font-bold text-emerald-500">{formatCurrency(lastTx.changeGiven)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Change</dt><dd className="font-bold text-emerald-500">{formatBaseCurrency(lastTx.changeGiven)}</dd></div>
               )}
             </dl>
 
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => buildInvoicePdf(lastTx, { formatCurrency, displayCurrency })}
+                onClick={() => buildInvoicePdf(lastTx, { formatCurrency: formatBaseCurrency, displayCurrency })}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary border border-border text-sm font-bold text-foreground hover:bg-background transition-colors"
               >
                 <Download weight="bold" className="w-4 h-4" /> Invoice PDF
