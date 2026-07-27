@@ -467,20 +467,28 @@ export default function CustomerStorefront({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-full border border-border/50">
-                  <button onClick={() => onOpenCustomerAuth('login')} className="rounded-full px-4 py-1.5 text-xs font-bold hover:bg-background hover:shadow-sm hover:text-foreground text-muted-foreground transition border border-transparent hover:border-border/50">Login</button>
-                  <button onClick={() => onOpenCustomerAuth('register')} className="rounded-full bg-foreground text-background px-4 py-1.5 text-xs font-bold hover:scale-95 transition shadow-sm">Register</button>
+                <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 p-1">
+                  <button onClick={() => onOpenCustomerAuth('login')} className="rounded-md px-4 py-1.5 text-xs font-bold text-muted-foreground transition hover:border-border/50 hover:bg-background hover:text-foreground hover:shadow-sm border border-transparent">Login</button>
+                  <button onClick={() => onOpenCustomerAuth('register')} className="rounded-md bg-foreground px-4 py-1.5 text-xs font-bold text-background shadow-sm transition hover:scale-95">Register</button>
                 </div>
               )}
               
               <div className="w-px h-6 bg-border mx-1 hidden sm:block"></div>
               
               <div className="flex items-center gap-1">
-                <button onClick={() => setIsCartOpen(true)} className="relative p-2 rounded-full hover:bg-secondary transition border border-transparent hover:border-border/50">
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  aria-label="View cart"
+                  className="relative rounded-lg border border-transparent p-3 transition hover:border-border/50 hover:bg-secondary"
+                >
                   <ShoppingCart weight="duotone" className="w-5 h-5 text-foreground" />
                   {cartTotalItems > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-white shadow-sm ring-2 ring-background">{cartTotalItems}</span>}
                 </button>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-secondary transition border border-transparent hover:border-border/50">
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  aria-label="Toggle dark mode"
+                  className="rounded-lg border border-transparent p-3 transition hover:border-border/50 hover:bg-secondary"
+                >
                   {isDarkMode ? <Sun weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-foreground"/> : <Moon weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-foreground"/>}
                 </button>
                 {!customerSession && (
@@ -488,7 +496,7 @@ export default function CustomerStorefront({
                     onClick={onOpenAdminAuth}
                     aria-label="Staff sign-in"
                     title="Staff sign-in"
-                    className="p-2 rounded-full hover:bg-secondary transition border border-transparent hover:border-border/50"
+                    className="rounded-lg border border-transparent p-3 transition hover:border-border/50 hover:bg-secondary"
                   >
                     <ShieldCheck weight="duotone" className="w-5 h-5 text-muted-foreground hover:text-brandBlue-400" />
                   </button>
