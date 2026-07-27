@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { buildInvoicePdf } from '../utils/invoicePdf';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -172,89 +171,7 @@ export default function Analytics({ parts, transactions }) {
     tx.customerName.toLowerCase().includes(searchInvoice.toLowerCase())
   ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
 
-  // PDF Re-download
-  const handleDownloadPDF = (tx) => {
-    if (!tx) return;
-    try {
-      const doc = new jsPDF();
-      doc.setFillColor(27, 54, 93);
-      doc.rect(0, 0, 210, 40, 'F');
-      doc.setFillColor(220, 38, 38);
-      doc.rect(0, 40, 210, 3, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("Helvetica", "bold");
-      doc.setFontSize(22);
-      doc.text("TARLAC TRUCK PARTS", 15, 20);
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text("Quality Truck Accessories & Spare Parts Wholesale & Retail", 15, 27);
-      doc.text("Tarlac City, Philippines | Contact: 0917-XXX-XXXX", 15, 33);
-      doc.setFont("Helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text("SALES INVOICE (DUPLICATE)", 135, 18);
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.text(`Invoice No: ${tx.invoiceNumber}`, 135, 24);
-      doc.text(`Date: ${new Date(tx.transactionDate).toLocaleString('en-US')}`, 135, 30);
-
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(10.5);
-      doc.setFont("Helvetica", "bold");
-      doc.text("BILL TO / CUSTOMER INFO:", 15, 56);
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.text(`Customer Name: ${tx.customerName}`, 15, 62);
-      doc.text(`Contact Phone: ${tx.customerContact}`, 15, 68);
-
-      const tableRows = tx.items.map((item, index) => [
-        index + 1,
-        item.name,
-        `${displayCurrency} ${item.price}`,
-        item.quantity,
-        `${displayCurrency} ${(item.price * item.quantity)}`
-      ]);
-
-      autoTable(doc, {
-        startY: 76,
-        head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
-        body: tableRows,
-        headStyles: { fillColor: [27, 54, 93], textColor: [255, 255, 255], fontSize: 9.5, fontStyle: 'bold' },
-        bodyStyles: { fontSize: 9, textColor: [33, 41, 54] },
-        alternateRowStyles: { fillColor: [247, 249, 252] },
-        columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 100 }, 2: { cellWidth: 35 }, 3: { cellWidth: 20 }, 4: { cellWidth: 30 } },
-        theme: 'grid',
-        margin: { left: 15, right: 15 }
-      });
-
-      const finalY = doc.lastAutoTable.finalY + 8;
-      doc.setFontSize(9.5);
-      doc.setFont("Helvetica", "normal");
-      doc.text("Subtotal:", 130, finalY);
-      doc.text(`${displayCurrency} ${tx.subtotal}`, 195, finalY, { align: 'right' });
-      doc.text("Discount Deductions:", 130, finalY + 5.5);
-      doc.text(`-${formatCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
-      doc.text("VAT Amount (12%):", 130, finalY + 11);
-      doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, finalY + 11, { align: 'right' });
-
-      doc.setFillColor(27, 54, 93);
-      doc.rect(128, finalY + 15, 68, 7.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("Helvetica", "bold");
-      doc.text("NET TOTAL:", 131, finalY + 20);
-      doc.text(`${displayCurrency} ${tx.total}`, 193, finalY + 20, { align: 'right' });
-
-      doc.setTextColor(100, 116, 139);
-      doc.setFont("Helvetica", "italic");
-      doc.setFontSize(8.5);
-      doc.text("Thank you for your business!", 105, finalY + 36, { align: 'center' });
-      doc.setFontSize(7.5);
-      doc.text("THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAXES.", 105, finalY + 42, { align: 'center' });
-      doc.text("Official Sales Invoice / BIR Acknowledged Form", 105, finalY + 46, { align: 'center' });
-      doc.save(`Invoice_${tx.invoiceNumber}.pdf`);
-    } catch (e) {
-      alert("Error printing PDF: " + e.message);
-    }
-  };
+  // PDF Re-download handled by buildInvoicePdf
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -501,7 +418,7 @@ export default function Analytics({ parts, transactions }) {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <button 
-                              onClick={() => handleDownloadPDF(tx)}
+                              onClick={() => buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate: true })}
                               className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all mx-auto"
                               title="Download Invoice"
                             >
@@ -745,7 +662,7 @@ export default function Analytics({ parts, transactions }) {
               {/* Footer Actions */}
               <div className="p-4 border-t border-border bg-background shrink-0">
                 <button 
-                  onClick={() => handleDownloadPDF(selectedInvoice)}
+                  onClick={() => buildInvoicePdf(selectedInvoice, { formatCurrency, displayCurrency, duplicate: true })}
                   className="w-full py-3 bg-brandBlue-600 hover:bg-brandBlue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all hover:shadow-lg shadow-brandBlue-500/20"
                 >
                   <Download weight="bold" className="w-5 h-5" />
