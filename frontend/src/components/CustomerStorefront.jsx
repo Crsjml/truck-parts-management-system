@@ -118,6 +118,30 @@ export default function CustomerStorefront({
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
 
+  const [isFitmentOpen, setIsFitmentOpen] = useState(false);
+  const fitmentRef = useRef(null);
+
+  useEffect(() => {
+    if (!isFitmentOpen) return;
+    const handlePointerDown = (e) => {
+      if (fitmentRef.current && !fitmentRef.current.contains(e.target)) {
+        setIsFitmentOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsFitmentOpen(false);
+        fitmentRef.current?.querySelector('#fitment-trigger')?.focus();
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFitmentOpen]);
+
   useEffect(() => {
     if (!isAccountMenuOpen) return;
     const handlePointerDown = (e) => {
@@ -417,6 +441,28 @@ export default function CustomerStorefront({
               
               {/* Main Nav */}
               <NavToggle items={STOREFRONT_NAV_ITEMS} activeId={storefrontTab} onSelect={setStorefrontTab} />
+
+              {/* Truck Fitment */}
+              <div className="relative hidden lg:block" ref={fitmentRef}>
+                <button
+                  id="fitment-trigger"
+                  type="button"
+                  aria-expanded={isFitmentOpen}
+                  aria-haspopup="dialog"
+                  onClick={() => setIsFitmentOpen((open) => !open)}
+                  className="flex items-center gap-2 rounded-lg border border-border/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground transition hover:border-accent/50 hover:text-foreground"
+                >
+                  <Truck weight="duotone" className="h-4 w-4 text-accent" />
+                  {vehicleFilter.brand
+                    ? `${vehicleFilter.brand}${vehicleFilter.series ? ` ${vehicleFilter.series}` : ''}`
+                    : 'Select your truck'}
+                </button>
+                {isFitmentOpen && (
+                  <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-max rounded-lg border border-border bg-background p-3 shadow-2xl">
+                    <CompatibilityFilter onFilterChange={setVehicleFilter} />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* User / Actions */}
