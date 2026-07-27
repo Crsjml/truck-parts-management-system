@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -248,10 +247,10 @@ describe('TransactionPOS', () => {
     fireEvent.click(addBtn);
 
     fireEvent.keyDown(document, { key: 'F4' });
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Step 1 of 2/i)).not.toBeInTheDocument();
 
     expect(screen.getAllByText(/F2/)[0]).toBeInTheDocument();
     expect(screen.getAllByText(/F4/)[0]).toBeInTheDocument();
@@ -266,8 +265,7 @@ describe('TransactionPOS', () => {
     fireEvent.click(addBtn);
     fireEvent.keyDown(document, { key: 'F4' });
 
-    const modal = screen.getByRole('dialog');
-    expect(modal).toHaveAttribute('aria-modal', 'true');
-    expect(modal).toHaveAttribute('aria-labelledby', 'pos-checkout-heading');
+    const pane = screen.getByRole('region', { name: /Customer/i });
+    expect(pane).toHaveAttribute('aria-labelledby', 'pos-checkout-heading');
   });
 });
