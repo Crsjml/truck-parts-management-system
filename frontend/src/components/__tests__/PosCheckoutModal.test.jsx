@@ -67,7 +67,7 @@ describe('PosCheckoutModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /use maria santos/i }));
     expect(screen.getByLabelText(/customer name/i)).toHaveValue('Maria Santos');
     expect(screen.getByLabelText(/contact number/i)).toHaveValue('09991112222');
-    expect(screen.getByLabelText(/email/i)).toHaveValue('maria@example.com');
+    expect(screen.getByLabelText(/^email$/i)).toHaveValue('maria@example.com');
     expect(screen.getByText(/4 previous orders/i)).toBeInTheDocument();
   });
 
