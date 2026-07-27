@@ -31,28 +31,30 @@ export const requireAuth = async (req, res, next) => {
   }
 };
 
-export const requireAdmin = async (req, res, next) => {
+// Rank, not alphabetical order — a higher number satisfies every gate at or
+// below it. Previously `requireAdmin` only checked that a staff row existed,
+// which meant every staff account passed every admin gate.
+const ROLE_RANK = { ADMIN: 1, SUPERADMIN: 2 };
+
+export const requireRole = (minimum) => async (req, res, next) => {
   if (!req.auth || !req.auth.email) {
     return res.status(401).json({ msg: 'Not authenticated.' });
   }
+
   try {
     const staff = await prisma.staffRole.findUnique({
       where: { email: req.auth.email.toLowerCase() }
     });
-    if (!staff) {
+
+    if (!staff || (ROLE_RANK[staff.role] ?? 0) < ROLE_RANK[minimum]) {
       return res.status(403).json({ msg: 'Insufficient privileges.' });
     }
+
     req.staff = staff;
     next();
   } catch (err) {
-    console.error('[requireAdmin]', err);
+    console.error('[requireRole]', err);
     return res.status(500).json({ msg: 'Authorization check failed.' });
   }
 };
 
-export const requirePermission = (flag) => (req, res, next) => {
-  if (!req.staff || !req.staff[flag]) {
-    return res.status(403).json({ msg: 'Permission denied.' });
-  }
-  next();
-};
