@@ -68,8 +68,11 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
           placeholder="Part name, SKU, or OEM number…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-secondary border border-border rounded-xl pl-12 pr-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
+          className="w-full bg-secondary border border-border rounded-xl pl-12 pr-12 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
         />
+        <kbd className="absolute right-4 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-background border border-border text-2xs font-mono font-bold text-muted-foreground pointer-events-none">
+          F2
+        </kbd>
       </div>
 
       {/* Vehicle compatibility */}
