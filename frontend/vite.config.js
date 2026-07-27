@@ -7,7 +7,9 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: './vitest.setup.js',
-    globals: true
+    globals: true,
+    include: ['src/**/*.{test,spec}.{js,jsx}'],
+    exclude: ['tests/**', 'node_modules/**']
   },
   server: {
     port: 5173,

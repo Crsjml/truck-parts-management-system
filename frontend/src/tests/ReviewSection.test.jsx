@@ -37,22 +37,25 @@ describe('ReviewSection Component Tests', () => {
     render(<ReviewSection partId="1" />);
     
     expect(await screen.findByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('Great product!')).toBeInTheDocument();
+    expect(screen.getByText(/"Great product!"/i)).toBeInTheDocument();
   });
 
   it('handles submit interaction', async () => {
     fetchReviews.mockResolvedValue({ reviews: [], stats: { totalReviews: 0, averageRating: 0 } });
     createReview.mockResolvedValue({ ok: true });
     
-    render(<ReviewSection partId="1" currentUserId="user123" />);
+    render(<ReviewSection partId="1" currentUserId="user123" hasPurchased={true} />);
     
     // Wait for loading to finish
     await screen.findByText(/no reviews yet/i);
     
-    const submitBtn = screen.getByRole('button', { name: /submit review/i });
+    const submitBtn = screen.getByRole('button', { name: /post review/i });
     expect(submitBtn).toBeInTheDocument();
     
-    // Attempting to submit empty shouldn't crash
+    // Select rating button to enable submit
+    const starBtn = screen.getAllByRole('button')[0];
+    fireEvent.click(starBtn);
+    
     fireEvent.click(submitBtn);
     
     // Wait for form submission handling
