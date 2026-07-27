@@ -19,6 +19,16 @@ import ReturnPolicyModal from './ReturnPolicyModal';
 import ReorderRail from './ReorderRail';
 import { HeroHighlight, Highlight } from './ui/HeroHighlight';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const TRUSTED_BRANDS = [
+  { label: 'CUMMINS', className: 'text-xl font-black italic tracking-tighter' },
+  { label: 'ISUZU', className: 'text-xl font-black tracking-widest' },
+  { label: 'Volvo', className: 'text-xl font-bold uppercase border-2 border-current px-2' },
+  { label: 'MACK', className: 'text-xl font-black italic' },
+  { label: 'HINO', className: 'text-xl font-bold tracking-widest' },
+  { label: 'PACCAR', className: 'text-xl font-bold tracking-tighter' },
+];
+
 export default function CustomerStorefront({
   parts,
   categories,
@@ -491,16 +501,15 @@ export default function CustomerStorefront({
                 </div>
 
                 {/* Trusted Brands Marquee */}
-                <div className="relative z-10 w-full max-w-4xl mb-12 overflow-hidden flex flex-col items-center">
+                <div className="relative z-10 w-full max-w-4xl mb-12 flex flex-col items-center">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 opacity-70">Trusted by Global Fleets</p>
-                  <div className="flex w-full justify-between items-center gap-8 opacity-50 grayscale hover:grayscale-0 transition-all duration-700 overflow-x-auto no-scrollbar">
-                    {/* Simulated logos */}
-                    <div className="text-xl font-black italic tracking-tighter">CUMMINS</div>
-                    <div className="text-xl font-black tracking-widest">ISUZU</div>
-                    <div className="text-xl font-bold uppercase border-2 border-current px-2">Volvo</div>
-                    <div className="text-xl font-black italic">MACK</div>
-                    <div className="text-xl font-bold tracking-widest">HINO</div>
-                    <div className="text-xl font-bold tracking-tighter">PACCAR</div>
+                  <span className="sr-only">Trusted by Cummins, Isuzu, Volvo, Mack, Hino, and Paccar</span>
+                  <div className="w-full overflow-hidden scroll-fade-edges" aria-hidden="true">
+                    <div className="flex w-max animate-marquee items-center gap-16 opacity-50 grayscale transition-[filter] duration-700 hover:grayscale-0 hover:[animation-play-state:paused]">
+                      {[...TRUSTED_BRANDS, ...TRUSTED_BRANDS].map((brand, i) => (
+                        <span key={`${brand.label}-${i}`} className={brand.className}>{brand.label}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
