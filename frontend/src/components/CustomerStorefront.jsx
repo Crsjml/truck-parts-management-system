@@ -551,7 +551,7 @@ export default function CustomerStorefront({
                 </div>
 
                 {/* Shop by Category Bento */}
-                <div className="relative z-10 w-full max-w-5xl px-4">
+                <Reveal className="relative z-10 w-full max-w-5xl px-4">
                   <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-8 text-center">Shop by Category</h3>
                   
                   {/* Main Category Tabs (Horizontal Scroll) */}
@@ -578,29 +578,38 @@ export default function CustomerStorefront({
                   </div>
 
                   {/* Sub Category Grid */}
-                  <div className="flex flex-wrap justify-center gap-4 mt-2">
-                    {nestedCategories.filter(c => c.parentCategory?.name === activeMainCat).map(subCat => {
-                      const { Icon: SubIcon, color: subColor } = getCategoryIconAndColor(subCat.name, subCat.iconName, subCat.colorTheme);
-                      return (
-                        <button 
-                          key={subCat.id}
-                          onClick={() => {
-                            setSelectedCategory(subCat.name);
-                            setStorefrontTab('catalog');
-                          }}
-                          className="flex-1 min-w-[140px] max-w-[180px] sm:max-w-[220px] group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
-                        >
-                          <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-105 transition-transform duration-300 shadow-inner ${subColor}`}>
-                            {SubIcon ? <SubIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />}
-                          </div>
-                          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors text-center leading-tight">
-                            {subCat.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeMainCat}
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
+                      transition={{ duration: 0.18, ease: [0.19, 1, 0.22, 1] }}
+                      className="flex flex-wrap justify-center gap-4 mt-2"
+                    >
+                      {nestedCategories.filter(c => c.parentCategory?.name === activeMainCat).map(subCat => {
+                        const { Icon: SubIcon, color: subColor } = getCategoryIconAndColor(subCat.name, subCat.iconName, subCat.colorTheme);
+                        return (
+                          <button 
+                            key={subCat.id}
+                            onClick={() => {
+                              setSelectedCategory(subCat.name);
+                              setStorefrontTab('catalog');
+                            }}
+                            className="flex-1 min-w-[140px] max-w-[180px] sm:max-w-[220px] group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
+                          >
+                            <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-105 transition-transform duration-300 shadow-inner ${subColor}`}>
+                              {SubIcon ? <SubIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />}
+                            </div>
+                            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors text-center leading-tight">
+                              {subCat.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  </AnimatePresence>
+                </Reveal>
                 </motion.div>
               </HeroHighlight>
 
