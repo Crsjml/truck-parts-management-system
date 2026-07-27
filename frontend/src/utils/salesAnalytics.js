@@ -44,9 +44,24 @@ export function computeKpis(current, previous) {
   const unitsPerInvoice = invoices ? totalUnits / invoices : 0;
   
   const prevRevenue = previous.reduce((sum, t) => sum + (t.total || 0), 0);
+  const prevInvoices = previous.length;
+  const prevAvgInvoice = prevInvoices ? prevRevenue / prevInvoices : 0;
   
-  const deltas = {
-    revenue: previous.length ? (prevRevenue === 0 ? 0 : ((revenue - prevRevenue) / prevRevenue) * 100) : null
+  const prevTotalUnits = previous.reduce((sum, t) => {
+    return sum + (t.items || []).reduce((itemSum, item) => itemSum + (item.quantity || 0), 0);
+  }, 0);
+  const prevUnitsPerInvoice = prevInvoices ? prevTotalUnits / prevInvoices : 0;
+  
+  const deltas = previous.length === 0 ? {
+    revenue: null,
+    invoices: null,
+    avgInvoice: null,
+    unitsPerInvoice: null
+  } : {
+    revenue: prevRevenue === 0 ? null : ((revenue - prevRevenue) / prevRevenue) * 100,
+    invoices: prevInvoices === 0 ? null : ((invoices - prevInvoices) / prevInvoices) * 100,
+    avgInvoice: prevAvgInvoice === 0 ? null : ((avgInvoice - prevAvgInvoice) / prevAvgInvoice) * 100,
+    unitsPerInvoice: prevUnitsPerInvoice === 0 ? null : ((unitsPerInvoice - prevUnitsPerInvoice) / prevUnitsPerInvoice) * 100
   };
   
   return { revenue, invoices, avgInvoice, unitsPerInvoice, deltas };
