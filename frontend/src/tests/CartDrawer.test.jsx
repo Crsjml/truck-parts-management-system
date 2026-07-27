@@ -45,4 +45,11 @@ describe('CartDrawer pricing', () => {
     renderCart();
     expect(screen.getByRole('button', { name: /checkout/i })).toBeInTheDocument();
   });
+
+  it('marks the subtotal as a live region so screen readers announce changes', () => {
+    renderCart();
+    const matches = screen.getAllByText(/PHP 2,?300\.00/);
+    const liveMatch = matches.find((el) => el.getAttribute('aria-live') === 'polite');
+    expect(liveMatch).toBeTruthy();
+  });
 });

@@ -96,7 +96,7 @@ export default function CartDrawer({
         <div className="border-t border-border/50 p-5 bg-background/80 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Subtotal</span>
-            <span className="text-xl font-black text-foreground font-mono tabular-nums">{formatCurrency(cartTotalAmount)}</span>
+            <span aria-live="polite" className="text-xl font-black text-foreground font-mono tabular-nums">{formatCurrency(cartTotalAmount)}</span>
           </div>
           <button
             onClick={() => {
