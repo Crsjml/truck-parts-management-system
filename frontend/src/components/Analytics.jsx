@@ -3,26 +3,133 @@ import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
 import KpiTile from './analytics/KpiTile';
-import { resolvePeriod, inRange, computeKpis, trendSeries } from '../utils/salesAnalytics';
+import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers } from '../utils/salesAnalytics';
+import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line, CartesianGrid, Treemap } from 'recharts';
-import { getCategoryIconAndColor } from '../utils/categoryIcons';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, CartesianGrid, Treemap, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 
-export default function Analytics({ parts, transactions }) {
+const ZOOM_TITLES = {
+  trend: 'Revenue Trend',
+  movers: 'Top Movers',
+  treemap: 'Category Revenue Allocation',
+  payments: 'Payment Method Breakdown'
+};
+
+const ZOOM_ICONS = {
+  trend: TrendUp,
+  movers: ChartBar,
+  treemap: Stack,
+  payments: CurrencyDollar
+};
+
+function TreemapCell({ x, y, width, height, name, revenue, value, hasChildren, maxRev, onDrill, formatCurrency }) {
+  if (!width || !height || width < 5 || height < 5) return null;
+
+  const rev = revenue ?? value ?? 0;
+  const ratio = maxRev > 0 ? Math.min(1, Math.max(0, rev / maxRev)) : 0.5;
+  const fill = `hsl(217, 85%, ${Math.round(18 + ratio * 30)}%)`;
+
+  const handleClick = () => {
+    if (hasChildren && onDrill) {
+      onDrill(name);
+    }
+  };
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <rect
+        width={width}
+        height={height}
+        fill={fill}
+        stroke="#0f172a"
+        strokeWidth={2}
+        rx={6}
+        ry={6}
+        className={hasChildren ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}
+        onClick={handleClick}
+      />
+      {width > 40 && height > 28 && (
+        <foreignObject x={4} y={4} width={width - 8} height={height - 8} style={{ pointerEvents: 'none' }}>
+          <div className="w-full h-full flex flex-col justify-between p-1 text-white overflow-hidden">
+            <span className="text-xs font-semibold leading-tight truncate" title={name}>
+              {name}
+            </span>
+            <span className="text-[11px] font-bold text-blue-200">
+              {formatCurrency ? formatCurrency(rev) : `₱${rev.toLocaleString()}`}
+            </span>
+          </div>
+        </foreignObject>
+      )}
+    </g>
+  );
+}
+
+function MoverTick({ x, y, payload, movers }) {
+  const name = payload?.value || '';
+  const item = movers?.find(m => m.name === name);
+
+  let badgeText = '—';
+  let badgeStyle = 'text-muted-foreground bg-slate-800/80 border-slate-700/50';
+
+  if (item) {
+    if (item.rankDelta === null) {
+      badgeText = 'NEW';
+      badgeStyle = 'text-purple-400 bg-purple-950/50 border-purple-800/40';
+    } else if (item.rankDelta > 0) {
+      badgeText = `▲${item.rankDelta}`;
+      badgeStyle = 'text-emerald-400 bg-emerald-950/50 border-emerald-800/40';
+    } else if (item.rankDelta < 0) {
+      badgeText = `▼${Math.abs(item.rankDelta)}`;
+      badgeStyle = 'text-rose-400 bg-rose-950/50 border-rose-800/40';
+    } else {
+      badgeText = '—';
+      badgeStyle = 'text-muted-foreground bg-slate-800/80 border-slate-700/50';
+    }
+  }
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <foreignObject x="-215" y="-18" width="210" height="36">
+        <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeStyle}`}>
+            {badgeText}
+          </span>
+          <span className="text-[11px] text-foreground font-medium truncate text-right max-w-[140px]" title={name}>
+            {name}
+          </span>
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
+
+export default function Analytics({ parts = [], transactions = [] }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [ledgerPage, setLedgerPage] = useState(1);
-  const [zoomedChart, setZoomedChart] = useState(null); // 'bar' | 'pie' | null
+  const [zoomedChart, setZoomedChart] = useState(null); // 'trend' | 'movers' | 'treemap' | 'payments' | null
   const [localTransactions, setLocalTransactions] = useState(transactions);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [period, setPeriod] = useState('30d');
+  const [categories, setCategories] = useState([]);
+  const [drilledCategory, setDrilledCategory] = useState(null);
 
   // Sync with props if transactions change from App.jsx
   useEffect(() => {
     setLocalTransactions(transactions);
   }, [transactions]);
+
+  // Fetch category hierarchy for treemap drill-down
+  useEffect(() => {
+    fetchCategoriesList()
+      .then(data => setCategories(data || []))
+      .catch(err => {
+        console.error('Failed to fetch categories list:', err);
+        setCategories([]);
+      });
+  }, []);
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
@@ -52,19 +159,6 @@ export default function Analytics({ parts, transactions }) {
     }
   };
 
-  const getHexForTailwindClass = (classStr) => {
-    if (!classStr) return '#ef4444';
-    if (classStr.includes('red') || classStr.includes('rose')) return '#ef4444';
-    if (classStr.includes('orange') || classStr.includes('amber')) return '#f59e0b';
-    if (classStr.includes('yellow') || classStr.includes('lime')) return '#eab308';
-    if (classStr.includes('emerald') || classStr.includes('teal')) return '#10b981';
-    if (classStr.includes('cyan') || classStr.includes('sky')) return '#0ea5e9';
-    if (classStr.includes('blue') || classStr.includes('brandBlue')) return '#3b82f6';
-    if (classStr.includes('indigo') || classStr.includes('purple') || classStr.includes('violet')) return '#8b5cf6';
-    if (classStr.includes('pink')) return '#ec4899';
-    return '#94a3b8'; // slate/gray fallback
-  };
-
   const getStatusIcon = (status) => {
     switch(status) {
       case 'Completed': return CheckCircle;
@@ -90,91 +184,20 @@ export default function Analytics({ parts, transactions }) {
   const kpis = useMemo(() => computeKpis(currentTx, previousTx), [currentTx, previousTx]);
   const trend = useMemo(() => trendSeries(currentTx, previousTx, range), [currentTx, previousTx, range]);
 
-  // Group sales quantities by part name to avoid "Unknown Part" if IDs mismatch
-  const partSalesCounts = {};
-  localTransactions.forEach(tx => {
-    tx.items.forEach(item => {
-      const name = item.name || 'Unknown Part';
-      partSalesCounts[name] = (partSalesCounts[name] || 0) + item.quantity;
-    });
-  });
+  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
+  const catRevenue = useMemo(() => categoryRevenue(currentTx, parts, categoryTree, drilledCategory), [currentTx, parts, categoryTree, drilledCategory]);
+  const maxCatRevenue = useMemo(() => {
+    if (!catRevenue.length) return 1;
+    return Math.max(...catRevenue.map(c => c.revenue || 0), 1);
+  }, [catRevenue]);
 
-  // Top selling parts list
-  const topSellingParts = Object.entries(partSalesCounts)
-    .map(([name, qty]) => {
-      const partObj = parts.find(p => p.name === name || (name.endsWith('...') && p.name.startsWith(name.slice(0, -3))));
-      return {
-        name: name,
-        fullName: name,
-        category: partObj ? partObj.category : 'Uncategorized',
-        quantity: qty
-      };
-    })
-    .sort((a, b) => b.quantity - a.quantity)
-    .slice(0, 5);
-
-  const CustomYAxisTick = (props) => {
-    const { x, y, payload } = props;
-    const item = topSellingParts.find(d => d.name === payload.value);
-    const IconProps = getCategoryIconAndColor(item?.category);
-    const IconComponent = IconProps?.icon || Package;
-    
-    const name = payload.value || '';
-    
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <foreignObject x="-220" y="-18" width="215" height="36">
-          <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
-            <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color || 'text-muted-foreground'}`} />
-            <div className="flex flex-col items-end leading-tight text-right w-full overflow-hidden">
-              <span className="text-[11px] text-foreground font-medium break-words whitespace-normal w-full text-right" title={name} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                {name}
-              </span>
-            </div>
-          </div>
-        </foreignObject>
-      </g>
-    );
-  };
-
-  const CustomPieLegend = (props) => {
-    const { payload } = props;
-    return (
-      <div className="flex flex-wrap justify-center gap-3 mt-4">
-        {payload.map((entry, index) => {
-          const IconProps = getCategoryIconAndColor(entry.value);
-          const IconComponent = IconProps?.icon || Package;
-          return (
-            <div key={`legend-${index}`} className="flex items-center gap-1.5 px-2 py-1 bg-secondary rounded-lg">
-              <IconComponent weight="duotone" className={`w-3.5 h-3.5 shrink-0 ${IconProps?.color || 'text-muted-foreground'}`} />
-              <span className="text-[10px] leading-tight text-foreground font-medium max-w-[120px] break-words whitespace-normal">
-                {entry.value}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // Category counts
-  const categoryCounts = {};
-  parts.forEach(part => {
-    categoryCounts[part.category] = (categoryCounts[part.category] || 0) + 1;
-  });
-
-  const categoryBreakdown = Object.entries(categoryCounts).map(([cat, count]) => ({
-    name: cat,
-    count
-  }));
+  const movers = useMemo(() => topMovers(currentTx, previousTx, 5), [currentTx, previousTx]);
 
   // Filtered transactions for the log
   const filteredTransactions = localTransactions.filter(tx => 
     tx.invoiceNumber.toLowerCase().includes(searchInvoice.toLowerCase()) ||
     tx.customerName.toLowerCase().includes(searchInvoice.toLowerCase())
   ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
-
-  // PDF Re-download handled by buildInvoicePdf
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -227,9 +250,14 @@ export default function Analytics({ parts, transactions }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Trend (Full Width) */}
         <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col col-span-1 lg:col-span-2">
-          <div className="flex items-center gap-2 pb-3 border-b border-border">
-            <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
+            </div>
+            <button onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <ArrowsOut weight="duotone" className="w-4 h-4" />
+            </button>
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
@@ -262,96 +290,98 @@ export default function Analytics({ parts, transactions }) {
           </div>
         </div>
 
-        {/* Top Products Volume (Recharts Horizontal Bar) */}
+        {/* Top Movers Panel */}
         <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
               <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
-              <h3 className="text-base font-bold text-foreground font-display">Top-Selling Components</h3>
+              <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
             </div>
-            <button onClick={() => setZoomedChart('bar')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {topSellingParts.length === 0 ? (
+            {movers.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
             ) : (
-              <>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={topSellingParts}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis 
-                      dataKey="name" 
-                      type="category" 
-                      axisLine={false} 
-                      tickLine={false}
-                      tick={<CustomYAxisTick />}
-                      width={180}
-                    />
-                    <Tooltip 
-                      cursor={{ fill: '#1e293b' }}
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                      itemStyle={{ color: '#f8fafc' }}
-                    />
-                    <Bar dataKey="quantity" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#94a3b8', fontSize: 10 }}>
-                      {topSellingParts.map((entry, index) => {
-                        const color = getHexForTailwindClass(getCategoryIconAndColor(entry.category)?.color);
-                        return <Cell key={`cell-${index}`} fill={color || '#94a3b8'} />;
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={movers}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    axisLine={false} 
+                    tickLine={false}
+                    tick={<MoverTick movers={movers} />}
+                    width={210}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#1e293b' }}
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                    itemStyle={{ color: '#f8fafc' }}
+                    formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
+                  />
+                  <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#94a3b8', fontSize: 10 }} />
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>
 
-        {/* Categories Distribution (Recharts Donut) */}
+        {/* Category Revenue Treemap */}
         <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Stack weight="duotone" className="w-5 h-5 text-brandBlue-400" />
-              <h3 className="text-base font-bold text-foreground font-display">Inventory Catalog Allocation</h3>
+              <h3 className="text-base font-bold text-foreground font-display">
+                {drilledCategory ? `Category Revenue: ${drilledCategory}` : 'Category Revenue Allocation'}
+              </h3>
             </div>
-            <button onClick={() => setZoomedChart('pie')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
-              <ArrowsOut weight="duotone" className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              {drilledCategory && (
+                <button
+                  onClick={() => setDrilledCategory(null)}
+                  className="text-xs font-semibold text-brandBlue-400 hover:text-brandBlue-300 flex items-center gap-1 bg-secondary/80 px-2.5 py-1 rounded-lg border border-border transition-all"
+                >
+                  ← Back
+                </button>
+              )}
+              <button onClick={() => setZoomedChart('treemap')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+                <ArrowsOut weight="duotone" className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div className="w-full min-h-[320px] h-80">
-            {categoryBreakdown.filter(c => c.name !== 'All').length === 0 ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No categories found.</div>
+            {catRevenue.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No revenue data for categories.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 10, right: 0, bottom: 20, left: 0 }}>
-                  <Pie
-                    data={categoryBreakdown.filter(c => c.name !== 'All')}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={85}
-                    paddingAngle={5}
-                    dataKey="count"
-                    stroke="none"
-                    label={({ percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
-                    labelLine={false}
-                  >
-                    {categoryBreakdown.filter(c => c.name !== 'All').map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={getHexForTailwindClass(getCategoryIconAndColor(entry.name)?.color)} />
-                    ))}
-                  </Pie>
+                <Treemap
+                  data={catRevenue}
+                  dataKey="revenue"
+                  aspectRatio={4 / 3}
+                  stroke="#0f172a"
+                  content={
+                    <TreemapCell
+                      maxRev={maxCatRevenue}
+                      onDrill={setDrilledCategory}
+                      formatCurrency={formatCurrency}
+                    />
+                  }
+                >
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
                     itemStyle={{ color: '#f8fafc' }}
+                    formatter={(val) => [formatCurrency(val), 'Revenue']}
                   />
-                  <Legend content={<CustomPieLegend />} />
-                </PieChart>
+                </Treemap>
               </ResponsiveContainer>
             )}
           </div>
@@ -510,13 +540,9 @@ export default function Analytics({ parts, transactions }) {
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
                 <div className="flex items-center gap-2">
-                  {zoomedChart === 'bar' ? (
-                    <ChartBar weight="duotone" className="w-6 h-6 text-accent" />
-                  ) : (
-                    <Stack weight="duotone" className="w-6 h-6 text-brandBlue-400" />
-                  )}
+                  {React.createElement(ZOOM_ICONS[zoomedChart] || ChartBar, { weight: 'duotone', className: 'w-6 h-6 text-accent' })}
                   <h3 className="text-xl font-bold text-foreground font-display">
-                    {zoomedChart === 'bar' ? 'Top-Selling Components' : 'Inventory Catalog Allocation'}
+                    {ZOOM_TITLES[zoomedChart] || 'Chart View'}
                   </h3>
                 </div>
                 <button onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-all">
@@ -526,59 +552,63 @@ export default function Analytics({ parts, transactions }) {
               
               <div className="flex-1 bg-background p-8 min-h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  {zoomedChart === 'bar' ? (
-                    <BarChart
-                      data={topSellingParts}
-                      layout="vertical"
-                      margin={{ top: 20, right: 60, left: 40, bottom: 20 }}
-                    >
-                      <XAxis type="number" hide />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        axisLine={false} 
-                        tickLine={false}
-                        tick={<CustomYAxisTick />}
-                        width={200}
+                  {zoomedChart === 'trend' && (
+                    <LineChart data={trend} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
+                      <Tooltip 
+                        cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                        itemStyle={{ color: '#f8fafc' }}
+                        formatter={(value) => [formatCurrency(value), undefined]}
                       />
+                      <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                      <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+                      <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+                    </LineChart>
+                  )}
+
+                  {zoomedChart === 'movers' && (
+                    <BarChart data={movers} layout="vertical" margin={{ top: 20, right: 60, left: 40, bottom: 20 }}>
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={<MoverTick movers={movers} />} width={220} />
                       <Tooltip 
                         cursor={{ fill: '#1e293b' }}
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
                         itemStyle={{ color: '#f8fafc' }}
+                        formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
                       />
-                      <Bar dataKey="quantity" radius={[0, 6, 6, 0]} barSize={40} label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }}>
-                        {topSellingParts.map((entry, index) => {
-                          const color = getHexForTailwindClass(getCategoryIconAndColor(entry.category)?.color);
-                          return <Cell key={`cell-${index}`} fill={color || '#94a3b8'} />;
-                        })}
-                      </Bar>
+                      <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 6, 6, 0]} barSize={40} label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }} />
                     </BarChart>
-                  ) : (
-                    <PieChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
-                      <Pie
-                        data={categoryBreakdown.filter(c => c.name !== 'All')}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={130}
-                        outerRadius={190}
-                        paddingAngle={4}
-                        dataKey="count"
-                        stroke="none"
-                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                        labelLine={{ stroke: '#94a3b8' }}
-                      >
-                        {categoryBreakdown.filter(c => c.name !== 'All').map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={getHexForTailwindClass(getCategoryIconAndColor(entry.name)?.color)} />
-                        ))}
-                      </Pie>
+                  )}
+
+                  {zoomedChart === 'treemap' && (
+                    <Treemap
+                      data={catRevenue}
+                      dataKey="revenue"
+                      aspectRatio={4 / 3}
+                      stroke="#0f172a"
+                      content={
+                        <TreemapCell
+                          maxRev={maxCatRevenue}
+                          onDrill={setDrilledCategory}
+                          formatCurrency={formatCurrency}
+                        />
+                      }
+                    >
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
                         itemStyle={{ color: '#f8fafc' }}
+                        formatter={(val) => [formatCurrency(val), 'Revenue']}
                       />
-                      <Legend 
-                        content={<CustomPieLegend />}
-                      />
-                    </PieChart>
+                    </Treemap>
+                  )}
+
+                  {zoomedChart === 'payments' && (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                      Payment breakdown zoom view
+                    </div>
                   )}
                 </ResponsiveContainer>
               </div>
