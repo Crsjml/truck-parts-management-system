@@ -534,6 +534,16 @@ export const updateSettings = api(async (settingsData) => {
   return ok ? { ok: true, settings: data } : { ok: false, error: data.msg || 'Failed to update settings.' };
 });
 
+export const setOverridePin = api(async (pin) => {
+  const { ok, data } = await apiPost('/api/settings/override-pin', { pin }, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to set override PIN.' };
+});
+
+export const verifyOverridePin = api(async (pin) => {
+  const { ok, data } = await apiPost('/api/settings/override-pin/verify', { pin }, { supabase });
+  return ok ? { ok: true, valid: Boolean(data.valid) } : { ok: false, valid: false };
+});
+
 export const bulkAdjustPrices = api(async (percentage) => {
   const { ok, data } = await apiPost('/api/parts/bulk-adjust', { percentage }, { supabase });
   return ok ? { ok: true, message: data.msg } : { ok: false, error: data.msg || 'Failed to bulk adjust prices.' };
