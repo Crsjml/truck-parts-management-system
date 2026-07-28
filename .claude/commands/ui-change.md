@@ -94,7 +94,9 @@ STEP 3 — PLAN
 After the option is picked: invoke superpowers:writing-plans.
 Write the plan to docs/superpowers/plans/<YYYY-MM-DD>-<slug>.md.
 Plan must name exact files, exact tokens/classes, and a verification step
-per task (what to look at to know it worked).
+per task (what to look at to know it worked). Include the Step 0e routing
+table (part → skills) in the plan file, so which skills produced each
+decision travels with it to the dev agent.
 
 STEP 4 — GRILL
 Invoke the `grilling` skill against the plan and follow it exactly:
@@ -112,15 +114,33 @@ so plainly rather than quietly re-running Step 1 inside Step 4.
 Do not write code until the user confirms shared understanding.
 Then apply everything the grilling changed back into the plan file.
 
-STEP 5 — BUILD
-Ponytail ladder applies: reuse existing components/tokens before writing new ones.
-Surgical diffs only (CLAUDE.md §9.3) — do not touch adjacent styling not asked about.
-Relative /api paths only. No hardcoded localhost:5000.
+STEP 5 — HANDOFF
+This command plans only. It does not write UI code. Write a handoff prompt
+for the user to paste into a different terminal — that terminal is where
+the dev agent runs, invoking superpowers:subagent-driven-development against
+docs/superpowers/plans/<slug>.md to actually build. Do not invoke
+subagent-driven-development here; this session only authors the prompt text.
 
-STEP 6 — VERIFY
-Invoke superpowers:verification-before-completion.
-Then run web-design-guidelines as an a11y/spacing/interaction audit on the diff.
-No "done" claim without evidence.
+The handoff prompt MUST open with a `/goal` header line stating the objective
+in one sentence (e.g. `/goal: implement <slug> per docs/superpowers/plans/<slug>.md`),
+before any of the numbered instructions below.
 
-Commit format: type(TTP-XX): description — look up the ID in
-docs/jira/jira-breakdown.csv first. Never push.
+The handoff prompt MUST instruct the dev agent to, during implementation:
+1. Invoke the skills named in the plan's routing table (part → skills) while
+   building each part — the plan fixed the decisions, these skills are how
+   ambiguity gets resolved the same way it would have been resolved here.
+
+Then, after implementation:
+2. Run superpowers:verification-before-completion — no "done" claim without evidence.
+3. Run web-design-guidelines as an a11y/spacing/interaction audit on the diff.
+4. Run the MANDATORY final gate (CLAUDE.md §4): design-taste-frontend
+   (anti-slop check) then impeccable (critique/polish pass) on the finished
+   diff, regardless of which skills fired in step 1. Apply fixes either flags.
+5. Ponytail ladder applies: reuse existing components/tokens before writing new.
+6. Surgical diffs only (CLAUDE.md §9.3) — do not touch adjacent styling not asked about.
+7. Relative /api paths only. No hardcoded localhost:5000.
+8. Commit format: type(TTP-XX): description — look up the ID in
+   docs/jira/jira-breakdown.csv first. Never push.
+
+Output the finished prompt to the user, ready to paste into the dev agent's
+session. Do not execute any of it here.

@@ -1,3 +1,6 @@
+@DESIGN.md
+@docs/design.md
+
 # 🚀 CLAUDE.md - Comprehensive AI Agent Guidelines
 
 This document serves as the absolute source of truth for Claude Code operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `GEMINI.md` and `.opencode` configurations. **Permanent active skills (e.g., ponytail, linting, UI constraints) are globally mandated via `.agents/AGENTS.md` and injected into `.opencode.json`.**
@@ -198,9 +201,22 @@ All installed skills in `.agents/skills/` (invoke before writing code):
 3. Invoke the **core skills** listed for that combination
 4. Invoke secondary skills if the component requires advanced refinement
 
+**AFTER** the routed skills produce a result, **MANDATORY final gate** —
+no UI/storefront work is done until both of these run, regardless of
+which core/secondary skills fired above:
+5. Invoke `design-taste-frontend` — anti-slop check against the result.
+6. Invoke `impeccable` — critique/polish pass on the result.
+7. Apply fixes either one flags before marking the task complete.
+
+This gate is additive, not a replacement for Tier routing — it runs every
+time, as the last step, even if `impeccable` already fired as a core or
+secondary skill above (that earlier pass is design-direction guidance;
+this one is the final critique).
+
 **Example:** Editing `PartCard.jsx` hover state
 → Page-level routing says "Parts Catalog → Premium" + component-level says "Card Grids"
 → Invoke: `high-end-visual-design`, `impeccable`, `emil-design-eng`
+→ Then mandatory gate: `design-taste-frontend`, `impeccable`
 
 ---
 
