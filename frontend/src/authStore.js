@@ -9,7 +9,7 @@
  */
 
 import { supabase } from './supabaseClient';
-import { apiGet, apiPost, apiPut, apiDelete, invalidateToken } from "./api/apiClient";
+import { apiGet, apiPost, apiPut, apiDelete, invalidateToken, setToken } from "./api/apiClient";
 import {
   validateEmail,
   validateLoginFields,
@@ -22,14 +22,16 @@ export {
   validateLoginFields,
   validateRegistrationFields,
   validateVerificationCode,
+  invalidateToken,
+  setToken,
 };
 
 const CUSTOMER_SESSION_KEY = 'ttp_customer_session_v1';
-const ADMIN_SESSION_KEY    = 'ttp_admin_session_v1';
-const ADMIN_SECURITY_KEY   = 'ttp_admin_security_v1';
+const ADMIN_SESSION_KEY = 'ttp_admin_session_v1';
+const ADMIN_SECURITY_KEY = 'ttp_admin_security_v1';
 
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_DURATION_MS    = 15 * 60 * 1000;
+const LOCK_DURATION_MS = 15 * 60 * 1000;
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -53,7 +55,7 @@ const removeKey = (key) => {
 
 const persistSession = (key, session, rememberMe) => {
   if (!hasWindow) return;
-  const storage      = rememberMe ? window.localStorage : window.sessionStorage;
+  const storage = rememberMe ? window.localStorage : window.sessionStorage;
   const otherStorage = rememberMe ? window.sessionStorage : window.localStorage;
   storage.setItem(key, JSON.stringify(session));
   otherStorage.removeItem(key);
@@ -62,7 +64,7 @@ const persistSession = (key, session, rememberMe) => {
 const readSession = (key) => {
   if (!hasWindow) return null;
   const session =
-    readJson(window.localStorage,   key, null) ||
+    readJson(window.localStorage, key, null) ||
     readJson(window.sessionStorage, key, null);
   if (!session || !session.expiresAt || session.expiresAt <= Date.now()) {
     removeKey(key);
@@ -164,10 +166,56 @@ export const fetchCustomerProfile = async () => {
   }
 };
 
-export const lookupCustomers = api(async (term) => {
+export const lookupCustomers = async (term) => {
   const { ok, data } = await apiGet(`/api/customers/lookup?q=${encodeURIComponent(term)}`, { supabase });
   return ok ? { ok: true, results: data.results || [] } : { ok: false, results: [] };
-});
+};
+
+// Admin: fetch all customers (online + FTF)
+export const fetchCustomers = async () => {
+  try {
+    const { ok, data } = await apiGet('/api/customers', { supabase });
+    return ok ? data : { online: [], ftf: [] };
+  } catch (err) {
+    console.error('Failed to fetch customers:', err);
+    return { online: [], ftf: [] };
+  }
+};
+
+// Admin: manually merge FTF transactions into an online account
+export const mergeCustomer = async ({ authId, tempAuthId, customerEmail, customerContact }) => {
+  const { ok, data } = await apiPost('/api/customers/merge', { authId, tempAuthId, customerEmail, customerContact }, { supabase });
+  return ok ? { ok: true, count: data.count, msg: data.msg } : { ok: false, error: data.msg || 'Merge failed.' };
+};
+
+// Admin: create a customer
+export const createCustomer = async (customerData) => {
+  const { ok, data } = await apiPost('/api/customers', customerData, { supabase });
+  return ok ? { ok: true, customer: data } : { ok: false, error: data.msg || 'Failed to create customer.' };
+};
+
+// Admin: update a customer
+export const updateCustomer = async (id, customerData) => {
+  const { ok, data } = await apiPut(`/api/customers/${id}`, customerData, { supabase });
+  return ok ? { ok: true, customer: data } : { ok: false, error: data.msg || 'Failed to update customer.' };
+};
+
+// Admin: delete a customer
+export const deleteCustomer = async (id) => {
+  const { ok, data } = await apiDelete(`/api/customers/${id}`, { supabase });
+  return ok ? { ok: true } : { ok: false, error: data.msg || 'Failed to delete customer.' };
+};
+
+// Admin: fetch a customer's purchase history (online + ftf separated)
+export const fetchCustomerTransactions = async (id) => {
+  try {
+    const { ok, data } = await apiGet(`/api/customers/${encodeURIComponent(id)}/transactions`, { supabase });
+    return ok ? { ok: true, online: data.online || [], ftf: data.ftf || [], customer: data.customer } : { ok: false, online: [], ftf: [] };
+  } catch (err) {
+    console.error('Failed to fetch customer transactions:', err);
+    return { ok: false, online: [], ftf: [] };
+  }
+};
 
 export const updateCustomerProfile = async (profileData) => {
   try {
@@ -222,7 +270,7 @@ export const deleteStaffRole = api(async (id) => {
 
 const clearSession = (role) => {
   if (!role || role === 'customer') removeKey(CUSTOMER_SESSION_KEY);
-  if (!role || role === 'admin')    removeKey(ADMIN_SESSION_KEY);
+  if (!role || role === 'admin') removeKey(ADMIN_SESSION_KEY);
 };
 
 const getActiveSession = () => {
@@ -238,7 +286,7 @@ export const loginAdmin = async ({ email, password }) => {
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   const security = getAdminSecurityState();
-  const now      = Date.now();
+  const now = Date.now();
 
   if (security.lockedUntil && security.lockedUntil > now) {
     const minutes_left = Math.ceil((security.lockedUntil - now) / 60000);
@@ -251,16 +299,16 @@ export const loginAdmin = async ({ email, password }) => {
 
   try {
     const { ok, data } = await apiPost('/api/auth/admin/login', {
-      email:    email.trim().toLowerCase(),
+      email: email.trim().toLowerCase(),
       password,
     }, { supabase });
 
     if (!ok) {
       const failed_attempts = (security.failedAttempts || 0) + 1;
-      const locked          = failed_attempts >= MAX_FAILED_ATTEMPTS;
+      const locked = failed_attempts >= MAX_FAILED_ATTEMPTS;
       setAdminSecurityState({
         failedAttempts: locked ? 0 : failed_attempts,
-        lockedUntil:    locked ? now + LOCK_DURATION_MS : 0,
+        lockedUntil: locked ? now + LOCK_DURATION_MS : 0,
       });
       return {
         ok: false,
@@ -272,9 +320,9 @@ export const loginAdmin = async ({ email, password }) => {
 
     const payload = decode_jwt(data.token);
     const session = {
-      token:     data.token,
-      user:      { role: 'admin', email: email.trim().toLowerCase(), fullName: payload.full_name || 'System Admin' },
-      issuedAt:  now,
+      token: data.token,
+      user: { role: 'admin', email: email.trim().toLowerCase(), fullName: payload.full_name || 'System Admin' },
+      issuedAt: now,
       expiresAt: (payload.exp || 0) * 1000,
     };
 
@@ -295,9 +343,9 @@ export const registerCustomer = async ({ fullName, contactNumber, email, passwor
 
   try {
     const { ok, data } = await apiPost('/api/auth/register', {
-      full_name:      fullName.trim(),
+      full_name: fullName.trim(),
       contact_number: contactNumber.trim(),
-      email:          email.trim().toLowerCase(),
+      email: email.trim().toLowerCase(),
       password,
     }, { supabase });
 
@@ -309,10 +357,10 @@ export const registerCustomer = async ({ fullName, contactNumber, email, passwor
     }
 
     return {
-      ok:               true,
-      email:            data.email,
+      ok: true,
+      email: data.email,
       verificationCode: data.verification_code,
-      message:          data.msg,
+      message: data.msg,
     };
   } catch {
     return { ok: false, error: 'Could not reach the backend server. Is it running?' };
@@ -325,7 +373,7 @@ export const verifyCustomerEmail = async ({ email, code }) => {
   try {
     const { ok, data } = await apiPost('/api/auth/verify', {
       email: email.trim().toLowerCase(),
-      code:  code.trim(),
+      code: code.trim(),
     }, { supabase });
 
     if (!ok) return { ok: false, error: data.msg || 'Verification failed.' };
@@ -345,9 +393,9 @@ export const resendVerificationCode = async (email) => {
 
     if (!ok) return { ok: false, error: data.msg || 'Failed to resend code.' };
     return {
-      ok:               true,
+      ok: true,
       verificationCode: data.verification_code,
-      message:          data.msg,
+      message: data.msg,
     };
   } catch {
     return { ok: false, error: 'Could not reach the backend server. Is it running?' };
@@ -362,29 +410,29 @@ export const loginCustomer = async ({ email, password, rememberMe }) => {
 
   try {
     const { ok, status, data } = await apiPost('/api/auth/login', {
-      email:    email.trim().toLowerCase(),
+      email: email.trim().toLowerCase(),
       password,
     }, { supabase });
 
     if (!ok) {
       return {
-        ok:               false,
-        error:            data.msg || 'Login failed.',
+        ok: false,
+        error: data.msg || 'Login failed.',
         needsVerification: data.needs_verification || false,
-        locked:           data.locked || false,
+        locked: data.locked || false,
       };
     }
 
     const payload = decode_jwt(data.token);
     const session = {
-      token:     data.token,
-      user:      {
-        role:          'customer',
-        email:         email.trim().toLowerCase(),
-        fullName:      data.full_name || payload.full_name || '',
+      token: data.token,
+      user: {
+        role: 'customer',
+        email: email.trim().toLowerCase(),
+        fullName: data.full_name || payload.full_name || '',
         contactNumber: data.contact_number || payload.contact_number || '',
       },
-      issuedAt:  Date.now(),
+      issuedAt: Date.now(),
       expiresAt: (payload.exp || 0) * 1000,
     };
 
@@ -404,8 +452,8 @@ export const requestPasswordReset = async (email) => {
     }, { supabase });
     if (!ok) return { ok: false, error: data.msg || 'Failed to request reset.' };
     return {
-      ok:         true,
-      message:    data.msg,
+      ok: true,
+      message: data.msg,
       resetToken: data.reset_token,
     };
   } catch {
