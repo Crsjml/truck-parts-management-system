@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { SignIn, ShieldCheck, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Lightning, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
+import { SignIn, ShieldCheck, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
@@ -21,21 +21,6 @@ import Reveal from './ui/Reveal';
 import NavToggle from './ui/NavToggle';
 import HomeHero from './storefront/HomeHero';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-
-const TRUSTED_BRANDS = [
-  { label: 'CUMMINS', className: 'text-xl font-black italic tracking-tighter' },
-  { label: 'ISUZU', className: 'text-xl font-black tracking-widest' },
-  { label: 'Volvo', className: 'text-xl font-bold uppercase border-2 border-current px-2' },
-  { label: 'MACK', className: 'text-xl font-black italic' },
-  { label: 'HINO', className: 'text-xl font-bold tracking-widest' },
-  { label: 'PACCAR', className: 'text-xl font-bold tracking-tighter' },
-];
-
-const VALUE_PROPS = [
-  { icon: Lightning, title: 'Live Inventory', description: 'Real-time stock levels directly from our Tarlac warehouse.' },
-  { icon: Truck, title: 'Heavy Logistics', description: 'Specialized freight handling for oversized engine blocks and chassis parts.' },
-  { icon: ClipboardText, title: 'B2B Wholesale', description: 'Exclusive volume discounts and priority allocation for registered fleets.' },
-];
 
 const STOREFRONT_NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: House },
@@ -567,32 +552,25 @@ export default function CustomerStorefront({
                 </div>
               )}
 
-              <section className="space-y-12">
-                <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 opacity-70">Trusted by Global Fleets</p>
-                  <span className="sr-only">Trusted by Cummins, Isuzu, Volvo, Mack, Hino, and Paccar</span>
-                  <div className="w-full overflow-hidden scroll-fade-edges" aria-hidden="true">
-                    <div className="flex w-max animate-marquee items-center gap-16 opacity-50 grayscale transition-[filter] duration-700 hover:grayscale-0 hover:[animation-play-state:paused]">
-                      {[...TRUSTED_BRANDS, ...TRUSTED_BRANDS].map((brand, i) => (
-                        <span key={`${brand.label}-${i}`} className={brand.className}>{brand.label}</span>
-                      ))}
-                    </div>
+              <section className="space-y-10">
+                <div className="relative z-10 mb-12 flex w-full max-w-4xl flex-col items-center gap-4 mx-auto">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Fitment first. Browse by truck, then part.</p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Live stock visibility</span>
+                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Wholesale-ready accounts</span>
+                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Compatibility-aware browsing</span>
                   </div>
                 </div>
 
-                <div className="relative z-10 w-full max-w-5xl mx-auto grid grid-cols-1 gap-4 text-left md:grid-cols-3">
-                  {VALUE_PROPS.map((item, i) => (
-                    <Reveal key={item.title} delay={i * 0.06}>
-                      <div className="rounded-[2rem] bg-secondary/80 border border-border/50 p-6 backdrop-blur-md flex flex-col justify-center items-start gap-3 transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/5">
-                        <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent"><item.icon weight="duotone" className="w-5 h-5"/></div>
-                        <div>
-                          <h4 className="font-bold text-foreground text-sm">{item.title}</h4>
-                          <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                        </div>
-                      </div>
-                    </Reveal>
-                  ))}
-                </div>
+                <ReorderRail
+                  transactions={transactions}
+                  parts={parts}
+                  customerSession={customerSession}
+                  addToCart={addToCart}
+                  formatCurrency={formatCurrency}
+                  onBrowseCatalog={() => setStorefrontTab('catalog')}
+                  onSignIn={() => onOpenCustomerAuth('login')}
+                />
 
                 <Reveal className="relative z-10 w-full max-w-5xl px-4 mx-auto">
                   <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-8 text-center">Shop by Category</h3>
@@ -654,16 +632,6 @@ export default function CustomerStorefront({
                   </AnimatePresence>
                 </Reveal>
               </section>
-
-              <ReorderRail
-                transactions={transactions}
-                parts={parts}
-                customerSession={customerSession}
-                addToCart={addToCart}
-                formatCurrency={formatCurrency}
-                onBrowseCatalog={() => setStorefrontTab('catalog')}
-                onSignIn={() => onOpenCustomerAuth('login')}
-              />
             </>
           )}
 
