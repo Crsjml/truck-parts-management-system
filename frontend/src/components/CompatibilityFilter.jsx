@@ -25,7 +25,7 @@ const CustomSingleValue = (props) => {
   );
 };
 
-export default function CompatibilityFilter({ onFilterChange, compact = false, summaryLabel = '' }) {
+export default function CompatibilityFilter({ onFilterChange, compact = false, summaryLabel = '', vehicleFilter = null }) {
   const [options, setOptions] = useState([]);
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedSeries, setSelectedSeries] = useState('All');
@@ -40,6 +40,12 @@ export default function CompatibilityFilter({ onFilterChange, compact = false, s
     }
     loadOptions();
   }, []);
+
+  useEffect(() => {
+    if (!vehicleFilter) return;
+    setSelectedBrand(vehicleFilter.brand || 'All');
+    setSelectedSeries(vehicleFilter.series || 'All');
+  }, [vehicleFilter?.brand, vehicleFilter?.series]);
 
   const handleBrandChange = (e) => {
     const brand = e.target.value;
@@ -161,26 +167,23 @@ export default function CompatibilityFilter({ onFilterChange, compact = false, s
   );
   const containerClassName = compact
     ? 'flex flex-col gap-3'
-    : 'flex items-center gap-2';
+    : 'flex flex-wrap items-center justify-center gap-3';
   const selectWrapperClassName = compact
     ? 'w-full'
-    : 'w-full sm:w-[250px]';
+    : 'w-full max-w-[260px] sm:w-[250px]';
   const selectedBrandLabel = brandOptions.find(o => o.value === selectedBrand)?.label || 'All Brands';
 
   return (
     <div className={containerClassName}>
       {compact && (
         <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">Truck fitment</p>
-          <div className="mt-1 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Find parts for your truck</p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="min-w-0 truncate text-sm font-bold text-foreground">{selectedTruckSummary}</p>
-            <button
-              type="button"
-              onClick={() => brandSelectRef.current?.focus()}
-              className="shrink-0 rounded-xl border border-border/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition hover:border-accent/40 hover:text-foreground"
-            >
-              {selectedBrandLabel}
-            </button>
+            <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-secondary/40 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true"></span>
+              <span>Brand: {selectedBrandLabel}</span>
+            </div>
           </div>
         </div>
       )}
@@ -197,6 +200,7 @@ export default function CompatibilityFilter({ onFilterChange, compact = false, s
           classNamePrefix="react-select"
           menuPortalTarget={document.body}
           menuPosition="fixed"
+          menuShouldBlockScroll
         />
       </div>
 
@@ -210,6 +214,7 @@ export default function CompatibilityFilter({ onFilterChange, compact = false, s
           classNamePrefix="react-select"
           menuPortalTarget={document.body}
           menuPosition="fixed"
+          menuShouldBlockScroll
           isDisabled={selectedBrand === 'All'}
         />
       </div>

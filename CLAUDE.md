@@ -1,11 +1,11 @@
 @DESIGN.md
 @docs/design.md
 
-# 🚀 CLAUDE.md - Comprehensive AI Agent Guidelines
+# 🚀 AI Agent Guidelines
 
-This document serves as the absolute source of truth for Claude Code operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `GEMINI.md` and `.opencode` configurations. **Permanent active skills (e.g., ponytail, linting, UI constraints) are globally mandated via `.agents/AGENTS.md` and injected into `.opencode.json`.**
+This document serves as the absolute source of truth for AI agents operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `CLAUDE.md`, `GEMINI.md`, `codex.md`, and `.agents/AGENTS.md`. **Permanent active skills (e.g., ponytail, linting, UI constraints) are globally mandated via `.agents/AGENTS.md` and injected into `.opencode.json`.**
 
-Claude, **you must read and adhere to these guidelines for every action you take.**
+You **must read and adhere to these guidelines for every action you take.**
 
 ---
 
@@ -57,7 +57,7 @@ All execution commands should be run from the repository root.
 ### Integrating AI MCP Servers
 This repository provides a template for Model Context Protocol (MCP) servers (`mcp-config.example.json`) which gives the AI agent superpowers to natively query Postgres, Stripe, and GitHub.
 1. Copy `mcp-config.example.json` into your local IDE's MCP settings.
-2. Replace the placeholder API keys with your own. 
+2. Replace the placeholder API keys with your own.
 3. **DO NOT commit your actual API keys to the repository.**
 
 ---
@@ -65,6 +65,8 @@ This repository provides a template for Model Context Protocol (MCP) servers (`m
 ## 🎨 4. Frontend & UI/UX Standards
 
 ### Design System Architecture
+
+**Read `DESIGN.md` (project root) and `docs/design.md` first**. `DESIGN.md` is the normative token spec (colors, typography, elevation-by-tier, Do's/Don'ts); `docs/design.md` covers existing UI primitives and the Aceternity UI / Motion Primitives component reference.
 
 You enforce two distinct design systems depending on the portal, both driven by **`design-system`** skill applied as two token modes:
 
@@ -232,7 +234,7 @@ this one is the final critique).
 ## 📌 6. Git, Jira & Version Control Workflow
 
 We use the **GitHub for Jira** integration.
-- **Commit Formatting:** Every commit MUST follow the format `type(TICKET-ID): brief description`. 
+- **Commit Formatting:** Every commit MUST follow the format `type(TICKET-ID): brief description`.
   - *Example:* `feat(TTP-12): implement purchasing module`
   - *Invalid:* `feat(sprint-2): added purchasing` (Missing the TTP-XX identifier).
 - **Mandatory Ticket Lookup:** Before proposing or formatting any commit, you MUST read `docs/jira/jira-breakdown.csv` to map your changes to the correct `TTP-ID`. You are explicitly forbidden from inventing fake ticket IDs or committing without checking the CSV first.
@@ -261,7 +263,6 @@ When the user asks for a feature or architectural decision:
 - Keep responses concise and use GitHub-flavored markdown.
 - Create clickable links for files.
 - Use `activity-log.md` in `/docs` to document massive changes, but do not auto-commit it.
-  Routine per-turn history is recorded automatically in `docs/memory/session.md` — see §12.
 - Mark intentional codebase simplifications with a `// ponytail:` comment.
 
 ---
@@ -290,114 +291,7 @@ You operate within a 3-layer architecture that separates concerns to maximize re
 
 ## 🧭 9. Core Coding Principles (Karpathy)
 
-Backed by `.agents/skills/karpathy-principles/`, vendored from
-[multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) (MIT).
-Complements Ponytail: Ponytail governs how much code survives, this governs
-how you get there without guessing or drifting from the request.
-
-1. **Think Before Coding** — state assumptions explicitly; if multiple
-   interpretations exist, present them instead of picking silently; ask
-   when genuinely unclear.
-2. **Simplicity First** — minimum code for the stated problem; no
-   speculative features, abstractions, or "flexibility" nobody asked for.
-3. **Surgical Changes** — touch only what the request requires; don't
-   drive-by refactor adjacent code or "improve" formatting you weren't
-   asked to touch.
-4. **Goal-Driven Execution** — turn tasks into verifiable success criteria
-   ("fix the bug" → "write a failing test, then make it pass") and loop
-   until confirmed, rather than blindly following imperative steps.
-
-## 🛠️ 10. Recommended Agent Tooling
-
-Two token-compression tools sit at different scopes — do not conflate them.
-Both are now installed globally on the developer machine (per-machine
-tooling; neither is vendored into this repo — see below):
-
-- **`rtk`** (always-on): compresses raw **shell output** tokens only.
-  Installed via `brew install rtk` + `rtk init -g`, which registers a
-  `PreToolUse`/`Bash` hook (`rtk hook claude`) in `~/.claude/settings.json`.
-  Safe to leave on — it never touches authored prose or markdown, so it
-  can't interact with the file-link formatting §7 requires.
-- **`caveman`** (opt-in only, invoke explicitly with `/caveman`): compresses
-  **prose output**. Installed as a Claude Code plugin (`caveman@caveman`,
-  scope: user) and a Gemini CLI extension, but its default mode is pinned
-  to `"off"` via `~/.config/caveman/config.json` (`{"defaultMode": "off"}`)
-  so it never auto-activates — it stays command-triggered, matching how
-  `.agents/AGENTS.md`'s always-on skill list treats it (not included there).
-  **Link-preservation guard**: whenever caveman *is* toggled on, always
-  preserve `[text](path)` markdown links intact (§7) — caveman keeps
-  code/URLs/paths byte-preserved by design at every intensity level, so
-  links must survive compression. `/caveman` or "normal mode" toggles it
-  off again.
-
-Neither tool's source is vendored into this repo — both are per-machine
-developer tooling, installed and configured on the developer's own
-machine, not project content.
-
-## 🌐 11. ECC Harness
-
-This project runs under the user's global **ECC** agent harness
-(`~/.claude/`), which supplies the agent roster (planner, architect,
-code-reviewer, security-reviewer, tdd-guide, etc. — see the Agent tool's
-available-types listing) and 279+ reusable skills at
-`~/.claude/skills/ecc/`.
-
-Rather than depending on that global install being present, this repo
-vendors a **stack-matched slice**, checked into git so any teammate gets
-the same behavior with or without the global harness installed:
-- **Skills** (`.agents/skills/`): the 6 ponytail skills, `karpathy-principles`,
-  and 13 ECC skills selected for this stack (Node/Express/Prisma/Postgres/
-  React) — see `.agents/AGENTS.md` § Permanent Active Skills for the full,
-  grouped list.
-- **Rules** (`.claude/rules/ecc/`): a light slice of the ECC rule set —
-  `common`, `typescript`, and `web` directories, copied whole (never
-  flattened, to preserve their `../common/` relative references).
-
-See `docs/claude-md-audit.md` for the full audit of what was phantom,
-orphaned, or drifted before this slice was cut, and for one known,
-intentionally out-of-scope finding involving `.opencode/opencode.json`.
-
----
-
-## 🧵 12. Session Memory & Cross-Terminal Continuity
-
-Multiple terminal sessions work this repo concurrently. Continuity is
-handled by **hooks, not skills** — a skill is model-invoked (I decide
-whether it applies), so it can never guarantee "every turn." This is the
-same Layer 2 vs Layer 3 split as §8: deciding *what* to record is my job,
-*actually recording it* is deterministic code.
-
-Two layers run in parallel. They are complementary — do not treat either
-as the source of truth for the other:
-
-| Layer | Mechanism | Storage | Read it when |
-|---|---|---|---|
-| **`session-memory`** (own) | `Stop` + `SessionStart` hooks in `~/.claude/settings.json` → `~/.claude/hooks/session-memory.py` | **`docs/memory/session.md`** — plain markdown, git-tracked | You need the human-readable trail of what other sessions did |
-| **`claude-mem`** (3rd-party) | 6 plugin hooks (`claude-mem@thedotmack`) | SQLite + FTS5 at `~/.claude-mem/`, **not** in git | You need semantic search across long history |
-
-### `docs/memory/session.md` rules
-
-- **Auto-maintained. Never hand-edit it** — the Stop hook rewrites the
-  whole file each turn, so manual edits are silently lost.
-- Newest entry first, rolling cap of **60 entries**; older ones are pruned.
-- Each entry is `## <timestamp> · <branch> · <repo>` plus `Ask` / `Did` /
-  `Files`. Prompt and response text are clipped (180 / 420 chars) — it is
-  an index, not a transcript.
-- The last 5 entries are injected into context at `SessionStart`, so at
-  the top of a session you already know what the previous session did.
-- It **is** committed. Treat it like a lockfile: regenerate, don't edit,
-  and don't fight merge conflicts — take either side and let the hook
-  rewrite it.
-
-### Relationship to the existing docs
-
-- `docs/activity-log.md` — still **manual**, still for *massive* changes
-  only (§7). Session memory is the automatic, granular layer beneath it;
-  it does not replace the activity log.
-- `docs/agent-session.md` — the older hand-maintained session notes.
-  Superseded in practice by `docs/memory/session.md`; leave it in place
-  as historical record, don't append to it.
-- Claude Code's native auto-memory (`~/.claude/projects/*/memory/`) is
-  left at its default and **intentionally unused** here — it lives
-  outside the repo, so teammates never see it. `docs/memory/session.md`
-  is the shareable equivalent.
+- Think before coding. Surface assumptions and tradeoffs instead of guessing.
+- Simplicity first. Solve the stated problem with the minimum code needed.
+- Make surgical changes. Touch only what the request requires.
+- Stay goal-driven. Define success criteria and verify the result.

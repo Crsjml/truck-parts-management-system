@@ -1,8 +1,11 @@
-# 🚀 GEMINI.md - Comprehensive AI Agent Guidelines
+@DESIGN.md
+@docs/design.md
 
-This document serves as the absolute source of truth for the Gemini AI agent operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `CLAUDE.md` and `.opencode` configurations. **Permanent active skills (e.g., ponytail, linting, UI constraints) are globally mandated via `.agents/AGENTS.md` and injected into `.opencode.json`.**
+# 🚀 AI Agent Guidelines
 
-Gemini, **you must read and adhere to these guidelines for every action you take.**
+This document serves as the absolute source of truth for AI agents operating on the **Tarlac Truck Pitstop (TTP) Management System**. It synthesizes all project rules, UI/UX directives, architectural constraints, and the `Ponytail` (Lazy Senior Dev) methodology. It is synced with `CLAUDE.md`, `GEMINI.md`, `codex.md`, and `.agents/AGENTS.md`. **Permanent active skills (e.g., ponytail, linting, UI constraints) are globally mandated via `.agents/AGENTS.md` and injected into `.opencode.json`.**
+
+You **must read and adhere to these guidelines for every action you take.**
 
 ---
 
@@ -54,7 +57,7 @@ All execution commands should be run from the repository root.
 ### Integrating AI MCP Servers
 This repository provides a template for Model Context Protocol (MCP) servers (`mcp-config.example.json`) which gives the AI agent superpowers to natively query Postgres, Stripe, and GitHub.
 1. Copy `mcp-config.example.json` into your local IDE's MCP settings.
-2. Replace the placeholder API keys with your own. 
+2. Replace the placeholder API keys with your own.
 3. **DO NOT commit your actual API keys to the repository.**
 
 ---
@@ -63,7 +66,7 @@ This repository provides a template for Model Context Protocol (MCP) servers (`m
 
 ### Design System Architecture
 
-**Read `DESIGN.md` (project root) and `docs/design.md` first** — `DESIGN.md` is the normative token spec (colors, typography, elevation-by-tier, Do's/Don'ts); `docs/design.md` covers existing UI primitives and the Aceternity UI / Motion Primitives component reference. Gemini CLI doesn't resolve Claude's `@DESIGN.md`/`@docs/design.md` imports, so read both files directly.
+**Read `DESIGN.md` (project root) and `docs/design.md` first**. `DESIGN.md` is the normative token spec (colors, typography, elevation-by-tier, Do's/Don'ts); `docs/design.md` covers existing UI primitives and the Aceternity UI / Motion Primitives component reference.
 
 You enforce two distinct design systems depending on the portal, both driven by **`design-system`** skill applied as two token modes:
 
@@ -85,6 +88,13 @@ You enforce two distinct design systems depending on the portal, both driven by 
 
 ---
 
+> **Precedence:** in the routing tables below, the **tier assignment** (which
+> portal a page belongs to, Premium vs Minimalist vs Data) is authoritative —
+> that is project knowledge no skill description can supply. The **skill names**
+> are indicative only. Skills get installed, renamed, and removed; this document
+> cannot verify them. On any conflict, the live loaded skill list wins — match on
+> skill *description*, not on a name remembered from this table.
+
 ### TIER 1: Section-Level Skill Routing
 
 | Section | Tier | Core Skills | Secondary Skills |
@@ -98,36 +108,98 @@ You enforce two distinct design systems depending on the portal, both driven by 
 
 ---
 
-### TIER 2: Page-Level Skill Routing (16 pages)
+### TIER 2: Page-Level Skill Routing
 
-**Storefront:** Landing, Auth, Catalog, Detail, Cart/Checkout, My Account, My Orders
-**Admin:** Dashboard, Parts Mgmt, Inventory, Purchasing, POS, Staff, Analytics, Categories, Settings
+#### **STOREFRONT PAGES**
 
-**Full table in CLAUDE.md §4** — consult before editing any page.
+| Page | File | Visual Tier | Core Skills | Component-Level Skills |
+|------|------|-------------|-------------|----------------------|
+| **Landing** | `CustomerStorefront.jsx` | Premium | `high-end-visual-design`, `design-taste-frontend`, `frontend-design` | Hero: `impeccable`, `canvas-design` · Nav: `web-design-guidelines` · CTA: `impeccable` |
+| **Auth (Register/Login/PW Reset)** | `AuthPortal.jsx` | Trust | `web-design-guidelines`, `frontend-design` | Form: `vercel-composition-patterns`, `impeccable` · Error states: `impeccable` · Success: `impeccable` |
+| **Parts Catalog & Search** | `PartsCatalog.jsx`, `StorefrontFilters.jsx`, `PartCard.jsx` | Premium | `high-end-visual-design`, `ui-ux-pro-max` | Cards: `impeccable`, `emil-design-eng` · Filters: `web-design-guidelines`, `vercel-composition-patterns` · Pagination: `frontend-patterns` |
+| **Part Detail** | `PartDetailDrawer.jsx`, `ReviewSection.jsx` | Premium | `high-end-visual-design`, `impeccable` | Gallery: `emil-design-eng` · Reviews: `ui-ux-pro-max` · CTA: `impeccable` |
+| **Cart & Checkout** | `CartDrawer.jsx`, Stripe checkout | Trust | `web-design-guidelines`, `kpi-dashboard-design` | Cart items: `impeccable` · Price breakdown: `kpi-dashboard-design` · Checkout form: `vercel-composition-patterns` |
+| **My Account / Profile** | `MyAccount.jsx` | Utility | `minimalist-ui`, `web-design-guidelines` | Form sections: `vercel-composition-patterns`, `impeccable` · Settings toggles: `impeccable` |
+| **My Orders** | `MyOrders.jsx` | Utility | `kpi-dashboard-design`, `ui-ux-pro-max` | Order table: `kpi-dashboard-design`, `web-design-guidelines` · Expandables: `impeccable` |
+
+#### **ADMIN PAGES**
+
+| Page | File | Visual Tier | Core Skills | Component-Level Skills |
+|------|------|-------------|-------------|----------------------|
+| **Dashboard** | `Dashboard.jsx` | Admin | `minimalist-ui`, `kpi-dashboard-design` | Metric cards: `kpi-dashboard-design`, `ui-ux-pro-max` · Charts: `dataviz` · Refresh: `impeccable` |
+| **Parts Management** | `PartsCatalog.jsx` (admin mode), `AddPartDrawer.jsx` | Admin | `minimalist-ui`, `web-design-guidelines` | Table: `kpi-dashboard-design`, `web-design-guidelines` · Forms: `vercel-composition-patterns`, `impeccable` · Modals: `impeccable` |
+| **Inventory/Stock Adjustments** | Dashboard widget + adjustment flows | Admin | `kpi-dashboard-design`, `minimalist-ui` | Number inputs: `web-design-guidelines`, `impeccable` · Confirmations: `impeccable` |
+| **Purchasing/Vendor** | `PurchasingModule.jsx` | Admin | `kpi-dashboard-design`, `minimalist-ui` | Multi-step form: `vercel-composition-patterns`, `impeccable` · Status tracking: `kpi-dashboard-design` |
+| **POS / Transaction** | `TransactionPOS.jsx` | Speed | `minimalist-ui`, `web-design-guidelines` | Barcode input: `web-design-guidelines` · Tender feedback: `impeccable` · Receipt: `kpi-dashboard-design` |
+| **Staff Management** | `StaffManagement.jsx` | Admin | `minimalist-ui`, `web-design-guidelines` | Table: `kpi-dashboard-design`, `web-design-guidelines` · Role dropdowns: `impeccable` |
+| **Analytics** | `Analytics.jsx` (Recharts) | Data | `kpi-dashboard-design`, `ui-ux-pro-max`, `dataviz` | Charts: `dataviz`, `ui-ux-pro-max` · Filters: `web-design-guidelines`, `impeccable` |
+| **Category Management** | `CategoryManagement.jsx` | Admin | `minimalist-ui`, `ui-ux-pro-max` | Icon picker: `impeccable`, `ui-ux-pro-max` · Color picker: `impeccable` · Drag-reorder: `impeccable` |
+| **Admin Settings** | `AdminSettings.jsx` | Admin | `minimalist-ui`, `web-design-guidelines` | Settings form: `vercel-composition-patterns`, `impeccable` · Toggles: `impeccable` |
 
 ---
 
 ### TIER 3: Component/Section-Level Skill Mapping
 
-| Component Type | Example | Applicable Skills |
-|---|---|---|
-| **Hero Section** | Landing hero | `high-end-visual-design`, `impeccable`, `canvas-design`, `emil-design-eng` |
-| **Card Grids** | Product cards | `high-end-visual-design`, `ui-ux-pro-max`, `impeccable`, `emil-design-eng` |
-| **Filter Sidebar** | Storefront filters | `web-design-guidelines`, `vercel-composition-patterns`, `impeccable` |
-| **Modal Dialogs** | Detail drawer, auth modals | `impeccable`, `web-design-guidelines` |
-| **Form Fields** | Auth, profile, checkout | `vercel-composition-patterns`, `web-design-guidelines`, `impeccable` |
-| **Data Tables** | Parts table, order history, metrics | `kpi-dashboard-design`, `web-design-guidelines`, `minimalist-ui` |
-| **Charts & Graphs** | Analytics dashboard | `dataviz`, `kpi-dashboard-design`, `ui-ux-pro-max`, `impeccable` |
+#### **Storefront Component Patterns**
 
-**Full mapping in CLAUDE.md §4** — consult Tier 3 before writing component code.
+| Component Type | Example Files | Applicable Skills |
+|---|---|---|
+| **Hero Section** | Landing hero in `CustomerStorefront.jsx` | `high-end-visual-design`, `impeccable`, `canvas-design`, `emil-design-eng` |
+| **Card Grids** | `ProductGrid.jsx`, `PartCard.jsx` | `high-end-visual-design`, `ui-ux-pro-max`, `impeccable`, `emil-design-eng` |
+| **Filter Sidebar** | `StorefrontFilters.jsx` | `web-design-guidelines`, `vercel-composition-patterns`, `impeccable` |
+| **Modal Dialogs** | `PartDetailDrawer.jsx`, auth modals | `impeccable`, `web-design-guidelines` |
+| **Form Fields** | Auth, profile, checkout forms | `vercel-composition-patterns`, `web-design-guidelines`, `impeccable` |
+| **Review Display** | `ReviewSection.jsx` | `ui-ux-pro-max`, `kpi-dashboard-design`, `impeccable` |
+| **Price Breakdown** | Cart summary, checkout | `kpi-dashboard-design`, `impeccable` |
+
+#### **Admin Component Patterns**
+
+| Component Type | Example Files | Applicable Skills |
+|---|---|---|
+| **Data Tables** | `Dashboard.jsx` metrics, parts table, staff table | `kpi-dashboard-design`, `web-design-guidelines`, `minimalist-ui` |
+| **Metric Cards** | `Dashboard.jsx` KPIs | `kpi-dashboard-design`, `ui-ux-pro-max`, `impeccable` |
+| **Charts & Graphs** | `Analytics.jsx` | `dataviz`, `kpi-dashboard-design`, `ui-ux-pro-max`, `impeccable` |
+| **Multi-Step Forms** | `PurchasingModule.jsx`, `AddPartDrawer.jsx` | `vercel-composition-patterns`, `impeccable`, `web-design-guidelines` |
+| **Number Inputs** | Inventory adjustments, POS | `web-design-guidelines`, `impeccable`, `minimalist-ui` |
+| **Confirmation Dialogs** | Delete/save confirmations | `impeccable`, `web-design-guidelines` |
+| **Settings Toggles** | `AdminSettings.jsx` | `minimalist-ui`, `impeccable`, `web-design-guidelines` |
+| **Icon/Color Pickers** | `CategoryManagement.jsx` | `impeccable`, `ui-ux-pro-max`, `web-design-guidelines` |
+
+#### **Shared/Always-On Components**
+
+| Component | File | Skills |
+|-----------|------|--------|
+| Navigation/Header | `App.jsx`, nav logic | `web-design-guidelines`, `tailwind-design-system`, `frontend-patterns` |
+| Footer | `Footer.jsx` | `tailwind-design-system`, `minimalist-ui` |
+| Notifications | `ToastNotification.jsx` | `impeccable`, `frontend-patterns`, `tailwind-design-system` |
+| Status Bar | `StatusBar.jsx` | `tailwind-design-system`, `minimalist-ui` |
+| Settings Context | `SettingsContext.jsx` | `frontend-patterns`, `tailwind-design-system` |
+
+---
+
+### Skill Library Reference
+
+All installed skills in `.agents/skills/` (invoke before writing code):
+
+**Premium/Taste-Forward:** `high-end-visual-design` (Awwwards-tier), `design-taste-frontend` (anti-slop briefs), `frontend-design` (aesthetics + typography), `canvas-design` (visual art generation)
+
+**Refinement/Polish:** `impeccable` (polish, critique, bolder, delight, distill, quieter), `emil-design-eng` (motion, detail, craftsmanship)
+
+**Minimalist/Operational:** `minimalist-ui` (editorial, warm monochrome, bento grids), `web-design-guidelines` (spacing, typography, interaction, a11y)
+
+**Data & Metrics:** `kpi-dashboard-design` (metrics, dashboards, visualizations), `ui-ux-pro-max` (192 palettes, 74 font pairs, 84 styles, 25 charts, 22 stacks)
+
+**Systems & Architecture:** `tailwind-design-system` (Tailwind v4, tokens, components), `design-system` (audit, generate, consistency), `extract-design-system` (extract tokens from code), `vercel-composition-patterns` (React composition, flexible APIs)
+
+**Patterns & Standards:** `frontend-patterns` (React, state mgmt, perf), `sleek-design-mobile-apps` (iOS/Android), `dataviz` *(built-in)* (chart implementation)
 
 ---
 
 ### Workflow: When to Invoke Skills
 
 **BEFORE** writing any UI/storefront code:
-1. Identify the page (use Tier 2 table in CLAUDE.md)
-2. Identify the component type within the page (use Tier 3 table in CLAUDE.md)
+1. Identify the page (use Tier 2 table above)
+2. Identify the component type within the page (use Tier 3 table above)
 3. Invoke the **core skills** listed for that combination
 4. Invoke secondary skills if the component requires advanced refinement
 
@@ -143,7 +215,8 @@ time, as the last step, even if `impeccable` already fired as a core or
 secondary skill above (that earlier pass is design-direction guidance;
 this one is the final critique).
 
-**Example:** Editing `PartCard.jsx` hover state → Page: "Catalog (Premium)" → Component: "Card Grids"
+**Example:** Editing `PartCard.jsx` hover state
+→ Page-level routing says "Parts Catalog → Premium" + component-level says "Card Grids"
 → Invoke: `high-end-visual-design`, `impeccable`, `emil-design-eng`
 → Then mandatory gate: `design-taste-frontend`, `impeccable`
 
@@ -161,7 +234,7 @@ this one is the final critique).
 ## 📌 6. Git, Jira & Version Control Workflow
 
 We use the **GitHub for Jira** integration.
-- **Commit Formatting:** Every commit MUST follow the format `type(TICKET-ID): brief description`. 
+- **Commit Formatting:** Every commit MUST follow the format `type(TICKET-ID): brief description`.
   - *Example:* `feat(TTP-12): implement purchasing module`
   - *Invalid:* `feat(sprint-2): added purchasing` (Missing the TTP-XX identifier).
 - **Mandatory Ticket Lookup:** Before proposing or formatting any commit, you MUST read `docs/jira/jira-breakdown.csv` to map your changes to the correct `TTP-ID`. You are explicitly forbidden from inventing fake ticket IDs or committing without checking the CSV first.
@@ -218,69 +291,7 @@ You operate within a 3-layer architecture that separates concerns to maximize re
 
 ## 🧭 9. Core Coding Principles (Karpathy)
 
-Backed by `.agents/skills/karpathy-principles/`, vendored from
-[multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) (MIT).
-Complements Ponytail: Ponytail governs how much code survives, this governs
-how you get there without guessing or drifting from the request.
-
-1. **Think Before Coding** — state assumptions explicitly; if multiple
-   interpretations exist, present them instead of picking silently; ask
-   when genuinely unclear.
-2. **Simplicity First** — minimum code for the stated problem; no
-   speculative features, abstractions, or "flexibility" nobody asked for.
-3. **Surgical Changes** — touch only what the request requires; don't
-   drive-by refactor adjacent code or "improve" formatting you weren't
-   asked to touch.
-4. **Goal-Driven Execution** — turn tasks into verifiable success criteria
-   ("fix the bug" → "write a failing test, then make it pass") and loop
-   until confirmed, rather than blindly following imperative steps.
-
-## 🛠️ 10. Recommended Agent Tooling
-
-Two token-compression tools sit at different scopes — do not conflate them.
-Both are now installed globally on the developer machine (per-machine
-tooling; neither is vendored into this repo — see below):
-
-- **`rtk`** (always-on): compresses raw **shell output** tokens only.
-  Installed via `brew install rtk` + `rtk init -g`, which registers a
-  `PreToolUse`/`Bash` hook (`rtk hook claude`) in `~/.claude/settings.json`.
-  Safe to leave on — it never touches authored prose or markdown, so it
-  can't interact with the file-link formatting §7 requires.
-- **`caveman`** (opt-in only, invoke explicitly with `/caveman`): compresses
-  **prose output**. Installed as a Claude Code plugin (`caveman@caveman`,
-  scope: user) and a Gemini CLI extension, but its default mode is pinned
-  to `"off"` via `~/.config/caveman/config.json` (`{"defaultMode": "off"}`)
-  so it never auto-activates — it stays command-triggered, matching how
-  `.agents/AGENTS.md`'s always-on skill list treats it (not included there).
-  **Link-preservation guard**: whenever caveman *is* toggled on, always
-  preserve `[text](path)` markdown links intact (§7) — caveman keeps
-  code/URLs/paths byte-preserved by design at every intensity level, so
-  links must survive compression. `/caveman` or "normal mode" toggles it
-  off again.
-
-Neither tool's source is vendored into this repo — both are per-machine
-developer tooling, installed and configured on the developer's own
-machine, not project content.
-
-## 🌐 11. ECC Harness
-
-This project runs under the user's global **ECC** agent harness
-(`~/.claude/`), which supplies the agent roster (planner, architect,
-code-reviewer, security-reviewer, tdd-guide, etc. — see the Agent tool's
-available-types listing) and 279+ reusable skills at
-`~/.claude/skills/ecc/`.
-
-Rather than depending on that global install being present, this repo
-vendors a **stack-matched slice**, checked into git so any teammate gets
-the same behavior with or without the global harness installed:
-- **Skills** (`.agents/skills/`): the 6 ponytail skills, `karpathy-principles`,
-  and 13 ECC skills selected for this stack (Node/Express/Prisma/Postgres/
-  React) — see `.agents/AGENTS.md` § Permanent Active Skills for the full,
-  grouped list.
-- **Rules** (`.claude/rules/ecc/`): a light slice of the ECC rule set —
-  `common`, `typescript`, and `web` directories, copied whole (never
-  flattened, to preserve their `../common/` relative references).
-
-See `docs/claude-md-audit.md` for the full audit of what was phantom,
-orphaned, or drifted before this slice was cut, and for one known,
-intentionally out-of-scope finding involving `.opencode/opencode.json`.
+- Think before coding. Surface assumptions and tradeoffs instead of guessing.
+- Simplicity first. Solve the stated problem with the minimum code needed.
+- Make surgical changes. Touch only what the request requires.
+- Stay goal-driven. Define success criteria and verify the result.

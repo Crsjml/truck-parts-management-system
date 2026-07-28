@@ -401,7 +401,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
         {/* TTP-68: Compatibility Filter */}
         <div className="shrink-0">
-          <CompatibilityFilter onFilterChange={setVehicleFilter} />
+          <CompatibilityFilter onFilterChange={setVehicleFilter} vehicleFilter={vehicleFilter} />
         </div>
 
         {/* Spacer to push right actions */}
