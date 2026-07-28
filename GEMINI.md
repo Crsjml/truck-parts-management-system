@@ -63,6 +63,8 @@ This repository provides a template for Model Context Protocol (MCP) servers (`m
 
 ### Design System Architecture
 
+**Read `DESIGN.md` (project root) and `docs/design.md` first** — `DESIGN.md` is the normative token spec (colors, typography, elevation-by-tier, Do's/Don'ts); `docs/design.md` covers existing UI primitives and the Aceternity UI / Motion Primitives component reference. Gemini CLI doesn't resolve Claude's `@DESIGN.md`/`@docs/design.md` imports, so read both files directly.
+
 You enforce two distinct design systems depending on the portal, both driven by **`design-system`** skill applied as two token modes:
 
 #### Area A: Customer Storefront (`/`, `/catalog`, auth modals) — Premium Tier
@@ -129,8 +131,21 @@ You enforce two distinct design systems depending on the portal, both driven by 
 3. Invoke the **core skills** listed for that combination
 4. Invoke secondary skills if the component requires advanced refinement
 
+**AFTER** the routed skills produce a result, **MANDATORY final gate** —
+no UI/storefront work is done until both of these run, regardless of
+which core/secondary skills fired above:
+5. Invoke `design-taste-frontend` — anti-slop check against the result.
+6. Invoke `impeccable` — critique/polish pass on the result.
+7. Apply fixes either one flags before marking the task complete.
+
+This gate is additive, not a replacement for Tier routing — it runs every
+time, as the last step, even if `impeccable` already fired as a core or
+secondary skill above (that earlier pass is design-direction guidance;
+this one is the final critique).
+
 **Example:** Editing `PartCard.jsx` hover state → Page: "Catalog (Premium)" → Component: "Card Grids"
 → Invoke: `high-end-visual-design`, `impeccable`, `emil-design-eng`
+→ Then mandatory gate: `design-taste-frontend`, `impeccable`
 
 ---
 
