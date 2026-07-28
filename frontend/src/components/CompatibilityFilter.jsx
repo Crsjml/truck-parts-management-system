@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { fetchVehicleOptions } from '../authStore';
 import { Truck, CarProfile } from '@phosphor-icons/react';
 import Select, { components } from 'react-select';
@@ -25,11 +25,12 @@ const CustomSingleValue = (props) => {
   );
 };
 
-export default function CompatibilityFilter({ onFilterChange }) {
+export default function CompatibilityFilter({ onFilterChange, compact = false, summaryLabel = '' }) {
   const [options, setOptions] = useState([]);
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedSeries, setSelectedSeries] = useState('All');
   const [loading, setLoading] = useState(true);
+  const brandSelectRef = useRef(null);
 
   useEffect(() => {
     async function loadOptions() {
@@ -153,10 +154,40 @@ export default function CompatibilityFilter({ onFilterChange }) {
         ...currentSeriesOptions.map(s => ({ value: s, label: s, icon: CarProfile }))
       ];
 
+  const selectedTruckSummary = summaryLabel || (
+    selectedBrand === 'All'
+      ? 'All compatible trucks'
+      : `${selectedBrand}${selectedSeries !== 'All' ? ` ${selectedSeries}` : ''}`
+  );
+  const containerClassName = compact
+    ? 'flex flex-col gap-3'
+    : 'flex items-center gap-2';
+  const selectWrapperClassName = compact
+    ? 'w-full'
+    : 'w-full sm:w-[250px]';
+  const selectedBrandLabel = brandOptions.find(o => o.value === selectedBrand)?.label || 'All Brands';
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-full sm:w-[250px]">
+    <div className={containerClassName}>
+      {compact && (
+        <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">Truck fitment</p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <p className="min-w-0 truncate text-sm font-bold text-foreground">{selectedTruckSummary}</p>
+            <button
+              type="button"
+              onClick={() => brandSelectRef.current?.focus()}
+              className="shrink-0 rounded-xl border border-border/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition hover:border-accent/40 hover:text-foreground"
+            >
+              {selectedBrandLabel}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={selectWrapperClassName}>
         <Select 
+          ref={brandSelectRef}
           value={brandOptions.find(o => o.value === selectedBrand) || brandOptions[0]}
           onChange={(selected) => handleBrandChange({ target: { value: selected.value } })}
           options={brandOptions}
@@ -169,7 +200,7 @@ export default function CompatibilityFilter({ onFilterChange }) {
         />
       </div>
 
-      <div className="w-full sm:w-[250px]">
+      <div className={selectWrapperClassName}>
         <Select 
           value={seriesOptions.find(o => o.value === selectedSeries) || seriesOptions[0]}
           onChange={(selected) => handleSeriesChange({ target: { value: selected.value } })}

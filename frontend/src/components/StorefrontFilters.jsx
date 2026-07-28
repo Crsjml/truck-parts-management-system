@@ -30,7 +30,8 @@ export default function StorefrontFilters({
   maxPrice, setMaxPrice,
   stockStatus, setStockStatus,
   sortOrder, setSortOrder,
-  minRating, setMinRating
+  minRating, setMinRating,
+  summaryLabel = 'All compatible trucks'
 }) {
   const [activeFilterTab, setActiveFilterTab] = useState('pricing'); // default tab if tabs are kept, though we removed tabs, just for compatibility.
 
@@ -73,6 +74,10 @@ export default function StorefrontFilters({
     setMaxPrice('');
     setStockStatus('All');
     setMinRating(0);
+  };
+
+  const handleChangeTruck = () => {
+    setShowFilters(true);
   };
 
   // React-Select dark mode styles matching token system
@@ -151,6 +156,22 @@ export default function StorefrontFilters({
   return (
     <section className="rounded-[1.75rem] border border-border bg-secondary/80 p-4 backdrop-blur sm:p-5 flex flex-col gap-6">
       <div className="flex flex-col gap-4 relative z-20">
+        <div className="md:hidden rounded-[1.25rem] border border-border/60 bg-background px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">Truck fitment</p>
+              <p className="mt-1 truncate text-sm font-bold text-foreground">{summaryLabel}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleChangeTruck}
+              className="shrink-0 rounded-xl border border-border/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition hover:border-accent/40 hover:text-foreground"
+            >
+              Change truck
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-3 w-full">
           <div className="relative w-full lg:flex-1">
             <MagnifyingGlass weight="duotone" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -200,7 +221,7 @@ export default function StorefrontFilters({
           </div>
 
           <div className="hidden md:block shrink-0">
-             <CompatibilityFilter onFilterChange={setVehicleFilter} />
+             <CompatibilityFilter onFilterChange={setVehicleFilter} summaryLabel={summaryLabel} />
           </div>
           
           <div className="flex gap-3 w-full lg:w-auto shrink-0">
@@ -313,7 +334,7 @@ export default function StorefrontFilters({
               </div>
 
               <div className="md:hidden mb-6">
-                <CompatibilityFilter onFilterChange={setVehicleFilter} />
+                <CompatibilityFilter compact onFilterChange={setVehicleFilter} summaryLabel={summaryLabel} />
               </div>
 
               {/* Tab Contents */}
