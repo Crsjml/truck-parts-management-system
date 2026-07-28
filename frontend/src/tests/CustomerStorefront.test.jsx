@@ -261,34 +261,112 @@ describe('CustomerStorefront Component Tests', () => {
     expect(await screen.findByText('1')).toBeInTheDocument();
   });
 
-  it('shows a fitment chip that opens the compatibility filter', async () => {
+  it('keeps truck selection out of the global header on home and catalog', async () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
 
-    const trigger = document.getElementById('fitment-trigger');
-    expect(trigger).toBeTruthy();
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(trigger);
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(await screen.findByText(/mock fitment panel/i)).toBeInTheDocument();
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('keeps the selected truck summary visible in catalog filters', async () => {
-    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
-
-    const trigger = document.getElementById('fitment-trigger');
-    fireEvent.click(trigger);
-    fireEvent.click(await screen.findByRole('button', { name: /choose isuzu elf/i }));
-
-    expect(screen.getAllByRole('button', { name: /^isuzu elf$/i })[0]).toBeVisible();
+    expect(document.getElementById('fitment-trigger')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
 
+    expect(await screen.findByRole('button', { name: /^advanced/i })).toBeInTheDocument();
+    expect(document.getElementById('fitment-trigger')).toBeNull();
+    expect(screen.queryByText(/mock fitment panel/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /choose truck/i }));
+    expect(await screen.findByText(/mock fitment panel/i)).toBeInTheDocument();
+  });
+
+  it('moves a home fitment pick into catalog with the chosen truck already applied', async () => {
+    const scrollSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    expect(document.getElementById('fitment-trigger')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /select your truck/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /choose isuzu elf/i }));
+
+    expect(await screen.findByRole('button', { name: /^advanced/i })).toBeInTheDocument();
     expect(screen.getAllByText(/isuzu elf/i).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /change truck/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /edit truck/i })).toBeVisible();
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
+    });
+
+    scrollSpy.mockRestore();
+  });
+
+  it('summarizes selected truck fitment and compatible results at the top of catalog', async () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /select your truck/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /choose isuzu elf/i }));
+
+    expect(await screen.findByText(/fitment confidence/i)).toBeVisible();
+    expect(screen.getAllByText(/isuzu elf/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/2 compatible results/i)).toBeVisible();
+    const editTruckButton = screen.getByRole('button', { name: /edit truck/i });
+    expect(editTruckButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(editTruckButton);
+    expect(await screen.findByText(/mock fitment panel/i)).toBeInTheDocument();
+  });
+
+  it('keeps catalog product cards factual with visible actions and no generated trust badges', async () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+
+    expect(await screen.findByText(/sku brk-1/i)).toBeVisible();
+    expect(screen.getByText(/fits most trucks/i)).toBeVisible();
+    expect(screen.getAllByRole('button', { name: /^details$/i })[0]).toBeVisible();
+    expect(screen.getAllByRole('button', { name: /^add$/i })[0]).toBeVisible();
+    expect(screen.queryByText(/iso 9001|surplus|premium|genuine/i)).not.toBeInTheDocument();
+  });
+
+  it('disables adding out-of-stock products and labels the state clearly', async () => {
+    const outOfStockPart = { ...mockParts[0], id: '4', name: 'Empty Shelf Brake Pad', stock: 0 };
+
+    render(<CustomerStorefront parts={[outOfStockPart]} categories={['Brakes']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+
+    expect(await screen.findByText(/empty shelf brake pad/i)).toBeVisible();
+    expect(screen.getByText(/out of stock/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: /out of stock/i })).toBeDisabled();
+  });
+
+  it('shows recovery actions when catalog filters have no matches', async () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+    fireEvent.change(await screen.findByPlaceholderText(/search/i), { target: { value: 'zzzz-not-a-part' } });
+
+    expect(await screen.findByText(/no parts match these filters/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: /clear filters/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /check another truck/i })).toBeVisible();
+    expect(screen.getByText(/broaden the search/i)).toBeVisible();
+  });
+
+  it('guides users when the price range is invalid', async () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^advanced/i }));
+    fireEvent.change(screen.getByLabelText(/minimum price/i), { target: { value: '200' } });
+    fireEvent.change(screen.getByLabelText(/maximum price/i), { target: { value: '50' } });
+
+    expect(await screen.findByText(/minimum price must be lower than maximum price/i)).toBeVisible();
+  });
+
+  it('keeps the homepage fitment panel open while users interact inside it', async () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /select your truck/i }));
+    const panel = await screen.findByText(/mock fitment panel/i);
+
+    fireEvent.mouseDown(panel);
+
+    expect(screen.getByText(/mock fitment panel/i)).toBeInTheDocument();
   });
 
   it('keeps the homepage hero contract aligned with browser coverage', () => {
@@ -299,11 +377,19 @@ describe('CustomerStorefront Component Tests', () => {
     expect(screen.getByRole('searchbox', { name: /search parts/i })).toBeVisible();
   });
 
-  it('keeps the home surface focused on one proof layer instead of multiple competing promos', () => {
+  it('keeps the home surface grounded with the restored brand marquee', () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
 
+    expect(screen.getByText(/trusted by global fleets/i)).toBeVisible();
+    expect(screen.getAllByText(/^cumm?mins$/i)[0]).toBeVisible();
+    expect(screen.getAllByText(/^isuzu$/i)[0]).toBeVisible();
     expect(screen.getByRole('heading', { name: /start with your truck, then find the right part faster/i })).toBeVisible();
     expect(screen.getByText(/fitment-first shopping/i)).toBeVisible();
-    expect(screen.queryByText(/trusted by global fleets/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/see what is in stock/i)).toBeVisible();
+    expect(screen.getByText(/fleet and shop pricing/i)).toBeVisible();
+    expect(screen.getByText(/only show parts that fit/i)).toBeVisible();
+    expect(screen.queryByText(/live stock visibility/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/wholesale-ready accounts/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/compatibility-aware browsing/i)).not.toBeInTheDocument();
   });
 });

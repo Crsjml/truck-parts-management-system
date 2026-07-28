@@ -14,9 +14,16 @@ describe('CompatibilityFilter', () => {
       { brand: 'Isuzu', series: ['ELF'] }
     ]);
 
-    render(<CompatibilityFilter compact onFilterChange={vi.fn()} />);
+    render(
+      <CompatibilityFilter
+        compact
+        onFilterChange={vi.fn()}
+        vehicleFilter={{ brand: 'Isuzu', series: 'ELF' }}
+      />
+    );
 
-    expect(await screen.findByText(/truck fitment/i)).toBeVisible();
-    expect(screen.getByRole('button', { name: /all brands/i })).toBeVisible();
+    expect(await screen.findByText(/find parts for your truck/i)).toBeVisible();
+    expect(screen.getByText(/isuzu elf/i)).toBeVisible();
+    expect(screen.getByText(/brand: isuzu/i)).toBeVisible();
   });
 });
