@@ -17,6 +17,23 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+const localStorageMock = {
+  getItem: vi.fn(() => null),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn()
+};
+
+Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  value: localStorageMock
+});
+
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: localStorageMock
+});
+
 // Hoisted mock MUST be before component import if relying on babel/vite hoist, 
 // or we can just mock it explicitly here.
 vi.mock('../context/SettingsContext', () => ({
@@ -27,7 +44,15 @@ vi.mock('../context/SettingsContext', () => ({
 }));
 
 vi.mock('../components/CompatibilityFilter', () => ({
-  default: () => <div>Mock Fitment Panel</div>
+  default: ({ onFilterChange, summaryLabel }) => (
+    <div>
+      <div>Mock Fitment Panel</div>
+      {summaryLabel && <p>{summaryLabel}</p>}
+      <button type="button" onClick={() => onFilterChange({ brand: 'Isuzu', series: 'ELF' })}>
+        Choose Isuzu ELF
+      </button>
+    </div>
+  )
 }));
 
 const mockParts = [
@@ -249,6 +274,21 @@ describe('CustomerStorefront Component Tests', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('keeps the selected truck summary visible in catalog filters', async () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    const trigger = document.getElementById('fitment-trigger');
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('button', { name: /choose isuzu elf/i }));
+
+    expect(screen.getAllByRole('button', { name: /^isuzu elf$/i })[0]).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: /^catalog$/i }));
+
+    expect(screen.getAllByText(/isuzu elf/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /change truck/i })).toBeVisible();
   });
 
   it('keeps the home surface focused on one proof layer instead of multiple competing promos', () => {

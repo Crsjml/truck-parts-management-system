@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { SignIn, ShieldCheck, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
+import { SignIn, ShieldCheck, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, UserCircle, CaretDown, House, User, CheckCircle, ClipboardText } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
@@ -406,6 +406,7 @@ export default function CustomerStorefront({
   const selectedTruckLabel = vehicleFilter.brand
     ? `${vehicleFilter.brand}${vehicleFilter.series ? ` ${vehicleFilter.series}` : ''}`
     : '';
+  const selectedTruckSummary = selectedTruckLabel || 'All compatible trucks';
 
 
   return (
@@ -437,7 +438,7 @@ export default function CustomerStorefront({
                 </button>
                 {isFitmentOpen && storefrontTab !== 'home' && (
                   <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-max rounded-lg border border-border bg-background p-3 shadow-2xl">
-                    <CompatibilityFilter onFilterChange={setVehicleFilter} />
+                    <CompatibilityFilter onFilterChange={setVehicleFilter} summaryLabel={selectedTruckSummary} />
                   </div>
                 )}
               </div>
@@ -548,7 +549,7 @@ export default function CustomerStorefront({
 
               {isFitmentOpen && (
                 <div className="mx-auto w-full max-w-5xl rounded-[2rem] border border-border/50 bg-background/95 p-4 shadow-xl shadow-black/5">
-                  <CompatibilityFilter onFilterChange={setVehicleFilter} />
+                  <CompatibilityFilter compact onFilterChange={setVehicleFilter} summaryLabel={selectedTruckSummary} />
                 </div>
               )}
 
@@ -663,6 +664,7 @@ export default function CustomerStorefront({
                   setSortOrder={setSortOrder}
                   minRating={minRating}
                   setMinRating={setMinRating}
+                  summaryLabel={selectedTruckSummary}
                 />
               </div>
 
