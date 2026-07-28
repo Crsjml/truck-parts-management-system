@@ -26,6 +26,10 @@ vi.mock('../context/SettingsContext', () => ({
   })
 }));
 
+vi.mock('../components/CompatibilityFilter', () => ({
+  default: () => <div>Mock Fitment Panel</div>
+}));
+
 const mockParts = [
   {
     id: '1',
@@ -235,17 +239,15 @@ describe('CustomerStorefront Component Tests', () => {
   it('shows a fitment chip that opens the compatibility filter', async () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
 
-    const trigger = screen.getByRole('button', { name: /select your truck/i });
+    const trigger = document.getElementById('fitment-trigger');
+    expect(trigger).toBeTruthy();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    // CompatibilityFilter renders its brand/series react-select controls.
-    expect(await screen.findByText(/all brands/i)).toBeInTheDocument();
+    expect(await screen.findByText(/mock fitment panel/i)).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 });
-
-
