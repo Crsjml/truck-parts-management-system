@@ -291,6 +291,14 @@ describe('CustomerStorefront Component Tests', () => {
     expect(screen.getByRole('button', { name: /change truck/i })).toBeVisible();
   });
 
+  it('keeps the homepage hero contract aligned with browser coverage', () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    expect(screen.getByRole('button', { name: /select your truck/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /browse catalog/i })).toBeVisible();
+    expect(screen.getByRole('searchbox', { name: /search parts/i })).toBeVisible();
+  });
+
   it('keeps the home surface focused on one proof layer instead of multiple competing promos', () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
 
