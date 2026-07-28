@@ -250,4 +250,12 @@ describe('CustomerStorefront Component Tests', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('keeps the home surface focused on one proof layer instead of multiple competing promos', () => {
+    render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
+
+    expect(screen.getByRole('heading', { name: /start with your truck, then find the right part faster/i })).toBeVisible();
+    expect(screen.getByText(/fitment-first shopping/i)).toBeVisible();
+    expect(screen.queryByText(/trusted by global fleets/i)).not.toBeInTheDocument();
+  });
 });
