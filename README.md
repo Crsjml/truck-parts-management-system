@@ -158,5 +158,5 @@ fix(TTP-8): resolve docker port conflict
 ---
 
 <p align="center">
-  <i>Developed by Team ISANDE — Tarlac State University, BSIT.</i>
+  <i>Developed by Team THISGROUPATE — De La Salle University, BSIS.</i>
 </p>
