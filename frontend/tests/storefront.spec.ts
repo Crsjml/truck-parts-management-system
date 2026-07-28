@@ -31,4 +31,13 @@ test.describe('E-Commerce Workflows', () => {
       await expect(storefrontPage.checkoutButton).toBeVisible();
     }
   });
+
+  test('home page exposes truck fitment before browsing on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await storefrontPage.goto();
+
+    await expect(storefrontPage.heroTruckButton).toBeVisible();
+    await expect(storefrontPage.heroBrowseButton).toBeVisible();
+    await expect(storefrontPage.heroSearchInput).toBeVisible();
+  });
 });
