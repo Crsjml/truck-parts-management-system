@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Buildings, User, Plus, Trash, X, CheckCircle, MagnifyingGlass,
+  Buildings, User, Plus, Minus, Trash, X, CheckCircle, MagnifyingGlass,
   CaretRight, Package, CurrencyDollar, ShoppingCart, PencilSimple,
   Star, Funnel, ArrowsDownUp, ChartBar, Receipt, EnvelopeSimple,
   Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf, Clock,
@@ -262,9 +262,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const receivedPOs = purchaseOrders.filter(p => p.status === 'Received' && p.createdAt && p.updatedAt);
     const avgLeadTime = receivedPOs.length > 0
       ? Math.round(receivedPOs.reduce((sum, po) => {
-          const days = (new Date(po.updatedAt) - new Date(po.createdAt)) / (1000 * 60 * 60 * 24);
-          return sum + Math.max(0, days);
-        }, 0) / receivedPOs.length)
+        const days = (new Date(po.updatedAt) - new Date(po.createdAt)) / (1000 * 60 * 60 * 24);
+        return sum + Math.max(0, days);
+      }, 0) / receivedPOs.length)
       : 0;
 
     // KPI: Pending RFQs
@@ -285,7 +285,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       acc[name].count += 1;
       return acc;
     }, {});
-    
+
     const spendBySupplier = Object.entries(spendBySupplierRaw)
       .map(([name, data]) => ({ name, total: data.total, count: data.count }))
       .sort((a, b) => b.total - a.total).slice(0, 8);
@@ -394,14 +394,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (!poForm.supplier) return alert('Select a supplier.');
     if (poForm.items.length === 0) return alert('Add at least one item.');
     if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
-    
+
     // Inject the current user's display name as the Buyer/Handler
     const { data: { user } } = await supabase.auth.getUser();
     const payload = {
       ...poForm,
       createdBy: user?.user_metadata?.full_name || user?.email || 'Unknown User'
     };
-    
+
     const res = await createPurchaseOrder(payload);
     if (res.ok) { setPurchaseOrders(prev => [res.purchaseOrder, ...prev]); setViewingPo(res.purchaseOrder); onAddLog('system', `Created PO: ${res.purchaseOrder.poNumber}`); }
     else alert(res.error);
@@ -521,36 +521,42 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'status', label: 'Status', align: 'right', render: v => <StatusBadge status={v} /> },
   ];
   const supplierColumns = [
-    { key: 'name', label: 'Name', className: 'font-bold text-foreground group-hover:text-accent transition-colors', render: (v, r) => (
-      <span className="flex items-center gap-2">
-        {r.type === 'Person' ? <User weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" /> : <Buildings weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />}
-        {v}
-      </span>
-    ) },
+    {
+      key: 'name', label: 'Name', className: 'font-bold text-foreground group-hover:text-accent transition-colors', render: (v, r) => (
+        <span className="flex items-center gap-2">
+          {r.type === 'Person' ? <User weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" /> : <Buildings weight="duotone" className="w-4 h-4 text-muted-foreground shrink-0" />}
+          {v}
+        </span>
+      )
+    },
     { key: 'email', label: 'Email', render: v => v ? <a href={`mailto:${v}`} onClick={e => e.stopPropagation()} className="text-accent hover:underline">{v}</a> : '—' },
     { key: 'phone', label: 'Phone' },
-    { key: 'country', label: 'Country', render: v => {
-      if (!v) return '—';
-      const code = getCountryCode(v);
-      return (
-        <div className="flex items-center justify-center">
-          {code ? <ReactCountryFlag title={en[code]} countryCode={code} svg style={{ width: '1.8em', height: '1.8em' }} className="rounded-sm shadow-sm hover:scale-110 transition-transform cursor-help" /> : <span className="text-xs">{v}</span>}
-        </div>
-      );
-    } },
+    {
+      key: 'country', label: 'Country', render: v => {
+        if (!v) return '—';
+        const code = getCountryCode(v);
+        return (
+          <div className="flex items-center justify-center">
+            {code ? <ReactCountryFlag title={en[code]} countryCode={code} svg style={{ width: '1.8em', height: '1.8em' }} className="rounded-sm shadow-sm hover:scale-110 transition-transform cursor-help" /> : <span className="text-xs">{v}</span>}
+          </div>
+        );
+      }
+    },
     { key: 'paymentTerms', label: 'Payment Terms' },
-    { key: 'actions', label: 'Actions', align: 'right', render: (_, r) => (
-      <div className="flex justify-end gap-2">
-        <button onClick={(e) => { e.stopPropagation(); openSupplierModal(r); }} className="p-1.5 text-muted-foreground hover:text-accent bg-secondary hover:bg-background rounded-md transition-colors border border-transparent hover:border-border shadow-sm">
-          <PencilSimple weight="bold" className="w-4 h-4" />
-        </button>
-        {!r.archived && (
-          <button onClick={(e) => { e.stopPropagation(); doArchiveSupplier(r.id, r.name); }} className="p-1.5 text-muted-foreground hover:text-red-500 bg-secondary hover:bg-background rounded-md transition-colors border border-transparent hover:border-border shadow-sm">
-            <Trash weight="bold" className="w-4 h-4" />
+    {
+      key: 'actions', label: 'Actions', align: 'right', render: (_, r) => (
+        <div className="flex justify-end gap-2">
+          <button onClick={(e) => { e.stopPropagation(); openSupplierModal(r); }} className="p-1.5 text-muted-foreground hover:text-accent bg-secondary hover:bg-background rounded-md transition-colors border border-transparent hover:border-border shadow-sm">
+            <PencilSimple weight="bold" className="w-4 h-4" />
           </button>
-        )}
-      </div>
-    ) },
+          {!r.archived && (
+            <button onClick={(e) => { e.stopPropagation(); doArchiveSupplier(r.id, r.name); }} className="p-1.5 text-muted-foreground hover:text-red-500 bg-secondary hover:bg-background rounded-md transition-colors border border-transparent hover:border-border shadow-sm">
+              <Trash weight="bold" className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )
+    },
   ];
 
   if (loading) return (
@@ -784,12 +790,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={reportData.spendBySupplier} layout="vertical" margin={{ top: 0, right: 60, left: 30, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--color-border)" />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} hide />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `₱${(v / 1000).toFixed(0)}k`} hide />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} width={200} axisLine={false} tickLine={false} />
-                      <Tooltip 
-                        formatter={(v, name) => [name === 'total' ? `₱${v.toLocaleString()}` : v, name === 'total' ? 'Spend' : 'Total Orders']} 
+                      <Tooltip
+                        formatter={(v, name) => [name === 'total' ? `₱${v.toLocaleString()}` : v, name === 'total' ? 'Spend' : 'Total Orders']}
                         cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                         itemStyle={{ color: '#f8fafc' }}
                       />
                       <Bar dataKey="total" radius={[0, 4, 4, 0]} barSize={20} minPointSize={3}>
@@ -826,13 +832,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           return <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#64748b'} />;
                         })}
                       </Pie>
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                         itemStyle={{ color: '#f8fafc' }}
                       />
-                      <Legend 
-                        verticalAlign="bottom" 
-                        height={40} 
+                      <Legend
+                        verticalAlign="bottom"
+                        height={40}
                         iconType="circle"
                         wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }}
                       />
@@ -855,15 +861,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <AreaChart data={reportData.poTimeline} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={10} />
                       <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                         itemStyle={{ color: '#f8fafc' }}
                       />
                       <Area type="monotone" dataKey="count" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
@@ -883,9 +889,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                       <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} angle={-35} textAnchor="end" height={80} axisLine={false} tickLine={false} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <Tooltip 
+                      <Tooltip
                         cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                         itemStyle={{ color: '#f8fafc' }}
                       />
                       <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={30} minPointSize={3}>
@@ -907,9 +913,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                       <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={10} />
                       <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <Tooltip 
+                      <Tooltip
                         cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                         itemStyle={{ color: '#f8fafc' }}
                       />
                       <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
@@ -967,7 +973,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <label className="font-bold text-muted-foreground">Email</label>
                   <input type="email" value={supplierForm.email} onChange={e => setSupplierForm({ ...supplierForm, email: e.target.value })} className="w-full bg-secondary border border-border rounded-lg p-2 focus:ring-2 focus:ring-accent focus:outline-none text-foreground transition-all h-10" />
                 </div>
-                
+
                 {/* Country dropdown */}
                 <div className="flex flex-col gap-2">
                   <label className="font-bold text-muted-foreground flex items-center gap-2"><Globe className="w-4 h-4" /> Country</label>
@@ -993,7 +999,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     placeholder={supplierForm.country ? "Enter phone number" : "Select country first"}
                   />
                 </div>
-                
+
                 <div className="flex flex-col gap-2 md:col-span-2">
                   <label className="font-bold text-muted-foreground">Address</label>
                   <AsyncSelect
@@ -1003,9 +1009,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     value={supplierForm.address ? { label: supplierForm.address, value: supplierForm.address } : null}
                     onChange={(sel) => setSupplierForm({ ...supplierForm, address: sel ? sel.value : '' })}
                     onInputChange={(val, { action }) => {
-                       if (action === 'input-change') {
-                         setSupplierForm({ ...supplierForm, address: val });
-                       }
+                      if (action === 'input-change') {
+                        setSupplierForm({ ...supplierForm, address: val });
+                      }
                     }}
                     placeholder="Start typing an address..."
                     styles={customSelectStyles}
@@ -1038,7 +1044,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 <div className="border-t border-border pt-6 mt-2">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-bold text-foreground">Purchase Orders</h4>
-                    <button 
+                    <button
                       onClick={() => {
                         setIsSupplierModalOpen(false);
                         openPoModal(null, editingSupplier.id);
@@ -1058,7 +1064,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             <span className="font-bold text-sm text-foreground block">{po.poNumber}</span>
                             <span className="text-xs text-muted-foreground font-semibold">{po.status} • {po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'No Date'}</span>
                           </div>
-                          <button 
+                          <button
                             onClick={() => {
                               setIsSupplierModalOpen(false);
                               openPoModal(po);
@@ -1083,35 +1089,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-10 pb-10 px-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn custom-scrollbar">
           <div className="w-full max-w-5xl bg-secondary border border-border shadow-2xl rounded-2xl overflow-hidden animate-scaleUp flex flex-col relative my-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border-b border-border bg-background gap-3 sticky top-0 z-20">
-              <div className="flex flex-wrap items-center gap-2">
-                {viewingPo ? (
-                  <>
-                    {viewingPo.status === 'Draft' && <>
-                      <button onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Send RFQ</button>
-                      <button onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm">Confirm Order</button>
-                    </>}
-                    {viewingPo.status === 'RFQ Sent' && <button onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Confirm Order</button>}
-                    {viewingPo.status === 'Confirmed' && <>
-                      <button onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Receive Products</button>
-                      {viewingPo.billingStatus === 'Waiting Bills' && <button onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>}
-                    </>}
-                    {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
-                      <button onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')} className="px-4 py-1.5 bg-secondary border border-border text-foreground text-sm font-bold rounded shadow-sm hover:bg-secondary/80">Mark Bills Received</button>
-                    )}
-                    {['Draft', 'RFQ Sent'].includes(viewingPo.status) && <button onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)} className="px-4 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold rounded shadow-sm hover:bg-red-500/20">Cancel</button>}
-                    <button onClick={() => generatePDF(viewingPo)} className="px-3 py-1.5 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded shadow-sm flex items-center gap-1.5 ml-2">
-                      <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={savePo} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded shadow-sm">Save Draft</button>
-                )}
-                <button onClick={() => setIsPoModalOpen(false)} className="px-4 py-1.5 text-muted-foreground hover:text-foreground text-sm font-bold rounded border border-transparent hover:border-border hover:bg-secondary ml-auto md:ml-2">Discard</button>
-                <button onClick={() => setIsPoModalOpen(false)} className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded ml-1"><X weight="bold" className="w-5 h-5" /></button>
-              </div>
-              <div className="hidden md:block">
-                <PipelineChevron currentStatus={viewingPo?.status || 'Draft'} />
+            <div className="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-20">
+              <h3 className="text-xl font-bold text-foreground">
+                {viewingPo ? viewingPo.poNumber : 'New Purchase Order'}
+              </h3>
+              <div className="flex items-center gap-4">
+                <div className="hidden md:block">
+                  <PipelineChevron currentStatus={viewingPo?.status || 'Draft'} />
+                </div>
+                <button onClick={() => setIsPoModalOpen(false)} className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded" title="Close"><X weight="bold" className="w-5 h-5" /></button>
               </div>
             </div>
 
@@ -1126,12 +1112,22 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm mb-10">
                 <div className="space-y-4">
-                  <div className="flex border-b border-border pb-1">
+                  <div className="flex items-center border-b border-border pb-1">
                     <label className="w-1/3 font-bold text-foreground">Supplier</label>
-                    <select disabled={!!viewingPo} value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} className="w-2/3 bg-transparent focus:outline-none text-foreground disabled:text-accent font-semibold">
-                      <option value="">Select Supplier...</option>
-                      {suppliers.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    <div className="w-2/3">
+                      <Select
+                        isDisabled={!!viewingPo}
+                        value={poForm.supplier ? { value: poForm.supplier, label: suppliers.find(s => s.id === poForm.supplier)?.name || poForm.supplier } : null}
+                        onChange={(option) => setPoForm({ ...poForm, supplier: option ? option.value : '' })}
+                        options={suppliers.filter(s => !s.archived).map(s => ({ value: s.id, label: s.name }))}
+                        placeholder="Select Supplier..."
+                        styles={customSelectStyles}
+                        menuPortalTarget={document.body}
+                        isClearable
+                        isSearchable
+                        classNamePrefix="react-select"
+                      />
+                    </div>
                   </div>
                   <div className="flex border-b border-border pb-1">
                     <label className="w-1/3 font-bold text-foreground">Source RFQ</label>
@@ -1143,9 +1139,28 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <label className="w-1/3 font-bold text-foreground">Order Date</label>
                     <span className="w-2/3 text-foreground">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
                   </div>
-                  <div className="flex border-b border-border pb-1">
+                  <div className="flex items-center border-b border-border pb-1">
                     <label className="w-1/3 font-bold text-foreground">Expected Arrival</label>
-                    <input disabled={!!viewingPo} type="date" value={poForm.expectedDeliveryDate} onChange={e => setPoForm({ ...poForm, expectedDeliveryDate: e.target.value })} className="w-2/3 bg-transparent focus:outline-none text-foreground" />
+                    <div className="w-2/3 flex items-center gap-2">
+                      <input
+                        id="po-expected-date"
+                        disabled={!!viewingPo}
+                        type="date"
+                        value={poForm.expectedDeliveryDate}
+                        onChange={e => setPoForm({ ...poForm, expectedDeliveryDate: e.target.value })}
+                        className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
+                      />
+                      {!viewingPo && (
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('po-expected-date')?.showPicker?.()}
+                          className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
+                          title="Open calendar"
+                        >
+                          <CalendarBlank weight="duotone" className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {viewingPo?.confirmationDate && (
                     <div className="flex border-b border-border pb-1">
@@ -1185,7 +1200,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               styles={customSelectStyles}
                               menuPortalTarget={document.body}
                               placeholder="Type to search product..."
-                              value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel)||{}).sku}] ${(parts.find(p => p.id === poPartSel)||{}).name}` } : null}
+                              value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel) || {}).sku}] ${(parts.find(p => p.id === poPartSel) || {}).name}` } : null}
                               onChange={(option) => setPoPartSel(option ? option.value : '')}
                               options={(parts || []).filter(p => !p.archived).map(p => ({
                                 value: p.id,
@@ -1195,7 +1210,25 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               isSearchable
                             />
                           </div>
-                          <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-20 bg-secondary border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-accent text-center text-foreground" />
+                          <div className="flex items-center bg-secondary border border-border rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => setPoQty(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
+                              className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                              title="Decrease quantity"
+                            >
+                              <Minus weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                            <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-14 bg-transparent px-1 py-2 text-sm focus:outline-none text-center text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                            <button
+                              type="button"
+                              onClick={() => setPoQty(prev => String((parseInt(prev) || 0) + 1))}
+                              className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                              title="Increase quantity"
+                            >
+                              <Plus weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                           <button onClick={addPoItem} className="px-3 py-1.5 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
                         </div>
                       </td></tr>
@@ -1207,9 +1240,116 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <label className="block text-xs font-bold text-muted-foreground mb-1">Notes</label>
                     <textarea disabled={!!viewingPo} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} className="w-full bg-transparent border border-border rounded-lg p-2 focus:ring-1 focus:ring-accent text-sm resize-none h-16 focus:outline-none" />
                   </div>
-                  <div className="w-1/3 flex justify-between font-bold text-lg text-foreground pt-2 border-t border-border">
-                    <span>Total</span>
-                    <span>{formatCurrency(poForm.items.reduce((s, i) => s + i.subtotal, 0))}</span>
+                  <div className="w-1/3 flex flex-col items-end gap-4">
+                    <div className="w-full flex justify-between font-bold text-lg text-foreground pt-2 border-t border-border">
+                      <span>Total</span>
+                      <span>{formatCurrency(poForm.items.reduce((s, i) => s + i.subtotal, 0))}</span>
+                    </div>
+                    {!viewingPo ? (
+                      <div className="flex gap-2 justify-end w-full">
+                        <button
+                          type="button"
+                          onClick={() => setIsPoModalOpen(false)}
+                          className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                          Discard
+                        </button>
+                        <button
+                          type="button"
+                          onClick={savePo}
+                          className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                          Save Draft
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 justify-end w-full">
+                        <button
+                          type="button"
+                          onClick={() => generatePDF(viewingPo)}
+                          className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
+                          title="Download PDF"
+                        >
+                          <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
+                        </button>
+
+                        {viewingPo.status === 'Draft' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                              className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                              className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Confirm Order
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
+                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Send RFQ
+                            </button>
+                          </>
+                        )}
+
+                        {viewingPo.status === 'RFQ Sent' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                              className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Confirm Order
+                            </button>
+                          </>
+                        )}
+
+                        {viewingPo.status === 'Confirmed' && (
+                          <>
+                            {viewingPo.billingStatus === 'Waiting Bills' && (
+                              <button
+                                type="button"
+                                onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Mark Bills Received
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
+                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Receive Products
+                            </button>
+                          </>
+                        )}
+
+                        {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
+                          <button
+                            type="button"
+                            onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                            className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
+                          >
+                            Mark Bills Received
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1289,9 +1429,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               {productActiveTab === 'general' && (
                 <div className="space-y-8">
                   {/* Image Upload Area */}
-                  <DragDropImageUploader 
-                    image={productForm.image} 
-                    onImageUpload={(b64) => setProductForm({ ...productForm, image: b64 })} 
+                  <DragDropImageUploader
+                    image={productForm.image}
+                    onImageUpload={(b64) => setProductForm({ ...productForm, image: b64 })}
                   />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
@@ -1315,40 +1455,40 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       </div>
                     </div>
                     <div className="space-y-5">
-                    {[
-                      { label: 'Unit Price (PHP)', key: 'price', type: 'number' },
-                      { label: 'Current Stock', key: 'stock', type: 'number' },
-                      { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
-                    ].map(f => (
-                      <div key={f.key} className="flex flex-col border-b border-border pb-1">
-                        <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
-                        <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
-                          className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
-                      </div>
-                    ))}
-                    {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
-                      <div className="flex flex-col border-b border-border pb-1">
-                        <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
-                        <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
-                          className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
-                      </div>
-                    )}
-                    {viewingPart && (
-                      <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
-                        <div>
-                          <div className="text-sm font-bold text-foreground">Published</div>
-                          <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
+                      {[
+                        { label: 'Unit Price (PHP)', key: 'price', type: 'number' },
+                        { label: 'Current Stock', key: 'stock', type: 'number' },
+                        { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
+                      ].map(f => (
+                        <div key={f.key} className="flex flex-col border-b border-border pb-1">
+                          <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
+                          <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
+                            className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
                         </div>
-                        <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
-                          className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
-                          <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                      </div>
-                    )}
+                      ))}
+                      {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
+                        <div className="flex flex-col border-b border-border pb-1">
+                          <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
+                          <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
+                            className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
+                        </div>
+                      )}
+                      {viewingPart && (
+                        <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
+                          <div>
+                            <div className="text-sm font-bold text-foreground">Published</div>
+                            <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
+                          </div>
+                          <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
+                            className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
+                            <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
               {/* Sales */}
               {productActiveTab === 'sales' && (

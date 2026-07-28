@@ -10,6 +10,7 @@ import OrderCard from './OrderCard';
 export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder }) {
   const { displayCurrency, formatBaseCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
+  const [purchaseType, setPurchaseType] = useState('online'); // 'online' | 'ftf'
   
   // Review Modal State
   const [reviewModal, setReviewModal] = useState({ isOpen: false, partId: null, partName: '' });
@@ -50,7 +51,12 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     status: tx.status || 'ORDER_PLACED' 
   })).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
 
-  const filteredTx = customerTx.filter(tx => {
+  const onlineTx = customerTx.filter(tx => tx.userId && !tx.userId.startsWith('temp-'));
+  const ftfTx = customerTx.filter(tx => !tx.userId || tx.userId.startsWith('temp-'));
+
+  const activeTxList = purchaseType === 'online' ? onlineTx : ftfTx;
+
+  const filteredTx = activeTxList.filter(tx => {
     if (activeTab === 'All') return true;
     return tx.status === activeTab;
   });
@@ -148,7 +154,37 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
         </p>
       </div>
 
-      {/* Segmented Controls (Tabs) */}
+      {/* Segmented Controls for Purchase Type Separation */}
+      <div className="flex bg-secondary/80 border border-border/50 rounded-2xl p-1 gap-1 max-w-md">
+        <button
+          onClick={() => { setPurchaseType('online'); setActiveTab('All'); }}
+          className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+            purchaseType === 'online'
+              ? 'bg-foreground text-background shadow-md shadow-black/10'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Online Orders
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'online' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
+            {onlineTx.length}
+          </span>
+        </button>
+        <button
+          onClick={() => { setPurchaseType('ftf'); setActiveTab('All'); }}
+          className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+            purchaseType === 'ftf'
+              ? 'bg-foreground text-background shadow-md shadow-black/10'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Walk-in Purchases
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'ftf' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
+            {ftfTx.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Segmented Controls (Status Tabs) */}
       <div className="flex overflow-x-auto pb-4 no-scrollbar gap-3">
         {tabs.map(tab => (
           <button
@@ -164,7 +200,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
             <tab.icon weight={activeTab === tab.id ? "fill" : "duotone"} className="w-5 h-5" />
             {tab.label}
             <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-background/20 text-background' : 'bg-secondary text-muted-foreground'}`}>
-              {tab.id === 'All' ? customerTx.length : customerTx.filter(tx => tx.status === tab.id).length}
+              {tab.id === 'All' ? activeTxList.length : activeTxList.filter(tx => tx.status === tab.id).length}
             </span>
           </button>
         ))}

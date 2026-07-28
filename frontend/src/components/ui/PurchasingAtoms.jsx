@@ -26,10 +26,10 @@ export const customSelectStyles = {
   }),
   option: (base, state) => ({
     ...base,
-    backgroundColor: state.isSelected 
-      ? 'var(--color-accent)' 
-      : state.isFocused 
-        ? 'rgba(255, 255, 255, 0.05)' 
+    backgroundColor: state.isSelected
+      ? 'var(--color-accent)'
+      : state.isFocused
+        ? 'rgba(255, 255, 255, 0.05)'
         : 'transparent',
     color: state.isSelected ? '#fff' : '#e2e8f0', // slate-200 text
     '&:active': {
@@ -55,12 +55,12 @@ export const customSelectStyles = {
 // ─── Shared UI Atoms ──────────────────────────────────────────────────────────
 export const StatusBadge = ({ status }) => {
   const map = {
-    'Draft':          'bg-secondary text-muted-foreground border-border',
-    'RFQ Sent':       'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-    'Confirmed':      'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    'Received':       'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    'Cancelled':      'bg-red-500/15 text-red-400 border-red-500/30',
-    'Waiting Bills':  'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    'Draft': 'bg-secondary text-muted-foreground border-border',
+    'RFQ Sent': 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+    'Confirmed': 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    'Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'Cancelled': 'bg-red-500/15 text-red-400 border-red-500/30',
+    'Waiting Bills': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
     'Bills Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   };
   return (
@@ -73,9 +73,8 @@ export const StatusBadge = ({ status }) => {
 export const StatChip = ({ label, count, icon: Icon, color, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
-      active ? `${color} shadow-sm` : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
-    }`}
+    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${active ? `${color} shadow-sm` : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
+      }`}
   >
     {Icon && <Icon weight="duotone" className="w-3.5 h-3.5" />}
     {label}
@@ -96,7 +95,7 @@ export const PipelineChevron = ({ currentStatus }) => {
       {stages.map((s, i) => (
         <div key={s} className={`flex items-center px-3 py-2 relative transition-colors ${i === idx ? 'bg-accent text-white' : i < idx ? 'text-foreground' : 'text-muted-foreground'}`}>
           {s}
-          {i !== stages.length - 1 && <CaretRight weight="bold" className={`absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-3 h-3 ${i === idx ? 'text-accent' : 'text-border'}`} />}
+          {i !== stages.length - 1 && <CaretRight weight="bold" className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-3 h-3 text-muted-foreground/30" />}
         </div>
       ))}
     </div>
@@ -145,14 +144,13 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-xs font-bold text-muted-foreground">Product Image</label>
-      <div 
+      <div
         onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-        className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden ${
-          isDragging ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:bg-secondary/80'
-        }`}
+        className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden ${isDragging ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:bg-secondary/80'
+          }`}
       >
         <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-        
+
         {image ? (
           <div className="relative w-full h-32 flex items-center justify-center">
             <img src={image} alt="Preview" className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />

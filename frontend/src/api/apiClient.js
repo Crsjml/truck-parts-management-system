@@ -23,6 +23,13 @@ export const invalidateToken = () => {
   _tokenExpiry = 0;
 };
 
+// ponytail: immediate token sync on auth state change — prevents the 60s
+// stale cache from routing admins to the customer dashboard.
+export const setToken = (token) => {
+  _cachedToken = token || null;
+  _tokenExpiry = token ? Date.now() + 60_000 : 0;
+};
+
 async function getAuthHeaders(supabase) {
   const headers = { 'Content-Type': 'application/json' };
   try {

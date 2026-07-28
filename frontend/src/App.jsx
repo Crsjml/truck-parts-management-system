@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import AuthPortal from './components/AuthPortal';
@@ -20,6 +20,7 @@ const CategoryManagement = lazy(() => import('./components/CategoryManagement'))
 const PurchasingModule = lazy(() => import('./components/PurchasingModule'));
 const MyAccount = lazy(() => import('./components/MyAccount'));
 const StaffManagement = lazy(() => import('./components/StaffManagement'));
+const CustomerManagement = lazy(() => import('./components/CustomerManagement'));
 const AdminSettings = lazy(() => import('./components/AdminSettings'));
 
 // Sleek loading fallback for Suspense
@@ -36,7 +37,7 @@ const PageLoader = () => (
 );
 
 
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchMyTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchMyTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs, invalidateToken, setToken } from './authStore';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -82,6 +83,7 @@ export default function App() {
 
   useEffect(() => {
     const handleUserChange = async (currentUser) => {
+      invalidateToken();
       if (currentUser) {
         // Google is pre-verified by the provider — don't gate it on email_confirmed_at,
         // which can lag briefly right after the OAuth redirect and would otherwise
@@ -95,23 +97,23 @@ export default function App() {
         }
 
         const email = currentUser.email || '';
-        
+
         // Fetch RBAC staff role
         let staffData = await checkStaffRole(email);
 
-        
+
         const isAdmin = !!staffData;
-        
+
         setSupabaseUser(currentUser);
         setIsSignedIn(true);
-        
+
         const userRole = isAdmin ? 'admin' : 'customer';
-        
+
         // Expose staff permissions in the session for components to consume
         if (isAdmin) {
-           currentUser.staffData = staffData;
+          currentUser.staffData = staffData;
         }
-        
+
         if (userRole === 'admin') setActiveView('admin-app');
         else setActiveView('storefront'); // Go directly to storefront
       } else {
@@ -123,6 +125,7 @@ export default function App() {
 
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      setToken(session?.access_token || null);
       handleUserChange(session?.user || null);
     };
     checkSession();
@@ -131,6 +134,7 @@ export default function App() {
       if (event === 'PASSWORD_RECOVERY') {
         setActiveView('update-password');
       }
+      setToken(session?.access_token || null);
       handleUserChange(session?.user || null);
     });
 
@@ -139,10 +143,10 @@ export default function App() {
 
   // Derive sessions directly from the state
   const adminSession = isSignedIn && supabaseUser?.staffData ? {
-    user: { 
-      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email, 
-      role: 'admin', 
-      staffData: supabaseUser.staffData 
+    user: {
+      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email,
+      role: 'admin',
+      staffData: supabaseUser.staffData
     }
   } : null;
 
@@ -170,9 +174,9 @@ export default function App() {
   }, [supabaseUser]);
 
   const customerSession = isSignedIn && !supabaseUser?.staffData ? {
-    user: { 
-      fullName: customerProfile?.displayName || supabaseUser.user_metadata?.full_name || supabaseUser.email, 
-      email: supabaseUser.email, 
+    user: {
+      fullName: customerProfile?.displayName || supabaseUser.user_metadata?.full_name || supabaseUser.email,
+      email: supabaseUser.email,
       role: 'customer',
       uid: supabaseUser.id,
       photoURL: customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url
@@ -213,17 +217,17 @@ export default function App() {
 
   useEffect(() => {
     if (!adminSession?.user) return;
-    
+
     const loadStats = async () => {
       try {
         const pos = await fetchPurchaseOrders();
         const today = new Date();
         const NOT_ACKNOWLEDGED_DAYS = 7;
-        
+
         const myPos = pos.filter(p => p.createdBy === adminSession.user.fullName);
         const rfqs = myPos.filter(p => p.status === 'Draft' || p.status === 'RFQ Sent');
         const confirmedPos = myPos.filter(p => ['Confirmed', 'Received', 'Cancelled'].includes(p.status));
-        
+
         setMyRfqStats({
           sent: rfqs.filter(r => r.status === 'RFQ Sent').length,
           lateRfq: rfqs.filter(r => r.expectedDeliveryDate && new Date(r.expectedDeliveryDate) < today && r.status !== 'Received').length,
@@ -238,7 +242,7 @@ export default function App() {
         console.error('Failed to load my RFQ stats', err);
       }
     };
-    
+
     loadStats();
     const handleUpdate = () => loadStats();
     window.addEventListener('purchasingUpdate', handleUpdate);
@@ -246,7 +250,7 @@ export default function App() {
   }, [adminSession?.user?.fullName]);
 
   useEffect(() => {
-    
+
     const loadData = async () => {
       const isAdmin = Boolean(adminSession?.user?.staffData);
 
@@ -322,7 +326,7 @@ export default function App() {
     const newStock = part.stock + quantity;
     // Optimistic UI update
     setParts((prev) => prev.map((p) => p.id === id ? { ...p, stock: newStock } : p));
-    
+
     // Backend sync
     const res = await updatePart(id, { stock: newStock });
     if (res.ok) {
@@ -453,7 +457,7 @@ export default function App() {
           initialTab={activeView === 'signup' ? 'register' : authInitialTab}
           onBackToStore={() => setActiveView('storefront')}
         />
-        <FloatingSettingsWidget 
+        <FloatingSettingsWidget
           onAdminLogin={handleAutoAdminLogin}
           onCustomerLogin={handleAutoCustomerLogin}
           onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
@@ -468,11 +472,11 @@ export default function App() {
 
   if (activeView === 'update-password') {
     return (
-      <UpdatePasswordModal 
+      <UpdatePasswordModal
         onComplete={() => {
           showToast('Password updated successfully!', 'success');
           setActiveView('storefront');
-        }} 
+        }}
       />
     );
   }
@@ -492,12 +496,12 @@ export default function App() {
           setIsDarkMode={setIsDarkMode}
           showToast={showToast}
         />
-      <FloatingSettingsWidget 
-        onAdminLogin={handleAutoAdminLogin}
-        onCustomerLogin={handleAutoCustomerLogin}
-        onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
-        isLoggedIn={!!adminSession || !!customerSession}
-      />
+        <FloatingSettingsWidget
+          onAdminLogin={handleAutoAdminLogin}
+          onCustomerLogin={handleAutoCustomerLogin}
+          onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
+          isLoggedIn={!!adminSession || !!customerSession}
+        />
         <StatusBar />
         <ToastNotification toasts={toasts} onDismiss={dismissToast} />
         {needsProfileCompletion && (
@@ -518,8 +522,8 @@ export default function App() {
             ) : (
               <Logo className="w-10 h-10 shrink-0" showText={false} />
             )}
-            <button 
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0"
             >
               <List weight="duotone" className="w-5 h-5" />
@@ -530,11 +534,10 @@ export default function App() {
             <button
               onClick={() => setPage('dashboard')}
               title="Dashboard Overview"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'dashboard'
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-              }`}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
             >
               <SquaresFour weight="duotone" className="w-5 h-5 shrink-0" />
               {!isSidebarCollapsed && <span>Dashboard Overview</span>}
@@ -543,11 +546,10 @@ export default function App() {
             <button
               onClick={() => setPage('catalog')}
               title="Parts Inventory"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'catalog'
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-              }`}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
             >
               <Package weight="duotone" className="w-5 h-5 shrink-0" />
               {!isSidebarCollapsed && <span>Parts Inventory</span>}
@@ -556,11 +558,10 @@ export default function App() {
             <button
               onClick={() => setPage('pos')}
               title="Sales POS Entry"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'pos'
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-              }`}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
             >
               <ShoppingCart weight="duotone" className="w-5 h-5 shrink-0" />
               {!isSidebarCollapsed && <span>Sales POS Entry</span>}
@@ -569,11 +570,10 @@ export default function App() {
             <button
               onClick={() => setPage('analytics')}
               title="Sales Analytics"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'analytics'
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-              }`}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
             >
               <ChartBar weight="duotone" className="w-5 h-5 shrink-0" />
               {!isSidebarCollapsed && <span>Sales Analytics</span>}
@@ -582,11 +582,10 @@ export default function App() {
             <button
               onClick={() => setPage('categories')}
               title="Category Management"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'categories'
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-              }`}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
             >
               <Tag weight="duotone" className="w-5 h-5 shrink-0" />
               {!isSidebarCollapsed && <span>Category Management</span>}
@@ -595,14 +594,25 @@ export default function App() {
             <button
               onClick={() => setPage('purchasing')}
               title="Purchasing"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                page === 'purchasing'
-                  ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-              }`}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
             >
               <Buildings weight="duotone" className="w-5 h-5 shrink-0" />
               {!isSidebarCollapsed && <span>Purchasing</span>}
+            </button>
+
+            <button
+              onClick={() => setPage('customers')}
+              title="Customer Management"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers'
+                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                }`}
+            >
+              <UsersThree weight="duotone" className="w-5 h-5 shrink-0" />
+              {!isSidebarCollapsed && <span>Customer Management</span>}
             </button>
 
             {/* SUPER ADMIN ONLY: Staff Management & Settings */}
@@ -611,11 +621,10 @@ export default function App() {
                 <button
                   onClick={() => setPage('staff')}
                   title="Staff Management"
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'staff'
-                      ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
-                  }`}
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff'
+                    ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                    }`}
                 >
                   <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
                   {!isSidebarCollapsed && <span>Staff Management</span>}
@@ -638,9 +647,9 @@ export default function App() {
           <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
             <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
               {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
-                <img 
-                  src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
-                  alt="Profile" 
+                <img
+                  src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
+                  alt="Profile"
                   className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover shadow-inner bg-secondary`}
                 />
               ) : (
@@ -684,9 +693,8 @@ export default function App() {
                     setPage('dashboard');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <SquaresFour weight="duotone" className="w-5 h-5" />
                   Dashboard Overview
@@ -696,9 +704,8 @@ export default function App() {
                     setPage('catalog');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <Package weight="duotone" className="w-5 h-5" />
                   Parts Inventory
@@ -708,9 +715,8 @@ export default function App() {
                     setPage('pos');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <ShoppingCart weight="duotone" className="w-5 h-5" />
                   Sales POS Entry
@@ -720,9 +726,8 @@ export default function App() {
                     setPage('analytics');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <ChartBar weight="duotone" className="w-5 h-5" />
                   Sales Analytics
@@ -732,9 +737,8 @@ export default function App() {
                     setPage('categories');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'categories' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <Tag weight="duotone" className="w-5 h-5" />
                   Category Management
@@ -744,26 +748,35 @@ export default function App() {
                     setPage('purchasing');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'purchasing' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <Buildings weight="duotone" className="w-5 h-5" />
                   Purchasing
                 </button>
                 <button
                   onClick={() => {
+                    setPage('customers');
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
+                >
+                  <UsersThree weight="duotone" className="w-5 h-5" />
+                  Customer Management
+                </button>
+                <button
+                  onClick={() => {
                     setPage('account');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    page === 'account' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'account' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
                 >
                   <User weight="duotone" className="w-5 h-5" />
                   My Account
                 </button>
-                
+
                 {/* SUPER ADMIN ONLY: Staff Management (Mobile) */}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
                   <button
@@ -771,9 +784,8 @@ export default function App() {
                       setPage('staff');
                       setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                      page === 'staff' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
+                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                      }`}
                   >
                     <ShieldCheck weight="duotone" className="w-5 h-5" />
                     Staff Management
@@ -785,17 +797,17 @@ export default function App() {
             <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col gap-3 bg-secondary/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
-                      <img 
-                        src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url} 
-                        alt="Profile" 
-                        className="w-8 h-8 rounded-full border border-border object-cover shadow-inner bg-secondary"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
-                        <User weight="duotone" className="w-5 h-5" />
-                      </div>
-                    )}
+                  {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
+                    <img
+                      src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
+                      alt="Profile"
+                      className="w-8 h-8 rounded-full border border-border object-cover shadow-inner bg-secondary"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
+                      <User weight="duotone" className="w-5 h-5" />
+                    </div>
+                  )}
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
                     <span className="text-3xs text-muted-foreground uppercase font-semibold">System Admin</span>
@@ -861,7 +873,7 @@ export default function App() {
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               <span className="font-mono text-muted-foreground text-2xs">TTP-SERVER: ACTIVE</span>
             </div>
-            
+
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 rounded-xl border border-border bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
@@ -872,9 +884,8 @@ export default function App() {
 
             <button
               onClick={() => setPage('account')}
-              className={`p-2 rounded-xl border border-border transition-all ${
-                page === 'account' ? 'bg-accent/15 text-accent border-accent' : 'bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground'
-              }`}
+              className={`p-2 rounded-xl border border-border transition-all ${page === 'account' ? 'bg-accent/15 text-accent border-accent' : 'bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground'
+                }`}
               aria-label="My Account"
             >
               <User weight="duotone" className="w-4 h-4" />
@@ -933,13 +944,13 @@ export default function App() {
                 {page === 'account' && <MyAccount user={supabaseUser} onGoBack={() => setPage('dashboard')} />}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && page === 'staff' && <StaffManagement currentEmail={adminSession?.user?.staffData?.email} />}
                 {page === 'purchasing' && (
-                  <PurchasingModule 
-                    onAddLog={addLog} 
-                    parts={parts} 
+                  <PurchasingModule
+                    onAddLog={addLog}
+                    parts={parts}
                     onPartsUpdated={async () => {
                       const updatedParts = await fetchParts('', 'All', {}, true);
                       setParts(updatedParts);
-                    }} 
+                    }}
                     transactions={transactions}
                     onAddPart={handleAddPart}
                     onEditPart={handleEditPart}
@@ -948,6 +959,7 @@ export default function App() {
                     showToast={showToast}
                   />
                 )}
+                {page === 'customers' && <CustomerManagement showToast={showToast} />}
               </Suspense>
             </motion.div>
           </AnimatePresence>
@@ -1010,7 +1022,7 @@ export default function App() {
                           <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setIsAlertDrawerOpen(false);
                           setPage('purchasing');
@@ -1036,7 +1048,7 @@ export default function App() {
         </Suspense>
       )}
 
-      <FloatingSettingsWidget 
+      <FloatingSettingsWidget
         onAdminLogin={handleAutoAdminLogin}
         onCustomerLogin={handleAutoCustomerLogin}
         onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}

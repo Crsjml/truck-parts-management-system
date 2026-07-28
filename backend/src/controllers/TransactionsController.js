@@ -35,7 +35,7 @@ class TransactionsController extends BaseController {
       const userId = req.auth?.userId;
       if (!userId) return res.status(401).json({ msg: 'Not authenticated.' });
 
-      const transactions = await transactionsService.getTransactionsByUserId(userId);
+      const transactions = await transactionsService.getTransactionsForCustomer(userId, req.auth.email);
       res.json(transactions);
     } catch (err) {
       console.error('[get my transactions]', err);

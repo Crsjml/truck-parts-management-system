@@ -1,14 +1,37 @@
 // backend/src/services/TransactionsService.js
 import transactionsRepository from '../repositories/TransactionsRepository.js';
+import { prisma } from '../config/prisma.js';
 
 class TransactionsService {
   async getTransactions() {
     return await transactionsRepository.findMany();
   }
 
-  async getTransactionsByUserId(userId) {
+  async getTransactionsForCustomer(userId, email) {
     if (!userId) return [];
-    return await transactionsRepository.findManyByUserId(userId);
+    
+    // First lookup customer to find if they have a registered phone number
+    const customer = await prisma.customer.findUnique({
+      where: { authId: userId }
+    });
+
+    const contact = customer?.phoneNumber;
+    const orFilters = [
+      { userId },
+    ];
+    if (email) {
+      orFilters.push({ customerEmail: { equals: email, mode: 'insensitive' } });
+    }
+    if (contact && contact !== 'N/A') {
+      orFilters.push({ customerContact: contact });
+    }
+
+    return await prisma.transaction.findMany({
+      where: { OR: orFilters },
+      include: { items: { include: { part: true } } },
+      orderBy: { transactionDate: 'desc' },
+      take: 100
+    });
   }
 
   async updateStatus(id, status) {
@@ -103,13 +126,68 @@ class TransactionsService {
         });
       }
 
+      // 2. Look up or create Customer record for FTF sale
+      // ponytail: only match temp- (FTF) records — never link POS sales to
+      // real Supabase online accounts. Online buying ≠ walk-in buying.
+      let finalUserId = null;
+      if (customerEmail || (customerContact && customerContact !== 'N/A')) {
+        const orFilters = [];
+        if (customerEmail) orFilters.push({ email: customerEmail.toLowerCase().trim() });
+        if (customerContact && customerContact !== 'N/A') orFilters.push({ phoneNumber: customerContact.trim() });
+
+        if (orFilters.length > 0) {
+          const existingCustomer = await tx.customer.findFirst({
+            where: {
+              authId: { startsWith: 'temp-' },
+              OR: orFilters
+            }
+          });
+
+          if (existingCustomer) {
+            finalUserId = existingCustomer.authId;
+          } else {
+            const tempAuthId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            // ponytail: if the provided email already belongs to an online
+            // account, use a dummy @ttp.local email for the FTF record to
+            // avoid a unique constraint violation. The real email is still
+            // stored on the Transaction row itself (customerEmail field).
+            let dummyEmail;
+            if (customerEmail) {
+              const emailTaken = await tx.customer.findUnique({
+                where: { email: customerEmail.toLowerCase().trim() }
+              });
+              dummyEmail = emailTaken
+                ? `temp-ftf-${tempAuthId}@ttp.local`
+                : customerEmail.toLowerCase().trim();
+            } else {
+              dummyEmail = `temp-phone-${(customerContact || '').replace(/\D/g, '') || tempAuthId}@ttp.local`;
+            }
+            
+            const newCustomer = await tx.customer.create({
+              data: {
+                authId: tempAuthId,
+                email: dummyEmail,
+                displayName: customerName || 'Walk-in Customer',
+                phoneNumber: customerContact && customerContact !== 'N/A' ? customerContact.trim() : '',
+                companyName: ''
+              }
+            });
+            finalUserId = newCustomer.authId;
+          }
+        }
+      }
+
+      if (!finalUserId) {
+        finalUserId = userId || null;
+      }
+
       return await tx.transaction.create({
         data: {
           invoiceNumber,
           customerName: customerName || 'Walk-in Customer',
           customerContact: customerContact || 'N/A',
           customerEmail: customerEmail || '',
-          userId: userId || null,
+          userId: finalUserId,
           discount: Number(discount) || 0,
           tax: Number(tax) || 12,
           subtotal: Number(subtotal),
