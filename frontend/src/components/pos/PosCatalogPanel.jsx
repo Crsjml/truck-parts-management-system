@@ -1,15 +1,27 @@
-// frontend/src/components/pos/PosCatalogPanel.jsx
 import React, { useMemo, useState } from 'react';
-import { CaretDown, Funnel, MagnifyingGlass, Package, Plus } from '@phosphor-icons/react';
+import { CaretDown, CaretLeft, CaretRight, Funnel, MagnifyingGlass, Package, Plus, SquaresFour } from '@phosphor-icons/react';
+import { getCategoryIconAndColor } from '../../utils/categoryIcons';
+
+const ITEMS_PER_PAGE = 8;
 
 export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurrency, searchInputRef }) {
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [search, setSearch] = useState('');
   const [brand, setBrand] = useState('');
   const [series, setSeries] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
-  // Brand and series options come from the catalog itself, so they can never
-  // drift out of sync with the data.
+  // Extract unique categories from active catalog parts
+  const categories = useMemo(() => {
+    const set = new Set();
+    for (const p of parts) {
+      if (p.category) set.add(p.category);
+    }
+    return Array.from(set).sort();
+  }, [parts]);
+
+  // Brand and series options dynamically extracted from parts
   const { brands, seriesForBrand } = useMemo(() => {
     const brandSet = new Set();
     const seriesSet = new Set();
@@ -28,6 +40,12 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return parts.filter((part) => {
+      // Category filter
+      if (selectedCategory !== 'ALL' && part.category !== selectedCategory) {
+        return false;
+      }
+
+      // Search term filter
       const matchesText =
         !term ||
         part.name.toLowerCase().includes(term) ||
@@ -37,6 +55,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
       if (!matchesText) return false;
       if (!brand) return true;
 
+      // Vehicle compatibility filter
       const comp = part.compatibleWith || [];
       const hasBrand = comp.some((c) => c.brand === brand || c.brand === 'Universal');
       if (!hasBrand) return false;
@@ -46,138 +65,241 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
         (c) => (c.brand === brand || c.brand === 'Universal') && (c.series === series || !c.series)
       );
     });
-  }, [parts, search, brand, series]);
+  }, [parts, selectedCategory, search, brand, series]);
+
+  // Total pages calculation & current page slice
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filtered.length);
+  const currentItems = filtered.slice(startIndex, endIndex);
+
+  // Filter change handlers that reset page to 1
+  const handleCategorySelect = (cat) => {
+    setSelectedCategory(cat);
+    setPage(1);
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(1);
+  };
+
+  const handleBrandChange = (val) => {
+    setBrand(val);
+    setSeries('');
+    setPage(1);
+  };
+
+  const handleSeriesChange = (val) => {
+    setSeries(val);
+    setPage(1);
+  };
+
+  const pressable = 'transition-transform duration-150 ease-out active:scale-[0.97]';
 
   return (
-    <div className="glass-panel p-5 rounded-2xl flex flex-col gap-4 h-full">
-      <div className="flex items-baseline justify-between pb-3 border-b border-border">
-        <h3 className="text-lg font-bold text-foreground font-display">Find a Part</h3>
-        <span className="text-xs text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
-        </span>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <MagnifyingGlass weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-        <input
-          ref={searchInputRef}
-          id="pos-search"
-          type="text"
-          aria-label="Search parts by name, SKU or OEM"
-          placeholder="Part name, SKU, or OEM number…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-secondary border border-border rounded-xl pl-12 pr-12 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
-        />
-        <kbd className="absolute right-4 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-background border border-border text-2xs font-mono font-bold text-muted-foreground pointer-events-none">
-          F2
-        </kbd>
-      </div>
-
-      {/* Vehicle compatibility */}
-      <div>
+    <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row gap-4 h-full">
+      {/* Left Category Rail */}
+      <aside className="w-full md:w-36 shrink-0 border-b md:border-b-0 md:border-r border-border pb-3 md:pb-0 md:pr-3 flex md:flex-col gap-1.5 overflow-x-auto md:overflow-y-auto max-h-[140px] md:max-h-full hide-scrollbar">
         <button
           type="button"
-          onClick={() => setFiltersOpen((open) => !open)}
-          aria-expanded={filtersOpen}
-          aria-controls="pos-vehicle-filters"
-          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => handleCategorySelect('ALL')}
+          aria-pressed={selectedCategory === 'ALL'}
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-colors text-left shrink-0 ${
+            selectedCategory === 'ALL'
+              ? 'bg-accent text-white'
+              : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border'
+          }`}
         >
-          <Funnel weight="bold" className="w-4 h-4" />
-          Vehicle filter
-          {(brand || series) && <span className="text-accent">on</span>}
-          <CaretDown weight="bold" className={`w-3 h-3 transition-transform duration-150 ${filtersOpen ? 'rotate-180' : ''}`} />
+          <SquaresFour weight="bold" className="w-4 h-4 shrink-0" />
+          <span className="truncate">All</span>
         </button>
 
-        {filtersOpen && (
-          <div id="pos-vehicle-filters" className="grid grid-cols-2 gap-3 mt-3">
-            <div>
-              <label htmlFor="pos-brand" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                Vehicle Brand
-              </label>
-              <select
-                id="pos-brand"
-                value={brand}
-                onChange={(e) => { setBrand(e.target.value); setSeries(''); }}
-                className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-accent transition-colors"
-              >
-                <option value="">Any brand</option>
-                {brands.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+        {categories.map((cat) => {
+          const { Icon } = getCategoryIconAndColor(cat);
+          const active = selectedCategory === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => handleCategorySelect(cat)}
+              aria-pressed={active}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-colors text-left shrink-0 ${
+                active
+                  ? 'bg-accent text-white'
+                  : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border'
+              }`}
+            >
+              <Icon weight="bold" className="w-4 h-4 shrink-0" />
+              <span className="truncate">{cat}</span>
+            </button>
+          );
+        })}
+      </aside>
+
+      {/* Center Main Area: Search, Filters & Product Grid */}
+      <div className="flex-1 flex flex-col gap-3 min-w-0">
+        {/* Header & Results count */}
+        <div className="flex items-center justify-between pb-2 border-b border-border">
+          <h3 className="text-base font-bold text-foreground font-display">Find a Part</h3>
+          <span className="text-xs font-mono text-muted-foreground">
+            {filtered.length === 0
+              ? '0 results'
+              : `${startIndex + 1}–${endIndex} of ${filtered.length} results`}
+          </span>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <MagnifyingGlass weight="bold" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            ref={searchInputRef}
+            id="pos-search"
+            type="text"
+            aria-label="Search parts by name, SKU or OEM"
+            placeholder="Part name, SKU, or OEM number…"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full bg-secondary border border-border rounded-xl pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
+          />
+          <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-background border border-border text-2xs font-mono font-bold text-muted-foreground pointer-events-none">
+            F2
+          </kbd>
+        </div>
+
+        {/* Collapsible Vehicle Compatibility Filter */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            aria-controls="pos-vehicle-filters"
+            className="flex items-center gap-2 text-2xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Funnel weight="bold" className="w-3.5 h-3.5" />
+            Vehicle filter
+            {(brand || series) && <span className="text-accent">on</span>}
+            <CaretDown weight="bold" className={`w-3 h-3 transition-transform duration-150 ${filtersOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {filtersOpen && (
+            <div id="pos-vehicle-filters" className="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <label htmlFor="pos-brand" className="block text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Brand
+                </label>
+                <select
+                  id="pos-brand"
+                  value={brand}
+                  onChange={(e) => handleBrandChange(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent transition-colors"
+                >
+                  <option value="">Any brand</option>
+                  {brands.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="pos-series" className="block text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Series
+                </label>
+                <select
+                  id="pos-series"
+                  value={series}
+                  disabled={!brand}
+                  onChange={(e) => handleSeriesChange(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent transition-colors disabled:opacity-50"
+                >
+                  <option value="">Any model</option>
+                  {seriesForBrand.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label htmlFor="pos-series" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                Model / Series
-              </label>
-              <select
-                id="pos-series"
-                value={series}
-                disabled={!brand}
-                onChange={(e) => setSeries(e.target.value)}
-                className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-accent transition-colors disabled:opacity-50"
-              >
-                <option value="">Any model</option>
-                {seriesForBrand.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+          )}
+        </div>
+
+        {/* 2x4 Product Grid */}
+        <div className="flex-1 min-h-[320px]">
+          {filtered.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <Package weight="duotone" className="w-10 h-10 text-muted-foreground opacity-40" />
+              <p className="text-sm font-bold text-foreground">No parts match this search</p>
+              <p className="text-xs text-muted-foreground">Try selecting a different category or clearing filters.</p>
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {currentItems.map((part) => {
+                const inCart = cart.find((i) => i.id === part.id);
+                const available = part.stock - (part.reservedStock || 0);
+                const remaining = available - (inCart ? inCart.quantity : 0);
+                const canAdd = remaining > 0;
 
-      {/* Results */}
-      <div className="flex-1 overflow-y-auto space-y-2 min-h-[280px]">
-        {filtered.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Package weight="duotone" className="w-10 h-10 text-muted-foreground opacity-40" />
-            <p className="text-sm font-bold text-foreground">No parts match this search</p>
-            <p className="text-xs text-muted-foreground">Try a shorter term, or clear the vehicle filter.</p>
-          </div>
-        ) : (
-          filtered.map((part) => {
-            const inCart = cart.find((i) => i.id === part.id);
-            const available = part.stock - (part.reservedStock || 0);
-            const remaining = available - (inCart ? inCart.quantity : 0);
-            const canAdd = remaining > 0;
+                return (
+                  <button
+                    key={part.id}
+                    type="button"
+                    onClick={() => canAdd && onAddToCart(part)}
+                    aria-label={`Add ${part.name}`}
+                    aria-disabled={!canAdd}
+                    className={`p-3 rounded-xl border flex flex-col justify-between gap-2 text-left transition-colors ${
+                      canAdd
+                        ? `bg-secondary ${remaining > 0 && remaining <= 3 ? 'border-amber-500/40' : 'border-border'} hover:border-accent/50 cursor-pointer`
+                        : 'bg-background border-border/50 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`text-xs font-bold line-clamp-2 ${canAdd ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {part.name}
+                      </p>
+                      {canAdd && <Plus weight="bold" className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                    </div>
 
-            return (
-              <button
-                key={part.id}
-                type="button"
-                onClick={() => canAdd && onAddToCart(part)}
-                aria-label={`Add ${part.name}`}
-                aria-disabled={!canAdd}
-                className={`w-full min-h-[56px] px-4 py-3 rounded-xl border flex items-center justify-between gap-4 text-left transition-transform duration-150 ease-out ${
-                  canAdd
-                    ? `bg-secondary ${remaining > 0 && remaining <= 3 ? 'border-amber-500/40' : 'border-border'} hover:border-accent/50 active:scale-[0.99] cursor-pointer`
-                    : 'bg-background border-border/60 cursor-not-allowed'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-bold truncate ${canAdd ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {part.name}
-                  </p>
-                  <p className="text-xs font-mono text-muted-foreground truncate">
-                    {part.sku}
-                    {available === 0
-                      ? ' · out of stock'
-                      : remaining <= 0
-                        ? ` · all ${available} in cart`
-                        : ` · ${remaining} left`}
-                  </p>
-                </div>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
+                      <span className="text-2xs font-mono text-muted-foreground truncate">
+                        {available === 0
+                          ? 'out of stock'
+                          : remaining <= 0
+                            ? 'all in cart'
+                            : `${remaining} left`}
+                      </span>
+                      <span className="text-xs font-bold font-mono text-foreground">
+                        {formatCurrency(part.price)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                <p className={`shrink-0 text-sm font-bold font-mono ${canAdd ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {formatCurrency(part.price)}
-                </p>
+        {/* Pagination Bar */}
+        <div className="flex items-center justify-between pt-2 border-t border-border mt-auto">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            aria-label="Previous Page"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs font-bold text-foreground disabled:opacity-40 disabled:cursor-not-allowed ${pressable}`}
+          >
+            <CaretLeft weight="bold" className="w-3.5 h-3.5" /> Prev
+          </button>
 
-                {canAdd && <Plus weight="bold" className="w-4 h-4 text-muted-foreground shrink-0" />}
-              </button>
-            );
-          })
-        )}
+          <span className="text-xs font-mono text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            aria-label="Next Page"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs font-bold text-foreground disabled:opacity-40 disabled:cursor-not-allowed ${pressable}`}
+          >
+            Next <CaretRight weight="bold" className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-

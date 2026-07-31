@@ -267,7 +267,7 @@ export default function PosCheckoutPane({
                   key={amt}
                   type="button"
                   onClick={() => setTendered(String(amt))}
-                  className={`flex-1 py-2.5 rounded-xl bg-secondary border border-border text-sm font-bold text-foreground hover:border-accent/40 ${pressable}`}
+                  className={`flex-1 py-2 rounded-xl bg-secondary border border-border text-xs font-bold text-foreground hover:border-accent/40 ${pressable}`}
                 >
                   {formatCurrency(amt)}
                 </button>
@@ -275,10 +275,38 @@ export default function PosCheckoutPane({
               <button
                 type="button"
                 onClick={() => setTendered(String(totals.total))}
-                className={`flex-1 py-2.5 rounded-xl bg-secondary border border-border text-sm font-bold text-foreground hover:border-accent/40 ${pressable}`}
+                className={`flex-1 py-2 rounded-xl bg-secondary border border-border text-xs font-bold text-foreground hover:border-accent/40 ${pressable}`}
               >
                 Exact
               </button>
+            </div>
+
+            {/* Odoo/Lightspeed-style 10-Key Numeric Keypad */}
+            <div className="grid grid-cols-4 gap-1.5 pt-1" aria-label="Numeric tender keypad">
+              {['7', '8', '9', 'C', '4', '5', '6', '⌫', '1', '2', '3', '.', '0', '00'].map((btn) => (
+                <button
+                  key={btn}
+                  type="button"
+                  onClick={() => {
+                    if (btn === 'C') {
+                      setTendered('');
+                    } else if (btn === '⌫') {
+                      setTendered((prev) => prev.slice(0, -1));
+                    } else if (btn === '.') {
+                      setTendered((prev) => (prev.includes('.') ? prev : (prev || '0') + '.'));
+                    } else if (btn === '00') {
+                      setTendered((prev) => (prev ? prev + '00' : '0'));
+                    } else {
+                      setTendered((prev) => (prev === '0' ? btn : prev + btn));
+                    }
+                  }}
+                  className={`py-2 rounded-xl border border-border bg-secondary/80 text-sm font-bold font-mono text-foreground hover:bg-secondary active:bg-accent/20 transition-colors ${
+                    btn === 'C' ? 'text-red-500 font-sans' : btn === '⌫' ? 'text-amber-500 font-sans' : ''
+                  } ${pressable}`}
+                >
+                  {btn}
+                </button>
+              ))}
             </div>
 
             <div className="flex items-baseline justify-between px-4 py-3 rounded-xl bg-secondary border border-border">
@@ -383,7 +411,7 @@ export default function PosCheckoutPane({
         type="button"
         onClick={handleConfirm}
         disabled={!canConfirm}
-        className={`w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold ${pressable} disabled:active:scale-100 shadow-md`}
+        className={`w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold ${pressable} disabled:active:scale-100`}
       >
         {submitting ? 'Completing sale...' : 'Complete sale'}
       </button>
