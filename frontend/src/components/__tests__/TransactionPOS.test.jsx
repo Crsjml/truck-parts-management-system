@@ -235,4 +235,10 @@ describe('TransactionPOS Integration Tests', () => {
     const pane = screen.getByRole('region', { name: /Checkout/i });
     expect(pane).toHaveAttribute('aria-labelledby', 'pos-checkout-heading');
   });
+
+  it('renders fullscreen toggle button in shell header', () => {
+    renderPos({ onCheckout: onCheckoutMock });
+    const fsBtn = screen.getByRole('button', { name: /toggle fullscreen mode/i });
+    expect(fsBtn).toBeInTheDocument();
+  });
 });
