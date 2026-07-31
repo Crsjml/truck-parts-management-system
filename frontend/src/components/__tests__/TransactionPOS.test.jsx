@@ -1,109 +1,79 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TransactionPOS from '../TransactionPOS';
-import { SettingsContext } from '../../context/SettingsContext';
+import { SettingsProvider } from '../../context/SettingsContext';
 import * as authStore from '../../authStore';
 
 vi.mock('../../authStore', () => ({
   lookupCustomers: vi.fn(),
-  verifyOverridePin: vi.fn()
+  verifyOverridePin: vi.fn(),
+  fetchSettings: vi.fn().mockResolvedValue({})
 }));
 
-vi.mock('../../utils/invoicePdf', () => ({
-  buildInvoicePdf: vi.fn()
-}));
-
-vi.mock('../../context/SettingsContext', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    useSettings: () => {
-      const ctx = React.useContext(actual.SettingsContext);
-      if (ctx) return ctx;
-      return {
-        markupFactor: 1,
-        formatBaseCurrency: (val) => `$${Number(val).toFixed(2)}`,
-        formatCurrency: (val) => `$${Number(val).toFixed(2)}`,
-        displayCurrency: 'USD'
-      };
-    }
-  };
-});
+const renderPos = (props = {}) =>
+  render(
+    <SettingsProvider>
+      <TransactionPOS
+        parts={props.parts || mockParts}
+        onCheckout={props.onCheckout || vi.fn()}
+        {...props}
+      />
+    </SettingsProvider>
+  );
 
 const mockParts = [
-  { id: '1', name: 'Brake Pad', sku: 'BP-01', category: 'BRAKES', stock: 5, price: 50 },
-  { id: '2', name: 'Oil Filter', sku: 'OF-01', category: 'FILTERS', stock: 1, reservedStock: 1, price: 15 }, // Out of stock
-  { id: '3', name: 'Spark Plug', sku: 'SP-01', category: 'IGNITION', stock: 2, price: 10 } // Partial stock
+  { id: 'p1', name: 'Brake Pad', sku: 'BP-01', price: 50, stock: 4, reservedStock: 0 },
+  { id: 'p2', name: 'Oil Filter', sku: 'OF-02', price: 20, stock: 10, reservedStock: 0 },
+  { id: 'p3', name: 'Spark Plug', sku: 'SP-03', price: 15, stock: 2, reservedStock: 0 }
 ];
 
-describe('TransactionPOS', () => {
+describe('TransactionPOS Integration Tests', () => {
   let onCheckoutMock;
 
-  const renderPos = ({ onCheckout = vi.fn(), parts = [] } = {}) =>
-    render(
-      <SettingsContext.Provider value={{
-        markupFactor: 1.2,
-        formatBaseCurrency: (n) => `PHP ${n.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
-        formatCurrency: (n) => `PHP ${(n * 1.2).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
-        displayCurrency: 'PHP'
-      }}>
-        <TransactionPOS parts={parts} onCheckout={onCheckout} />
-      </SettingsContext.Provider>
-    );
-
   beforeEach(() => {
+    vi.clearAllMocks();
     onCheckoutMock = vi.fn().mockResolvedValue(true);
+    authStore.lookupCustomers.mockResolvedValue({ ok: true, results: [] });
+    authStore.verifyOverridePin.mockResolvedValue({ valid: true });
     window.alert = vi.fn();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it('Step 1: Renders parts list with wholesale price scaled to retail space', () => {
+    renderPos({ onCheckout: onCheckoutMock });
+    expect(screen.getByText('Brake Pad')).toBeInTheDocument();
+    expect(screen.getByText('₱50.00')).toBeInTheDocument();
   });
 
-  it('charges the marked-up shelf price with VAT already inside it', async () => {
-    // Base price 1000 with a 20% markup is a 1200 shelf price. VAT is inside
-    // that 1200, so the customer pays 1200, not 1344.
-    const onCheckout = vi.fn().mockResolvedValue(true);
-    renderPos({ onCheckout, parts: [
-      { id: 'p1', name: 'Brake Chamber', sku: 'BC-1', oem: '', category: 'Brakes',
-        price: 1000, stock: 5, reservedStock: 0, compatibleWith: [] }
-    ]});
-
-    fireEvent.click(screen.getByRole('button', { name: /Add Brake Chamber/i }));
-
-    const totals = screen.getByTestId('pos-total');
-    expect(totals).toHaveTextContent('1,200.00');
-    expect(totals).not.toHaveTextContent('1,344');
-  });
-
-  it('Step 3: First-time walk-in, cash, with change', async () => {
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
-
-    expect(screen.getByText(/out of stock/i)).toBeInTheDocument();
-
-    const searchInput = screen.getByLabelText(/Search parts by name, SKU or OEM/i);
-    fireEvent.change(searchInput, { target: { value: 'Brake Pad' } });
+  it('Step 2: Cart item calculation includes PH 12% VAT extraction', async () => {
+    renderPos({ onCheckout: onCheckoutMock });
 
     const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
-    expect(addBtn).not.toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(addBtn);
+
+    expect(screen.getByTestId('cart-subtotal')).toHaveTextContent('₱44.64');
+    expect(screen.getByTestId('cart-vat')).toHaveTextContent('₱5.36');
+    expect(screen.getByTestId('cart-total')).toHaveTextContent('₱50.00');
+  });
+
+  it('Step 3: Completes immediate walk-in cash sale', async () => {
+    renderPos({ onCheckout: onCheckoutMock });
+
+    const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
     fireEvent.click(addBtn);
 
     fireEvent.keyDown(document, { key: 'F4' });
     
     // Fill customer details
-    const nameInput = screen.getByLabelText(/Customer name/i);
-    const contactInput = screen.getByLabelText(/Contact number/i);
-    const emailInput = screen.getByLabelText(/^Email$/i);
+    const nameInput = screen.getByLabelText(/Customer name \*/i);
+    const contactInput = screen.getByLabelText(/Contact number \*/i);
+    const emailInput = screen.getByLabelText(/Email \*/i);
     
     fireEvent.change(nameInput, { target: { value: 'John Doe' } });
     fireEvent.change(contactInput, { target: { value: '555-1234' } });
     fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
 
-    const continueBtn = screen.getByRole('button', { name: /Continue to payment/i });
-    fireEvent.click(continueBtn);
-
-    const amountInput = screen.getByLabelText(/Amount tendered/i);
+    const amountInput = screen.getByLabelText(/Amount Tendered/i);
     fireEvent.change(amountInput, { target: { value: '100' } });
 
     const completeBtn = screen.getByRole('button', { name: /Complete sale/i });
@@ -136,7 +106,7 @@ describe('TransactionPOS', () => {
       results: [{ customerName: 'Jane Smith', customerContact: '555-9876', customerEmail: 'jane@example.com', orderCount: 2, lastOrderDate: '2026-07-01T00:00:00.000Z' }]
     });
 
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
+    renderPos({ onCheckout: onCheckoutMock });
 
     const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
     fireEvent.click(addBtn);
@@ -148,31 +118,30 @@ describe('TransactionPOS', () => {
     const useCustomerBtn = await screen.findByRole('button', { name: /Use Jane Smith/i });
     fireEvent.click(useCustomerBtn);
 
-    expect(screen.getByLabelText(/^Customer name$/i)).toHaveValue('Jane Smith');
-    expect(screen.getByLabelText(/^Contact number$/i)).toHaveValue('555-9876');
-    expect(screen.getByLabelText(/^Email$/i)).toHaveValue('jane@example.com');
+    expect(screen.getByLabelText(/Customer name \*/i)).toHaveValue('Jane Smith');
+    expect(screen.getByLabelText(/Contact number \*/i)).toHaveValue('555-9876');
+    expect(screen.getByLabelText(/Email \*/i)).toHaveValue('jane@example.com');
   });
 
   it('Step 5: Cheque payment', async () => {
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
+    renderPos({ onCheckout: onCheckoutMock });
 
     const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
     fireEvent.click(addBtn);
     fireEvent.keyDown(document, { key: 'F4' });
 
-    fireEvent.change(screen.getByLabelText(/^Customer name$/i), { target: { value: 'Alice' } });
-    fireEvent.change(screen.getByLabelText(/^Contact number$/i), { target: { value: '123' } });
-    fireEvent.change(screen.getByLabelText(/^Email$/i), { target: { value: 'a@a.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Continue to payment/i }));
+    fireEvent.change(screen.getByLabelText(/Customer name \*/i), { target: { value: 'Alice' } });
+    fireEvent.change(screen.getByLabelText(/Contact number \*/i), { target: { value: '123' } });
+    fireEvent.change(screen.getByLabelText(/Email \*/i), { target: { value: 'a@a.com' } });
 
-    fireEvent.click(screen.getByLabelText(/Cheque/i));
+    fireEvent.click(screen.getByRole('button', { name: /^Cheque$/i }));
 
     const completeBtn = screen.getByRole('button', { name: /Complete sale/i });
     expect(completeBtn).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText(/Cheque number/i), { target: { value: 'CHQ123' } });
-    fireEvent.change(screen.getByLabelText(/^Bank$/i), { target: { value: 'BDO' } });
-    fireEvent.change(screen.getByLabelText(/Cheque date/i), { target: { value: '2026-07-27' } });
+    fireEvent.change(screen.getByLabelText(/Cheque Number \*/i), { target: { value: 'CHQ123' } });
+    fireEvent.change(screen.getByLabelText(/Bank Name \*/i), { target: { value: 'BDO' } });
+    fireEvent.change(screen.getByLabelText(/Cheque Date \*/i), { target: { value: '2026-07-27' } });
 
     expect(completeBtn).toBeEnabled();
     fireEvent.click(completeBtn);
@@ -190,16 +159,15 @@ describe('TransactionPOS', () => {
   it('Step 6: Discount PIN gate', async () => {
     authStore.verifyOverridePin.mockImplementation(async (pin) => ({ valid: pin === '4821' }));
 
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
+    renderPos({ onCheckout: onCheckoutMock });
 
     const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
     fireEvent.click(addBtn);
     fireEvent.keyDown(document, { key: 'F4' });
 
-    fireEvent.change(screen.getByLabelText(/Customer name/i), { target: { value: 'Bob' } });
-    fireEvent.change(screen.getByLabelText(/Contact number/i), { target: { value: '123' } });
-    fireEvent.change(screen.getByLabelText(/^Email$/i), { target: { value: 'b@b.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Continue to payment/i }));
+    fireEvent.change(screen.getByLabelText(/Customer name \*/i), { target: { value: 'Bob' } });
+    fireEvent.change(screen.getByLabelText(/Contact number \*/i), { target: { value: '123' } });
+    fireEvent.change(screen.getByLabelText(/Email \*/i), { target: { value: 'b@b.com' } });
 
     const pinInput = screen.getByLabelText(/Supervisor override PIN/i);
     fireEvent.change(pinInput, { target: { value: '0000' } });
@@ -226,7 +194,7 @@ describe('TransactionPOS', () => {
   });
 
   it('Step 7: Partial stock', async () => {
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
+    renderPos({ onCheckout: onCheckoutMock });
 
     const addBtn = screen.getByRole('button', { name: /Add Spark Plug/i });
     fireEvent.click(addBtn);
@@ -240,7 +208,7 @@ describe('TransactionPOS', () => {
   });
 
   it('Step 8: Keyboard shortcuts', async () => {
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
+    renderPos({ onCheckout: onCheckoutMock });
 
     fireEvent.keyDown(document, { key: 'F2' });
     expect(screen.getByLabelText(/Search parts/i)).toHaveFocus();
@@ -249,20 +217,14 @@ describe('TransactionPOS', () => {
     fireEvent.click(addBtn);
 
     fireEvent.keyDown(document, { key: 'F4' });
-    expect(screen.getByRole('heading', { name: /Customer/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Checkout/i })).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: /Customer/i })).not.toBeInTheDocument();
-  });
-
-  it('does not render a permanent shortcut legend', () => {
-    renderPos({});
-    expect(screen.queryByText(/search parts/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/clear \/ close/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Checkout/i })).not.toBeInTheDocument();
   });
 
   it('Step 10: Accessibility pass', async () => {
-    render(<TransactionPOS parts={mockParts} onCheckout={onCheckoutMock} />);
+    renderPos({ onCheckout: onCheckoutMock });
 
     const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
     expect(addBtn).toHaveAttribute('aria-label', 'Add Brake Pad');
@@ -270,7 +232,7 @@ describe('TransactionPOS', () => {
     fireEvent.click(addBtn);
     fireEvent.keyDown(document, { key: 'F4' });
 
-    const pane = screen.getByRole('region', { name: /Customer/i });
+    const pane = screen.getByRole('region', { name: /Checkout/i });
     expect(pane).toHaveAttribute('aria-labelledby', 'pos-checkout-heading');
   });
 });

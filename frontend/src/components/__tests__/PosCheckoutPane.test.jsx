@@ -19,12 +19,10 @@ const renderPane = (props = {}) =>
     />
   );
 
-const goToPayment = async () => {
+const fillCustomerDetails = () => {
   fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Juan Cruz' } });
   fireEvent.change(screen.getByLabelText(/contact number/i), { target: { value: '09171234567' } });
-  fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'juan@example.com' } });
-  fireEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
-  await waitFor(() => expect(screen.getByText(/payment method/i)).toBeInTheDocument());
+  fireEvent.change(screen.getByLabelText(/email \*/i), { target: { value: 'juan@example.com' } });
 };
 
 describe('PosCheckoutPane', () => {
@@ -33,14 +31,14 @@ describe('PosCheckoutPane', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('keeps the two-step flow, starting on customer', () => {
+  it('renders customer details and payment tiles on a single screen', () => {
     renderPane({});
     expect(screen.getByLabelText(/customer name/i)).toBeInTheDocument();
-    expect(screen.getByText(/step 1 of 2/i)).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: /payment method/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/payment method/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^cash$/i })).toBeInTheDocument();
   });
 
-  it('returns to the cart from step one and to step one from step two', async () => {
+  it('returns to the cart on back button click', async () => {
     const onBack = vi.fn();
     renderPane({ onBack });
 
@@ -50,25 +48,29 @@ describe('PosCheckoutPane', () => {
 
   it('labels a quick-tender button with the amount it actually sets', async () => {
     renderPane({ totals: { lineSum: 300, discount: 0, total: 300, vatableSale: 267.86, vatAmount: 32.14 } });
-    await goToPayment();
+    fillCustomerDetails();
     const button = screen.getByRole('button', { name: /^PHP 500\.00$/ });
     fireEvent.click(button);
     expect(screen.getByLabelText(/amount tendered/i)).toHaveValue(500);
   });
 
-  it('blocks continue until name, phone and email are all filled', () => {
+  it('blocks completion until name, phone and email are all filled', () => {
     renderPane();
-    const next = screen.getByRole('button', { name: /continue to payment/i });
-    expect(next).toBeDisabled();
+    const completeBtn = screen.getByRole('button', { name: /complete sale/i });
+    expect(completeBtn).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Juan Cruz' } });
-    expect(next).toBeDisabled();
+    expect(completeBtn).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/contact number/i), { target: { value: '09171234567' } });
-    expect(next).toBeDisabled();
+    expect(completeBtn).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'juan@example.com' } });
-    expect(next).toBeEnabled();
+    fireEvent.change(screen.getByLabelText(/email \*/i), { target: { value: 'juan@example.com' } });
+    // Still disabled because cash tendered (0) < total (1120)
+    expect(completeBtn).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /exact/i }));
+    expect(completeBtn).toBeEnabled();
   });
 
   it('autofills from a repeat-buyer lookup hit', async () => {
@@ -90,13 +92,13 @@ describe('PosCheckoutPane', () => {
     fireEvent.click(screen.getByRole('button', { name: /use maria santos/i }));
     expect(screen.getByLabelText(/customer name/i)).toHaveValue('Maria Santos');
     expect(screen.getByLabelText(/contact number/i)).toHaveValue('09991112222');
-    expect(screen.getByLabelText(/^email$/i)).toHaveValue('maria@example.com');
+    expect(screen.getByLabelText(/email \*/i)).toHaveValue('maria@example.com');
     expect(screen.getByText(/4 previous orders/i)).toBeInTheDocument();
   });
 
   it('computes change for a cash tender', async () => {
     renderPane();
-    await goToPayment();
+    fillCustomerDetails();
 
     fireEvent.change(screen.getByLabelText(/amount tendered/i), { target: { value: '2000' } });
     expect(screen.getByTestId('change-due')).toHaveTextContent('PHP 880.00');
@@ -104,7 +106,7 @@ describe('PosCheckoutPane', () => {
 
   it('blocks confirmation while cash tendered is below the total', async () => {
     renderPane();
-    await goToPayment();
+    fillCustomerDetails();
 
     fireEvent.change(screen.getByLabelText(/amount tendered/i), { target: { value: '500' } });
     expect(screen.getByRole('button', { name: /complete sale/i })).toBeDisabled();
@@ -115,7 +117,7 @@ describe('PosCheckoutPane', () => {
 
   it('fills the exact amount from the exact quick-tap button', async () => {
     renderPane();
-    await goToPayment();
+    fillCustomerDetails();
 
     fireEvent.click(screen.getByRole('button', { name: /exact/i }));
     expect(screen.getByLabelText(/amount tendered/i)).toHaveValue(1120);
@@ -123,23 +125,34 @@ describe('PosCheckoutPane', () => {
 
   it('requires cheque number, bank and date when paying by cheque', async () => {
     renderPane();
-    await goToPayment();
+    fillCustomerDetails();
 
-    fireEvent.click(screen.getByRole('radio', { name: /cheque/i }));
+    fireEvent.click(screen.getByRole('button', { name: /cheque/i }));
     expect(screen.getByRole('button', { name: /complete sale/i })).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/cheque number/i), { target: { value: '000123' } });
-    fireEvent.change(screen.getByLabelText(/^bank$/i), { target: { value: 'BDO' } });
+    fireEvent.change(screen.getByLabelText(/bank name/i), { target: { value: 'BDO' } });
     fireEvent.change(screen.getByLabelText(/cheque date/i), { target: { value: '2026-07-30' } });
 
     expect(screen.getByRole('button', { name: /complete sale/i })).toBeEnabled();
   });
 
+  it('requires GCash reference when paying by GCash', async () => {
+    renderPane();
+    fillCustomerDetails();
+
+    fireEvent.click(screen.getByRole('button', { name: /gcash/i }));
+    expect(screen.getByRole('button', { name: /complete sale/i })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/gcash reference number/i), { target: { value: 'GCASH-998877' } });
+    expect(screen.getByRole('button', { name: /complete sale/i })).toBeEnabled();
+  });
+
   it('does not ask for tender on a bank transfer', async () => {
     renderPane();
-    await goToPayment();
+    fillCustomerDetails();
 
-    fireEvent.click(screen.getByRole('radio', { name: /bank transfer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /bank transfer/i }));
     expect(screen.queryByLabelText(/amount tendered/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /complete sale/i })).toBeEnabled();
   });
@@ -147,7 +160,7 @@ describe('PosCheckoutPane', () => {
   it('submits the full payload on confirm', async () => {
     const onConfirm = vi.fn();
     renderPane({ onConfirm });
-    await goToPayment();
+    fillCustomerDetails();
 
     fireEvent.change(screen.getByLabelText(/amount tendered/i), { target: { value: '2000' } });
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }));
