@@ -125,7 +125,8 @@ export default function TransactionPOS({ parts, onCheckout }) {
       changeGiven: payment.changeGiven,
       chequeNumber: payment.chequeNumber,
       chequeBank: payment.chequeBank,
-      chequeDate: payment.chequeDate
+      chequeDate: payment.chequeDate,
+      gcashReference: payment.gcashReference
     };
 
     const ok = await onCheckout(txData);

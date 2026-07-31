@@ -5,7 +5,8 @@ const METHODS = [
   { id: 'CASH', label: 'Cash' },
   { id: 'BANK_TRANSFER', label: 'Bank Transfer' },
   { id: 'CARD', label: 'Card' },
-  { id: 'CHEQUE', label: 'Cheque' }
+  { id: 'CHEQUE', label: 'Cheque' },
+  { id: 'GCASH', label: 'GCash' }
 ];
 
 const QUICK_TENDER = [500, 1000];
@@ -35,6 +36,7 @@ export default function PosCheckoutPane({
   const [chequeNumber, setChequeNumber] = useState('');
   const [chequeBank, setChequeBank] = useState('');
   const [chequeDate, setChequeDate] = useState('');
+  const [gcashReference, setGcashReference] = useState('');
 
   const [discountInput, setDiscountInput] = useState('');
   const [pin, setPin] = useState('');
@@ -80,7 +82,9 @@ export default function PosCheckoutPane({
       ? tenderedValue >= totals.total
       : paymentMethod === 'CHEQUE'
         ? chequeNumber.trim() !== '' && chequeBank.trim() !== '' && chequeDate !== ''
-        : true;
+        : paymentMethod === 'GCASH'
+          ? gcashReference.trim() !== ''
+          : true;
 
   const handleUnlockDiscount = async () => {
     setPinError('');
@@ -108,7 +112,8 @@ export default function PosCheckoutPane({
       changeGiven,
       chequeNumber: paymentMethod === 'CHEQUE' ? chequeNumber.trim() : null,
       chequeBank: paymentMethod === 'CHEQUE' ? chequeBank.trim() : null,
-      chequeDate: paymentMethod === 'CHEQUE' ? chequeDate : null
+      chequeDate: paymentMethod === 'CHEQUE' ? chequeDate : null,
+      gcashReference: paymentMethod === 'GCASH' ? gcashReference.trim() : null
     });
   };
 
@@ -303,6 +308,21 @@ export default function PosCheckoutPane({
               <label htmlFor="pos-cheque-date" className={labelClass}>Cheque date</label>
               <input id="pos-cheque-date" type="date" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} className={inputClass} />
             </div>
+          </div>
+        )}
+
+        {paymentMethod === 'GCASH' && (
+          <div className={sectionClass}>
+            <label htmlFor="pos-gcash-ref" className={labelClass}>GCash reference number</label>
+            <input
+              id="pos-gcash-ref"
+              type="text"
+              placeholder="e.g. 1234 5678 9012"
+              value={gcashReference}
+              onChange={(e) => setGcashReference(e.target.value)}
+              className={inputClass}
+            />
+            <p className="text-xs text-muted-foreground">Enter the GCash transaction reference from the customer's confirmation.</p>
           </div>
         )}
 

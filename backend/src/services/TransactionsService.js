@@ -94,7 +94,8 @@ class TransactionsService {
       changeGiven,
       chequeNumber,
       chequeBank,
-      chequeDate
+      chequeDate,
+      gcashReference
     } = data;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -202,6 +203,7 @@ class TransactionsService {
           chequeNumber: chequeNumber || null,
           chequeBank: chequeBank || null,
           chequeDate: chequeDate ? new Date(chequeDate) : null,
+          gcashReference: gcashReference || null,
           items: {
             create: items.map(i => ({
               partId: i.partId,
