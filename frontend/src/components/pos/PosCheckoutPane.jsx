@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, User, Phone, EnvelopeSimple, MagnifyingGlass, CheckCircle } from '@phosphor-icons/react';
+import { ArrowLeft, User, Phone, EnvelopeSimple, MagnifyingGlass, CheckCircle, Money, CreditCard, Bank, Receipt, DeviceMobileSpeaker } from '@phosphor-icons/react';
 
 const METHODS = [
-  { id: 'CASH', label: 'Cash' },
-  { id: 'BANK_TRANSFER', label: 'Bank Transfer' },
-  { id: 'CARD', label: 'Card' },
-  { id: 'CHEQUE', label: 'Cheque' },
-  { id: 'GCASH', label: 'GCash' }
+  { id: 'CASH', label: 'Cash', icon: Money },
+  { id: 'CARD', label: 'Card', icon: CreditCard },
+  { id: 'GCASH', label: 'GCash', icon: DeviceMobileSpeaker },
+  { id: 'BANK_TRANSFER', label: 'Bank Transfer', icon: Bank },
+  { id: 'CHEQUE', label: 'Cheque', icon: Receipt }
 ];
 
 const QUICK_TENDER = [500, 1000];
@@ -21,8 +21,6 @@ export default function PosCheckoutPane({
   onDiscountChange,
   submitting
 }) {
-  const [step, setStep] = useState('customer'); // 'customer' | 'payment'
-
   const [lookupTerm, setLookupTerm] = useState('');
   const [lookupResults, setLookupResults] = useState([]);
   const [matchedCustomer, setMatchedCustomer] = useState(null);
@@ -45,8 +43,9 @@ export default function PosCheckoutPane({
 
   const firstFieldRef = useRef(null);
 
-  // Refocus on every step change so the keyboard never strands the cashier.
-  useEffect(() => { firstFieldRef.current?.focus(); }, [step]);
+  useEffect(() => {
+    firstFieldRef.current?.focus();
+  }, []);
 
   // Debounced repeat-buyer lookup.
   useEffect(() => {
@@ -86,6 +85,8 @@ export default function PosCheckoutPane({
           ? gcashReference.trim() !== ''
           : true;
 
+  const canConfirm = customerComplete && paymentComplete && !submitting;
+
   const handleUnlockDiscount = async () => {
     setPinError('');
     const ok = await onVerifyPin(pin);
@@ -103,6 +104,7 @@ export default function PosCheckoutPane({
   };
 
   const handleConfirm = () => {
+    if (!canConfirm) return;
     onConfirm({
       customerName: customerName.trim(),
       customerContact: customerContact.trim(),
@@ -125,21 +127,22 @@ export default function PosCheckoutPane({
 
   return (
     <section aria-labelledby="pos-checkout-heading" className="glass-panel p-5 rounded-2xl flex flex-col gap-4 h-full">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            onClick={() => (step === 'payment' ? setStep('customer') : onBack())}
-            aria-label={step === 'payment' ? 'Back to customer details' : 'Back to cart'}
+            onClick={onBack}
+            aria-label="Back to cart"
             className={`p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground ${pressable}`}
           >
             <ArrowLeft weight="bold" className="w-5 h-5" />
           </button>
           <div className="min-w-0">
             <h3 id="pos-checkout-heading" className="text-lg font-bold text-foreground font-display truncate">
-              {step === 'customer' ? 'Customer' : 'Payment'}
+              Checkout
             </h3>
-            <p className="text-2xs text-muted-foreground">Step {step === 'customer' ? '1' : '2'} of 2</p>
+            <p className="text-2xs text-muted-foreground">Single-screen POS processing</p>
           </div>
         </div>
         <p className="text-right shrink-0">
@@ -150,102 +153,104 @@ export default function PosCheckoutPane({
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-        {step === 'customer' && (<>
-        <div>
-          <label htmlFor="pos-lookup" className={labelClass}>Find returning customer</label>
-          <div className="relative">
-            <MagnifyingGlass weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input
-              ref={firstFieldRef}
-              id="pos-lookup"
-              type="text"
-              aria-label="Find returning customer by phone, name or email"
-              placeholder="Phone, name, or email"
-              value={lookupTerm}
-              onChange={(e) => setLookupTerm(e.target.value)}
-              className={`${inputClass} pl-11`}
-            />
+      {/* Single Scrollable Panel */}
+      <div className="flex-1 overflow-y-auto space-y-5 pr-1">
+        {/* Customer Lookup & Inputs */}
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="pos-lookup" className={labelClass}>Find returning customer</label>
+            <div className="relative">
+              <MagnifyingGlass weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                ref={firstFieldRef}
+                id="pos-lookup"
+                type="text"
+                aria-label="Find returning customer by phone, name or email"
+                placeholder="Phone, name, or email"
+                value={lookupTerm}
+                onChange={(e) => setLookupTerm(e.target.value)}
+                className={`${inputClass} pl-11`}
+              />
+            </div>
+
+            {lookupResults.length > 0 && (
+              <ul className="mt-2 space-y-1.5 border border-border rounded-xl p-2 bg-secondary">
+                {lookupResults.map((c) => (
+                  <li key={c.customerContact}>
+                    <button
+                      type="button"
+                      onClick={() => applyCustomer(c)}
+                      aria-label={`Use ${c.customerName}`}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-background transition-colors"
+                    >
+                      <span className="block text-sm font-bold text-foreground">{c.customerName}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {c.customerContact} · {c.orderCount} {c.orderCount === 1 ? 'order' : 'orders'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          {lookupResults.length > 0 && (
-            <ul className="mt-2 space-y-1.5 border border-border rounded-xl p-2 bg-secondary">
-              {lookupResults.map((c) => (
-                <li key={c.customerContact}>
-                  <button
-                    type="button"
-                    onClick={() => applyCustomer(c)}
-                    aria-label={`Use ${c.customerName}`}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-background transition-colors"
-                  >
-                    <span className="block text-sm font-bold text-foreground">{c.customerName}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {c.customerContact} · {c.orderCount} {c.orderCount === 1 ? 'order' : 'orders'}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {matchedCustomer && (
+            <p className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle weight="fill" className="w-4 h-4 shrink-0" />
+              Returning customer, {matchedCustomer.orderCount} previous orders.
+            </p>
           )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative sm:col-span-2">
+              <label htmlFor="pos-name" className={labelClass}>Customer name *</label>
+              <User weight="bold" className="absolute left-4 top-[2.4rem] w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input id="pos-name" type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={`${inputClass} pl-11`} />
+            </div>
+            <div className="relative">
+              <label htmlFor="pos-contact" className={labelClass}>Contact number *</label>
+              <Phone weight="bold" className="absolute left-4 top-[2.4rem] w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input id="pos-contact" type="tel" value={customerContact} onChange={(e) => setCustomerContact(e.target.value)} className={`${inputClass} pl-11`} />
+            </div>
+            <div className="relative">
+              <label htmlFor="pos-email" className={labelClass}>Email *</label>
+              <EnvelopeSimple weight="bold" className="absolute left-4 top-[2.4rem] w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input id="pos-email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={`${inputClass} pl-11`} />
+            </div>
+          </div>
         </div>
 
-        {matchedCustomer && (
-          <p className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <CheckCircle weight="fill" className="w-4 h-4 shrink-0" />
-            Returning customer, {matchedCustomer.orderCount} previous orders.
-          </p>
-        )}
-
-        <div className={sectionClass}>
-          <div className="relative">
-            <label htmlFor="pos-name" className={labelClass}>Customer name</label>
-            <User weight="bold" className="absolute left-4 top-[2.4rem] w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input id="pos-name" type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={`${inputClass} pl-11`} />
-          </div>
-          <div className="relative">
-            <label htmlFor="pos-contact" className={labelClass}>Contact number</label>
-            <Phone weight="bold" className="absolute left-4 top-[2.4rem] w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input id="pos-contact" type="tel" value={customerContact} onChange={(e) => setCustomerContact(e.target.value)} className={`${inputClass} pl-11`} />
-          </div>
-          <div className="relative">
-            <label htmlFor="pos-email" className={labelClass}>Email</label>
-            <EnvelopeSimple weight="bold" className="absolute left-4 top-[2.4rem] w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input id="pos-email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={`${inputClass} pl-11`} />
-          </div>
-          <p className="text-xs text-muted-foreground">All three are required so this customer is recognised next visit.</p>
-        </div>
-        </>)}
-
-        {step === 'payment' && (<>
+        {/* Payment Method Tap Tiles */}
         <fieldset className={sectionClass}>
-          <legend className={labelClass}>Payment method</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {METHODS.map((m) => (
-              <label
-                key={m.id}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
-                  paymentMethod === m.id
-                    ? 'border-accent bg-accent/10 text-foreground'
-                    : 'border-border bg-secondary text-muted-foreground hover:border-accent/40'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="pos-payment-method"
-                  value={m.id}
-                  checked={paymentMethod === m.id}
-                  onChange={() => setPaymentMethod(m.id)}
-                  className="accent-current"
-                />
-                <span className="text-sm font-bold">{m.label}</span>
-              </label>
-            ))}
+          <legend className={labelClass}>Payment Method</legend>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {METHODS.map((m) => {
+              const Icon = m.icon;
+              const active = paymentMethod === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPaymentMethod(m.id)}
+                  aria-pressed={active}
+                  className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-center transition-all ${pressable} ${
+                    active
+                      ? 'border-accent bg-accent/15 text-accent font-bold ring-2 ring-accent/30'
+                      : 'border-border bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <Icon weight={active ? "fill" : "bold"} className="w-6 h-6" />
+                  <span className="text-xs font-semibold leading-tight">{m.label}</span>
+                </button>
+              );
+            })}
           </div>
         </fieldset>
 
+        {/* Method Specific Fields */}
         {paymentMethod === 'CASH' && (
           <div className={sectionClass}>
-            <label htmlFor="pos-tendered" className={labelClass}>Amount tendered</label>
+            <label htmlFor="pos-tendered" className={labelClass}>Amount Tendered</label>
             <input
               id="pos-tendered"
               type="number"
@@ -297,15 +302,15 @@ export default function PosCheckoutPane({
         {paymentMethod === 'CHEQUE' && (
           <div className={sectionClass}>
             <div>
-              <label htmlFor="pos-cheque-no" className={labelClass}>Cheque number</label>
+              <label htmlFor="pos-cheque-no" className={labelClass}>Cheque Number *</label>
               <input id="pos-cheque-no" type="text" value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="pos-cheque-bank" className={labelClass}>Bank</label>
+              <label htmlFor="pos-cheque-bank" className={labelClass}>Bank Name *</label>
               <input id="pos-cheque-bank" type="text" value={chequeBank} onChange={(e) => setChequeBank(e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label htmlFor="pos-cheque-date" className={labelClass}>Cheque date</label>
+              <label htmlFor="pos-cheque-date" className={labelClass}>Cheque Date *</label>
               <input id="pos-cheque-date" type="date" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} className={inputClass} />
             </div>
           </div>
@@ -313,7 +318,7 @@ export default function PosCheckoutPane({
 
         {paymentMethod === 'GCASH' && (
           <div className={sectionClass}>
-            <label htmlFor="pos-gcash-ref" className={labelClass}>GCash reference number</label>
+            <label htmlFor="pos-gcash-ref" className={labelClass}>GCash Reference Number *</label>
             <input
               id="pos-gcash-ref"
               type="text"
@@ -322,12 +327,13 @@ export default function PosCheckoutPane({
               onChange={(e) => setGcashReference(e.target.value)}
               className={inputClass}
             />
-            <p className="text-xs text-muted-foreground">Enter the GCash transaction reference from the customer's confirmation.</p>
+            <p className="text-xs text-muted-foreground">Enter the GCash transaction reference from customer confirmation screen.</p>
           </div>
         )}
 
+        {/* Supervisor Discount Section */}
         <div className={sectionClass}>
-          <span className={labelClass}>Discount</span>
+          <span className={labelClass}>Supervisor Discount</span>
           {!discountUnlocked ? (
             <div className="space-y-2">
               <div className="flex gap-2">
@@ -370,28 +376,17 @@ export default function PosCheckoutPane({
             </div>
           )}
         </div>
-        </>)}
       </div>
 
-      {step === 'customer' ? (
-        <button
-          type="button"
-          onClick={() => setStep('payment')}
-          disabled={!customerComplete}
-          className={`w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold ${pressable} disabled:active:scale-100`}
-        >
-          Continue to payment
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={!paymentComplete || submitting}
-          className={`w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold ${pressable} disabled:active:scale-100`}
-        >
-          {submitting ? 'Completing sale' : 'Complete sale'}
-        </button>
-      )}
+      {/* Confirm Action Button */}
+      <button
+        type="button"
+        onClick={handleConfirm}
+        disabled={!canConfirm}
+        className={`w-full py-4 rounded-xl bg-accent hover:bg-accent/90 disabled:bg-secondary disabled:text-muted-foreground text-white text-base font-bold ${pressable} disabled:active:scale-100 shadow-md`}
+      >
+        {submitting ? 'Completing sale...' : 'Complete sale'}
+      </button>
     </section>
   );
 }
