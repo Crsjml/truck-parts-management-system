@@ -1,12 +1,13 @@
 // backend/src/routes/transactions.js
 import express from 'express';
 import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
+import { validate } from '../middleware/validate.js';
 import transactionsController from '../controllers/TransactionsController.js';
 
 const router = express.Router();
 
 // POST /api/transactions — requires login
-router.post('/', requireAuth, transactionsController.createTransaction);
+router.post('/', requireAuth, validate('transactions'), transactionsController.createTransaction);
 
 // GET /api/transactions/mine - customer order history
 router.get('/mine', requireAuth, transactionsController.getMyTransactions);

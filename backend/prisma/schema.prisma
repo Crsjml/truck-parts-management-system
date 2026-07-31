@@ -20,6 +20,7 @@ enum PaymentMethod {
   BANK_TRANSFER
   CARD
   CHEQUE
+  GCASH
 }
 
 model Category {
@@ -155,9 +156,10 @@ model Transaction {
   processedBy    String        @default("")
   amountTendered Float?
   changeGiven    Float?
-  chequeNumber   String?
-  chequeBank     String?
-  chequeDate     DateTime?
+  chequeNumber     String?
+  chequeBank       String?
+  chequeDate       DateTime?
+  gcashReference   String?
 
   items TransactionItem[]
 

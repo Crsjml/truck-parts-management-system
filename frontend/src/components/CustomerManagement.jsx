@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, Plus, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank } from '@phosphor-icons/react';
+import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, Plus, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions } from '../authStore';
 
@@ -13,7 +13,7 @@ const STATUS_STYLE = {
   CANCELLED: 'bg-red-500/10 text-red-600 dark:text-red-400',
   PENDING: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
 };
-const PAYMENT_ICON = { CASH: Money, CARD: CreditCard, CHEQUE: Bank, ONLINE: Globe };
+const PAYMENT_ICON = { CASH: Money, CARD: CreditCard, CHEQUE: Bank, ONLINE: Globe, GCASH: DeviceMobileSpeaker };
 
 export default function CustomerManagement({ showToast }) {
   const [tab, setTab] = useState('online');
