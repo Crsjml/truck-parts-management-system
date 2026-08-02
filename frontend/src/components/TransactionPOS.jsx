@@ -42,12 +42,10 @@ export default function TransactionPOS({ parts, onCheckout }) {
     }
   }, []);
 
-  // Warnings are transient — they must never persist into the next customer.
+  // Warnings are persistent until dismissed or the transaction is cleared.
   useEffect(() => {
-    if (!warning) return;
-    const timer = setTimeout(() => setWarning(null), 4000);
-    return () => clearTimeout(timer);
-  }, [warning]);
+    if (cart.length === 0) setWarning(null);
+  }, [cart.length]);
 
   const availableFor = useCallback(
     (partId) => {
@@ -193,12 +191,12 @@ export default function TransactionPOS({ parts, onCheckout }) {
   return (
     <div
       ref={posContainerRef}
-      className={`space-y-4 animate-fadeIn ${
-        isFullscreen ? 'bg-background p-6 overflow-y-auto h-screen w-screen fixed inset-0 z-50' : ''
+      className={`space-y-4 animate-fadeIn flex flex-col ${
+        isFullscreen ? 'bg-background p-6 h-screen w-screen fixed inset-0 z-50' : ''
       }`}
     >
       {/* Shell Action Bar / Header */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Register POS</span>
           <span className="px-2 py-0.5 text-2xs font-bold rounded-md bg-secondary border border-border text-foreground">
@@ -224,8 +222,8 @@ export default function TransactionPOS({ parts, onCheckout }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 items-stretch">
-        <div className="xl:col-span-3">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 items-stretch flex-1 min-h-0">
+        <div className="xl:col-span-3 h-full min-h-0">
           <PosCatalogPanel
             parts={parts}
             cart={cart}
@@ -235,7 +233,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
           />
         </div>
 
-        <div className="xl:col-span-2 flex flex-col gap-4">
+        <div className="xl:col-span-2 flex flex-col gap-4 h-full min-h-0">
           {lastTx && (
             <PosSaleComplete
               tx={lastTx}
@@ -264,6 +262,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
               totals={totals}
               formatCurrency={formatBaseCurrency}
               warning={warning}
+              onDismissWarning={() => setWarning(null)}
             />
           )}
         </div>

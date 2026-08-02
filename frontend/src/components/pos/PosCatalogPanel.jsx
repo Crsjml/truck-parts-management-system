@@ -101,7 +101,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
   return (
     <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row gap-4 h-full">
       {/* Left Category Rail */}
-      <aside className="w-full md:w-36 shrink-0 border-b md:border-b-0 md:border-r border-border pb-3 md:pb-0 md:pr-3 flex md:flex-col gap-1.5 overflow-x-auto md:overflow-y-auto max-h-[140px] md:max-h-full hide-scrollbar">
+      <aside className="w-full min-w-[120px] md:w-48 lg:w-56 md:max-w-[40%] md:resize-x shrink-0 border-b md:border-b-0 md:border-r border-border pb-3 md:pb-0 md:pr-3 flex md:flex-col gap-1.5 overflow-x-auto md:overflow-y-auto max-h-[140px] md:max-h-full hide-scrollbar">
         <button
           type="button"
           onClick={() => handleCategorySelect('ALL')}
@@ -113,7 +113,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
           }`}
         >
           <SquaresFour weight="bold" className="w-4 h-4 shrink-0" />
-          <span className="truncate">All</span>
+          <span className="break-words whitespace-normal leading-tight">All</span>
         </button>
 
         {categories.map((cat) => {
@@ -132,7 +132,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
               }`}
             >
               <Icon weight="bold" className="w-4 h-4 shrink-0" />
-              <span className="truncate">{cat}</span>
+              <span className="break-words whitespace-normal leading-tight">{cat}</span>
             </button>
           );
         })}
@@ -142,7 +142,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
       <div className="flex-1 flex flex-col gap-3 min-w-0">
         {/* Header & Results count */}
         <div className="flex items-center justify-between pb-2 border-b border-border">
-          <h3 className="text-base font-bold text-foreground font-display">Find a Part</h3>
+          <h3 className="text-base font-bold text-foreground">Find a Part</h3>
           <span className="text-xs font-mono text-muted-foreground">
             {filtered.length === 0
               ? '0 results'
@@ -161,6 +161,12 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
             placeholder="Part name, SKU, or OEM number…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                document.getElementById('part-btn-0')?.focus();
+              }
+            }}
             className="w-full bg-secondary border border-border rounded-xl pl-10 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
           />
           <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-background border border-border text-2xs font-mono font-bold text-muted-foreground pointer-events-none">
@@ -228,7 +234,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {currentItems.map((part) => {
+              {currentItems.map((part, index) => {
                 const inCart = cart.find((i) => i.id === part.id);
                 const available = part.stock - (part.reservedStock || 0);
                 const remaining = available - (inCart ? inCart.quantity : 0);
@@ -237,8 +243,26 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
                 return (
                   <button
                     key={part.id}
+                    id={`part-btn-${index}`}
                     type="button"
                     onClick={() => canAdd && onAddToCart(part)}
+                    onKeyDown={(e) => {
+                      const isTwoCol = window.innerWidth >= 640; // sm breakpoint
+                      let nextIndex = index;
+                      if (e.key === 'ArrowRight') nextIndex = index + 1;
+                      else if (e.key === 'ArrowLeft') nextIndex = index - 1;
+                      else if (e.key === 'ArrowDown') nextIndex = index + (isTwoCol ? 2 : 1);
+                      else if (e.key === 'ArrowUp') nextIndex = index - (isTwoCol ? 2 : 1);
+                      else return;
+
+                      if (nextIndex >= 0 && nextIndex < currentItems.length) {
+                        e.preventDefault();
+                        document.getElementById(`part-btn-${nextIndex}`)?.focus();
+                      } else if (nextIndex < 0) {
+                        e.preventDefault();
+                        searchInputRef.current?.focus();
+                      }
+                    }}
                     aria-label={`Add ${part.name}`}
                     aria-disabled={!canAdd}
                     className={`p-3 rounded-xl border flex flex-col justify-between gap-2 text-left transition-colors ${

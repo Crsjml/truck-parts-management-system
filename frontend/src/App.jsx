@@ -278,6 +278,41 @@ export default function App() {
     return () => window.removeEventListener('customerTransactionsUpdate', handleTransactionUpdate);
   }, [isLoaded, isSignedIn, adminSession?.user?.staffData]);
 
+  // Admin Keyboard Shortcuts
+  useEffect(() => {
+    if (!adminSession) return;
+    const handleKeyDown = (e) => {
+      // Don't trigger if user is typing in an input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+      
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case '1': e.preventDefault(); setPage('dashboard'); break;
+          case '2': e.preventDefault(); setPage('catalog'); break;
+          case '3': e.preventDefault(); setPage('pos'); break;
+          case '4': e.preventDefault(); setPage('analytics'); break;
+          case '5': e.preventDefault(); setPage('categories'); break;
+          case '6': e.preventDefault(); setPage('purchasing'); break;
+          case '7': e.preventDefault(); setPage('customers'); break;
+          case '8': 
+            if (adminSession?.user?.staffData?.role === 'SUPERADMIN') {
+              e.preventDefault(); 
+              setPage('staff'); 
+            }
+            break;
+          case '9': 
+            if (adminSession?.user?.staffData?.role === 'SUPERADMIN') {
+              e.preventDefault(); 
+              setIsSettingsModalOpen(true); 
+            }
+            break;
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [adminSession]);
+
   const addLog = (type, message) => {
     const newLog = {
       id: `L-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -512,6 +547,9 @@ export default function App() {
   }
 
 
+
+
+
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
@@ -535,8 +573,8 @@ export default function App() {
               onClick={() => setPage('dashboard')}
               title="Dashboard Overview"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <SquaresFour weight="duotone" className="w-5 h-5 shrink-0" />
@@ -547,8 +585,8 @@ export default function App() {
               onClick={() => setPage('catalog')}
               title="Parts Inventory"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <Package weight="duotone" className="w-5 h-5 shrink-0" />
@@ -559,8 +597,8 @@ export default function App() {
               onClick={() => setPage('pos')}
               title="Sales POS Entry"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <ShoppingCart weight="duotone" className="w-5 h-5 shrink-0" />
@@ -571,8 +609,8 @@ export default function App() {
               onClick={() => setPage('analytics')}
               title="Sales Analytics"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <ChartBar weight="duotone" className="w-5 h-5 shrink-0" />
@@ -583,8 +621,8 @@ export default function App() {
               onClick={() => setPage('categories')}
               title="Category Management"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <Tag weight="duotone" className="w-5 h-5 shrink-0" />
@@ -595,8 +633,8 @@ export default function App() {
               onClick={() => setPage('purchasing')}
               title="Purchasing"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <Buildings weight="duotone" className="w-5 h-5 shrink-0" />
@@ -607,8 +645,8 @@ export default function App() {
               onClick={() => setPage('customers')}
               title="Customer Management"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <UsersThree weight="duotone" className="w-5 h-5 shrink-0" />
@@ -622,8 +660,8 @@ export default function App() {
                   onClick={() => setPage('staff')}
                   title="Staff Management"
                   className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff'
-                    ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                    ? 'bg-accent/15 text-accent border border-accent/20'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                     }`}
                 >
                   <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
@@ -632,7 +670,7 @@ export default function App() {
                 <button
                   onClick={() => setIsSettingsModalOpen(true)}
                   title="System Settings"
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent`}
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent`}
                 >
                   <Gear weight="duotone" className="w-5 h-5 shrink-0" />
                   {!isSidebarCollapsed && <span>System Settings</span>}
@@ -643,30 +681,30 @@ export default function App() {
           </nav>
         </div>
 
-        <div className={`shrink-0 border-t border-border flex flex-col bg-background/50 backdrop-blur-md transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
+        <div className={`shrink-0 border-t border-border flex flex-col bg-secondary/30 transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
           <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
             <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
               {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                 <img
                   src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
                   alt="Profile"
-                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover shadow-inner bg-secondary`}
+                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover bg-secondary`}
                 />
               ) : (
-                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner`}>
+                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold`}>
                   <User weight="duotone" className="w-5 h-5" />
                 </div>
               )}
               {!isSidebarCollapsed && (
                 <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                  <span className="text-2xs text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
+                  <span className="text-sm font-semibold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                  <span className="text-xs text-muted-foreground">System Admin</span>
                 </div>
               )}
             </div>
             {!isSidebarCollapsed && (
-              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg" title="Active Connection secure">
-                <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
+              <div className="p-1.5 text-emerald-500/70" title="Active Connection secure">
+                <ShieldCheck weight="duotone" className="w-5 h-5" />
               </div>
             )}
           </div>
@@ -693,7 +731,7 @@ export default function App() {
                     setPage('dashboard');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <SquaresFour weight="duotone" className="w-5 h-5" />
@@ -704,7 +742,7 @@ export default function App() {
                     setPage('catalog');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Package weight="duotone" className="w-5 h-5" />
@@ -715,7 +753,7 @@ export default function App() {
                     setPage('pos');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <ShoppingCart weight="duotone" className="w-5 h-5" />
@@ -726,7 +764,7 @@ export default function App() {
                     setPage('analytics');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <ChartBar weight="duotone" className="w-5 h-5" />
@@ -737,7 +775,7 @@ export default function App() {
                     setPage('categories');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Tag weight="duotone" className="w-5 h-5" />
@@ -748,7 +786,7 @@ export default function App() {
                     setPage('purchasing');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Buildings weight="duotone" className="w-5 h-5" />
@@ -759,78 +797,62 @@ export default function App() {
                     setPage('customers');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <UsersThree weight="duotone" className="w-5 h-5" />
                   Customer Management
                 </button>
-                <button
-                  onClick={() => {
-                    setPage('account');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'account' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <User weight="duotone" className="w-5 h-5" />
-                  My Account
-                </button>
-
-                {/* SUPER ADMIN ONLY: Staff Management (Mobile) */}
+                {/* SUPER ADMIN ONLY: Staff Management & Settings */}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
-                  <button
-                    onClick={() => {
-                      setPage('staff');
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                      }`}
-                  >
-                    <ShieldCheck weight="duotone" className="w-5 h-5" />
-                    Staff Management
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setPage('staff');
+                        setIsSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                        }`}
+                    >
+                      <ShieldCheck weight="duotone" className="w-5 h-5" />
+                      Staff Management
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsSettingsModalOpen(true);
+                        setIsSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground`}
+                    >
+                      <Gear weight="duotone" className="w-5 h-5" />
+                      System Settings
+                    </button>
+                  </>
                 )}
               </nav>
             </div>
 
-            <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col gap-3 bg-secondary/30">
-              <div className="flex items-center justify-between">
+            <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col bg-secondary/30">
+              <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-3">
                   {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                     <img
                       src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
                       alt="Profile"
-                      className="w-8 h-8 rounded-full border border-border object-cover shadow-inner bg-secondary"
+                      className="w-10 h-10 rounded-full border border-border object-cover bg-secondary"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
+                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold">
                       <User weight="duotone" className="w-5 h-5" />
                     </div>
                   )}
                   <div className="flex flex-col text-left">
-                    <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                    <span className="text-3xs text-muted-foreground uppercase font-semibold">System Admin</span>
+                    <span className="text-sm font-semibold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                    <span className="text-xs text-muted-foreground">System Admin</span>
                   </div>
                 </div>
-                <div className="p-1 px-2 bg-emerald-500/10 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-2xs rounded border border-emerald-500/30 dark:border-emerald-800/30">Secure</div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Sent RFQs</span>
-                  <span className="text-sm font-black text-cyan-500">{myRfqStats.sent}</span>
-                </div>
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Late RFQs</span>
-                  <span className="text-sm font-black text-orange-500">{myRfqStats.lateRfq}</span>
-                </div>
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Not Acknowledged</span>
-                  <span className="text-sm font-black text-amber-500">{myRfqStats.notAck}</span>
-                </div>
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Late Receipt</span>
-                  <span className="text-sm font-black text-red-500">{myRfqStats.lateReceipt}</span>
+                <div className="p-1.5 text-emerald-500/70" title="Active Connection secure">
+                  <ShieldCheck weight="duotone" className="w-5 h-5" />
                 </div>
               </div>
             </div>
