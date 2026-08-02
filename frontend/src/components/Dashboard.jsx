@@ -1,19 +1,27 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Package, TrendUp, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText } from '@phosphor-icons/react';
+import { Package, TrendUp, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle } from '@phosphor-icons/react';
 
 export default function Dashboard({ parts, transactions, logs, setPage, setSelectedCategory }) {
   const { formatCurrency, formatCompactCurrency, displayCurrency } = useSettings();
   // Calculations
   const totalParts = parts.length;
   const inventoryValue = parts.reduce((sum, item) => sum + (item.price * item.stock), 0);
-  const lowStockItems = parts.filter(item => item.stock <= item.minStock);
+  const lowStockItems = parts
+    .filter(item => item.stock <= item.minStock)
+    .map(item => ({
+      ...item,
+      deficit: item.minStock - item.stock,
+      severity: item.stock === 0 ? 'critical' : 'warning'
+    }))
+    .sort((a, b) => b.deficit - a.deficit);
+  const hasCriticalStock = lowStockItems.some(item => item.severity === 'critical');
   const totalRevenue = transactions.reduce((sum, tx) => sum + tx.total, 0);
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-accent">
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-2">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground font-display">
@@ -77,17 +85,17 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         </div>
 
         {/* Low Stock Alerts */}
-        <div className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 ${lowStockItems.length > 0 ? 'border-t-accent/50' : 'border-t-border'}`}>
+        <div className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 ${lowStockItems.length > 0 ? (hasCriticalStock ? 'border-t-destructive/50' : 'border-t-accent/50') : 'border-t-border'}`}>
           <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Stock Warnings</span>
-            <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? 'text-red-500 glow-text-red' : 'text-muted-foreground'}`}>
+            <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? (hasCriticalStock ? 'text-destructive' : 'text-accent') : 'text-muted-foreground'}`}>
               {lowStockItems.length}
             </h3>
             <p className="text-xs text-muted-foreground truncate">
               {lowStockItems.length > 0 ? 'Requires action' : 'All well-stocked'}
             </p>
           </div>
-          <div className={`shrink-0 ml-3 p-3 rounded-xl border ${lowStockItems.length > 0 ? 'bg-red-950/20 text-red-500 border-red-500/25 animate-pulse' : 'bg-secondary text-muted-foreground border-border'}`}>
+          <div className={`shrink-0 ml-3 p-3 rounded-xl border ${lowStockItems.length > 0 ? (hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/25' : 'bg-accent/10 text-accent border-accent/25') : 'bg-secondary text-muted-foreground border-border'}`}>
             <Warning weight="duotone" className="w-6 h-6" />
           </div>
         </div>
@@ -109,15 +117,15 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
 
       {/* Main Content Dashboard Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Side: Low Stock Items Table */}
-        <div className="glass-panel p-5 rounded-2xl lg:col-span-2 space-y-4">
+        {/* Watchlist Table */}
+        <div className="glass-panel p-5 rounded-2xl lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-foreground font-display">Low-Stock Watchlist</h3>
               <p className="text-xs text-muted-foreground">Warehouse items falling below safety threshold levels.</p>
             </div>
             {lowStockItems.length > 0 && (
-              <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-red-500/10 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-500/30 dark:border-red-800/40">
+              <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20'}`}>
                 Action Needed
               </span>
             )}
@@ -125,43 +133,61 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
 
           <div className="overflow-x-auto">
             {lowStockItems.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground text-sm">
-                No low stock warnings. All inventory looks healthy!
+              <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+                <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
+                  <CheckCircle weight="duotone" className="w-8 h-8" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Stable stock</p>
+                <p className="text-xs text-muted-foreground max-w-[250px]">No low stock warnings. All warehouse inventory levels are healthy.</p>
               </div>
             ) : (
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="text-muted-foreground text-xs font-semibold uppercase border-b border-border">
-                    <th className="py-3 px-2">Part Name</th>
-                    <th className="py-3 px-2">SKU</th>
-                    <th className="py-3 px-2 text-center">Current</th>
-                    <th className="py-3 px-2 text-center">Min Stock</th>
-                    <th className="py-3 px-2 text-right">Unit Price</th>
+                    <th className="py-3 px-2">Part</th>
+                    <th className="py-3 px-2 text-right">Deficit</th>
+                    <th className="py-3 px-2 text-center">Stock</th>
+                    <th className="py-3 px-2 text-center">Min</th>
+                    <th className="py-3 px-2 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {lowStockItems.slice(0, 5).map((part) => (
-                    <tr 
-                      key={part.id} 
-                      onDoubleClick={() => {
-                        setSelectedCategory('All');
-                        setPage('catalog');
-                        setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
-                      }}
-                      className="bg-red-500/5 dark:bg-red-950/20 hover:bg-red-500/10 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
-                      title="Double-click to restock in Inventory"
-                    >
-                      <td className="py-3 px-2 font-medium text-foreground max-w-[200px] truncate">{part.name}</td>
-                      <td className="py-3 px-2 text-xs font-mono text-muted-foreground">{part.sku}</td>
-                      <td className="py-3 px-2 text-center">
-                        <span className="px-2 py-0.5 rounded-full bg-red-500/15 dark:bg-red-950 text-red-700 dark:text-red-400 font-bold border border-red-500/30 dark:border-red-900/40">
-                          {part.stock}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-center text-muted-foreground">{part.minStock}</td>
-                      <td className="py-3 px-2 text-right font-medium text-foreground">{formatCurrency(part.price)}</td>
-                    </tr>
-                  ))}
+                  {lowStockItems.slice(0, 5).map((part) => {
+                    const isCritical = part.severity === 'critical';
+                    const rowBg = isCritical ? 'bg-destructive/5 dark:bg-destructive/10' : 'bg-accent/5 dark:bg-accent/10';
+                    const badgeBg = isCritical ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20';
+                    const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
+                    
+                    return (
+                      <tr key={part.id} className={`${rowBg} transition-colors`}>
+                        <td className="py-3 px-2">
+                          <div className="font-medium text-foreground max-w-[250px] truncate">{part.name}</div>
+                          <div className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</div>
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <span className={`text-lg font-bold font-display ${deficitColor}`}>-{part.deficit}</span>
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-md font-bold border ${badgeBg}`}>
+                            {part.stock}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-center text-muted-foreground">{part.minStock}</td>
+                        <td className="py-3 px-2 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedCategory('All');
+                              setPage('catalog');
+                              setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
+                            }}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+                          >
+                            Restock <ArrowRight weight="bold" className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -174,7 +200,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                 setPage('catalog');
                 setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
               }}
-              className="w-full flex items-center justify-center gap-1 py-2 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-950/10 rounded-lg transition-colors"
+              className={`w-full flex items-center justify-center gap-1 py-2 text-xs font-bold rounded-lg transition-colors ${hasCriticalStock ? 'text-destructive hover:bg-destructive/10' : 'text-accent hover:bg-accent/10'}`}
             >
               View all {lowStockItems.length} warnings
               <ArrowRight weight="duotone" className="w-3.5 h-3.5" />
@@ -182,8 +208,8 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
           )}
         </div>
 
-        {/* Right Side: System Logs / Activity Stream */}
-        <div className="glass-panel p-5 rounded-2xl flex flex-col justify-between space-y-4">
+        {/* System Logs / Activity Stream */}
+        <div className="glass-panel p-5 rounded-2xl lg:col-span-3 flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-border">
               <Clock weight="duotone" className="w-5 h-5 text-brandBlue-400" />
