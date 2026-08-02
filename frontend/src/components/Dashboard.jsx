@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Package, TrendUp, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle } from '@phosphor-icons/react';
+import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle } from '@phosphor-icons/react';
+import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
 
 export default function Dashboard({ parts, transactions, logs, setPage, setSelectedCategory }) {
   const { formatCurrency, formatCompactCurrency, displayCurrency } = useSettings();
@@ -16,19 +17,30 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
     }))
     .sort((a, b) => b.deficit - a.deficit);
   const hasCriticalStock = lowStockItems.some(item => item.severity === 'critical');
-  const totalRevenue = transactions.reduce((sum, tx) => sum + tx.total, 0);
+  const criticalCount = lowStockItems.filter(item => item.severity === 'critical').length;
+  const warningCount = lowStockItems.filter(item => item.severity === 'warning').length;
+
+  const salesKpis = useMemo(() => {
+    const range = resolvePeriod('7d');
+    const current = inRange(transactions, range.start, range.end);
+    const previous = inRange(transactions, range.prevStart, range.prevEnd);
+    return computeKpis(current, previous);
+  }, [transactions]);
+
+  const updatedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-2">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground font-display">
             System Overview
           </h1>
           <p className="text-muted-foreground max-w-xl text-sm md:text-base leading-relaxed">
-            Welcome to the Tarlac Truck Pitstop Management System. Monitor warehouse inventory levels, log customer transactions, and track sales revenue here.
+            {lowStockItems.length > 0
+              ? `${criticalCount} critical · ${warningCount} low stock · updated ${updatedTime}`
+              : `All systems healthy · updated ${updatedTime}`}
           </p>
         </div>
         
@@ -57,35 +69,67 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Total Catalog Items */}
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-brandBlue-400 transition-all duration-300">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedCategory('All');
+            setPage('catalog');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedCategory('All');
+              setPage('catalog');
+            }
+          }}
+          className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           <div className="space-y-2 min-w-0">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Catalog Parts</span>
             <h3 className="text-3xl font-bold text-foreground font-display truncate">{totalParts}</h3>
             <p className="text-xs text-muted-foreground truncate">Listed components</p>
           </div>
-          <div className="shrink-0 p-3 bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 rounded-xl border border-brandBlue-500/30 dark:border-brandBlue-700/30">
+          <div className="shrink-0 p-3 bg-secondary text-muted-foreground rounded-xl border border-border">
             <Package weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Total Inventory Value */}
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-emerald-500/30 transition-all duration-300">
+        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border">
           <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Asset Value</span>
             <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatCurrency(inventoryValue)}>
               {formatCompactCurrency(inventoryValue)}
             </h3>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
-              <TrendUp weight="duotone" className="w-3.5 h-3.5 shrink-0" /> Stable stock
+            <p className="text-xs text-muted-foreground truncate">
+              Current snapshot
             </p>
           </div>
-          <div className="shrink-0 ml-3 p-3 bg-emerald-500/10 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 dark:border-emerald-500/20">
+          <div className="shrink-0 ml-3 p-3 bg-secondary text-muted-foreground rounded-xl border border-border">
             <CurrencyDollar weight="duotone" className="w-6 h-6" />
           </div>
         </div>
 
         {/* Low Stock Alerts */}
-        <div className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 ${lowStockItems.length > 0 ? (hasCriticalStock ? 'border-t-destructive/50' : 'border-t-accent/50') : 'border-t-border'}`}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSelectedCategory('All');
+            setPage('catalog');
+            setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedCategory('All');
+              setPage('catalog');
+              setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
+            }
+          }}
+          className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${lowStockItems.length > 0 ? (hasCriticalStock ? 'border-t-destructive/50' : 'border-t-accent/50') : 'border-t-border'}`}
+        >
           <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Stock Warnings</span>
             <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? (hasCriticalStock ? 'text-destructive' : 'text-accent') : 'text-muted-foreground'}`}>
@@ -101,15 +145,33 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         </div>
 
         {/* Total Sales Value */}
-        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border hover:border-t-amber-500/30 transition-all duration-300">
+        <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border">
           <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Invoiced Sales</span>
-            <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatCurrency(totalRevenue)}>
-              {formatCompactCurrency(totalRevenue)}
+            <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatCurrency(salesKpis.revenue)}>
+              {formatCompactCurrency(salesKpis.revenue)}
             </h3>
-            <p className="text-xs text-muted-foreground truncate">{transactions.length} invoices generated</p>
+            <p className="text-xs truncate">
+              {salesKpis.deltas.revenue !== null ? (
+                salesKpis.deltas.revenue > 0 ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <TrendUp weight="duotone" className="w-3.5 h-3.5 shrink-0" />
+                    +{salesKpis.deltas.revenue.toFixed(1)}% vs prev 7d
+                  </span>
+                ) : salesKpis.deltas.revenue < 0 ? (
+                  <span className="text-destructive flex items-center gap-1">
+                    <TrendDown weight="duotone" className="w-3.5 h-3.5 shrink-0" />
+                    {salesKpis.deltas.revenue.toFixed(1)}% vs prev 7d
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">0.0% vs prev 7d</span>
+                )
+              ) : (
+                <span className="text-muted-foreground">New (last 7d)</span>
+              )}
+            </p>
           </div>
-          <div className="shrink-0 ml-3 p-3 bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 rounded-xl border border-amber-500/30 dark:border-amber-700/30">
+          <div className="shrink-0 ml-3 p-3 bg-secondary text-muted-foreground rounded-xl border border-border">
             <FileText weight="duotone" className="w-6 h-6" />
           </div>
         </div>
