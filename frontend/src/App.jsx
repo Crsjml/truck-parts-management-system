@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree, SignOut } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import AuthPortal from './components/AuthPortal';
@@ -43,6 +43,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const { toasts, showToast, dismissToast } = useToast();
+
+  const pageTitles = {
+    dashboard: 'Dashboard Overview',
+    catalog: 'Parts Inventory',
+    pos: 'Sales POS Entry',
+    analytics: 'Sales Analytics',
+    categories: 'Category Management',
+    purchasing: 'Purchasing',
+    customers: 'Customer Management',
+    staff: 'Staff Management',
+    account: 'My Account'
+  };
   const [supabaseUser, setSupabaseUser] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -69,6 +81,7 @@ export default function App() {
   });
 
   const [initialNotice, setInitialNotice] = useState('');
+  const [serverStatus, setServerStatus] = useState('checking');
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -149,6 +162,25 @@ export default function App() {
       staffData: supabaseUser.staffData
     }
   } : null;
+
+  useEffect(() => {
+    if (!adminSession) return;
+    let isMounted = true;
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/api/health', { headers: { 'Cache-Control': 'no-cache' } });
+        if (isMounted) setServerStatus(res.ok ? 'online' : 'offline');
+      } catch {
+        if (isMounted) setServerStatus('offline');
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [adminSession]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -682,30 +714,42 @@ export default function App() {
         </div>
 
         <div className={`shrink-0 border-t border-border flex flex-col bg-secondary/30 transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
-          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
-            <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-2'}`}>
+            <div 
+              onClick={() => setPage('account')}
+              className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}
+              title="My Account"
+            >
               {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                 <img
                   src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
                   alt="Profile"
-                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover bg-secondary`}
+                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover bg-secondary shrink-0`}
                 />
               ) : (
-                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold`}>
+                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shrink-0`}>
                   <User weight="duotone" className="w-5 h-5" />
                 </div>
               )}
               {!isSidebarCollapsed && (
-                <div className="flex flex-col text-left">
-                  <span className="text-sm font-semibold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                  <span className="text-xs text-muted-foreground">System Admin</span>
+                <div className="flex flex-col text-left overflow-hidden">
+                  <span className="text-sm font-semibold text-foreground truncate max-w-[120px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                  <div className="mt-0.5">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
+                      {adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'STAFF'}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
             {!isSidebarCollapsed && (
-              <div className="p-1.5 text-emerald-500/70" title="Active Connection secure">
-                <ShieldCheck weight="duotone" className="w-5 h-5" />
-              </div>
+              <button
+                onClick={() => handleLogout('admin')}
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
+                title="Logout"
+              >
+                <SignOut weight="duotone" className="w-5 h-5" />
+              </button>
             )}
           </div>
         </div>
@@ -833,27 +877,42 @@ export default function App() {
             </div>
 
             <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col bg-secondary/30">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between w-full gap-2">
+                <div 
+                  onClick={() => {
+                    setPage('account');
+                    setIsSidebarOpen(false);
+                  }}
+                  className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                  title="My Account"
+                >
                   {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                     <img
                       src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
                       alt="Profile"
-                      className="w-10 h-10 rounded-full border border-border object-cover bg-secondary"
+                      className="w-10 h-10 rounded-full border border-border object-cover bg-secondary shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold">
+                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shrink-0">
                       <User weight="duotone" className="w-5 h-5" />
                     </div>
                   )}
-                  <div className="flex flex-col text-left">
-                    <span className="text-sm font-semibold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                    <span className="text-xs text-muted-foreground">System Admin</span>
+                  <div className="flex flex-col text-left overflow-hidden">
+                    <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                    <div className="mt-0.5">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
+                        {adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'STAFF'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="p-1.5 text-emerald-500/70" title="Active Connection secure">
-                  <ShieldCheck weight="duotone" className="w-5 h-5" />
-                </div>
+                <button
+                  onClick={() => handleLogout('admin')}
+                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
+                  title="Logout"
+                >
+                  <SignOut weight="duotone" className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </aside>
@@ -872,29 +931,33 @@ export default function App() {
               <List weight="duotone" className="w-5 h-5" />
             </button>
 
-            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground font-semibold bg-secondary px-3 py-1.5 rounded-lg border border-border">
-              <CalendarBlank weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>
+            <h1 className="text-lg lg:text-xl font-bold font-display tracking-tight text-foreground">
+              {pageTitles[page] || 'Dashboard'}
+            </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4">
             <button
               onClick={() => setIsAlertDrawerOpen(true)}
               className="relative p-2 hover:bg-secondary rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all group"
+              aria-label="Notifications"
             >
               <Bell weight="duotone" className="w-4.5 h-4.5" />
               {lowStockCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-3xs font-extrabold text-white rounded-full flex items-center justify-center animate-bounce shadow-md shadow-accent/35">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-3xs font-extrabold text-white rounded-full flex items-center justify-center shadow-md shadow-accent/35 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] scale-100 group-hover:scale-110">
                   {lowStockCount}
                 </span>
               )}
             </button>
 
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="font-mono text-muted-foreground text-2xs">TTP-SERVER: ACTIVE</span>
-            </div>
+            {serverStatus !== 'checking' && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs transition-opacity duration-500">
+                <div className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-muted-foreground' : 'bg-accent'}`} />
+                <span className="font-mono text-muted-foreground text-2xs">
+                  {serverStatus === 'online' ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}
+                </span>
+              </div>
+            )}
 
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -902,22 +965,6 @@ export default function App() {
               aria-label="Toggle Dark Mode"
             >
               {isDarkMode ? <Sun weight="duotone" className="w-4 h-4" /> : <Moon weight="duotone" className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={() => setPage('account')}
-              className={`p-2 rounded-xl border border-border transition-all ${page === 'account' ? 'bg-accent/15 text-accent border-accent' : 'bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              aria-label="My Account"
-            >
-              <User weight="duotone" className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => handleLogout('admin')}
-              className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-border hover:bg-secondary hover:text-foreground"
-            >
-              Logout
             </button>
           </div>
         </header>
