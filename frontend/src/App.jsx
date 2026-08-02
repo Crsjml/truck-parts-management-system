@@ -10,6 +10,7 @@ import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 import ToastNotification, { useToast } from './components/ToastNotification';
 import UpdatePasswordModal from './components/UpdatePasswordModal';
 import CompleteProfileModal from './components/CompleteProfileModal';
+import { Drawer } from './components/ui/Drawer';
 
 // Lazy loaded page modules to optimize initial bundle size
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -95,7 +96,7 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const handleUserChange = async (currentUser) => {
+    const handleUserChange = async (currentUser, event = 'INITIAL_SESSION') => {
       invalidateToken();
       if (currentUser) {
         // Google is pre-verified by the provider — don't gate it on email_confirmed_at,
@@ -127,7 +128,23 @@ export default function App() {
           currentUser.staffData = staffData;
         }
 
-        if (userRole === 'admin') setActiveView('admin-app');
+        if (userRole === 'admin') {
+          setActiveView('admin-app');
+          if (event === 'SIGNED_IN') {
+             setLogs((prev) => {
+               if (prev.some(l => l.type === 'auth' && l.message === `${email} logged in` && (new Date() - new Date(l.timestamp) < 2000))) {
+                 return prev;
+               }
+               return [{
+                 id: `L-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                 timestamp: new Date().toISOString(),
+                 type: 'auth',
+                 message: `${email} logged in`,
+                 meta: null
+               }, ...prev];
+             });
+          }
+        }
         else setActiveView('storefront'); // Go directly to storefront
       } else {
         setSupabaseUser(null);
@@ -139,7 +156,7 @@ export default function App() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setToken(session?.access_token || null);
-      handleUserChange(session?.user || null);
+      handleUserChange(session?.user || null, 'INITIAL_SESSION');
     };
     checkSession();
 
@@ -148,7 +165,7 @@ export default function App() {
         setActiveView('update-password');
       }
       setToken(session?.access_token || null);
-      handleUserChange(session?.user || null);
+      handleUserChange(session?.user || null, event);
     });
 
     return () => subscription.unsubscribe();
@@ -345,12 +362,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [adminSession]);
 
-  const addLog = (type, message) => {
+  const addLog = (type, message, meta = null) => {
     const newLog = {
       id: `L-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
       type,
-      message
+      message,
+      meta
     };
     setLogs((prev) => [newLog, ...prev]);
   };
@@ -359,17 +377,22 @@ export default function App() {
     const result = await createPart(partData);
     if (result.ok) {
       setParts((prev) => [...prev, result.part]);
-      addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`);
+      addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`, { sku: result.part.sku });
     } else {
       alert(`Error adding part: ${result.error}`);
     }
   };
 
   const handleEditPart = async (id, updatedData) => {
+    const partBefore = parts.find(p => p.id === id);
     const result = await updatePart(id, updatedData);
     if (result.ok) {
       setParts((prev) => prev.map((part) => (part.id === id ? result.part : part)));
-      addLog('stock', `Part item (ID: ${id}) SKU '${result.part.sku}' details updated.`);
+      if (updatedData.adjustmentReason) {
+        addLog('stock', `Stock adjusted for '${result.part.name}': ${partBefore?.stock ?? 0} → ${result.part.stock} (reason: ${updatedData.adjustmentReason})`, { sku: result.part.sku });
+      } else {
+        addLog('stock', `Part item (ID: ${id}) SKU '${result.part.sku}' details updated.`, { sku: result.part.sku });
+      }
     } else {
       alert(`Error updating part: ${result.error}`);
     }
@@ -397,7 +420,7 @@ export default function App() {
     // Backend sync
     const res = await updatePart(id, { stock: newStock });
     if (res.ok) {
-      addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`);
+      addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`, { sku: part.sku });
     } else {
       addLog('system', `Error restocking: ${res.error}`);
       alert(`Restock failed: ${res.error}`);
@@ -414,7 +437,6 @@ export default function App() {
     // Backend sync
     const res = await createTransaction(txData);
     if (res.ok) {
-      addLog('sales', `Processed sale: ${txData.invoiceNumber} for ${txData.total}.`);
       // Re-sync all parts from backend to ensure accurate stock
       const updatedParts = await fetchParts();
       setParts(updatedParts);
@@ -427,6 +449,9 @@ export default function App() {
   };
 
   const handleLogout = async (role) => {
+    if (role === 'admin' || role === 'SUPERADMIN' || role === 'STAFF') {
+      addLog('auth', 'Staff logged out');
+    }
     await supabase.auth.signOut();
     setActiveView('storefront');
   };
@@ -502,7 +527,7 @@ export default function App() {
   };
 
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock);
+  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock).sort((a, b) => (b.minStock - b.stock) - (a.minStock - a.stock));
   const lowStockCount = lowStockParts.length;
 
   if (!isLoaded) {
@@ -931,33 +956,41 @@ export default function App() {
               <List weight="duotone" className="w-5 h-5" />
             </button>
 
-            <h1 className="text-lg lg:text-xl font-bold font-display tracking-tight text-foreground">
-              {pageTitles[page] || 'Dashboard'}
-            </h1>
+            <div className="flex flex-col">
+              <h1 className="text-lg lg:text-xl font-bold font-display tracking-tight text-foreground leading-tight">
+                {pageTitles[page] || 'Dashboard'}
+              </h1>
+              
+              {/* Consolidated Status Cluster */}
+              <div className="flex items-center gap-1.5 mt-0.5" aria-live="polite" aria-atomic="true">
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  serverStatus === 'checking' ? 'bg-amber-500 animate-pulse' :
+                  serverStatus === 'online' ? 'bg-emerald-500' : 'bg-destructive'
+                }`} />
+                <span className="font-mono text-muted-foreground text-[10px] tracking-wider uppercase">
+                  {serverStatus === 'checking' ? 'Connecting...' : 
+                   serverStatus === 'online' ? 'System Online' : 
+                   <button onClick={() => window.location.reload()} className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-2 cursor-pointer">Offline - Click to Retry</button>}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
+
             <button
               onClick={() => setIsAlertDrawerOpen(true)}
               className="relative p-2 hover:bg-secondary rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all group"
               aria-label="Notifications"
+              aria-expanded={isAlertDrawerOpen}
             >
               <Bell weight="duotone" className="w-4.5 h-4.5" />
               {lowStockCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-3xs font-extrabold text-white rounded-full flex items-center justify-center shadow-md shadow-accent/35 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] scale-100 group-hover:scale-110">
-                  {lowStockCount}
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-destructive text-3xs font-extrabold text-white rounded-md flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] scale-100 group-hover:scale-110">
+                  {lowStockCount > 99 ? '99+' : lowStockCount}
                 </span>
               )}
             </button>
-
-            {serverStatus !== 'checking' && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs transition-opacity duration-500">
-                <div className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-muted-foreground' : 'bg-accent'}`} />
-                <span className="font-mono text-muted-foreground text-2xs">
-                  {serverStatus === 'online' ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}
-                </span>
-              </div>
-            )}
 
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1036,84 +1069,80 @@ export default function App() {
       </div>
 
       {/* Alert Notification Drawer */}
-      <AnimatePresence>
-        {isAlertDrawerOpen && (
-          <div className="fixed inset-0 z-[100] flex justify-end">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsAlertDrawerOpen(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: '100%', opacity: 0.5 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0.5 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-sm h-full bg-background border-l border-border shadow-2xl flex flex-col"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <Bell weight="duotone" className="w-5 h-5 text-accent" />
-                  <h2 className="text-lg font-bold text-foreground font-display">Alert Notifications</h2>
-                </div>
-                <button onClick={() => setIsAlertDrawerOpen(false)} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground transition-colors">
-                  <X weight="bold" className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {lowStockParts.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-70">
-                    <CheckCircle weight="duotone" className="w-12 h-12 mb-2 text-emerald-500" />
-                    <p className="text-sm font-semibold">All Stock is Healthy</p>
-                    <p className="text-xs text-center mt-1">No parts are below their minimum threshold.</p>
-                  </div>
-                ) : (
-                  lowStockParts.map(part => (
-                    <div key={part.id} className="p-4 bg-secondary border border-border rounded-xl shadow-sm space-y-3 relative overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-accent"></div>
-                      <div className="flex justify-between items-start pl-2">
-                        <div className="pr-4">
-                          <h3 className="text-sm font-bold text-foreground leading-tight">{part.name}</h3>
-                          <p className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</p>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs font-bold text-accent px-2 py-0.5 bg-accent/10 rounded-full">Low Stock</span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 pl-2">
-                        <div className="p-2 bg-background rounded-lg border border-border">
-                          <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
-                          <div className="text-lg font-bold text-foreground">{part.stock}</div>
-                        </div>
-                        <div className="p-2 bg-background rounded-lg border border-border">
-                          <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
-                          <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setIsAlertDrawerOpen(false);
-                          setPage('purchasing');
-                        }}
-                        className="w-full mt-2 ml-2 py-1.5 bg-foreground hover:bg-foreground/90 text-background text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
-                        Restock Now
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
+      <Drawer
+        isOpen={isAlertDrawerOpen}
+        onClose={() => setIsAlertDrawerOpen(false)}
+        labelledBy="alert-drawer-heading"
+        panelClassName="fixed top-0 right-0 w-full max-w-sm h-full bg-background border-l border-border flex flex-col"
+        panelVariants={{
+          initial: { x: '100%', opacity: 0.5 },
+          animate: { x: 0, opacity: 1 },
+          exit: { x: '100%', opacity: 0.5 },
+          transition: { ease: 'easeOut', duration: 0.18 },
+        }}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Bell weight="duotone" className="w-5 h-5 text-accent" />
+            <h2 id="alert-drawer-heading" className="text-lg font-bold text-foreground font-display">Low Stock Alerts</h2>
           </div>
-        )}
-      </AnimatePresence>
+          <button onClick={() => setIsAlertDrawerOpen(false)} aria-label="Close notifications" className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground transition-colors">
+            <X weight="bold" className="w-4 h-4" />
+          </button>
+        </div>
+
+        <ul aria-live="polite" aria-atomic="false" className="list-none flex-1 overflow-y-auto p-5 space-y-4">
+          {lowStockParts.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-70">
+              <CheckCircle weight="duotone" className="w-12 h-12 mb-2 text-emerald-500" />
+              <p className="text-sm font-semibold">All Stock is Healthy</p>
+              <p className="text-xs text-center mt-1">No parts are below their minimum threshold.</p>
+            </div>
+          ) : (
+            lowStockParts.map(part => (
+              <li key={part.id} className="p-4 bg-secondary border border-border rounded-xl space-y-3 relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-1 h-full bg-destructive"></div>
+                <div className="flex justify-between items-start pl-2">
+                  <div className="pr-4">
+                    <h3 className="text-sm font-bold text-foreground leading-tight">{part.name}</h3>
+                    <p className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-bold text-destructive px-2 py-0.5 bg-destructive/10 rounded-md">Low Stock</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pl-2">
+                  <div className="p-2 bg-background rounded-lg border border-border">
+                    <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
+                    <div className="text-lg font-bold text-foreground">{part.stock}</div>
+                  </div>
+                  <div className="p-2 bg-background rounded-lg border border-border">
+                    <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
+                    <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsAlertDrawerOpen(false);
+                    setSelectedCategory('All');
+                    setPage('catalog');
+                    setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
+                  }}
+                  className="w-full mt-2 ml-2 py-1.5 bg-foreground hover:bg-foreground/90 text-background text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
+                  Restock Now
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </Drawer>
 
       {/* System Settings Modal */}
       {isSettingsModalOpen && (
         <Suspense fallback={null}>
-          <AdminSettings onClose={() => setIsSettingsModalOpen(false)} />
+          <AdminSettings onClose={() => setIsSettingsModalOpen(false)} onAddLog={addLog} />
         </Suspense>
       )}
 
