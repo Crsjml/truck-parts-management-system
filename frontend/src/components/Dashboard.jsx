@@ -28,6 +28,14 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
   }, [transactions]);
 
   const updatedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatActivityTime = (timestamp) => {
+    const d = new Date(timestamp);
+    const timeString = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (d.toDateString() === new Date().toDateString()) {
+      return timeString;
+    }
+    return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeString}`;
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -187,8 +195,10 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
               <p className="text-xs text-muted-foreground">Warehouse items falling below safety threshold levels.</p>
             </div>
             {lowStockItems.length > 0 && (
-              <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20'}`}>
-                Action Needed
+              <span className={`px-2.5 py-1 text-xs font-bold rounded-full border flex items-center gap-1.5 ${hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20'}`}>
+                {criticalCount > 0 && <span>{criticalCount} critical</span>}
+                {criticalCount > 0 && warningCount > 0 && <span className="opacity-50">·</span>}
+                {warningCount > 0 && <span>{warningCount} low</span>}
               </span>
             )}
           </div>
@@ -208,20 +218,17 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   <tr className="text-muted-foreground text-xs font-semibold uppercase border-b border-border">
                     <th className="py-3 px-2">Part</th>
                     <th className="py-3 px-2 text-right">Deficit</th>
-                    <th className="py-3 px-2 text-center">Stock</th>
-                    <th className="py-3 px-2 text-center">Min</th>
+                    <th className="py-3 px-2 text-center">Stock / Min</th>
                     <th className="py-3 px-2 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {lowStockItems.slice(0, 5).map((part) => {
                     const isCritical = part.severity === 'critical';
-                    const rowBg = isCritical ? 'bg-destructive/5 dark:bg-destructive/10' : 'bg-accent/5 dark:bg-accent/10';
-                    const badgeBg = isCritical ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20';
                     const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
                     
                     return (
-                      <tr key={part.id} className={`${rowBg} transition-colors`}>
+                      <tr key={part.id} className="transition-colors hover:bg-secondary/60">
                         <td className="py-3 px-2">
                           <div className="font-medium text-foreground max-w-[250px] truncate">{part.name}</div>
                           <div className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</div>
@@ -229,12 +236,11 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                         <td className="py-3 px-2 text-right">
                           <span className={`text-lg font-bold font-display ${deficitColor}`}>-{part.deficit}</span>
                         </td>
-                        <td className="py-3 px-2 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-md font-bold border ${badgeBg}`}>
-                            {part.stock}
-                          </span>
+                        <td className="py-3 px-2 text-center font-mono">
+                          <span className="font-medium text-foreground">{part.stock}</span>
+                          <span className="text-muted-foreground opacity-50 mx-1.5">/</span>
+                          <span className="font-medium text-muted-foreground">{part.minStock}</span>
                         </td>
-                        <td className="py-3 px-2 text-center text-muted-foreground">{part.minStock}</td>
                         <td className="py-3 px-2 text-right">
                           <button
                             onClick={() => {
@@ -274,11 +280,11 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         <div className="glass-panel p-5 rounded-2xl lg:col-span-3 flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-border">
-              <Clock weight="duotone" className="w-5 h-5 text-brandBlue-400" />
+              <Clock weight="duotone" className="w-5 h-5 text-accent" />
               <h3 className="text-lg font-bold text-foreground font-display">Recent Activities</h3>
             </div>
             
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+            <ul aria-live="polite" aria-atomic="false" className="space-y-4 max-h-[300px] overflow-y-auto pr-1 list-none">
               {(() => {
                 const combinedLogs = [
                   ...logs,
@@ -286,12 +292,20 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                     id: `tx-${tx.id}`,
                     timestamp: tx.transactionDate || tx.createdAt,
                     type: 'sale',
-                    message: `Sale completed for ${tx.customerName || 'Walk-in'} (${formatCurrency(tx.total)})`
+                    message: `Sale completed for ${tx.customerName || 'Walk-in'} (${tx.items?.length ?? 0} item${(tx.items?.length ?? 0) === 1 ? '' : 's'}, ${formatCurrency(tx.total)})`
                   }))
                 ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 20);
 
                 if (combinedLogs.length === 0) {
-                  return <div className="text-sm text-muted-foreground py-4 text-center">No recent activities found.</div>;
+                  return (
+                    <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+                      <div className="p-3 bg-secondary text-muted-foreground rounded-full border border-border">
+                        <Clock weight="duotone" className="w-8 h-8" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">No activity yet</p>
+                      <p className="text-xs text-muted-foreground max-w-[250px]">Sales, stock changes, and system events will show up here.</p>
+                    </div>
+                  );
                 }
 
                 return combinedLogs.map((log) => {
@@ -299,30 +313,49 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   if (log.type === "sale") badgeColor = "bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 dark:border-emerald-800/35";
                   if (log.type === "stock") badgeColor = "bg-brandBlue-500/10 dark:bg-brandBlue-900/40 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/30 dark:border-brandBlue-700/30";
                   if (log.type === "system") badgeColor = "bg-indigo-500/10 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 dark:border-indigo-800/35";
+                  if (log.type === "auth") badgeColor = "bg-violet-500/10 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 border-violet-500/30 dark:border-violet-800/35";
+                  if (log.type === "purchasing") badgeColor = "bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-500/30 dark:border-amber-800/35";
+
+                  const goToItem = log.type === "sale"
+                    ? () => setPage('analytics')
+                    : log.type === "stock" && log.meta?.sku
+                      ? () => {
+                          setSelectedCategory('All');
+                          setPage('catalog');
+                          setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: log.meta.sku })), 50);
+                        }
+                      : null;
 
                   return (
-                    <div key={log.id} className="flex gap-3 text-xs leading-relaxed group">
+                    <li
+                      key={log.id}
+                      role={goToItem ? "button" : undefined}
+                      tabIndex={goToItem ? 0 : undefined}
+                      onClick={goToItem ?? undefined}
+                      onKeyDown={goToItem ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          goToItem();
+                        }
+                      } : undefined}
+                      className={`flex gap-3 text-xs leading-relaxed group ${goToItem ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg -mx-1 px-1' : ''}`}
+                    >
                       <span className={`px-2 py-0.5 rounded border self-start shrink-0 capitalize ${badgeColor}`}>
                         {log.type}
                       </span>
                       <div className="space-y-1">
-                        <p className="text-muted-foreground group-hover:text-foreground transition-colors">{log.message}</p>
+                        <p className={`text-muted-foreground transition-colors ${goToItem ? 'group-hover:text-accent' : 'group-hover:text-foreground'}`}>{log.message}</p>
                         <span className="text-2xs text-muted-foreground font-mono">
-                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatActivityTime(log.timestamp)}
                         </span>
                       </div>
-                    </div>
+                    </li>
                   );
                 });
               })()}
-            </div>
+            </ul>
           </div>
-          
-          <div className="pt-2 border-t border-border">
-            <div className="p-3 bg-secondary rounded-xl border border-border text-muted-foreground text-xs">
-              <span className="font-bold text-muted-foreground">Quick Tip:</span> Use the <span className="font-mono text-muted-foreground">New Transaction</span> panel to generate and download customer PDF sales invoices instantly.
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
