@@ -1125,433 +1125,433 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         menuPortalTarget={document.body}
                         isClearable
                         isSearchable
-                        classNamePrefix="react-select"
+                        classNamePrefix="react-selec
                       />
                     </div>
                   </div>
                   <div className="flex border-b border-border pb-1">
-                    <label className="w-1/3 font-bold text-foreground">Source RFQ</label>
-                    <input type="text" disabled={!!viewingPo} value={poForm.sourceRfq} onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })} placeholder="RFQ reference..." className="w-2/3 bg-transparent focus:outline-none text-foreground font-mono text-sm" />
+                      <label className="w-1/3 font-bold text-foreground">Source RFQ</label>
+                      <input type="text" disabled={!!viewingPo} value={poForm.sourceRfq} onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })} placeholder="RFQ reference..." className="w-2/3 bg-transparent focus:outline-none text-foreground font-mono text-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex border-b border-border pb-1">
+                      <label className="w-1/3 font-bold text-foreground">Order Date</label>
+                      <span className="w-2/3 text-foreground">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center border-b border-border pb-1">
+                      <label className="w-1/3 font-bold text-foreground">Expected Arrival</label>
+                      <div className="w-2/3 flex items-center gap-2">
+                        <input
+                          id="po-expected-date"
+                          disabled={!!viewingPo}
+                          type="date"
+                          value={poForm.expectedDeliveryDate}
+                          onChange={e => setPoForm({ ...poForm, expectedDeliveryDate: e.target.value })}
+                          className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
+                        />
+                        {!viewingPo && (
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('po-expected-date')?.showPicker?.()}
+                            className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
+                            title="Open calendar"
+                          >
+                            <CalendarBlank weight="duotone" className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {viewingPo?.confirmationDate && (
+                      <div className="flex border-b border-border pb-1">
+                        <label className="w-1/3 font-bold text-foreground">Confirmed On</label>
+                        <span className="w-2/3 text-foreground">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex border-b border-border pb-1">
-                    <label className="w-1/3 font-bold text-foreground">Order Date</label>
-                    <span className="w-2/3 text-foreground">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center border-b border-border pb-1">
-                    <label className="w-1/3 font-bold text-foreground">Expected Arrival</label>
-                    <div className="w-2/3 flex items-center gap-2">
-                      <input
-                        id="po-expected-date"
-                        disabled={!!viewingPo}
-                        type="date"
-                        value={poForm.expectedDeliveryDate}
-                        onChange={e => setPoForm({ ...poForm, expectedDeliveryDate: e.target.value })}
-                        className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
-                      />
+
+                {/* Items table */}
+                <div className="border-b border-border mb-4 flex"><button className="border-b-2 border-accent text-accent font-bold pb-2 text-sm">Products</button></div>
+                <div className="min-h-[200px]">
+                  <table className="w-full text-left text-sm whitespace-nowrap mb-4">
+                    <thead><tr className="border-b-2 border-border text-muted-foreground">
+                      <th className="py-2 px-2 font-bold w-1/2">Product</th>
+                      <th className="py-2 px-2 font-bold text-right w-1/6">Qty</th>
+                      <th className="py-2 px-2 font-bold text-right w-1/6">Unit Price</th>
+                      <th className="py-2 px-2 font-bold text-right w-1/6">Subtotal</th>
+                      {!viewingPo && <th className="w-8" />}
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                      {poForm.items.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-secondary/50">
+                          <td className="py-2 px-2 font-medium">[{item.sku}] {item.name}</td>
+                          <td className="py-2 px-2 text-right">{item.quantity}</td>
+                          <td className="py-2 px-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                          <td className="py-2 px-2 text-right font-bold">{formatCurrency(item.subtotal)}</td>
+                          {!viewingPo && <td className="py-2 px-2 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
+                        </tr>
+                      ))}
                       {!viewingPo && (
-                        <button
-                          type="button"
-                          onClick={() => document.getElementById('po-expected-date')?.showPicker?.()}
-                          className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
-                          title="Open calendar"
-                        >
-                          <CalendarBlank weight="duotone" className="w-4 h-4" />
-                        </button>
+                        <tr><td colSpan="5" className="py-2">
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="w-1/2">
+                              <Select
+                                styles={customSelectStyles}
+                                menuPortalTarget={document.body}
+                                placeholder="Type to search product..."
+                                value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel) || {}).sku}] ${(parts.find(p => p.id === poPartSel) || {}).name}` } : null}
+                                onChange={(option) => setPoPartSel(option ? option.value : '')}
+                                options={(parts || []).filter(p => !p.archived).map(p => ({
+                                  value: p.id,
+                                  label: `[${p.sku}] ${p.name}`
+                                }))}
+                                isClearable
+                                isSearchable
+                              />
+                            </div>
+                            <div className="flex items-center bg-secondary border border-border rounded-lg overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => setPoQty(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
+                                className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                                title="Decrease quantity"
+                              >
+                                <Minus weight="bold" className="w-3.5 h-3.5" />
+                              </button>
+                              <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-14 bg-transparent px-1 py-2 text-sm focus:outline-none text-center text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                              <button
+                                type="button"
+                                onClick={() => setPoQty(prev => String((parseInt(prev) || 0) + 1))}
+                                className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                                title="Increase quantity"
+                              >
+                                <Plus weight="bold" className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <button onClick={addPoItem} className="px-3 py-1.5 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
+                          </div>
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                  <div className="flex justify-between items-start mt-4 pt-4 border-t border-border">
+                    <div className="w-1/2">
+                      <label className="block text-xs font-bold text-muted-foreground mb-1">Notes</label>
+                      <textarea disabled={!!viewingPo} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} className="w-full bg-transparent border border-border rounded-lg p-2 focus:ring-1 focus:ring-accent text-sm resize-none h-16 focus:outline-none" />
+                    </div>
+                    <div className="w-1/3 flex flex-col items-end gap-4">
+                      <div className="w-full flex justify-between font-bold text-lg text-foreground pt-2 border-t border-border">
+                        <span>Total</span>
+                        <span>{formatCurrency(poForm.items.reduce((s, i) => s + i.subtotal, 0))}</span>
+                      </div>
+                      {!viewingPo ? (
+                        <div className="flex gap-2 justify-end w-full">
+                          <button
+                            type="button"
+                            onClick={() => setIsPoModalOpen(false)}
+                            className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
+                          >
+                            Discard
+                          </button>
+                          <button
+                            type="button"
+                            onClick={savePo}
+                            className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
+                          >
+                            Save Draft
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 justify-end w-full">
+                          <button
+                            type="button"
+                            onClick={() => generatePDF(viewingPo)}
+                            className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
+                            title="Download PDF"
+                          >
+                            <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
+                          </button>
+
+                          {viewingPo.status === 'Draft' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Confirm Order
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Send RFQ
+                              </button>
+                            </>
+                          )}
+
+                          {viewingPo.status === 'RFQ Sent' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Confirm Order
+                              </button>
+                            </>
+                          )}
+
+                          {viewingPo.status === 'Confirmed' && (
+                            <>
+                              {viewingPo.billingStatus === 'Waiting Bills' && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
+                                >
+                                  Mark Bills Received
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
+                              >
+                                Receive Products
+                              </button>
+                            </>
+                          )}
+
+                          {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
+                            <button
+                              type="button"
+                              onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                              className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
+                            >
+                              Mark Bills Received
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
-                  {viewingPo?.confirmationDate && (
-                    <div className="flex border-b border-border pb-1">
-                      <label className="w-1/3 font-bold text-foreground">Confirmed On</label>
-                      <span className="w-2/3 text-foreground">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>, document.body
+      )}
+
+          {/* ── PRODUCT PROFILE MODAL ── */}
+          {isProductModalOpen && createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+              <div className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shadow-inner">
+                      <Package weight="duotone" className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-foreground leading-tight">{viewingPart ? viewingPart.name : 'New Product'}</h3>
+                      {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider">SKU: {viewingPart.sku}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={saveProduct} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow flex items-center gap-1.5 transition-all active:scale-95">
+                      <CheckCircle weight="bold" className="w-4 h-4" /> Save
+                    </button>
+                    {viewingPart && (
+                      <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); setIsProductModalOpen(false); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                        {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
+                      </button>
+                    )}
+                    {viewingPart && (
+                      <button onClick={() => { if (confirm('Archive this product? It will be hidden but preserved.')) { onDeletePart(viewingPart.id); setIsProductModalOpen(false); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
+                        <Archive weight="bold" className="w-4 h-4" /> Archive
+                      </button>
+                    )}
+                    <button onClick={() => setIsProductModalOpen(false)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg ml-1"><X weight="bold" className="w-5 h-5" /></button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto bg-background p-6 md:p-8">
+                  {/* Stats row */}
+                  {viewingPart && (
+                    <div className="grid grid-cols-4 gap-4 mb-8">
+                      {[
+                        { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground' },
+                        { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
+                        { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400' },
+                        { label: 'In Stock', value: viewingPart.stock, icon: Package, color: viewingPart.stock <= viewingPart.minStock ? 'text-accent' : 'text-foreground', alert: viewingPart.stock <= viewingPart.minStock },
+                        { label: 'Reserved', value: viewingPart.reservedStock || 0, icon: Clock, color: 'text-amber-500', alert: (viewingPart.reservedStock || 0) > 0 },
+                      ].map(s => (
+                        <div key={s.label} className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-accent/50' : 'border-border'}`}>
+                          {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />}
+                          <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                            <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
+                          </span>
+                          <div className={`text-2xl font-extrabold font-display ${s.color}`}>{s.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tabs */}
+                  <div className="flex border-b border-border mb-6">
+                    {[
+                      { key: 'general', label: 'General Information' },
+                      ...(viewingPart ? [{ key: 'sales', label: 'Sales Analytics' }, { key: 'purchases', label: 'Purchase History' }] : []),
+                    ].map(t => (
+                      <button key={t.key} onClick={() => setProductActiveTab(t.key)} className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* General */}
+                  {productActiveTab === 'general' && (
+                    <div className="space-y-8">
+                      {/* Image Upload Area */}
+                      <DragDropImageUploader
+                        image={productForm.image}
+                        onImageUpload={(b64) => setProductForm({ ...productForm, image: b64 })}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                        <div className="space-y-5">
+                          {[
+                            { label: 'Product Name', key: 'name', type: 'text', bold: true },
+                            { label: 'SKU', key: 'sku', type: 'text', mono: true },
+                            { label: 'OEM / MPN', key: 'oem', type: 'text' },
+                          ].map(f => (
+                            <div key={f.key} className="flex flex-col border-b border-border pb-1">
+                              <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
+                              <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
+                                className={`bg-transparent focus:outline-none text-foreground ${f.bold ? 'font-semibold text-lg' : ''} ${f.mono ? 'font-mono' : ''}`} />
+                            </div>
+                          ))}
+                          <div className="flex flex-col border-b border-border pb-1">
+                            <label className="text-xs font-bold text-muted-foreground mb-1">Category</label>
+                            <select value={productForm.category || ''} onChange={e => setProductForm({ ...productForm, category: e.target.value })} className="bg-transparent focus:outline-none text-foreground">
+                              {(categories || []).filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="space-y-5">
+                          {[
+                            { label: 'Unit Price (PHP)', key: 'price', type: 'number' },
+                            { label: 'Current Stock', key: 'stock', type: 'number' },
+                            { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
+                          ].map(f => (
+                            <div key={f.key} className="flex flex-col border-b border-border pb-1">
+                              <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
+                              <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
+                                className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
+                            </div>
+                          ))}
+                          {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
+                            <div className="flex flex-col border-b border-border pb-1">
+                              <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
+                              <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
+                                className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
+                            </div>
+                          )}
+                          {viewingPart && (
+                            <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
+                              <div>
+                                <div className="text-sm font-bold text-foreground">Published</div>
+                                <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
+                              </div>
+                              <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
+                                className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
+                                <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sales */}
+                  {productActiveTab === 'sales' && (
+                    <div className="overflow-x-auto border border-border rounded-lg bg-secondary">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-background border-b border-border text-muted-foreground">
+                          <tr className="uppercase text-xs tracking-wider">
+                            <th className="p-3">Date</th><th className="p-3">Invoice</th><th className="p-3">Customer</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {productSales.map((s, i) => (
+                            <tr key={i} className="hover:bg-background/50">
+                              <td className="p-3 text-muted-foreground">{new Date(s.date).toLocaleDateString()}</td>
+                              <td className="p-3 font-bold text-foreground">{s.invoice}</td>
+                              <td className="p-3">{s.customer}</td>
+                              <td className="p-3 text-right font-bold">{s.qty}</td>
+                              <td className="p-3 text-right text-emerald-500 font-bold">{formatCurrency(s.revenue)}</td>
+                            </tr>
+                          ))}
+                          {productSales.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-muted-foreground">No sales recorded yet.</td></tr>}
+                        </tbody>
+                        {productSales.length > 0 && (
+                          <tfoot className="border-t border-border bg-background">
+                            <tr>
+                              <td colSpan="3" className="p-3 font-bold text-foreground">Total</td>
+                              <td className="p-3 text-right font-black text-foreground">{totalUnitsSold}</td>
+                              <td className="p-3 text-right font-black text-emerald-500">{formatCurrency(totalRevenue)}</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Purchase History */}
+                  {productActiveTab === 'purchases' && (
+                    <div className="overflow-x-auto border border-border rounded-lg bg-secondary">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-background border-b border-border text-muted-foreground">
+                          <tr className="uppercase text-xs tracking-wider">
+                            <th className="p-3">Date</th><th className="p-3">PO Number</th><th className="p-3">Supplier</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {productPurchases.map((p, i) => (
+                            <tr key={i} className="hover:bg-background/50">
+                              <td className="p-3 text-muted-foreground">{new Date(p.date).toLocaleDateString()}</td>
+                              <td className="p-3 font-bold text-foreground font-mono">{p.poNumber}</td>
+                              <td className="p-3">{p.supplier}</td>
+                              <td className="p-3 text-right font-bold">{p.qty}</td>
+                              <td className="p-3 text-right"><StatusBadge status={p.status} /></td>
+                            </tr>
+                          ))}
+                          {productPurchases.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-muted-foreground">No purchase history for this product yet.</td></tr>}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Items table */}
-              <div className="border-b border-border mb-4 flex"><button className="border-b-2 border-accent text-accent font-bold pb-2 text-sm">Products</button></div>
-              <div className="min-h-[200px]">
-                <table className="w-full text-left text-sm whitespace-nowrap mb-4">
-                  <thead><tr className="border-b-2 border-border text-muted-foreground">
-                    <th className="py-2 px-2 font-bold w-1/2">Product</th>
-                    <th className="py-2 px-2 font-bold text-right w-1/6">Qty</th>
-                    <th className="py-2 px-2 font-bold text-right w-1/6">Unit Price</th>
-                    <th className="py-2 px-2 font-bold text-right w-1/6">Subtotal</th>
-                    {!viewingPo && <th className="w-8" />}
-                  </tr></thead>
-                  <tbody className="divide-y divide-border">
-                    {poForm.items.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-secondary/50">
-                        <td className="py-2 px-2 font-medium">[{item.sku}] {item.name}</td>
-                        <td className="py-2 px-2 text-right">{item.quantity}</td>
-                        <td className="py-2 px-2 text-right">{formatCurrency(item.unitPrice)}</td>
-                        <td className="py-2 px-2 text-right font-bold">{formatCurrency(item.subtotal)}</td>
-                        {!viewingPo && <td className="py-2 px-2 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
-                      </tr>
-                    ))}
-                    {!viewingPo && (
-                      <tr><td colSpan="5" className="py-2">
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className="w-1/2">
-                            <Select
-                              styles={customSelectStyles}
-                              menuPortalTarget={document.body}
-                              placeholder="Type to search product..."
-                              value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel) || {}).sku}] ${(parts.find(p => p.id === poPartSel) || {}).name}` } : null}
-                              onChange={(option) => setPoPartSel(option ? option.value : '')}
-                              options={(parts || []).filter(p => !p.archived).map(p => ({
-                                value: p.id,
-                                label: `[${p.sku}] ${p.name}`
-                              }))}
-                              isClearable
-                              isSearchable
-                            />
-                          </div>
-                          <div className="flex items-center bg-secondary border border-border rounded-lg overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => setPoQty(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
-                              className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
-                              title="Decrease quantity"
-                            >
-                              <Minus weight="bold" className="w-3.5 h-3.5" />
-                            </button>
-                            <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-14 bg-transparent px-1 py-2 text-sm focus:outline-none text-center text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                            <button
-                              type="button"
-                              onClick={() => setPoQty(prev => String((parseInt(prev) || 0) + 1))}
-                              className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
-                              title="Increase quantity"
-                            >
-                              <Plus weight="bold" className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <button onClick={addPoItem} className="px-3 py-1.5 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
-                        </div>
-                      </td></tr>
-                    )}
-                  </tbody>
-                </table>
-                <div className="flex justify-between items-start mt-4 pt-4 border-t border-border">
-                  <div className="w-1/2">
-                    <label className="block text-xs font-bold text-muted-foreground mb-1">Notes</label>
-                    <textarea disabled={!!viewingPo} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} className="w-full bg-transparent border border-border rounded-lg p-2 focus:ring-1 focus:ring-accent text-sm resize-none h-16 focus:outline-none" />
-                  </div>
-                  <div className="w-1/3 flex flex-col items-end gap-4">
-                    <div className="w-full flex justify-between font-bold text-lg text-foreground pt-2 border-t border-border">
-                      <span>Total</span>
-                      <span>{formatCurrency(poForm.items.reduce((s, i) => s + i.subtotal, 0))}</span>
-                    </div>
-                    {!viewingPo ? (
-                      <div className="flex gap-2 justify-end w-full">
-                        <button
-                          type="button"
-                          onClick={() => setIsPoModalOpen(false)}
-                          className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
-                        >
-                          Discard
-                        </button>
-                        <button
-                          type="button"
-                          onClick={savePo}
-                          className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
-                        >
-                          Save Draft
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-2 justify-end w-full">
-                        <button
-                          type="button"
-                          onClick={() => generatePDF(viewingPo)}
-                          className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
-                          title="Download PDF"
-                        >
-                          <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
-                        </button>
-
-                        {viewingPo.status === 'Draft' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
-                              className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
-                              className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
-                            >
-                              Confirm Order
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
-                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
-                            >
-                              Send RFQ
-                            </button>
-                          </>
-                        )}
-
-                        {viewingPo.status === 'RFQ Sent' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
-                              className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
-                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
-                            >
-                              Confirm Order
-                            </button>
-                          </>
-                        )}
-
-                        {viewingPo.status === 'Confirmed' && (
-                          <>
-                            {viewingPo.billingStatus === 'Waiting Bills' && (
-                              <button
-                                type="button"
-                                onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
-                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Mark Bills Received
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
-                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
-                            >
-                              Receive Products
-                            </button>
-                          </>
-                        )}
-
-                        {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
-                          <button
-                            type="button"
-                            onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
-                            className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
-                          >
-                            Mark Bills Received
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>, document.body
-      )}
-
-      {/* ── PRODUCT PROFILE MODAL ── */}
-      {isProductModalOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shadow-inner">
-                  <Package weight="duotone" className="w-6 h-6 text-accent" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-foreground leading-tight">{viewingPart ? viewingPart.name : 'New Product'}</h3>
-                  {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider">SKU: {viewingPart.sku}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={saveProduct} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow flex items-center gap-1.5 transition-all active:scale-95">
-                  <CheckCircle weight="bold" className="w-4 h-4" /> Save
-                </button>
-                {viewingPart && (
-                  <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); setIsProductModalOpen(false); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                    {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
-                  </button>
-                )}
-                {viewingPart && (
-                  <button onClick={() => { if (confirm('Archive this product? It will be hidden but preserved.')) { onDeletePart(viewingPart.id); setIsProductModalOpen(false); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
-                    <Archive weight="bold" className="w-4 h-4" /> Archive
-                  </button>
-                )}
-                <button onClick={() => setIsProductModalOpen(false)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg ml-1"><X weight="bold" className="w-5 h-5" /></button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto bg-background p-6 md:p-8">
-              {/* Stats row */}
-              {viewingPart && (
-                <div className="grid grid-cols-4 gap-4 mb-8">
-                  {[
-                    { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground' },
-                    { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
-                    { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400' },
-                    { label: 'In Stock', value: viewingPart.stock, icon: Package, color: viewingPart.stock <= viewingPart.minStock ? 'text-accent' : 'text-foreground', alert: viewingPart.stock <= viewingPart.minStock },
-                    { label: 'Reserved', value: viewingPart.reservedStock || 0, icon: Clock, color: 'text-amber-500', alert: (viewingPart.reservedStock || 0) > 0 },
-                  ].map(s => (
-                    <div key={s.label} className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-accent/50' : 'border-border'}`}>
-                      {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />}
-                      <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
-                        <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
-                      </span>
-                      <div className={`text-2xl font-extrabold font-display ${s.color}`}>{s.value}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Tabs */}
-              <div className="flex border-b border-border mb-6">
-                {[
-                  { key: 'general', label: 'General Information' },
-                  ...(viewingPart ? [{ key: 'sales', label: 'Sales Analytics' }, { key: 'purchases', label: 'Purchase History' }] : []),
-                ].map(t => (
-                  <button key={t.key} onClick={() => setProductActiveTab(t.key)} className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* General */}
-              {productActiveTab === 'general' && (
-                <div className="space-y-8">
-                  {/* Image Upload Area */}
-                  <DragDropImageUploader
-                    image={productForm.image}
-                    onImageUpload={(b64) => setProductForm({ ...productForm, image: b64 })}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                    <div className="space-y-5">
-                      {[
-                        { label: 'Product Name', key: 'name', type: 'text', bold: true },
-                        { label: 'SKU', key: 'sku', type: 'text', mono: true },
-                        { label: 'OEM / MPN', key: 'oem', type: 'text' },
-                      ].map(f => (
-                        <div key={f.key} className="flex flex-col border-b border-border pb-1">
-                          <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
-                          <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
-                            className={`bg-transparent focus:outline-none text-foreground ${f.bold ? 'font-semibold text-lg' : ''} ${f.mono ? 'font-mono' : ''}`} />
-                        </div>
-                      ))}
-                      <div className="flex flex-col border-b border-border pb-1">
-                        <label className="text-xs font-bold text-muted-foreground mb-1">Category</label>
-                        <select value={productForm.category || ''} onChange={e => setProductForm({ ...productForm, category: e.target.value })} className="bg-transparent focus:outline-none text-foreground">
-                          {(categories || []).filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="space-y-5">
-                      {[
-                        { label: 'Unit Price (PHP)', key: 'price', type: 'number' },
-                        { label: 'Current Stock', key: 'stock', type: 'number' },
-                        { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
-                      ].map(f => (
-                        <div key={f.key} className="flex flex-col border-b border-border pb-1">
-                          <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
-                          <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
-                            className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
-                        </div>
-                      ))}
-                      {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
-                        <div className="flex flex-col border-b border-border pb-1">
-                          <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
-                          <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
-                            className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
-                        </div>
-                      )}
-                      {viewingPart && (
-                        <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
-                          <div>
-                            <div className="text-sm font-bold text-foreground">Published</div>
-                            <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
-                          </div>
-                          <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
-                            className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
-                            <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Sales */}
-              {productActiveTab === 'sales' && (
-                <div className="overflow-x-auto border border-border rounded-lg bg-secondary">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-background border-b border-border text-muted-foreground">
-                      <tr className="uppercase text-xs tracking-wider">
-                        <th className="p-3">Date</th><th className="p-3">Invoice</th><th className="p-3">Customer</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {productSales.map((s, i) => (
-                        <tr key={i} className="hover:bg-background/50">
-                          <td className="p-3 text-muted-foreground">{new Date(s.date).toLocaleDateString()}</td>
-                          <td className="p-3 font-bold text-foreground">{s.invoice}</td>
-                          <td className="p-3">{s.customer}</td>
-                          <td className="p-3 text-right font-bold">{s.qty}</td>
-                          <td className="p-3 text-right text-emerald-500 font-bold">{formatCurrency(s.revenue)}</td>
-                        </tr>
-                      ))}
-                      {productSales.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-muted-foreground">No sales recorded yet.</td></tr>}
-                    </tbody>
-                    {productSales.length > 0 && (
-                      <tfoot className="border-t border-border bg-background">
-                        <tr>
-                          <td colSpan="3" className="p-3 font-bold text-foreground">Total</td>
-                          <td className="p-3 text-right font-black text-foreground">{totalUnitsSold}</td>
-                          <td className="p-3 text-right font-black text-emerald-500">{formatCurrency(totalRevenue)}</td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
-              )}
-
-              {/* Purchase History */}
-              {productActiveTab === 'purchases' && (
-                <div className="overflow-x-auto border border-border rounded-lg bg-secondary">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-background border-b border-border text-muted-foreground">
-                      <tr className="uppercase text-xs tracking-wider">
-                        <th className="p-3">Date</th><th className="p-3">PO Number</th><th className="p-3">Supplier</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {productPurchases.map((p, i) => (
-                        <tr key={i} className="hover:bg-background/50">
-                          <td className="p-3 text-muted-foreground">{new Date(p.date).toLocaleDateString()}</td>
-                          <td className="p-3 font-bold text-foreground font-mono">{p.poNumber}</td>
-                          <td className="p-3">{p.supplier}</td>
-                          <td className="p-3 text-right font-bold">{p.qty}</td>
-                          <td className="p-3 text-right"><StatusBadge status={p.status} /></td>
-                        </tr>
-                      ))}
-                      {productPurchases.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-muted-foreground">No purchase history for this product yet.</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>, document.body
-      )}
-    </div>
-  );
+            </div>, document.body
+          )}
+        </div>
+      );
 }
