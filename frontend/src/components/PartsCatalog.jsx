@@ -401,7 +401,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
         {/* TTP-68: Compatibility Filter */}
         <div className="shrink-0">
-          <CompatibilityFilter onFilterChange={setVehicleFilter} />
+          <CompatibilityFilter onFilterChange={setVehicleFilter} vehicleFilter={vehicleFilter} />
         </div>
 
         {/* Spacer to push right actions */}
@@ -676,7 +676,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                     <th className="px-4 py-3">Category</th>
                     <th className="px-4 py-3 text-right">Pricing (Retail / Cost)</th>
                     <th className="px-4 py-3 text-right">Stock</th>
-                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-right"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -687,13 +687,16 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         openDetailsModal={openDetailsModal} 
                         formatCurrency={formatCurrency}
                         formatBaseCurrency={formatBaseCurrency} 
+                        openAdjustStockModal={openAdjustStockModal}
+                        openEditModal={openEditModal}
+                        onDeletePart={onDeletePart}
                       />
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className={`grid gap-5 ${viewMode === 'grid3' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
+            <div className={`grid gap-5 ${viewMode === 'grid3' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
             {paginatedParts.map((part) => (
                 <PartCard 
                   key={part.id} 

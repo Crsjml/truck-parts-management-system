@@ -5,7 +5,7 @@ import { useSettings } from '../context/SettingsContext';
 
 import { updateSettings as saveSettingsApi, setOverridePin } from '../authStore';
 
-export default function AdminSettings({ onClose }) {
+export default function AdminSettings({ onClose, onAddLog }) {
   const { settings, setSettings } = useSettings();
   
   // Use 1 as a fallback if active_markup is somehow undefined, though it defaults to 0 in some places, 1 means no markup (cost).
@@ -22,6 +22,7 @@ export default function AdminSettings({ onClose }) {
     
     setSettings({ ...settings, active_markup: newMarkupPercentage });
     await saveSettingsApi({ ...settings, active_markup: newMarkupPercentage });
+    if (onAddLog) onAddLog('system', `Markup rate updated: ${settings?.active_markup ?? 0}% → ${newMarkupPercentage}%`);
   };
 
   const [newPin, setNewPin] = useState('');

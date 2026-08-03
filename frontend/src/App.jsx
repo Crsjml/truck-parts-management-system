@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree } from '@phosphor-icons/react';
+import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree, SignOut } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
 import AuthPortal from './components/AuthPortal';
@@ -10,6 +10,7 @@ import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 import ToastNotification, { useToast } from './components/ToastNotification';
 import UpdatePasswordModal from './components/UpdatePasswordModal';
 import CompleteProfileModal from './components/CompleteProfileModal';
+import { Drawer } from './components/ui/Drawer';
 
 // Lazy loaded page modules to optimize initial bundle size
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -43,6 +44,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const { toasts, showToast, dismissToast } = useToast();
+
+  const pageTitles = {
+    dashboard: 'Dashboard Overview',
+    catalog: 'Parts Inventory',
+    pos: 'Sales POS Entry',
+    analytics: 'Sales Analytics',
+    categories: 'Category Management',
+    purchasing: 'Purchasing',
+    customers: 'Customer Management',
+    staff: 'Staff Management',
+    account: 'My Account'
+  };
   const [supabaseUser, setSupabaseUser] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -69,6 +82,7 @@ export default function App() {
   });
 
   const [initialNotice, setInitialNotice] = useState('');
+  const [serverStatus, setServerStatus] = useState('checking');
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -82,7 +96,7 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const handleUserChange = async (currentUser) => {
+    const handleUserChange = async (currentUser, event = 'INITIAL_SESSION') => {
       invalidateToken();
       if (currentUser) {
         // Google is pre-verified by the provider — don't gate it on email_confirmed_at,
@@ -114,7 +128,23 @@ export default function App() {
           currentUser.staffData = staffData;
         }
 
-        if (userRole === 'admin') setActiveView('admin-app');
+        if (userRole === 'admin') {
+          setActiveView('admin-app');
+          if (event === 'SIGNED_IN') {
+             setLogs((prev) => {
+               if (prev.some(l => l.type === 'auth' && l.message === `${email} logged in` && (new Date() - new Date(l.timestamp) < 2000))) {
+                 return prev;
+               }
+               return [{
+                 id: `L-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                 timestamp: new Date().toISOString(),
+                 type: 'auth',
+                 message: `${email} logged in`,
+                 meta: null
+               }, ...prev];
+             });
+          }
+        }
         else setActiveView('storefront'); // Go directly to storefront
       } else {
         setSupabaseUser(null);
@@ -126,7 +156,7 @@ export default function App() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setToken(session?.access_token || null);
-      handleUserChange(session?.user || null);
+      handleUserChange(session?.user || null, 'INITIAL_SESSION');
     };
     checkSession();
 
@@ -135,7 +165,7 @@ export default function App() {
         setActiveView('update-password');
       }
       setToken(session?.access_token || null);
-      handleUserChange(session?.user || null);
+      handleUserChange(session?.user || null, event);
     });
 
     return () => subscription.unsubscribe();
@@ -149,6 +179,25 @@ export default function App() {
       staffData: supabaseUser.staffData
     }
   } : null;
+
+  useEffect(() => {
+    if (!adminSession) return;
+    let isMounted = true;
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/api/health', { headers: { 'Cache-Control': 'no-cache' } });
+        if (isMounted) setServerStatus(res.ok ? 'online' : 'offline');
+      } catch {
+        if (isMounted) setServerStatus('offline');
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [adminSession]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -278,12 +327,48 @@ export default function App() {
     return () => window.removeEventListener('customerTransactionsUpdate', handleTransactionUpdate);
   }, [isLoaded, isSignedIn, adminSession?.user?.staffData]);
 
-  const addLog = (type, message) => {
+  // Admin Keyboard Shortcuts
+  useEffect(() => {
+    if (!adminSession) return;
+    const handleKeyDown = (e) => {
+      // Don't trigger if user is typing in an input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+      
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case '1': e.preventDefault(); setPage('dashboard'); break;
+          case '2': e.preventDefault(); setPage('catalog'); break;
+          case '3': e.preventDefault(); setPage('pos'); break;
+          case '4': e.preventDefault(); setPage('analytics'); break;
+          case '5': e.preventDefault(); setPage('categories'); break;
+          case '6': e.preventDefault(); setPage('purchasing'); break;
+          case '7': e.preventDefault(); setPage('customers'); break;
+          case '8': 
+            if (adminSession?.user?.staffData?.role === 'SUPERADMIN') {
+              e.preventDefault(); 
+              setPage('staff'); 
+            }
+            break;
+          case '9': 
+            if (adminSession?.user?.staffData?.role === 'SUPERADMIN') {
+              e.preventDefault(); 
+              setIsSettingsModalOpen(true); 
+            }
+            break;
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [adminSession]);
+
+  const addLog = (type, message, meta = null) => {
     const newLog = {
       id: `L-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
       type,
-      message
+      message,
+      meta
     };
     setLogs((prev) => [newLog, ...prev]);
   };
@@ -292,17 +377,22 @@ export default function App() {
     const result = await createPart(partData);
     if (result.ok) {
       setParts((prev) => [...prev, result.part]);
-      addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`);
+      addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`, { sku: result.part.sku });
     } else {
       alert(`Error adding part: ${result.error}`);
     }
   };
 
   const handleEditPart = async (id, updatedData) => {
+    const partBefore = parts.find(p => p.id === id);
     const result = await updatePart(id, updatedData);
     if (result.ok) {
       setParts((prev) => prev.map((part) => (part.id === id ? result.part : part)));
-      addLog('stock', `Part item (ID: ${id}) SKU '${result.part.sku}' details updated.`);
+      if (updatedData.adjustmentReason) {
+        addLog('stock', `Stock adjusted for '${result.part.name}': ${partBefore?.stock ?? 0} → ${result.part.stock} (reason: ${updatedData.adjustmentReason})`, { sku: result.part.sku });
+      } else {
+        addLog('stock', `Part item (ID: ${id}) SKU '${result.part.sku}' details updated.`, { sku: result.part.sku });
+      }
     } else {
       alert(`Error updating part: ${result.error}`);
     }
@@ -330,7 +420,7 @@ export default function App() {
     // Backend sync
     const res = await updatePart(id, { stock: newStock });
     if (res.ok) {
-      addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`);
+      addLog('stock', `Restocked '${part.name}': added ${quantity} units (current stock: ${newStock}).`, { sku: part.sku });
     } else {
       addLog('system', `Error restocking: ${res.error}`);
       alert(`Restock failed: ${res.error}`);
@@ -347,7 +437,6 @@ export default function App() {
     // Backend sync
     const res = await createTransaction(txData);
     if (res.ok) {
-      addLog('sales', `Processed sale: ${txData.invoiceNumber} for ${txData.total}.`);
       // Re-sync all parts from backend to ensure accurate stock
       const updatedParts = await fetchParts();
       setParts(updatedParts);
@@ -360,6 +449,9 @@ export default function App() {
   };
 
   const handleLogout = async (role) => {
+    if (role === 'admin' || role === 'SUPERADMIN' || role === 'STAFF') {
+      addLog('auth', 'Staff logged out');
+    }
     await supabase.auth.signOut();
     setActiveView('storefront');
   };
@@ -435,7 +527,7 @@ export default function App() {
   };
 
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock);
+  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock).sort((a, b) => (b.minStock - b.stock) - (a.minStock - a.stock));
   const lowStockCount = lowStockParts.length;
 
   if (!isLoaded) {
@@ -512,6 +604,9 @@ export default function App() {
   }
 
 
+
+
+
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
@@ -535,8 +630,8 @@ export default function App() {
               onClick={() => setPage('dashboard')}
               title="Dashboard Overview"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <SquaresFour weight="duotone" className="w-5 h-5 shrink-0" />
@@ -547,8 +642,8 @@ export default function App() {
               onClick={() => setPage('catalog')}
               title="Parts Inventory"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <Package weight="duotone" className="w-5 h-5 shrink-0" />
@@ -559,8 +654,8 @@ export default function App() {
               onClick={() => setPage('pos')}
               title="Sales POS Entry"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <ShoppingCart weight="duotone" className="w-5 h-5 shrink-0" />
@@ -571,8 +666,8 @@ export default function App() {
               onClick={() => setPage('analytics')}
               title="Sales Analytics"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <ChartBar weight="duotone" className="w-5 h-5 shrink-0" />
@@ -583,8 +678,8 @@ export default function App() {
               onClick={() => setPage('categories')}
               title="Category Management"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <Tag weight="duotone" className="w-5 h-5 shrink-0" />
@@ -595,8 +690,8 @@ export default function App() {
               onClick={() => setPage('purchasing')}
               title="Purchasing"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <Buildings weight="duotone" className="w-5 h-5 shrink-0" />
@@ -607,8 +702,8 @@ export default function App() {
               onClick={() => setPage('customers')}
               title="Customer Management"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers'
-                ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                ? 'bg-accent/15 text-accent border border-accent/20'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                 }`}
             >
               <UsersThree weight="duotone" className="w-5 h-5 shrink-0" />
@@ -622,8 +717,8 @@ export default function App() {
                   onClick={() => setPage('staff')}
                   title="Staff Management"
                   className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff'
-                    ? 'bg-accent/15 text-accent border-l-4 border-accent shadow-md shadow-accent/5'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent'
+                    ? 'bg-accent/15 text-accent border border-accent/20'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                     }`}
                 >
                   <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
@@ -632,7 +727,7 @@ export default function App() {
                 <button
                   onClick={() => setIsSettingsModalOpen(true)}
                   title="System Settings"
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground border-l-4 border-transparent`}
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent`}
                 >
                   <Gear weight="duotone" className="w-5 h-5 shrink-0" />
                   {!isSidebarCollapsed && <span>System Settings</span>}
@@ -643,31 +738,43 @@ export default function App() {
           </nav>
         </div>
 
-        <div className={`shrink-0 border-t border-border flex flex-col bg-background/50 backdrop-blur-md transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
-          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
-            <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+        <div className={`shrink-0 border-t border-border flex flex-col bg-secondary/30 transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
+          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-2'}`}>
+            <div 
+              onClick={() => setPage('account')}
+              className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}
+              title="My Account"
+            >
               {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                 <img
                   src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
                   alt="Profile"
-                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover shadow-inner bg-secondary`}
+                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover bg-secondary shrink-0`}
                 />
               ) : (
-                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner`}>
+                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shrink-0`}>
                   <User weight="duotone" className="w-5 h-5" />
                 </div>
               )}
               {!isSidebarCollapsed && (
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                  <span className="text-2xs text-muted-foreground font-semibold tracking-wider uppercase">System Admin</span>
+                <div className="flex flex-col text-left overflow-hidden">
+                  <span className="text-sm font-semibold text-foreground truncate max-w-[120px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                  <div className="mt-0.5">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
+                      {adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'STAFF'}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
             {!isSidebarCollapsed && (
-              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400 rounded-lg" title="Active Connection secure">
-                <ShieldCheck weight="duotone" className="w-4.5 h-4.5" />
-              </div>
+              <button
+                onClick={() => handleLogout('admin')}
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
+                title="Logout"
+              >
+                <SignOut weight="duotone" className="w-5 h-5" />
+              </button>
             )}
           </div>
         </div>
@@ -693,7 +800,7 @@ export default function App() {
                     setPage('dashboard');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <SquaresFour weight="duotone" className="w-5 h-5" />
@@ -704,7 +811,7 @@ export default function App() {
                     setPage('catalog');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Package weight="duotone" className="w-5 h-5" />
@@ -715,7 +822,7 @@ export default function App() {
                     setPage('pos');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <ShoppingCart weight="duotone" className="w-5 h-5" />
@@ -726,7 +833,7 @@ export default function App() {
                     setPage('analytics');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <ChartBar weight="duotone" className="w-5 h-5" />
@@ -737,7 +844,7 @@ export default function App() {
                     setPage('categories');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Tag weight="duotone" className="w-5 h-5" />
@@ -748,7 +855,7 @@ export default function App() {
                     setPage('purchasing');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Buildings weight="duotone" className="w-5 h-5" />
@@ -759,79 +866,78 @@ export default function App() {
                     setPage('customers');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <UsersThree weight="duotone" className="w-5 h-5" />
                   Customer Management
                 </button>
-                <button
-                  onClick={() => {
-                    setPage('account');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'account' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <User weight="duotone" className="w-5 h-5" />
-                  My Account
-                </button>
-
-                {/* SUPER ADMIN ONLY: Staff Management (Mobile) */}
+                {/* SUPER ADMIN ONLY: Staff Management & Settings */}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
-                  <button
-                    onClick={() => {
-                      setPage('staff');
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff' ? 'bg-accent/15 text-accent border-l-4 border-accent' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                      }`}
-                  >
-                    <ShieldCheck weight="duotone" className="w-5 h-5" />
-                    Staff Management
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setPage('staff');
+                        setIsSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                        }`}
+                    >
+                      <ShieldCheck weight="duotone" className="w-5 h-5" />
+                      Staff Management
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsSettingsModalOpen(true);
+                        setIsSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground`}
+                    >
+                      <Gear weight="duotone" className="w-5 h-5" />
+                      System Settings
+                    </button>
+                  </>
                 )}
               </nav>
             </div>
 
-            <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col gap-3 bg-secondary/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+            <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col bg-secondary/30">
+              <div className="flex items-center justify-between w-full gap-2">
+                <div 
+                  onClick={() => {
+                    setPage('account');
+                    setIsSidebarOpen(false);
+                  }}
+                  className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                  title="My Account"
+                >
                   {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
                     <img
                       src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
                       alt="Profile"
-                      className="w-8 h-8 rounded-full border border-border object-cover shadow-inner bg-secondary"
+                      className="w-10 h-10 rounded-full border border-border object-cover bg-secondary shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shadow-inner">
+                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shrink-0">
                       <User weight="duotone" className="w-5 h-5" />
                     </div>
                   )}
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-bold text-foreground">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                    <span className="text-3xs text-muted-foreground uppercase font-semibold">System Admin</span>
+                  <div className="flex flex-col text-left overflow-hidden">
+                    <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
+                    <div className="mt-0.5">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
+                        {adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'STAFF'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="p-1 px-2 bg-emerald-500/10 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-2xs rounded border border-emerald-500/30 dark:border-emerald-800/30">Secure</div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Sent RFQs</span>
-                  <span className="text-sm font-black text-cyan-500">{myRfqStats.sent}</span>
-                </div>
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Late RFQs</span>
-                  <span className="text-sm font-black text-orange-500">{myRfqStats.lateRfq}</span>
-                </div>
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Not Acknowledged</span>
-                  <span className="text-sm font-black text-amber-500">{myRfqStats.notAck}</span>
-                </div>
-                <div className="flex flex-col p-2 rounded-lg bg-background border border-border shadow-sm">
-                  <span className="text-3xs text-muted-foreground font-bold uppercase">Late Receipt</span>
-                  <span className="text-sm font-black text-red-500">{myRfqStats.lateReceipt}</span>
-                </div>
+                <button
+                  onClick={() => handleLogout('admin')}
+                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
+                  title="Logout"
+                >
+                  <SignOut weight="duotone" className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </aside>
@@ -850,29 +956,41 @@ export default function App() {
               <List weight="duotone" className="w-5 h-5" />
             </button>
 
-            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground font-semibold bg-secondary px-3 py-1.5 rounded-lg border border-border">
-              <CalendarBlank weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <div className="flex flex-col">
+              <h1 className="text-lg lg:text-xl font-bold font-display tracking-tight text-foreground leading-tight">
+                {pageTitles[page] || 'Dashboard'}
+              </h1>
+              
+              {/* Consolidated Status Cluster */}
+              <div className="flex items-center gap-1.5 mt-0.5" aria-live="polite" aria-atomic="true">
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  serverStatus === 'checking' ? 'bg-amber-500 animate-pulse' :
+                  serverStatus === 'online' ? 'bg-emerald-500' : 'bg-destructive'
+                }`} />
+                <span className="font-mono text-muted-foreground text-[10px] tracking-wider uppercase">
+                  {serverStatus === 'checking' ? 'Connecting...' : 
+                   serverStatus === 'online' ? 'System Online' : 
+                   <button onClick={() => window.location.reload()} className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-2 cursor-pointer">Offline - Click to Retry</button>}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4">
+
             <button
               onClick={() => setIsAlertDrawerOpen(true)}
               className="relative p-2 hover:bg-secondary rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all group"
+              aria-label="Notifications"
+              aria-expanded={isAlertDrawerOpen}
             >
               <Bell weight="duotone" className="w-4.5 h-4.5" />
               {lowStockCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-3xs font-extrabold text-white rounded-full flex items-center justify-center animate-bounce shadow-md shadow-accent/35">
-                  {lowStockCount}
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-destructive text-3xs font-extrabold text-white rounded-md flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] scale-100 group-hover:scale-110">
+                  {lowStockCount > 99 ? '99+' : lowStockCount}
                 </span>
               )}
             </button>
-
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-xl text-xs">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="font-mono text-muted-foreground text-2xs">TTP-SERVER: ACTIVE</span>
-            </div>
 
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -880,22 +998,6 @@ export default function App() {
               aria-label="Toggle Dark Mode"
             >
               {isDarkMode ? <Sun weight="duotone" className="w-4 h-4" /> : <Moon weight="duotone" className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={() => setPage('account')}
-              className={`p-2 rounded-xl border border-border transition-all ${page === 'account' ? 'bg-accent/15 text-accent border-accent' : 'bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              aria-label="My Account"
-            >
-              <User weight="duotone" className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => handleLogout('admin')}
-              className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-border hover:bg-secondary hover:text-foreground"
-            >
-              Logout
             </button>
           </div>
         </header>
@@ -967,84 +1069,80 @@ export default function App() {
       </div>
 
       {/* Alert Notification Drawer */}
-      <AnimatePresence>
-        {isAlertDrawerOpen && (
-          <div className="fixed inset-0 z-[100] flex justify-end">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsAlertDrawerOpen(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: '100%', opacity: 0.5 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0.5 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-sm h-full bg-background border-l border-border shadow-2xl flex flex-col"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <Bell weight="duotone" className="w-5 h-5 text-accent" />
-                  <h2 className="text-lg font-bold text-foreground font-display">Alert Notifications</h2>
-                </div>
-                <button onClick={() => setIsAlertDrawerOpen(false)} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground transition-colors">
-                  <X weight="bold" className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {lowStockParts.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-70">
-                    <CheckCircle weight="duotone" className="w-12 h-12 mb-2 text-emerald-500" />
-                    <p className="text-sm font-semibold">All Stock is Healthy</p>
-                    <p className="text-xs text-center mt-1">No parts are below their minimum threshold.</p>
-                  </div>
-                ) : (
-                  lowStockParts.map(part => (
-                    <div key={part.id} className="p-4 bg-secondary border border-border rounded-xl shadow-sm space-y-3 relative overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-accent"></div>
-                      <div className="flex justify-between items-start pl-2">
-                        <div className="pr-4">
-                          <h3 className="text-sm font-bold text-foreground leading-tight">{part.name}</h3>
-                          <p className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</p>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs font-bold text-accent px-2 py-0.5 bg-accent/10 rounded-full">Low Stock</span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 pl-2">
-                        <div className="p-2 bg-background rounded-lg border border-border">
-                          <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
-                          <div className="text-lg font-bold text-foreground">{part.stock}</div>
-                        </div>
-                        <div className="p-2 bg-background rounded-lg border border-border">
-                          <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
-                          <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setIsAlertDrawerOpen(false);
-                          setPage('purchasing');
-                        }}
-                        className="w-full mt-2 ml-2 py-1.5 bg-foreground hover:bg-foreground/90 text-background text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
-                        Restock Now
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
+      <Drawer
+        isOpen={isAlertDrawerOpen}
+        onClose={() => setIsAlertDrawerOpen(false)}
+        labelledBy="alert-drawer-heading"
+        panelClassName="fixed top-0 right-0 w-full max-w-sm h-full bg-background border-l border-border flex flex-col"
+        panelVariants={{
+          initial: { x: '100%', opacity: 0.5 },
+          animate: { x: 0, opacity: 1 },
+          exit: { x: '100%', opacity: 0.5 },
+          transition: { ease: 'easeOut', duration: 0.18 },
+        }}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Bell weight="duotone" className="w-5 h-5 text-accent" />
+            <h2 id="alert-drawer-heading" className="text-lg font-bold text-foreground font-display">Low Stock Alerts</h2>
           </div>
-        )}
-      </AnimatePresence>
+          <button onClick={() => setIsAlertDrawerOpen(false)} aria-label="Close notifications" className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground transition-colors">
+            <X weight="bold" className="w-4 h-4" />
+          </button>
+        </div>
+
+        <ul aria-live="polite" aria-atomic="false" className="list-none flex-1 overflow-y-auto p-5 space-y-4">
+          {lowStockParts.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-70">
+              <CheckCircle weight="duotone" className="w-12 h-12 mb-2 text-emerald-500" />
+              <p className="text-sm font-semibold">All Stock is Healthy</p>
+              <p className="text-xs text-center mt-1">No parts are below their minimum threshold.</p>
+            </div>
+          ) : (
+            lowStockParts.map(part => (
+              <li key={part.id} className="p-4 bg-secondary border border-border rounded-xl space-y-3 relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-1 h-full bg-destructive"></div>
+                <div className="flex justify-between items-start pl-2">
+                  <div className="pr-4">
+                    <h3 className="text-sm font-bold text-foreground leading-tight">{part.name}</h3>
+                    <p className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-bold text-destructive px-2 py-0.5 bg-destructive/10 rounded-md">Low Stock</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pl-2">
+                  <div className="p-2 bg-background rounded-lg border border-border">
+                    <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
+                    <div className="text-lg font-bold text-foreground">{part.stock}</div>
+                  </div>
+                  <div className="p-2 bg-background rounded-lg border border-border">
+                    <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
+                    <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsAlertDrawerOpen(false);
+                    setSelectedCategory('All');
+                    setPage('catalog');
+                    setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
+                  }}
+                  className="w-full mt-2 ml-2 py-1.5 bg-foreground hover:bg-foreground/90 text-background text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
+                  Restock Now
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </Drawer>
 
       {/* System Settings Modal */}
       {isSettingsModalOpen && (
         <Suspense fallback={null}>
-          <AdminSettings onClose={() => setIsSettingsModalOpen(false)} />
+          <AdminSettings onClose={() => setIsSettingsModalOpen(false)} onAddLog={addLog} />
         </Suspense>
       )}
 

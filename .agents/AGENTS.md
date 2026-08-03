@@ -66,6 +66,12 @@ The following skills MUST be strictly adhered to and kept actively loaded in the
     - **TIER 2: Page-Level** (16 pages: Landing, Auth, Catalog, Detail, Cart, Account, Orders, Dashboard, Parts Mgmt, Inventory, Purchasing, POS, Staff, Analytics, Categories, Settings)
     - **TIER 3: Component-Level** (specific component types per page: Hero, Cards, Forms, Tables, Modals, etc.)
     - Which skill fires on which code is governed by this map. ALWAYS consult before writing UI code.
+    - **MANDATORY final gate** (CLAUDE.md §4 Workflow): after the routed
+      core/secondary skills produce a result, ALWAYS invoke
+      `design-taste-frontend` (anti-slop check) then `impeccable`
+      (critique/polish) before marking UI/storefront work done — additive,
+      runs every time, even if `impeccable` already fired as a core or
+      secondary skill above.
 13. **`accessibility`**: WCAG 2.2 AA compliance for the storefront and checkout flow.
     - **Storefront (Area A)** — Premium tier: `high-end-visual-design`, `design-taste-frontend`, `frontend-design`, `impeccable`
     - **Admin + POS (Area B)** — Minimalist tier: `minimalist-ui`, `kpi-dashboard-design`

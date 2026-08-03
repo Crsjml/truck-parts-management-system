@@ -2,6 +2,13 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Sanitize user-supplied strings before rendering into the PDF.
+// Strips control characters and caps length to prevent abuse.
+function safe(value, maxLen = 200) {
+  if (value == null) return '';
+  return String(value).replace(/[\x00-\x1F\x7F]/g, '').slice(0, maxLen);
+}
+
 export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate = false }) {
   const doc = new jsPDF();
 
@@ -25,7 +32,7 @@ export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate
   doc.text(duplicate ? 'SALES INVOICE (DUPLICATE)' : 'SALES INVOICE', duplicate ? 135 : 145, 18);
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`Invoice No: ${tx.invoiceNumber}`, duplicate ? 135 : 145, 24);
+  doc.text(`Invoice No: ${safe(tx.invoiceNumber)}`, duplicate ? 135 : 145, 24);
   doc.text(`Date: ${new Date(tx.transactionDate).toLocaleString('en-US')}`, duplicate ? 135 : 145, 30);
 
   doc.setTextColor(30, 41, 59);
@@ -34,15 +41,15 @@ export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate
   doc.text('BILL TO / CUSTOMER INFO:', 15, 56);
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`Customer Name: ${tx.customerName}`, 15, 62);
-  doc.text(`Contact Phone: ${tx.customerContact}`, 15, 68);
+  doc.text(`Customer Name: ${safe(tx.customerName)}`, 15, 62);
+  doc.text(`Contact Phone: ${safe(tx.customerContact)}`, 15, 68);
 
   autoTable(doc, {
     startY: 76,
     head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
     body: tx.items.map((item, i) => [
       i + 1,
-      item.name,
+      safe(item.name),
       `${displayCurrency} ${item.price}`,
       item.quantity,
       `${displayCurrency} ${item.price * item.quantity}`
@@ -72,20 +79,25 @@ export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate
   doc.text('NET TOTAL:', 131, y + 20);
   doc.text(`${displayCurrency} ${tx.total}`, 193, y + 20, { align: 'right' });
 
+  // Payment details — conditional by method.
   y += 26;
   doc.setTextColor(30, 41, 59);
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
   if (tx.paymentMethod) {
-    doc.text(`Payment: ${String(tx.paymentMethod).replace('_', ' ')}`, 15, y);
+    doc.text(`Payment: ${safe(String(tx.paymentMethod).replace('_', ' '))}`, 15, y);
     y += 5;
   }
-  if (tx.amountTendered != null) {
+  if (tx.paymentMethod === 'CASH' && tx.amountTendered != null) {
     doc.text(`Tendered: ${formatCurrency(tx.amountTendered)}   Change: ${formatCurrency(tx.changeGiven || 0)}`, 15, y);
     y += 5;
   }
-  if (tx.chequeNumber) {
-    doc.text(`Cheque ${tx.chequeNumber} — ${tx.chequeBank || ''}`, 15, y);
+  if (tx.paymentMethod === 'CHEQUE' && tx.chequeNumber) {
+    doc.text(`Cheque ${safe(tx.chequeNumber)} — ${safe(tx.chequeBank)}`, 15, y);
+    y += 5;
+  }
+  if (tx.paymentMethod === 'GCASH' && tx.gcashReference) {
+    doc.text(`GCash Ref: ${safe(tx.gcashReference)}`, 15, y);
     y += 5;
   }
 
@@ -95,5 +107,5 @@ export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate
   doc.text('Thank you for your business!', 105, y + 8, { align: 'center' });
   doc.text('Return Policy: Exchange is only valid within 7 days with this sales invoice.', 105, y + 13, { align: 'center' });
 
-  doc.save(`Invoice_${tx.invoiceNumber}.pdf`);
+  doc.save(`Invoice_${safe(tx.invoiceNumber, 50)}.pdf`);
 }

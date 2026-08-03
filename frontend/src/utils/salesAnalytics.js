@@ -4,9 +4,9 @@ export const PERIODS = [
   { key: 'all', label: 'All Time', bucket: 'month', spanMs: 0, comparable: false }
 ];
 
-export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER'];
-export const PAYMENT_COLORS = { CASH: '#059669', CARD: '#3b82f6', CHEQUE: '#d97706', BANK_TRANSFER: '#8b5cf6' };
-export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer' };
+export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GCASH'];
+export const PAYMENT_COLORS = { CASH: '#059669', CARD: '#3b82f6', CHEQUE: '#d97706', BANK_TRANSFER: '#8b5cf6', GCASH: '#0891b2' };
+export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer', GCASH: 'GCash' };
 
 export function resolvePeriod(key, now = new Date()) {
   const p = PERIODS.find(x => x.key === key) || PERIODS.find(x => x.key === '30d');

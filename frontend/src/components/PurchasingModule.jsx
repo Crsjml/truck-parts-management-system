@@ -403,7 +403,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     };
 
     const res = await createPurchaseOrder(payload);
-    if (res.ok) { setPurchaseOrders(prev => [res.purchaseOrder, ...prev]); setViewingPo(res.purchaseOrder); onAddLog('system', `Created PO: ${res.purchaseOrder.poNumber}`); }
+    if (res.ok) { 
+      setPurchaseOrders(prev => [res.purchaseOrder, ...prev]); 
+      setViewingPo(res.purchaseOrder); 
+      const supplierName = res.purchaseOrder.supplier?.name || suppliers.find(s => s.id === poForm.supplier)?.name;
+      const itemCount = res.purchaseOrder.items?.length || poForm.items?.length || 0;
+      onAddLog('purchasing', `PO ${res.purchaseOrder.poNumber} created${supplierName ? ' — ' + supplierName : ''}${itemCount ? `, ${itemCount} items` : ''}`); 
+    }
     else alert(res.error);
   };
 
@@ -415,7 +421,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       const updated = res.purchaseOrder;
       setPurchaseOrders(prev => prev.map(p => p.id === id ? updated : p));
       setViewingPo(updated);
-      onAddLog('stock', `PO ${poNumber} → ${status}`);
+      onAddLog('purchasing', `PO ${poNumber} → ${status}`);
       if (status === 'Received') {
         if (onPartsUpdated) onPartsUpdated();
         const itemCount = updated?.items?.length || 0;

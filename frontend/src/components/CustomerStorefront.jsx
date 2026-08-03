@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ArrowRight, SignIn, MagnifyingGlass, ShieldCheck, Sparkle, Tag, Truck, UserPlus, Moon, Sun, SquaresFour, Gear, Pulse, Lightning, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, ClipboardText , UserCircle, CaretDown, House, User, CheckCircle } from '@phosphor-icons/react';
+import { SignIn, ShieldCheck, Tag, UserPlus, Moon, Sun, SquaresFour, Gear, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, UserCircle, CaretDown, House, User, CheckCircle, ClipboardText } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
@@ -19,8 +19,13 @@ import ReturnPolicyModal from './ReturnPolicyModal';
 import ReorderRail from './ReorderRail';
 import Reveal from './ui/Reveal';
 import NavToggle from './ui/NavToggle';
-import { HeroHighlight, Highlight } from './ui/HeroHighlight';
+import HomeHero from './storefront/HomeHero';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+
+const STOREFRONT_NAV_ITEMS = [
+  { id: 'home', label: 'Home', icon: House },
+  { id: 'catalog', label: 'Catalog', icon: Tag },
+];
 
 const TRUSTED_BRANDS = [
   { label: 'CUMMINS', className: 'text-xl font-black italic tracking-tighter' },
@@ -29,17 +34,6 @@ const TRUSTED_BRANDS = [
   { label: 'MACK', className: 'text-xl font-black italic' },
   { label: 'HINO', className: 'text-xl font-bold tracking-widest' },
   { label: 'PACCAR', className: 'text-xl font-bold tracking-tighter' },
-];
-
-const VALUE_PROPS = [
-  { icon: Pulse, title: 'Live Inventory', description: 'Real-time stock levels directly from our Tarlac warehouse.' },
-  { icon: Truck, title: 'Heavy Logistics', description: 'Specialized freight handling for oversized engine blocks and chassis parts.' },
-  { icon: ClipboardText, title: 'B2B Wholesale', description: 'Exclusive volume discounts and priority allocation for registered fleets.' },
-];
-
-const STOREFRONT_NAV_ITEMS = [
-  { id: 'home', label: 'Home', icon: House },
-  { id: 'catalog', label: 'Catalog', icon: Tag },
 ];
 
 export default function CustomerStorefront({
@@ -56,15 +50,6 @@ export default function CustomerStorefront({
 }) {
   const { formatCurrency, displayCurrency } = useSettings();
   const shouldReduceMotion = useReducedMotion();
-
-  const heroContainerVariants = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.08 } },
-  };
-  const heroItemVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.19, 1, 0.22, 1] } },
-  };
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPart, setSelectedPart] = useState(null);
@@ -79,6 +64,7 @@ export default function CustomerStorefront({
   const [vehicleBrand, setVehicleBrand] = useState('All');
   const [vehicleSeries, setVehicleSeries] = useState('All');
   const [minRating, setMinRating] = useState(0);
+  const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
 
   // Autocomplete, Pagination, Stock sorting states
   const [currentPage, setCurrentPage] = useState(1);
@@ -119,19 +105,53 @@ export default function CustomerStorefront({
   const accountMenuRef = useRef(null);
 
   const [isFitmentOpen, setIsFitmentOpen] = useState(false);
-  const fitmentRef = useRef(null);
+  const homeFitmentRef = useRef(null);
+  const pendingCatalogTopScrollRef = useRef(false);
+
+  const scrollPageTop = (behavior = 'auto') => {
+    if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') return;
+
+    const schedule = typeof window.requestAnimationFrame === 'function'
+      ? (callback) => window.requestAnimationFrame(callback)
+      : (callback) => window.setTimeout(callback, 0);
+
+    const forceTop = () => {
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior });
+      } catch {
+        // Some test environments expose scrollTo without implementing it.
+      }
+
+      if (typeof document !== 'undefined') {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    };
+
+    forceTop();
+    schedule(() => {
+      forceTop();
+      schedule(forceTop);
+    });
+  };
 
   useEffect(() => {
     if (!isFitmentOpen) return;
     const handlePointerDown = (e) => {
-      if (fitmentRef.current && !fitmentRef.current.contains(e.target)) {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+
+      const elementTarget = target instanceof Element ? target : target.parentElement;
+      const clickedSelectMenu = Boolean(elementTarget?.closest('.react-select__menu'));
+      const clickedHomeFitment = Boolean(homeFitmentRef.current?.contains(target));
+
+      if (!clickedHomeFitment && !clickedSelectMenu) {
         setIsFitmentOpen(false);
       }
     };
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setIsFitmentOpen(false);
-        fitmentRef.current?.querySelector('#fitment-trigger')?.focus();
       }
     };
     document.addEventListener('mousedown', handlePointerDown);
@@ -141,6 +161,25 @@ export default function CustomerStorefront({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isFitmentOpen]);
+
+  useEffect(() => {
+    if (!isFitmentOpen || storefrontTab !== 'home') return;
+
+    const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? (callback) => window.requestAnimationFrame(callback)
+      : (callback) => window.setTimeout(callback, 0);
+
+    schedule(() => {
+      homeFitmentRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    });
+  }, [isFitmentOpen, storefrontTab]);
+
+  useEffect(() => {
+    if (storefrontTab !== 'catalog' || !pendingCatalogTopScrollRef.current) return;
+
+    pendingCatalogTopScrollRef.current = false;
+    scrollPageTop('auto');
+  }, [storefrontTab]);
 
   useEffect(() => {
     if (!isAccountMenuOpen) return;
@@ -347,7 +386,7 @@ export default function CustomerStorefront({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter]);
+  }, [search, selectedCategory, sortOrder, minPrice, maxPrice, stockStatus, compatibilityFilter, vehicleFilter, minRating]);
 
   const suggestions = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -364,7 +403,29 @@ export default function CustomerStorefront({
     return Array.from(candidates).slice(0, 6);
   }, [search, parts]);
 
-  const [vehicleFilter, setVehicleFilter] = useState({ brand: null, series: null });
+  const parsedMinPrice = minPrice === '' ? null : Number(minPrice);
+  const parsedMaxPrice = maxPrice === '' ? null : Number(maxPrice);
+  const priceRangeError = parsedMinPrice !== null && parsedMaxPrice !== null && parsedMinPrice > parsedMaxPrice
+    ? 'Minimum price must be lower than maximum price.'
+    : '';
+
+  const resetCatalogFilters = () => {
+    setSearch('');
+    setSelectedCategory('All');
+    setVehicleFilter({ brand: null, series: null });
+    setMinPrice('');
+    setMaxPrice('');
+    setStockStatus('All');
+    setMinRating(0);
+    setCurrentPage(1);
+  };
+
+  const showCatalogTruckPicker = () => {
+    setShowFilters(true);
+    setTimeout(() => {
+      document.getElementById('catalog-fitment-panel')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  };
 
   const getCategoryStyles = (cat) => {
     const category = nestedCategories.find(c => c.name === cat);
@@ -427,6 +488,36 @@ export default function CustomerStorefront({
     return filteredParts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredParts, currentPage]);
 
+  const selectedTruckLabel = vehicleFilter.brand
+    ? `${vehicleFilter.brand}${vehicleFilter.series ? ` ${vehicleFilter.series}` : ''}`
+    : '';
+  const selectedTruckSummary = selectedTruckLabel || 'All compatible trucks';
+  const goToCatalog = () => {
+    pendingCatalogTopScrollRef.current = true;
+    setStorefrontTab('catalog');
+    setIsFitmentOpen(false);
+    scrollPageTop('auto');
+  };
+  const openTruckFitment = () => {
+    setStorefrontTab('home');
+    setIsFitmentOpen(true);
+  };
+  const handleHomeFitmentChange = (nextFilter) => {
+    setVehicleFilter(nextFilter);
+    if (storefrontTab === 'home' && nextFilter.brand) {
+      goToCatalog();
+    }
+  };
+  const handleStorefrontNavSelect = (nextTab) => {
+    if (nextTab === 'catalog') {
+      goToCatalog();
+      return;
+    }
+
+    setStorefrontTab(nextTab);
+    setIsFitmentOpen(false);
+    scrollPageTop('auto');
+  };
 
 
   return (
@@ -440,29 +531,7 @@ export default function CustomerStorefront({
               <Logo className="w-10 h-10" showText={true} />
               
               {/* Main Nav */}
-              <NavToggle items={STOREFRONT_NAV_ITEMS} activeId={storefrontTab} onSelect={setStorefrontTab} />
-
-              {/* Truck Fitment */}
-              <div className="relative hidden lg:block" ref={fitmentRef}>
-                <button
-                  id="fitment-trigger"
-                  type="button"
-                  aria-expanded={isFitmentOpen}
-                  aria-haspopup="dialog"
-                  onClick={() => setIsFitmentOpen((open) => !open)}
-                  className="flex items-center gap-2 rounded-lg border border-border/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground transition hover:border-accent/50 hover:text-foreground"
-                >
-                  <Truck weight="duotone" className="h-4 w-4 text-accent" />
-                  {vehicleFilter.brand
-                    ? `${vehicleFilter.brand}${vehicleFilter.series ? ` ${vehicleFilter.series}` : ''}`
-                    : 'Select your truck'}
-                </button>
-                {isFitmentOpen && (
-                  <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-max rounded-lg border border-border bg-background p-3 shadow-2xl">
-                    <CompatibilityFilter onFilterChange={setVehicleFilter} />
-                  </div>
-                )}
-              </div>
+              <NavToggle items={STOREFRONT_NAV_ITEMS} activeId={storefrontTab} onSelect={handleStorefrontNavSelect} />
             </div>
 
             {/* User / Actions */}
@@ -555,81 +624,63 @@ export default function CustomerStorefront({
         <main className="flex-1 flex flex-col space-y-8 pb-10">
           {storefrontTab === 'home' && (
             <>
-              <HeroHighlight containerClassName="rounded-[3rem] border border-border/30 p-8 sm:p-12 lg:p-16 mb-8 shadow-sm">
-                <motion.div
-                  className="flex flex-col items-center text-center w-full z-10"
-                  initial={shouldReduceMotion ? false : "hidden"}
-                  animate="visible"
-                  variants={heroContainerVariants}
-                >
-                <motion.span variants={heroItemVariants} className="relative z-10 inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/60 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground backdrop-blur-md mb-8 shadow-sm">
-                  <Sparkle weight="duotone" className="h-4 w-4 text-accent" />
-                  premium truck parts marketplace
-                </motion.span>
-                
-                <motion.h1 variants={heroItemVariants} className="relative z-10 max-w-4xl text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl mb-6 leading-[1.05]">
-                  Find the exact part for your <Highlight>heavy fleet.</Highlight>
-                </motion.h1>
-                
-                <motion.p variants={heroItemVariants} className="relative z-10 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg mb-12">
-                  Search OEM-compatible parts or browse our massive catalog. Create a verified customer account for wholesale pricing, real-time stock alerts, and instant purchase orders.
-                </motion.p>
+              <HomeHero
+                search={search}
+                setSearch={setSearch}
+                vehicleFilter={vehicleFilter}
+                setVehicleFilter={setVehicleFilter}
+                onBrowseCatalog={goToCatalog}
+                onOpenCustomerAuth={onOpenCustomerAuth}
+                onOpenTruckFilter={openTruckFitment}
+                selectedTruckLabel={selectedTruckLabel}
+                isLoggedIn={Boolean(customerSession)}
+                isTruckFilterOpen={isFitmentOpen}
+              />
 
-                {/* Search Bar on Hero */}
-                <motion.div variants={heroItemVariants} className="relative z-10 w-full max-w-2xl mb-16">
-                  <div className="relative flex items-center w-full h-16 rounded-[2rem] border border-border/50 bg-background/80 backdrop-blur-xl shadow-xl shadow-black/5 focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-accent/10 transition-all overflow-hidden pl-6 pr-2">
-                    <MagnifyingGlass weight="bold" className="w-6 h-6 text-muted-foreground shrink-0" />
-                    <input 
-                      type="text"
-                      placeholder="Search part name, SKU, OEM..."
-                      className="w-full h-full bg-transparent border-none outline-none px-4 text-base font-semibold text-foreground placeholder:text-muted-foreground/50 placeholder:font-medium"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setStorefrontTab('catalog');
-                        }
-                      }}
-                    />
-                    <button 
-                      onClick={() => setStorefrontTab('catalog')}
-                      className="h-12 px-8 rounded-full bg-foreground text-background font-bold text-xs uppercase tracking-[0.15em] hover:scale-95 transition-transform shadow-lg shadow-black/10 shrink-0"
-                    >
-                      Search
-                    </button>
+              {isFitmentOpen && (
+                <div ref={homeFitmentRef} className="mx-auto w-full max-w-5xl rounded-[2rem] border border-border/50 bg-background/95 p-4 shadow-xl shadow-black/5">
+                  <CompatibilityFilter
+                    compact
+                    onFilterChange={handleHomeFitmentChange}
+                    summaryLabel={selectedTruckSummary}
+                    vehicleFilter={vehicleFilter}
+                  />
+                </div>
+              )}
+
+              <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center">
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-70">Trusted by Global Fleets</p>
+                <span className="sr-only">Trusted by Cummins, Isuzu, Volvo, Mack, Hino, and Paccar</span>
+                <div className="w-full overflow-hidden scroll-fade-edges" aria-hidden="true">
+                  <div className="flex w-max animate-marquee items-center gap-16 opacity-50 grayscale transition-[filter] duration-700 hover:grayscale-0 hover:[animation-play-state:paused]">
+                    {[...TRUSTED_BRANDS, ...TRUSTED_BRANDS].map((brand, i) => (
+                      <span key={`${brand.label}-${i}`} className={brand.className}>{brand.label}</span>
+                    ))}
                   </div>
-                </motion.div>
+                </div>
+              </div>
 
-                {/* Trusted Brands Marquee */}
-                <div className="relative z-10 w-full max-w-4xl mb-12 flex flex-col items-center">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 opacity-70">Trusted by Global Fleets</p>
-                  <span className="sr-only">Trusted by Cummins, Isuzu, Volvo, Mack, Hino, and Paccar</span>
-                  <div className="w-full overflow-hidden scroll-fade-edges" aria-hidden="true">
-                    <div className="flex w-max animate-marquee items-center gap-16 opacity-50 grayscale transition-[filter] duration-700 hover:grayscale-0 hover:[animation-play-state:paused]">
-                      {[...TRUSTED_BRANDS, ...TRUSTED_BRANDS].map((brand, i) => (
-                        <span key={`${brand.label}-${i}`} className={brand.className}>{brand.label}</span>
-                      ))}
-                    </div>
+              <section className="space-y-10">
+                <div className="relative z-10 mb-12 flex w-full max-w-4xl flex-col items-center gap-4 mx-auto">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Fitment first. Browse by truck, then part.</p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">See what is in stock</span>
+                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Fleet and shop pricing</span>
+                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Only show parts that fit</span>
                   </div>
                 </div>
 
-                {/* 3-Card Value Proposition Bento */}
-                <div className="relative z-10 w-full max-w-5xl mb-16 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-                  {VALUE_PROPS.map((item, i) => (
-                    <Reveal key={item.title} delay={i * 0.06}>
-                      <div className="rounded-[2rem] bg-secondary/80 border border-border/50 p-6 backdrop-blur-md flex flex-col justify-center items-start gap-3 transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/5">
-                        <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent"><item.icon weight="duotone" className="w-5 h-5"/></div>
-                        <div>
-                          <h4 className="font-bold text-foreground text-sm">{item.title}</h4>
-                          <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                        </div>
-                      </div>
-                    </Reveal>
-                  ))}
-                </div>
+                <ReorderRail
+                  transactions={transactions}
+                  parts={parts}
+                  customerSession={customerSession}
+                  addToCart={addToCart}
+                  formatCurrency={formatCurrency}
+                  onBrowseCatalog={goToCatalog}
+                  onSignIn={() => onOpenCustomerAuth('login')}
+                />
 
-                {/* Shop by Category Bento */}
-                <Reveal className="relative z-10 w-full max-w-5xl px-4">
+                <Reveal className="relative z-10 w-full max-w-5xl px-4 mx-auto">
                   <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-8 text-center">Shop by Category</h3>
                   
                   {/* Main Category Tabs (Horizontal Scroll) */}
@@ -688,18 +739,7 @@ export default function CustomerStorefront({
                     </motion.div>
                   </AnimatePresence>
                 </Reveal>
-                </motion.div>
-              </HeroHighlight>
-
-              <ReorderRail
-                transactions={transactions}
-                parts={parts}
-                customerSession={customerSession}
-                addToCart={addToCart}
-                formatCurrency={formatCurrency}
-                onBrowseCatalog={() => setStorefrontTab('catalog')}
-                onSignIn={() => onOpenCustomerAuth('login')}
-              />
+              </section>
             </>
           )}
 
@@ -731,6 +771,10 @@ export default function CustomerStorefront({
                   setSortOrder={setSortOrder}
                   minRating={minRating}
                   setMinRating={setMinRating}
+                  summaryLabel={selectedTruckSummary}
+                  resultCount={filteredParts.length}
+                  priceRangeError={priceRangeError}
+                  onClearFilters={resetCatalogFilters}
                 />
               </div>
 
@@ -754,6 +798,12 @@ export default function CustomerStorefront({
                     itemsPerPage={itemsPerPage}
                     sortOrder={sortOrder}
                     setSortOrder={setSortOrder}
+                    selectedTruckSummary={selectedTruckSummary}
+                    vehicleFilter={vehicleFilter}
+                    search={search}
+                    priceRangeError={priceRangeError}
+                    onClearFilters={resetCatalogFilters}
+                    onChangeTruck={showCatalogTruckPicker}
                   />
                 )}
               </div>
@@ -793,9 +843,9 @@ export default function CustomerStorefront({
       <Footer
         className="mt-auto pb-14"
         onOpenPolicy={() => setPolicyModalOpen(true)}
-        onGoHome={() => { setStorefrontTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-        onGoCatalog={() => { setStorefrontTab('catalog'); document.getElementById('parts-catalog')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onGoAbout={() => { setStorefrontTab('about'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        onGoHome={() => handleStorefrontNavSelect('home')}
+        onGoCatalog={goToCatalog}
+        onGoAbout={() => handleStorefrontNavSelect('about')}
       />
 
       {/* Success Modal */}
