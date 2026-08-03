@@ -40,7 +40,7 @@ export default function AddPartDrawer({
   const [formCategory, setFormCategory] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
-  const [formMinStock, setFormMinStock] = useState(0);
+  const [formMinStock, setFormMinStock] = useState('');
   const [formCompatibleWith, setFormCompatibleWith] = useState([{ brand: '', series: '', year: '' }]);
   const [formDescription, setFormDescription] = useState('');
   const [formImage, setFormImage] = useState('');
@@ -68,14 +68,28 @@ export default function AddPartDrawer({
   const validateStep = (currentStep) => {
     const errors = {};
     if (currentStep === 1) {
-      if (!formName.trim() || formName.length < 3) errors.name = "Part name must be at least 3 characters.";
-      if (!formSku.trim()) errors.sku = "SKU is required.";
-      if (!formOem.trim()) errors.oem = "OEM number is required.";
-      if (!formCategory) errors.category = "Category is required.";
+      const result = partSchema.pick({ name: true, sku: true, oem: true, category: true }).safeParse({
+        name: formName.trim(),
+        sku: formSku.trim(),
+        oem: formOem.trim(),
+        category: formCategory
+      });
+      if (!result.success) {
+        result.error.issues.forEach(issue => {
+          errors[issue.path[0]] = issue.message;
+        });
+      }
     } else if (currentStep === 3) {
-      if (isNaN(parseFloat(formPrice)) || parseFloat(formPrice) < 0) errors.price = "Valid price required.";
-      if (isNaN(parseInt(formStock)) || parseInt(formStock) < 0) errors.stock = "Valid stock required.";
-      if (isNaN(parseInt(formMinStock)) || parseInt(formMinStock) < 0) errors.minStock = "Valid min stock required.";
+      const result = partSchema.pick({ price: true, stock: true, minStock: true }).safeParse({
+        price: isNaN(parseFloat(formPrice)) ? -1 : parseFloat(formPrice),
+        stock: isNaN(parseInt(formStock)) ? -1 : parseInt(formStock),
+        minStock: isNaN(parseInt(formMinStock)) ? -1 : parseInt(formMinStock)
+      });
+      if (!result.success) {
+        result.error.issues.forEach(issue => {
+          errors[issue.path[0]] = issue.message;
+        });
+      }
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -396,17 +410,18 @@ export default function AddPartDrawer({
                             const file = e.target.files[0];
                             if (file) {
                               if (file.size > 2 * 1024 * 1024) {
-                                alert("Image size must be smaller than 2MB.");
+                                setFormErrors(prev => ({...prev, image: 'Image size must be smaller than 2MB.'}));
                                 return;
                               }
+                              setFormErrors(prev => ({...prev, image: ''}));
                               const reader = new FileReader();
                               reader.onloadend = () => setFormImage(reader.result);
                               reader.readAsDataURL(file);
                             }
                           }}
-                          className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-background transition file:cursor-pointer"
+                          className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brandBlue-50 file:text-brandBlue-600 hover:file:bg-brandBlue-100 transition-colors"
                         />
-                        <p className="text-3xs text-muted-foreground">PNG, JPG, WEBP. Max size: 2MB.</p>
+                        <p className="text-2xs text-muted-foreground/70">Max size: 2MB. Square ratio recommended.</p>
                       </div>
                       {formImage && (
                         <button 
@@ -418,6 +433,7 @@ export default function AddPartDrawer({
                         </button>
                       )}
                     </div>
+                    {formErrors.image && <p className="text-2xs text-destructive font-semibold mt-2">{formErrors.image}</p>}
                   </div>
                 </motion.div>
               )}
