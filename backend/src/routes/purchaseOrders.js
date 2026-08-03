@@ -17,4 +17,7 @@ router.put('/:id/status', requireAuth, requireRole('ADMIN'), purchaseOrdersContr
 // Update Billing Status (admin only)
 router.put('/:id/billing', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updateBillingStatus);
 
+// Update quoted prices on PO items (admin only)
+router.put('/:id/items/prices', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updateItemPrices);
+
 export default router;

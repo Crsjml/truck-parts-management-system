@@ -11,7 +11,7 @@ import {
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus,
-  updatePoBillingStatus, togglePartPublished
+  updatePoBillingStatus, togglePartPublished, updatePoItemPrices
 } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
@@ -96,6 +96,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [viewingPart, setViewingPart] = useState(null);
   const [productActiveTab, setProductActiveTab] = useState('general');
+
+  // Delivery checklist: set of item IDs confirmed as received
+  const [deliveredItems, setDeliveredItems] = useState(new Set());
+  // Quoted prices: map of item ID -> string input value
+  const [quotedPrices, setQuotedPrices] = useState({});
+  const [savingPrices, setSavingPrices] = useState(false);
 
   // Control panel state per sub-view
   const [rfqSearch, setRfqSearch] = useState('');
@@ -377,6 +383,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setViewingPo(po);
     setPoForm(po ? { supplier: po.supplier?.id || '', expectedDeliveryDate: po.expectedDeliveryDate?.substring(0, 10) || '', notes: po.notes || '', items: po.items || [], sourceRfq: po.sourceRfq || '' }
       : { supplier: prefillSupplierId, expectedDeliveryDate: '', notes: '', items: [], sourceRfq: '' });
+    // Reset checklist + quoted prices when opening a new PO
+    setDeliveredItems(new Set());
+    setQuotedPrices(po ? Object.fromEntries((po.items || []).map(i => [i.id, String(i.unitPrice)])) : {});
     setIsPoModalOpen(true);
   };
 
@@ -453,6 +462,53 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const fy = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.text(`Total: PHP ${po.totalAmount.toFixed(2)}`, 14, fy);
     doc.save(`${po.poNumber}.pdf`);
+  };
+
+  // RFQ PDF — no prices, just items to quote
+  const generateRfqPDF = (po) => {
+    const doc = new jsPDF();
+    const sup = po.supplier;
+    doc.setFontSize(22); doc.text('Request for Quotation', 105, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(`RFQ No: ${po.poNumber}`, 14, 35);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 40);
+    doc.text(`To: ${sup?.name || 'N/A'}`, 14, 48);
+    if (sup?.email) doc.text(`Email: ${sup.email}`, 14, 54);
+    doc.text('Please provide your best quotation for the following items:', 14, 65);
+    const tableData = po.items.map(i => [
+      `[${i.sku || 'N/A'}] ${i.name}`,
+      i.quantity.toString(),
+      '', // Unit Price — to be filled by supplier
+      ''  // Total — to be filled by supplier
+    ]);
+    autoTable(doc, {
+      startY: 72,
+      head: [['Description / SKU', 'Qty Required', 'Your Unit Price', 'Total']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [44, 62, 80] },
+      columnStyles: { 2: { minCellWidth: 35 }, 3: { minCellWidth: 35 } }
+    });
+    const fy = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(9);
+    doc.text('Please reply to this RFQ at your earliest convenience. Prices should be in PHP.', 14, fy);
+    doc.save(`RFQ_${po.poNumber}.pdf`);
+  };
+
+  // Save quoted prices entered by admin
+  const saveQuotedPrices = async () => {
+    if (!viewingPo) return;
+    const items = (viewingPo.items || []).map(i => ({ id: i.id, unitPrice: parseFloat(quotedPrices[i.id]) || i.unitPrice }));
+    setSavingPrices(true);
+    const res = await updatePoItemPrices(viewingPo.id, items);
+    setSavingPrices(false);
+    if (res.ok) {
+      setPurchaseOrders(prev => prev.map(p => p.id === res.purchaseOrder.id ? res.purchaseOrder : p));
+      setViewingPo(res.purchaseOrder);
+      if (showToast) showToast('Quoted prices saved.', 'success');
+    } else {
+      if (showToast) showToast(res.error, 'error');
+    }
   };
 
   // ── Product CRUD ──────────────────────────────────────────────────────────────
@@ -1183,21 +1239,67 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <table className="w-full text-left text-sm whitespace-nowrap mb-4">
                     <thead><tr className="border-b-2 border-border text-muted-foreground">
                       <th className="py-2 px-2 font-bold w-1/2">Product</th>
-                      <th className="py-2 px-2 font-bold text-right w-1/6">Qty</th>
-                      <th className="py-2 px-2 font-bold text-right w-1/6">Unit Price</th>
+                      <th className="py-2 px-2 font-bold text-right w-1/8">Qty</th>
+                      {viewingPo && viewingPo.status === 'Confirmed' ? (
+                        <th className="py-2 px-2 font-bold text-right w-1/6">Quoted Price</th>
+                      ) : (
+                        <th className="py-2 px-2 font-bold text-right w-1/6">Unit Price</th>
+                      )}
                       <th className="py-2 px-2 font-bold text-right w-1/6">Subtotal</th>
+                      {viewingPo?.status === 'Confirmed' && <th className="py-2 px-2 font-bold text-center w-20">Received</th>}
                       {!viewingPo && <th className="w-8" />}
                     </tr></thead>
                     <tbody className="divide-y divide-border">
-                      {poForm.items.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-secondary/50">
-                          <td className="py-2 px-2 font-medium">[{item.sku}] {item.name}</td>
-                          <td className="py-2 px-2 text-right">{item.quantity}</td>
-                          <td className="py-2 px-2 text-right">{formatCurrency(item.unitPrice)}</td>
-                          <td className="py-2 px-2 text-right font-bold">{formatCurrency(item.subtotal)}</td>
-                          {!viewingPo && <td className="py-2 px-2 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
-                        </tr>
-                      ))}
+                      {poForm.items.map((item, idx) => {
+                        const isDelivered = deliveredItems.has(item.id);
+                        const isConfirmed = viewingPo?.status === 'Confirmed';
+                        return (
+                          <tr key={idx} className={`hover:bg-secondary/50 transition-colors ${isConfirmed && isDelivered ? 'bg-emerald-500/5' : ''}`}>
+                            <td className="py-2 px-2 font-medium">[{item.sku}] {item.name}</td>
+                            <td className="py-2 px-2 text-right">{item.quantity}</td>
+                            <td className="py-2 px-2 text-right">
+                              {isConfirmed ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={quotedPrices[item.id] ?? item.unitPrice}
+                                  onChange={e => setQuotedPrices(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                  className="w-24 text-right bg-amber-500/10 border border-amber-400/30 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                              ) : (
+                                formatCurrency(item.unitPrice)
+                              )}
+                            </td>
+                            <td className="py-2 px-2 text-right font-bold">
+                              {isConfirmed
+                                ? formatCurrency((parseFloat(quotedPrices[item.id]) || item.unitPrice) * item.quantity)
+                                : formatCurrency(item.subtotal)}
+                            </td>
+                            {isConfirmed && (
+                              <td className="py-2 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setDeliveredItems(prev => {
+                                    const next = new Set(prev);
+                                    next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                                    return next;
+                                  })}
+                                  className={`w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all ${
+                                    isDelivered
+                                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                                      : 'border-border hover:border-emerald-500 text-transparent'
+                                  }`}
+                                  title={isDelivered ? 'Mark as not received' : 'Mark as received'}
+                                >
+                                  <CheckCircle weight="bold" className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
+                            {!viewingPo && <td className="py-2 px-2 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
+                          </tr>
+                        );
+                      })}
                       {!viewingPo && (
                         <tr><td colSpan="5" className="py-2">
                           <div className="flex items-center gap-2 mt-2">
@@ -1272,11 +1374,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         <div className="flex flex-wrap gap-2 justify-end w-full">
                           <button
                             type="button"
+                            onClick={() => generateRfqPDF(viewingPo)}
+                            className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
+                            title="Download RFQ PDF (for supplier)"
+                          >
+                            <FilePdf weight="duotone" className="w-4 h-4 text-blue-400" /> RFQ PDF
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => generatePDF(viewingPo)}
                             className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
-                            title="Download PDF"
+                            title="Download PO PDF"
                           >
-                            <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PDF
+                            <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PO PDF
                           </button>
 
                           {viewingPo.status === 'Draft' && (
@@ -1326,6 +1436,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
                           {viewingPo.status === 'Confirmed' && (
                             <>
+                              {/* Quoted prices save */}
+                              <button
+                                type="button"
+                                onClick={saveQuotedPrices}
+                                disabled={savingPrices}
+                                className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-500 text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                {savingPrices ? <span className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" /> : <CurrencyDollar weight="bold" className="w-4 h-4" />}
+                                Save Quoted Prices
+                              </button>
                               {viewingPo.billingStatus === 'Waiting Bills' && (
                                 <button
                                   type="button"
@@ -1335,13 +1455,28 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                   Mark Bills Received
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
-                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Receive Products
-                              </button>
+                              {/* Receive Products — gated by checklist */}
+                              {(() => {
+                                const allDelivered = poForm.items.length > 0 && poForm.items.every(i => deliveredItems.has(i.id));
+                                return (
+                                  <button
+                                    type="button"
+                                    disabled={!allDelivered}
+                                    onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
+                                    className={`px-4 py-2 text-white text-sm font-bold rounded-lg shadow-sm transition-all ${
+                                      allDelivered
+                                        ? 'bg-accent hover:bg-accent/90 active:scale-95'
+                                        : 'bg-accent/30 cursor-not-allowed'
+                                    }`}
+                                    title={allDelivered ? 'Confirm receipt' : `Check all ${poForm.items.length} items first`}
+                                  >
+                                    <span className="flex items-center gap-1.5">
+                                      <Truck weight="duotone" className="w-4 h-4" />
+                                      Receive Products {!allDelivered && `(${deliveredItems.size}/${poForm.items.length})`}
+                                    </span>
+                                  </button>
+                                );
+                              })()}
                             </>
                           )}
 

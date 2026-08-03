@@ -666,6 +666,11 @@ export const updatePoBillingStatus = api(async (id, billingStatus) => {
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update billing status.' };
 });
 
+export const updatePoItemPrices = api(async (id, items) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/items/prices`, { items }, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update quoted prices.' };
+});
+
 // ── Parts (extended) ─────────────────────────────────────────────────────────
 
 export const togglePartPublished = api(async (id, published) => {
