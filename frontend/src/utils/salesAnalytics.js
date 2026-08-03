@@ -219,3 +219,91 @@ export function paymentMix(transactions, range) {
   
   return series;
 }
+
+export function rankPartsBySales(transactions, { start, end }, limit) {
+  const current = inRange(transactions, start, end);
+  return topMovers(current, [], limit).map((m, i) => ({ ...m, rank: i + 1 }));
+}
+
+export function slowMovingParts(parts, transactions, { start, end }, threshold = 0) {
+  const current = inRange(transactions, start, end);
+  const curCounts = new Map();
+  
+  for (const t of current) {
+    for (const item of (t.items || [])) {
+      curCounts.set(item.partId, (curCounts.get(item.partId) || 0) + (item.quantity || 0));
+    }
+  }
+  
+  const result = [];
+  for (const p of parts) {
+    if (p.stock > 0) {
+      const sold = curCounts.get(p.id) || 0;
+      if (sold <= threshold) {
+        let lastSale = null;
+        for (const t of transactions) {
+          if ((t.items || []).some(i => i.partId === p.id)) {
+            const d = new Date(t.transactionDate);
+            if (!lastSale || d > lastSale) lastSale = d;
+          }
+        }
+        let daysSinceLastSale = null;
+        if (lastSale) {
+           daysSinceLastSale = Math.floor((new Date() - lastSale) / 86400000);
+        }
+        result.push({ ...p, unitsSold: sold, daysSinceLastSale });
+      }
+    }
+  }
+  return result.sort((a, b) => a.unitsSold - b.unitsSold);
+}
+
+export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
+  const current = inRange(transactions, start, end);
+  const spanMs = end - start;
+  
+  const numBuckets = bucketBy === 'day' ? Math.round(spanMs / 864e5) : bucketBy === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
+  const buckets = Math.max(numBuckets, 1);
+  const bucketMs = spanMs > 0 ? spanMs / buckets : 1;
+  
+  const series = Array.from({ length: buckets }, (_, i) => ({
+    label: '',
+    date: new Date(start.getTime() + i * bucketMs),
+    revenue: 0,
+    invoices: 0,
+    isPeak: false
+  }));
+  
+  for (const t of current) {
+    const d = new Date(t.transactionDate);
+    const i = Math.floor((d - start) / bucketMs);
+    if (i >= 0 && i < buckets) {
+      series[i].revenue += (t.total || 0);
+      series[i].invoices += 1;
+    }
+  }
+  
+  let maxRev = -1;
+  let peakIndex = -1;
+  for (let i = 0; i < series.length; i++) {
+    if (series[i].revenue > maxRev) {
+      maxRev = series[i].revenue;
+      peakIndex = i;
+    }
+  }
+  if (peakIndex >= 0) {
+    series[peakIndex].isPeak = true;
+  }
+  
+  series.forEach(s => {
+    if (bucketBy === 'day') {
+      s.label = s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } else if (bucketBy === 'week') {
+      s.label = `Wk ${s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    } else {
+      s.label = s.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    }
+  });
+  
+  return series;
+}
