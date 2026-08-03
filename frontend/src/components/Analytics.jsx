@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt } from '@phosphor-icons/react';
+import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
 import KpiTile from './analytics/KpiTile';
+import ChartRenderer from './analytics/ChartRenderer';
+import BestSellingPartsReport from './analytics/BestSellingPartsReport';
+import SlowMovingStockReport from './analytics/SlowMovingStockReport';
+import PeakSalesPeriodReport from './analytics/PeakSalesPeriodReport';
 import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, PAYMENT_METHODS, PAYMENT_COLORS, PAYMENT_LABELS } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, CartesianGrid, Treemap, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 
@@ -24,89 +27,10 @@ const ZOOM_ICONS = {
   payments: CurrencyDollar
 };
 
-function TreemapCell({ x, y, width, height, name, revenue, value, hasChildren, maxRev, onDrill, formatCurrency }) {
-  if (!width || !height || width < 5 || height < 5) return null;
-
-  const rev = revenue ?? value ?? 0;
-  const ratio = maxRev > 0 ? Math.min(1, Math.max(0, rev / maxRev)) : 0.5;
-  const fill = `hsl(217, 85%, ${Math.round(18 + ratio * 30)}%)`;
-
-  const handleClick = () => {
-    if (hasChildren && onDrill) {
-      onDrill(name);
-    }
-  };
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <rect
-        width={width}
-        height={height}
-        fill={fill}
-        stroke="#0f172a"
-        strokeWidth={2}
-        rx={6}
-        ry={6}
-        className={hasChildren ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}
-        onClick={handleClick}
-      />
-      {width > 40 && height > 28 && (
-        <foreignObject x={4} y={4} width={width - 8} height={height - 8} style={{ pointerEvents: 'none' }}>
-          <div className="w-full h-full flex flex-col justify-between p-1 text-white overflow-hidden">
-            <span className="text-xs font-semibold leading-tight truncate" title={name}>
-              {name}
-            </span>
-            <span className="text-[11px] font-bold text-blue-200">
-              {formatCurrency ? formatCurrency(rev) : `₱${rev.toLocaleString()}`}
-            </span>
-          </div>
-        </foreignObject>
-      )}
-    </g>
-  );
-}
-
-function MoverTick({ x, y, payload, movers }) {
-  const name = payload?.value || '';
-  const item = movers?.find(m => m.name === name);
-
-  let badgeText = '—';
-  let badgeStyle = 'text-muted-foreground bg-slate-800/80 border-slate-700/50';
-
-  if (item) {
-    if (item.rankDelta === null) {
-      badgeText = 'NEW';
-      badgeStyle = 'text-purple-400 bg-purple-950/50 border-purple-800/40';
-    } else if (item.rankDelta > 0) {
-      badgeText = `▲${item.rankDelta}`;
-      badgeStyle = 'text-emerald-400 bg-emerald-950/50 border-emerald-800/40';
-    } else if (item.rankDelta < 0) {
-      badgeText = `▼${Math.abs(item.rankDelta)}`;
-      badgeStyle = 'text-rose-400 bg-rose-950/50 border-rose-800/40';
-    } else {
-      badgeText = '—';
-      badgeStyle = 'text-muted-foreground bg-slate-800/80 border-slate-700/50';
-    }
-  }
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <foreignObject x="-215" y="-18" width="210" height="36">
-        <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeStyle}`}>
-            {badgeText}
-          </span>
-          <span className="text-[11px] text-foreground font-medium truncate text-right max-w-[140px]" title={name}>
-            {name}
-          </span>
-        </div>
-      </foreignObject>
-    </g>
-  );
-}
+// Removed inline chart components, moved to ChartRenderer
 
 export default function Analytics({ parts = [], transactions = [] }) {
-  const { formatCurrency, displayCurrency } = useSettings();
+  const { formatCurrency, displayCurrency, formatBaseCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [ledgerPage, setLedgerPage] = useState(1);
   const [zoomedChart, setZoomedChart] = useState(null); // 'trend' | 'movers' | 'treemap' | 'payments' | null
@@ -115,6 +39,19 @@ export default function Analytics({ parts = [], transactions = [] }) {
   const [period, setPeriod] = useState('30d');
   const [categories, setCategories] = useState([]);
   const [drilledCategory, setDrilledCategory] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setZoomedChart(null);
+        setSelectedInvoice(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Sync with props if transactions change from App.jsx
   useEffect(() => {
@@ -172,7 +109,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
     switch(status) {
       case 'Completed': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
       case 'Ready for Pickup': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-      case 'Cancelled': return 'text-red-500 bg-red-500/10 border-red-500/20';
+      case 'Cancelled': return 'text-alarm-red bg-alarm-red/10 border-alarm-red/20';
       default: return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
     }
   };
@@ -203,16 +140,38 @@ export default function Analytics({ parts = [], transactions = [] }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* KPI Stats Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
-        <h2 className="text-xl font-bold text-foreground font-display">Sales Overview</h2>
-        <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
+      {/* Tab Navigation */}
+      <div className="flex overflow-x-auto border-b border-border hide-scrollbar">
+        {['overview', 'best-selling', 'slow-moving', 'peak-sales'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`whitespace-nowrap px-5 py-3 font-semibold text-sm border-b-2 transition-colors ${
+              activeTab === tab 
+                ? 'border-brandBlue-500 text-brandBlue-400' 
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-slate-700'
+            }`}
+          >
+            {tab === 'overview' && 'Overview'}
+            {tab === 'best-selling' && 'Best-Selling Parts'}
+            {tab === 'slow-moving' && 'Slow-Moving Stock'}
+            {tab === 'peak-sales' && 'Peak Sales Period'}
+          </button>
+        ))}
       </div>
 
+      {activeTab === 'overview' && (
+        <>
+          {/* KPI Stats Row */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
+            <h2 className="text-xl font-bold text-foreground font-display">Sales Overview</h2>
+            <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
+          </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <KpiTile label="Total Revenue" value={formatCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} iconBgClass="bg-emerald-950/40" iconColorClass="text-emerald-400" iconBorderClass="border-emerald-800/35" />
+        <KpiTile label="Total Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} iconBgClass="bg-emerald-950/40" iconColorClass="text-emerald-400" iconBorderClass="border-emerald-800/35" />
         <KpiTile label="Total Invoices" value={kpis.invoices} delta={kpis.deltas?.invoices} icon={FileText} iconBgClass="bg-brandBlue-900/40" iconColorClass="text-brandBlue-400" iconBorderClass="border-brandBlue-700/30" />
-        <KpiTile label="Average Invoice" value={formatCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} iconBgClass="bg-amber-950/40" iconColorClass="text-amber-500" iconBorderClass="border-amber-800/35" />
+        <KpiTile label="Average Invoice" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} iconBgClass="bg-amber-950/40" iconColorClass="text-amber-500" iconBorderClass="border-amber-800/35" />
         <KpiTile label="Units per Invoice" value={kpis.unitsPerInvoice.toFixed(1)} delta={kpis.deltas?.unitsPerInvoice} icon={ShoppingCart} iconBgClass="bg-violet-950/40" iconColorClass="text-violet-400" iconBorderClass="border-violet-800/35" />
       </div>
 
@@ -225,7 +184,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
               <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
               <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
             </div>
-            <button onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
@@ -234,28 +193,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
             {trend.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trend} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
-                    tickFormatter={(val) => `₱${val.toLocaleString()}`} 
-                    dx={-10}
-                  />
-                  <Tooltip 
-                    cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                    itemStyle={{ color: '#f8fafc' }}
-                    formatter={(value) => [formatCurrency(value), undefined]}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                  <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-                  <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              <ChartRenderer type="trend" data={trend} formatCurrency={formatBaseCurrency} />
             )}
           </div>
         </div>
@@ -278,7 +216,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                   ← Back
                 </button>
               )}
-              <button onClick={() => setZoomedChart('treemap')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <button aria-label="Zoom Category Revenue" onClick={() => setZoomedChart('treemap')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
                 <ArrowsOut weight="duotone" className="w-4 h-4" />
               </button>
             </div>
@@ -288,27 +226,12 @@ export default function Analytics({ parts = [], transactions = [] }) {
             {catRevenue.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No revenue data for categories.</div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <Treemap
-                  data={catRevenue}
-                  dataKey="revenue"
-                  aspectRatio={4 / 3}
-                  stroke="#0f172a"
-                  content={
-                    <TreemapCell
-                      maxRev={maxCatRevenue}
-                      onDrill={setDrilledCategory}
-                      formatCurrency={formatCurrency}
-                    />
-                  }
-                >
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                    itemStyle={{ color: '#f8fafc' }}
-                    formatter={(val) => [formatCurrency(val), 'Revenue']}
-                  />
-                </Treemap>
-              </ResponsiveContainer>
+              <ChartRenderer 
+                type="treemap" 
+                data={catRevenue} 
+                formatCurrency={formatBaseCurrency}
+                extraProps={{ maxCatRevenue, onDrill: setDrilledCategory }}
+              />
             )}
           </div>
         </div>
@@ -320,7 +243,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
               <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
               <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
             </div>
-            <button onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
@@ -329,30 +252,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
             {movers.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={movers}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={<MoverTick movers={movers} />}
-                    width={210}
-                  />
-                  <Tooltip 
-                    cursor={{ fill: '#1e293b' }}
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                    itemStyle={{ color: '#f8fafc' }}
-                    formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
-                  />
-                  <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#94a3b8', fontSize: 10 }} />
-                </BarChart>
-              </ResponsiveContainer>
+              <ChartRenderer type="movers" data={movers} formatCurrency={formatBaseCurrency} />
             )}
           </div>
         </div>
@@ -364,7 +264,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
               <CurrencyDollar weight="duotone" className="w-5 h-5 text-violet-400" />
               <h3 className="text-base font-bold text-foreground font-display">Payment Method Mix</h3>
             </div>
-            <button onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button aria-label="Zoom Payment Method Mix" onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
@@ -373,35 +273,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
             {payments.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={payments} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
-                    tickFormatter={(val) => `₱${val.toLocaleString()}`} 
-                    dx={-10}
-                  />
-                  <Tooltip 
-                    cursor={{ fill: '#1e293b' }}
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                    itemStyle={{ color: '#f8fafc' }}
-                    formatter={(value) => [formatCurrency(value), undefined]}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                  {PAYMENT_METHODS.map((method) => (
-                    <Bar 
-                      key={method} 
-                      dataKey={method} 
-                      name={PAYMENT_LABELS[method]} 
-                      fill={PAYMENT_COLORS[method]} 
-                      stackId="a" 
-                    />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+              <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />
             )}
           </div>
         </div>
@@ -425,7 +297,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                 setSearchInvoice(e.target.value);
                 setLedgerPage(1);
               }}
-              className="w-full bg-background border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-red-600 transition-all text-foreground"
+              className="w-full bg-background border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
             />
           </div>
         </div>
@@ -443,6 +315,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                   <th className="py-3 px-3 text-center">Items Count</th>
                   <th className="py-3 px-3 text-right">Invoiced Amount</th>
                   <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-3 text-center">View</th>
                   <th className="py-3 px-3 text-center">Action</th>
                 </tr>
               </thead>
@@ -459,9 +332,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                       {paginatedTransactions.map((tx) => (
                         <tr 
                           key={tx.id} 
-                          className="hover:bg-secondary transition-colors cursor-pointer"
-                          onDoubleClick={() => setSelectedInvoice(tx)}
-                          title="Double-click to view details"
+                          className="hover:bg-secondary transition-colors"
                         >
                           <td className="py-3 px-3 font-semibold text-red-500">{tx.invoiceNumber}</td>
                           <td className="py-3 px-3 text-muted-foreground">
@@ -476,7 +347,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                             {tx.items.reduce((s, i) => s + i.quantity, 0)} items
                           </td>
                           <td className="py-3 px-3 text-right font-bold text-foreground">
-                            {formatCurrency(tx.total)}
+                            {formatBaseCurrency(tx.total)}
                           </td>
                           <td className="py-3 px-3 text-center">
                             <div className="relative inline-flex items-center group cursor-pointer" title="Click to change order status">
@@ -486,7 +357,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                                 className={`text-xs pl-3 pr-8 py-1.5 rounded-md border appearance-none outline-none text-left cursor-pointer font-bold transition-all shadow-sm group-hover:shadow focus-visible:ring-2 focus-visible:ring-accent
                                   ${tx.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 group-hover:border-emerald-500/40' : 
                                     tx.status === 'Ready for Pickup' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 group-hover:border-blue-500/40' : 
-                                    tx.status === 'Cancelled' ? 'bg-red-500/10 text-red-500 border-red-500/20 group-hover:border-red-500/40' : 
+                                    tx.status === 'Cancelled' ? 'bg-alarm-red/10 text-alarm-red border-alarm-red/20 group-hover:border-alarm-red/40' : 
                                     'bg-amber-500/10 text-amber-500 border-amber-500/20 group-hover:border-amber-500/40'}`}
                               >
                                 <option value="Order Placed" className="bg-background text-foreground font-medium">ORDER_PLACED</option>
@@ -499,7 +370,18 @@ export default function Analytics({ parts = [], transactions = [] }) {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <button 
-                              onClick={() => buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate: true })}
+                              aria-label="View Invoice Details"
+                              onClick={() => setSelectedInvoice(tx)}
+                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all mx-auto"
+                              title="View Invoice Details"
+                            >
+                              <Eye weight="duotone" className="w-4 h-4" />
+                            </button>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button 
+                              aria-label="Download Invoice PDF"
+                              onClick={() => buildInvoicePdf(tx, { formatCurrency: formatBaseCurrency, displayCurrency, duplicate: true })}
                               className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all mx-auto"
                               title="Download Invoice"
                             >
@@ -541,6 +423,12 @@ export default function Analytics({ parts = [], transactions = [] }) {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'best-selling' && <BestSellingPartsReport transactions={localTransactions} parts={parts} />}
+      {activeTab === 'slow-moving' && <SlowMovingStockReport transactions={localTransactions} parts={parts} />}
+      {activeTab === 'peak-sales' && <PeakSalesPeriodReport transactions={localTransactions} />}
 
       {/* ZOOM MODAL */}
       <AnimatePresence>
@@ -564,90 +452,23 @@ export default function Analytics({ parts = [], transactions = [] }) {
                     {ZOOM_TITLES[zoomedChart] || 'Chart View'}
                   </h3>
                 </div>
-                <button onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-all">
+                <button aria-label="Close modal" onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-all">
                   <X weight="bold" className="w-6 h-6" />
                 </button>
               </div>
               
               <div className="flex-1 bg-background p-8 min-h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  {zoomedChart === 'trend' && (
-                    <LineChart data={trend} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-                      <Tooltip 
-                        cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                        formatter={(value) => [formatCurrency(value), undefined]}
-                      />
-                      <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                      <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-                      <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-                    </LineChart>
-                  )}
-
-                  {zoomedChart === 'movers' && (
-                    <BarChart data={movers} layout="vertical" margin={{ top: 20, right: 60, left: 40, bottom: 20 }}>
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={<MoverTick movers={movers} />} width={220} />
-                      <Tooltip 
-                        cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                        formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
-                      />
-                      <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 6, 6, 0]} barSize={40} label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }} />
-                    </BarChart>
-                  )}
-
-                  {zoomedChart === 'treemap' && (
-                    <Treemap
-                      data={catRevenue}
-                      dataKey="revenue"
-                      aspectRatio={4 / 3}
-                      stroke="#0f172a"
-                      content={
-                        <TreemapCell
-                          maxRev={maxCatRevenue}
-                          onDrill={setDrilledCategory}
-                          formatCurrency={formatCurrency}
-                        />
-                      }
-                    >
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                        formatter={(val) => [formatCurrency(val), 'Revenue']}
-                      />
-                    </Treemap>
-                  )}
-
-                  {zoomedChart === 'payments' && (
-                    <BarChart data={payments} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-                      <Tooltip 
-                        cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                        formatter={(value) => [formatCurrency(value), undefined]}
-                      />
-                      <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                      {PAYMENT_METHODS.map((method) => (
-                        <Bar 
-                          key={method} 
-                          dataKey={method} 
-                          name={PAYMENT_LABELS[method]} 
-                          fill={PAYMENT_COLORS[method]} 
-                          stackId="a" 
-                        />
-                      ))}
-                    </BarChart>
-                  )}
-                </ResponsiveContainer>
+                {zoomedChart === 'trend' && <ChartRenderer type="trend" data={trend} formatCurrency={formatBaseCurrency} />}
+                {zoomedChart === 'movers' && <ChartRenderer type="movers" data={movers} formatCurrency={formatBaseCurrency} />}
+                {zoomedChart === 'treemap' && (
+                  <ChartRenderer 
+                    type="treemap" 
+                    data={catRevenue} 
+                    formatCurrency={formatBaseCurrency} 
+                    extraProps={{ maxCatRevenue, onDrill: setDrilledCategory }} 
+                  />
+                )}
+                {zoomedChart === 'payments' && <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />}
               </div>
             </motion.div>
           </motion.div>
@@ -658,6 +479,8 @@ export default function Analytics({ parts = [], transactions = [] }) {
       <AnimatePresence>
         {selectedInvoice && (
           <motion.div
+            role="dialog"
+            aria-modal="true"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -688,6 +511,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
                   </p>
                 </div>
                 <button 
+                  aria-label="Close invoice details"
                   onClick={() => setSelectedInvoice(null)} 
                   className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-full transition-all bg-background border border-border hover:border-muted-foreground/30 shadow-sm"
                 >
@@ -743,8 +567,8 @@ export default function Analytics({ parts = [], transactions = [] }) {
                           <p className="text-xs text-muted-foreground">SKU: {item.sku || 'N/A'}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-foreground">{formatCurrency(item.price * item.quantity)}</p>
-                          <p className="text-xs text-muted-foreground">{item.quantity} × {formatCurrency(item.price)}</p>
+                          <p className="font-bold text-foreground">{formatBaseCurrency(item.price * item.quantity)}</p>
+                          <p className="text-xs text-muted-foreground">{item.quantity} × {formatBaseCurrency(item.price)}</p>
                         </div>
                       </div>
                     ))}
@@ -754,14 +578,14 @@ export default function Analytics({ parts = [], transactions = [] }) {
                 {/* Totals */}
                 <div className="bg-secondary/50 rounded-xl p-5 border border-border/50 flex justify-between items-center">
                   <span className="text-muted-foreground font-semibold uppercase tracking-wider text-sm">Total Amount</span>
-                  <span className="text-2xl font-bold text-accent">{formatCurrency(selectedInvoice.total)}</span>
+                  <span className="text-2xl font-bold text-accent">{formatBaseCurrency(selectedInvoice.total)}</span>
                 </div>
               </div>
               
               {/* Footer Actions */}
               <div className="p-4 border-t border-border bg-background shrink-0">
                 <button 
-                  onClick={() => buildInvoicePdf(selectedInvoice, { formatCurrency, displayCurrency, duplicate: true })}
+                  onClick={() => buildInvoicePdf(selectedInvoice, { formatCurrency: formatBaseCurrency, displayCurrency, duplicate: true })}
                   className="w-full py-3 bg-brandBlue-600 hover:bg-brandBlue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all hover:shadow-lg shadow-brandBlue-500/20"
                 >
                   <Download weight="bold" className="w-5 h-5" />
