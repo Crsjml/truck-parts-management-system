@@ -258,25 +258,22 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
     setServerError('');
     
     // Zod Validation
-    try {
-      partSchema.parse({
-        name: formName.trim(),
-        sku: formSku.trim(),
-        oem: formOem.trim(),
-        category: formCategory,
-        price: Number(formPrice),
-        stock: Number(formStock),
-        minStock: Number(formMinStock)
-      });
-      setFormErrors({});
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        const errors = {};
-        err.errors.forEach(e => { errors[e.path[0]] = e.message; });
-        setFormErrors(errors);
-        return;
-      }
+    const result = partSchema.safeParse({
+      name: formName.trim(),
+      sku: formSku.trim(),
+      oem: formOem.trim(),
+      category: formCategory,
+      price: isNaN(parseFloat(formPrice)) ? -1 : parseFloat(formPrice),
+      stock: isNaN(parseInt(formStock)) ? -1 : parseInt(formStock),
+      minStock: isNaN(parseInt(formMinStock)) ? -1 : parseInt(formMinStock)
+    });
+    if (!result.success) {
+      const errors = {};
+      result.error.issues.forEach(e => { errors[e.path[0]] = e.message; });
+      setFormErrors(errors);
+      return;
     }
+    setFormErrors({});
 
     const partData = {
       name: formName.trim(),
@@ -582,14 +579,14 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
           {/* Low Stock Toggle */}
           {!isReadOnly && (
-            <label className={`flex items-center gap-2 px-3 py-1.5 h-9 rounded-lg border cursor-pointer select-none transition-all duration-200 ${showLowStockOnly ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-transparent border-transparent text-muted-foreground hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400'}`}>
+            <label className="flex items-center gap-2 px-3 py-1.5 h-9 rounded-lg border cursor-pointer select-none transition-all duration-200 bg-transparent border-transparent text-muted-foreground hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400 has-[:checked]:bg-red-500/10 has-[:checked]:border-red-500/30 has-[:checked]:text-red-500 group">
               <input 
                 type="checkbox" 
                 checked={showLowStockOnly} 
                 onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-                className="hidden"
+                className="sr-only peer"
               />
-              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className={`w-4 h-4 ${showLowStockOnly ? 'text-red-500' : 'text-muted-foreground group-hover:text-red-400'}`} />
+              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className="w-4 h-4 text-muted-foreground group-hover:text-red-400 peer-checked:text-red-500" />
               <span className="text-xs font-semibold hidden sm:inline">Low Stock Only</span>
             </label>
           )}
@@ -1197,9 +1194,10 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                               const file = e.target.files[0];
                               if (file) {
                                 if (file.size > 2 * 1024 * 1024) {
-                                  alert("Image size must be smaller than 2MB.");
+                                  setFormErrors(prev => ({...prev, image: 'Image size must be smaller than 2MB.'}));
                                   return;
                                 }
+                                setFormErrors(prev => ({...prev, image: ''}));
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
                                   setFormImage(reader.result);
@@ -1209,8 +1207,9 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                             }}
                             className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-background transition file:cursor-pointer"
                           />
-                          <p className="text-3xs text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
+                          <p className="text-2xs text-muted-foreground/70">Max size: 2MB. Square ratio recommended.</p>
                         </div>
+                        {formErrors.image && <p className="text-2xs text-destructive font-semibold">{formErrors.image}</p>}
                         {formImage && (
                           <button 
                             type="button"
@@ -1227,8 +1226,8 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
                 {/* Server-side error banner */}
                 {serverError && (
-                  <div className="mx-5 mb-1 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-300 text-sm font-semibold animate-fadeIn">
-                    <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                  <div className="mx-5 mb-1 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold animate-fadeIn">
+                    <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive" />
                     <span>{serverError}</span>
                   </div>
                 )}
