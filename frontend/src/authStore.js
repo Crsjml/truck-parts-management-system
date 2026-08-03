@@ -473,22 +473,6 @@ export const resetPassword = async ({ token, password }) => {
   }
 };
 
-// ── Change Password (Authenticated) ──────────────────────────────────────────
-
-export const changePassword = async ({ email, currentPassword, newPassword }) => {
-  try {
-    const { ok, data } = await apiPost('/api/auth/change-password', {
-      email: email.trim().toLowerCase(),
-      current_password: currentPassword,
-      new_password: newPassword,
-    }, { supabase });
-    if (!ok) return { ok: false, error: data.msg || 'Password change failed.' };
-    return { ok: true, message: data.msg };
-  } catch {
-    return { ok: false, error: 'Could not reach the backend server. Is it running?' };
-  }
-};
-
 // ── Verification notice helper (used by UI) ──────────────────────────────────
 
 export const getVerificationNotice = (email, code) =>
