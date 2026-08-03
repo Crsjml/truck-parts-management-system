@@ -57,6 +57,7 @@ export default {
           DEFAULT: "hsl(var(--card) / <alpha-value>)",
           foreground: "hsl(var(--card-foreground) / <alpha-value>)",
         },
+        'alarm-red': 'hsl(0, 84.2%, 60.2%)',
         brandRed: {
           50: '#fef2f2',
           100: '#fee2e2',
