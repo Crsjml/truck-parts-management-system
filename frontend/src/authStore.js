@@ -574,6 +574,11 @@ export const fetchMyTransactions = apiCatch(async () => {
   return await apiGet('/api/transactions/mine', { supabase });
 });
 
+export const updateTransactionStatus = api(async (id, status) => {
+  const { ok, data } = await apiPut(`/api/transactions/${id}/status`, { status }, { supabase });
+  return ok ? { ok: true, transaction: data } : { ok: false, error: data.msg || 'Failed to update order status.' };
+});
+
 // ── Settings & Adjustments ───────────────────────────────────────────────────
 
 export const fetchSettings = async () => {

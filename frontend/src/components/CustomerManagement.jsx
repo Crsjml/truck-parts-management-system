@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, Plus, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker } from '@phosphor-icons/react';
+import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, Plus, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker, Truck, CheckCircle } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions } from '../authStore';
+import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions, updateTransactionStatus } from '../authStore';
 
 const fmt = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
@@ -9,9 +9,17 @@ const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-PH', { year: 'nume
 
 const STATUS_STYLE = {
   COMPLETED: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  ORDER_PLACED: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  ORDER_PLACED: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  READY_FOR_PICKUP: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   CANCELLED: 'bg-red-500/10 text-red-600 dark:text-red-400',
   PENDING: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+};
+
+const STATUS_LABEL = {
+  ORDER_PLACED: 'Order Placed',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
 };
 const PAYMENT_ICON = { CASH: Money, CARD: CreditCard, CHEQUE: Bank, ONLINE: Globe, GCASH: DeviceMobileSpeaker };
 
@@ -73,6 +81,16 @@ export default function CustomerManagement({ showToast }) {
     setDashLoading(false);
   };
   const closeDashboard = () => { setDashboardCustomer(null); setDashTxOnline([]); setDashTxFtf([]); };
+
+  const handleUpdateDashTxStatus = async (txId, newStatus) => {
+    const res = await updateTransactionStatus(txId, newStatus);
+    if (res.ok) {
+      setDashTxOnline(prev => prev.map(t => t.id === txId ? { ...t, status: newStatus } : t));
+      showToast?.(`Order status updated to ${STATUS_LABEL[newStatus] || newStatus}`, 'success');
+    } else {
+      showToast?.(res.error || 'Failed to update order status', 'error');
+    }
+  };
 
   const openCreateModal = (isFtfType = true) => {
     setCrudMode('create');
@@ -786,6 +804,7 @@ export default function CustomerManagement({ showToast }) {
                         <TransactionList
                           transactions={dashTab === 'online' ? dashTxOnline : dashTxFtf}
                           type={dashTab}
+                          onStatusUpdate={dashTab === 'online' ? handleUpdateDashTxStatus : null}
                         />
                       </motion.div>
                     </AnimatePresence>
@@ -956,7 +975,14 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
 }
 
 /* ── Transaction List ──────────────────────────────────────────────────────── */
-function TransactionList({ transactions, type }) {
+function TransactionList({ transactions, type, onStatusUpdate }) {
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const handleStatusChange = async (txId, newStatus) => {
+    setUpdatingId(txId);
+    await onStatusUpdate?.(txId, newStatus);
+    setUpdatingId(null);
+  };
   if (!transactions || !transactions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -985,7 +1011,7 @@ function TransactionList({ transactions, type }) {
                 <Receipt weight="duotone" className={`w-4 h-4 ${type === 'online' ? 'text-accent' : 'text-amber-500'}`} />
                 <span className="font-mono text-xs font-bold text-foreground">{tx.invoiceNumber}</span>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold ${statusCls}`}>
-                  {tx.status?.replace('_', ' ')}
+                  {STATUS_LABEL[tx.status] || tx.status?.replace(/_/g, ' ')}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -1023,6 +1049,36 @@ function TransactionList({ transactions, type }) {
               </div>
               <div className="font-mono font-black text-foreground text-sm">{fmt(tx.total)}</div>
             </div>
+
+            {/* Admin pickup actions — only for actionable online orders */}
+            {onStatusUpdate && tx.status === 'ORDER_PLACED' && (
+              <div className="px-4 py-2.5 border-t border-border/50 bg-blue-500/5">
+                <button
+                  onClick={() => handleStatusChange(tx.id, 'READY_FOR_PICKUP')}
+                  disabled={updatingId === tx.id}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors disabled:opacity-50 shadow-sm shadow-blue-500/20 active:scale-[0.98]"
+                >
+                  {updatingId === tx.id
+                    ? <CircleNotch weight="bold" className="w-3.5 h-3.5 animate-spin" />
+                    : <Truck weight="duotone" className="w-3.5 h-3.5" />}
+                  Mark Ready for Pickup
+                </button>
+              </div>
+            )}
+            {onStatusUpdate && tx.status === 'READY_FOR_PICKUP' && (
+              <div className="px-4 py-2.5 border-t border-border/50 bg-emerald-500/5">
+                <button
+                  onClick={() => handleStatusChange(tx.id, 'COMPLETED')}
+                  disabled={updatingId === tx.id}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors disabled:opacity-50 shadow-sm shadow-emerald-500/20 active:scale-[0.98]"
+                >
+                  {updatingId === tx.id
+                    ? <CircleNotch weight="bold" className="w-3.5 h-3.5 animate-spin" />
+                    : <CheckCircle weight="duotone" className="w-3.5 h-3.5" />}
+                  Mark as Picked Up
+                </button>
+              </div>
+            )}
           </div>
         );
       })}
