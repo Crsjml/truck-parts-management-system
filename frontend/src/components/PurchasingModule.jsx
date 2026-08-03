@@ -144,20 +144,23 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   useEffect(() => {
     const handlePurchasingIntent = (e) => {
-      const part = e.detail;
-      if (part) {
+      const payload = e.detail;
+      if (payload) {
+        const parts = Array.isArray(payload) ? payload : [payload];
+        if (parts.length === 0) return;
+
         setActiveSection('orders');
         setActiveOrderTab('rfq'); // or 'pos', but 'rfq' is the Draft phase
         setPoForm({
           supplier: '',
           expectedDeliveryDate: '',
-          notes: `Restock request for ${part.name}`,
-          items: [{
+          notes: parts.length > 1 ? `Restock request for ${parts.length} items` : `Restock request for ${parts[0].name}`,
+          items: parts.map(part => ({
             partId: part.id,
             name: part.name,
-            quantity: 1,
+            quantity: Math.max(1, (part.deficit && part.deficit > 0) ? part.deficit : 1),
             unitPrice: part.price
-          }],
+          })),
           sourceRfq: ''
         });
         setIsPoModalOpen(true);
