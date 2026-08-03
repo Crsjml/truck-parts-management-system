@@ -67,7 +67,7 @@ router.post("/", requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
 // SUPERADMIN only: this PIN authorises discounts, so ADMIN must not self-grant it.
 router.post('/override-pin', requireAuth, async (req, res) => {
   try {
-    const staff = await prisma.staffRole.findUnique({ where: { email: req.auth.email } });
+    const staff = await prisma.staffRole.findUnique({ where: { email: req.auth.email.toLowerCase() } });
     if (staff?.role !== 'SUPERADMIN') {
       return res.status(403).json({ msg: 'Only a superadmin can set the override PIN.' });
     }
