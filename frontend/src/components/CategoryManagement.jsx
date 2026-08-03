@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Tag, Plus, Pencil, Trash, CaretRight, Warning, CheckCircle, CircleNotch, List, FolderSimplePlus, Table, MagnifyingGlass, WarningCircle, X, Palette, Star } from '@phosphor-icons/react';
 import { fetchCategoriesList, createCategory, updateCategory, deleteCategory } from '../authStore';
 import { ICON_MAP, COLOR_THEMES, autoSuggest, getCategoryIconAndColor } from '../utils/categoryIcons';
+import { Drawer } from './ui/Drawer';
 
 export default function CategoryManagement({ onAddLog }) {
   const [categories, setCategories] = useState([]);
@@ -26,6 +27,7 @@ export default function CategoryManagement({ onAddLog }) {
   // Feedback
   const [notice, setNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, id: null, name: '' });
 
   const loadCategories = async (preserveSelection = false) => {
     setLoading(true);
@@ -46,6 +48,15 @@ export default function CategoryManagement({ onAddLog }) {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  useEffect(() => {
+    if (!isFormOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') closeForm();
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [isFormOpen]);
 
   const openForm = (cat = null, parentId = '') => {
     setErrorMsg('');
@@ -147,8 +158,13 @@ export default function CategoryManagement({ onAddLog }) {
     setTimeout(() => setNotice(''), 3000);
   };
 
-  const handleDelete = async (id, catName) => {
-    if (!confirm(`Are you sure you want to delete category "${catName}"?`)) return;
+  const handleDeleteClick = (id, catName) => {
+    setConfirmDialog({ isOpen: true, id, name: catName });
+  };
+
+  const executeDelete = async () => {
+    const { id, name: catName } = confirmDialog;
+    setConfirmDialog({ isOpen: false, id: null, name: '' });
     
     setLoading(true);
     const result = await deleteCategory(id);
@@ -207,8 +223,7 @@ export default function CategoryManagement({ onAddLog }) {
       {renderFeedback()}
 
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-brandBlue-400 flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-display flex items-center gap-2.5">
             <Tag weight="duotone" className="w-8 h-8 text-brandBlue-500" />
@@ -222,7 +237,7 @@ export default function CategoryManagement({ onAddLog }) {
         <div className="flex flex-col gap-3">
           <button
             onClick={() => openForm()}
-            className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-1.5"
+            className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
           >
             <Plus weight="bold" className="w-4 h-4" /> Add Category
           </button>
@@ -299,7 +314,6 @@ export default function CategoryManagement({ onAddLog }) {
             {selectedParent ? (
               <>
                 <div className="p-6 border-b border-border bg-secondary/30 relative overflow-hidden shrink-0">
-                  <div className={`absolute -right-10 -top-10 w-48 h-48 blur-3xl opacity-10 pointer-events-none ${getCategoryIconAndColor(selectedParent.name, selectedParent.iconName, selectedParent.colorTheme).bg}`} />
                   <div className="flex items-start justify-between relative z-10">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center border border-border/50 shadow-inner ${getCategoryIconAndColor(selectedParent.name, selectedParent.iconName, selectedParent.colorTheme).bg}`}>
@@ -314,8 +328,8 @@ export default function CategoryManagement({ onAddLog }) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => openForm(selectedParent)} className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(selectedParent.id, selectedParent.name)} className="p-2 hover:bg-red-950/20 rounded-lg text-muted-foreground hover:text-red-500 transition-colors border border-transparent hover:border-red-900/30"><Trash className="w-4 h-4" /></button>
+                      <button aria-label="Edit category" onClick={() => openForm(selectedParent)} className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"><Pencil className="w-4 h-4" /></button>
+                      <button aria-label="Delete category" onClick={() => handleDeleteClick(selectedParent.id, selectedParent.name)} className="p-2 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive transition-colors border border-transparent hover:border-destructive/30"><Trash className="w-4 h-4" /></button>
                     </div>
                   </div>
                   
@@ -345,13 +359,13 @@ export default function CategoryManagement({ onAddLog }) {
                         return (
                           <div 
                             key={child.id} 
-                            className={`flex flex-col p-4 bg-background border border-border hover:border-border/80 rounded-xl group/sub transition-all hover:shadow-md hover:shadow-black/5 hover:-translate-y-0.5 hover:shadow-[inset_2px_0_0_0_currentColor] ${color}`}
+                            className={`flex flex-col p-4 bg-background border border-border hover:border-border/80 rounded-xl group/sub transition-all ${color}`}
                           >
                             <div className="flex items-start justify-between">
                               <span className="font-bold text-sm text-foreground/90">{child.name}</span>
-                              <div className="flex gap-1 opacity-0 group-hover/sub:opacity-100 transition-opacity">
-                                <button onClick={() => openForm(child)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleDelete(child.id, child.name)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500"><Trash className="w-3.5 h-3.5" /></button>
+                              <div className="flex gap-1 opacity-0 focus-within:opacity-100 group-hover/sub:opacity-100 transition-opacity">
+                                <button aria-label={`Edit subcategory ${child.name}`} onClick={() => openForm(child)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                                <button aria-label={`Delete subcategory ${child.name}`} onClick={() => handleDeleteClick(child.id, child.name)} className="p-1.5 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive"><Trash className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
                             <span className="text-2xs text-muted-foreground mt-1 flex items-center gap-1"><CaretRight className={color} /> Parent: {selectedParent.name}</span>
@@ -376,7 +390,9 @@ export default function CategoryManagement({ onAddLog }) {
             </h3>
             <div className="relative">
               <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <label htmlFor="category-search" className="sr-only">Search categories</label>
               <input 
+                id="category-search"
                 type="text" 
                 placeholder="Search categories..." 
                 value={searchQuery}
@@ -422,7 +438,7 @@ export default function CategoryManagement({ onAddLog }) {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-2xs font-bold ${!cat.parentCategory ? 'bg-brandBlue-500/10 text-brandBlue-500 border border-brandBlue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
+                          <span className={`px-2 py-0.5 rounded text-2xs font-bold ${!cat.parentCategory ? 'bg-brandBlue-500/10 text-brandBlue-500 border border-brandBlue-500/20' : 'bg-brandRed-500/10 text-brandRed-500 border border-brandRed-500/20'}`}>
                             {!cat.parentCategory ? 'MAIN' : 'SUB'}
                           </span>
                         </td>
@@ -435,8 +451,8 @@ export default function CategoryManagement({ onAddLog }) {
                           ) : '--'}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button onClick={() => openForm(cat)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground inline-block mx-1 border border-transparent hover:border-border"><Pencil className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => handleDelete(cat.id, cat.name)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500 inline-block mx-1 border border-transparent hover:border-red-900/30"><Trash className="w-3.5 h-3.5" /></button>
+                          <button aria-label={`Edit ${cat.name}`} onClick={() => openForm(cat)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground inline-block mx-1 border border-transparent hover:border-border"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button aria-label={`Delete ${cat.name}`} onClick={() => handleDeleteClick(cat.id, cat.name)} className="p-1.5 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive inline-block mx-1 border border-transparent hover:border-destructive/30"><Trash className="w-3.5 h-3.5" /></button>
                         </td>
                       </tr>
                     );
@@ -450,14 +466,19 @@ export default function CategoryManagement({ onAddLog }) {
 
       {/* ── CREATE / EDIT MODAL WITH ICON/COLOR PICKER ── */}
       {isFormOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeForm();
+          }}
+        >
           <div className="w-full max-w-4xl bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-background/50">
               <h3 className="text-base font-bold text-foreground font-display flex items-center gap-2">
                 <FolderSimplePlus className="text-accent w-5 h-5" weight="duotone" />
                 {editId ? 'Modify Category' : 'Create New Category'}
               </h3>
-              <button onClick={closeForm} className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+              <button aria-label="Close form" onClick={closeForm} className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                 <X weight="bold" className="w-4 h-4" />
               </button>
             </div>
@@ -558,6 +579,8 @@ export default function CategoryManagement({ onAddLog }) {
                               onClick={() => selectColor(colorKey)}
                               className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${isColorSelected ? `bg-secondary border-brandBlue-500/50 shadow-sm` : 'bg-transparent border-border hover:bg-secondary/50'}`}
                               title={`${colorKey} ${isUsed ? '(Already Used)' : ''}`}
+                              aria-label={`Select color theme ${colorKey}`}
+                              aria-pressed={isColorSelected}
                             >
                               <div className={`w-3.5 h-3.5 rounded-full border ${borderClass} ${bgClass} shrink-0`} />
                               <span className={`text-2xs font-bold uppercase tracking-wider ${isColorSelected ? textClass : 'text-muted-foreground'}`}>
@@ -597,6 +620,8 @@ export default function CategoryManagement({ onAddLog }) {
                             onClick={() => selectIcon(iconKey)}
                             className={`flex flex-col items-center justify-center p-3 gap-2 rounded-xl transition-all ${isIconSelected ? `border border-border/50 shadow-sm ${activeBg} ${activeColor}` : 'text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm border border-transparent'}`}
                             title={iconKey}
+                            aria-label={`Select icon ${iconKey}`}
+                            aria-pressed={isIconSelected}
                           >
                             <IconComponent weight={isIconSelected ? 'duotone' : 'regular'} className="w-6 h-6" />
                           </button>
@@ -621,6 +646,49 @@ export default function CategoryManagement({ onAddLog }) {
         </div>,
         document.body
       )}
+
+      {/* Confirm Delete Dialog */}
+      <Drawer 
+        isOpen={confirmDialog.isOpen} 
+        onClose={() => setConfirmDialog({ isOpen: false, id: null, name: '' })}
+        labelledBy="confirm-title"
+        describedBy="confirm-desc"
+        wrapperClassName="flex items-center justify-center p-4 z-[110]"
+        overlayClassName="bg-background/80 backdrop-blur-sm"
+        panelClassName="bg-background border border-border shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden flex flex-col"
+        panelVariants={{
+          initial: { opacity: 0, scale: 0.95, y: 10 },
+          animate: { opacity: 1, scale: 1, y: 0 },
+          exit: { opacity: 0, scale: 0.95, y: 10 },
+          transition: { duration: 0.2, ease: "easeOut" }
+        }}
+      >
+        <div className="p-6">
+          <h2 id="confirm-title" className="text-lg font-bold mb-2 flex items-center gap-2">
+            <WarningCircle weight="duotone" className="w-5 h-5 text-destructive" />
+            Confirm Deletion
+          </h2>
+          <p id="confirm-desc" className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            Are you sure you want to delete category "{confirmDialog.name}"?
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button 
+              type="button" 
+              onClick={() => setConfirmDialog({ isOpen: false, id: null, name: '' })}
+              className="px-4 py-2 rounded-xl text-sm font-bold bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              onClick={executeDelete}
+              className="px-4 py-2 rounded-xl text-sm font-bold bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Drawer>
     </div>
   );
 }
