@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { apiGet } from '../api/apiClient';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
-import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, DownloadSimple } from '@phosphor-icons/react';
+import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, DownloadSimple, ShoppingCart, WarningCircle, WarningOctagon } from '@phosphor-icons/react';
 import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
 import ToggleChip from './ui/ToggleChip';
 import { buildLowStockReportPdf } from '../utils/lowStockReportPdf';
@@ -13,6 +13,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
   const [authLogs, setAuthLogs] = useState([]);
   const [severityFilter, setSeverityFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selectedWatchlistItems, setSelectedWatchlistItems] = useState(new Set());
 
   useEffect(() => {
     let channel;
@@ -259,20 +260,28 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             </div>
             <div className="flex flex-col items-end space-y-3">
               {lowStockItems.length > 0 && (
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-full border flex items-center gap-1.5 ${filteredLowStockItems.some(item => item.severity === 'critical') ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20'}`}>
-                  {filteredLowStockItems.filter(item => item.severity === 'critical').length > 0 && <span>{filteredLowStockItems.filter(item => item.severity === 'critical').length} critical</span>}
-                  {filteredLowStockItems.filter(item => item.severity === 'critical').length > 0 && filteredLowStockItems.filter(item => item.severity === 'warning').length > 0 && <span className="opacity-50">·</span>}
-                  {filteredLowStockItems.filter(item => item.severity === 'warning').length > 0 && <span>{filteredLowStockItems.filter(item => item.severity === 'warning').length} low</span>}
-                </span>
-              )}
-              {lowStockItems.length > 0 && (
-                <button
-                  onClick={() => buildLowStockReportPdf(filteredLowStockItems, { formatCurrency })}
-                  disabled={filteredLowStockItems.length === 0}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (selectedWatchlistItems.size > 0) {
+                        const selectedParts = filteredLowStockItems.filter(p => selectedWatchlistItems.has(p.id));
+                        window.dispatchEvent(new CustomEvent('purchasingIntent', { detail: selectedParts }));
+                        setPage('purchasing');
+                      }
+                    }}
+                    disabled={selectedWatchlistItems.size === 0}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ShoppingCart weight="bold" className="w-3.5 h-3.5" /> Restock Selected
+                  </button>
+                  <button
+                    onClick={() => buildLowStockReportPdf(filteredLowStockItems, { formatCurrency })}
+                    disabled={filteredLowStockItems.length === 0}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -290,6 +299,23 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="text-muted-foreground text-xs font-semibold uppercase border-b border-border">
+                    <th className="py-3 px-2 w-8 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background"
+                        checked={filteredLowStockItems.slice(0, 5).length > 0 && filteredLowStockItems.slice(0, 5).every(p => selectedWatchlistItems.has(p.id))}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedWatchlistItems);
+                          const visibleParts = filteredLowStockItems.slice(0, 5);
+                          if (e.target.checked) {
+                            visibleParts.forEach(p => newSet.add(p.id));
+                          } else {
+                            visibleParts.forEach(p => newSet.delete(p.id));
+                          }
+                          setSelectedWatchlistItems(newSet);
+                        }}
+                      />
+                    </th>
                     <th className="py-3 px-2">Part</th>
                     <th className="py-3 px-2 text-right">Deficit</th>
                     <th className="py-3 px-2 text-center">Stock / Min</th>
@@ -302,13 +328,42 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                     const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
                     
                     return (
-                      <tr key={part.id} className="transition-colors hover:bg-secondary/60">
+                      <tr 
+                        key={part.id} 
+                        className="transition-colors hover:bg-secondary/60 cursor-pointer"
+                        onClick={() => {
+                          const newSet = new Set(selectedWatchlistItems);
+                          if (newSet.has(part.id)) newSet.delete(part.id);
+                          else newSet.add(part.id);
+                          setSelectedWatchlistItems(newSet);
+                        }}
+                      >
+                        <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background"
+                            checked={selectedWatchlistItems.has(part.id)}
+                            onChange={(e) => {
+                              const newSet = new Set(selectedWatchlistItems);
+                              if (e.target.checked) newSet.add(part.id);
+                              else newSet.delete(part.id);
+                              setSelectedWatchlistItems(newSet);
+                            }}
+                          />
+                        </td>
                         <td className="py-3 px-2">
                           <div className="font-medium text-foreground max-w-[250px] truncate">{part.name}</div>
                           <div className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</div>
                         </td>
                         <td className="py-3 px-2 text-right">
-                          <span className={`text-lg font-bold font-display ${deficitColor}`}>-{part.deficit}</span>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isCritical ? (
+                              <WarningOctagon weight="duotone" className={`w-4 h-4 ${deficitColor}`} />
+                            ) : (
+                              <WarningCircle weight="duotone" className={`w-4 h-4 ${deficitColor}`} />
+                            )}
+                            <span className={`text-lg font-bold font-display ${deficitColor}`}>-{part.deficit}</span>
+                          </div>
                         </td>
                         <td className="py-3 px-2 text-center font-mono">
                           <span className="font-medium text-foreground">{part.stock}</span>
@@ -317,10 +372,10 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                         </td>
                         <td className="py-3 px-2 text-right">
                           <button
-                            onClick={() => {
-                              setSelectedCategory('All');
-                              setPage('catalog');
-                              setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.dispatchEvent(new CustomEvent('purchasingIntent', { detail: part }));
+                              setPage('purchasing');
                             }}
                             className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors focus-visible:ring-2 focus-visible:ring-accent"
                           >
