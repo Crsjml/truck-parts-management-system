@@ -1,10 +1,44 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { apiGet } from '../api/apiClient';
+import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
-import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle } from '@phosphor-icons/react';
+import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, DownloadSimple } from '@phosphor-icons/react';
 import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
+import ToggleChip from './ui/ToggleChip';
+import { buildLowStockReportPdf } from '../utils/lowStockReportPdf';
 
 export default function Dashboard({ parts, transactions, logs, setPage, setSelectedCategory }) {
-  const { formatCurrency, formatCompactCurrency, displayCurrency } = useSettings();
+  const { formatCurrency, formatCompactCurrency, displayCurrency, formatBaseCurrency, formatCompactBaseCurrency } = useSettings();
+  
+  const [authLogs, setAuthLogs] = useState([]);
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+
+  useEffect(() => {
+    let channel;
+    const fetchLogs = async () => {
+      try {
+        const { ok, data } = await apiGet('/api/audit/logins');
+        if (ok && Array.isArray(data)) {
+          setAuthLogs(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch audit logs', err);
+      }
+    };
+
+    fetchLogs();
+
+    channel = supabase.channel('public:AuthLog')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'AuthLog' }, (payload) => {
+        setAuthLogs((prev) => [payload.new, ...prev]);
+      })
+      .subscribe();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
   // Calculations
   const totalParts = parts.length;
   const inventoryValue = parts.reduce((sum, item) => sum + (item.price * item.stock), 0);
@@ -19,6 +53,16 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
   const hasCriticalStock = lowStockItems.some(item => item.severity === 'critical');
   const criticalCount = lowStockItems.filter(item => item.severity === 'critical').length;
   const warningCount = lowStockItems.filter(item => item.severity === 'warning').length;
+
+  const categoryOptions = useMemo(() => [...new Set(parts.map(p => p.category).filter(Boolean))].sort(), [parts]);
+  
+  const filteredLowStockItems = useMemo(() => {
+    return lowStockItems.filter(item => {
+      const matchSeverity = severityFilter === 'all' || item.severity === severityFilter;
+      const matchCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      return matchSeverity && matchCategory;
+    });
+  }, [lowStockItems, severityFilter, categoryFilter]);
 
   const salesKpis = useMemo(() => {
     const range = resolvePeriod('7d');
@@ -156,8 +200,8 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-border">
           <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Total Invoiced Sales</span>
-            <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatCurrency(salesKpis.revenue)}>
-              {formatCompactCurrency(salesKpis.revenue)}
+            <h3 className="text-2xl xl:text-3xl font-bold tracking-tight text-foreground font-display truncate" title={formatBaseCurrency(salesKpis.revenue)}>
+              {formatCompactBaseCurrency(salesKpis.revenue)}
             </h3>
             <p className="text-xs truncate">
               {salesKpis.deltas.revenue !== null ? (
@@ -190,21 +234,51 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
         {/* Watchlist Table */}
         <div className="glass-panel p-5 rounded-2xl lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-foreground font-display">Low-Stock Watchlist</h3>
-              <p className="text-xs text-muted-foreground">Warehouse items falling below safety threshold levels.</p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-foreground font-display">Low-Stock Watchlist</h3>
+                <p className="text-xs text-muted-foreground">Warehouse items falling below safety threshold levels.</p>
+              </div>
+              {lowStockItems.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <ToggleChip active={severityFilter === 'all'} onClick={() => setSeverityFilter('all')}>All</ToggleChip>
+                  <ToggleChip active={severityFilter === 'critical'} onClick={() => setSeverityFilter('critical')}>Critical</ToggleChip>
+                  <ToggleChip active={severityFilter === 'warning'} onClick={() => setSeverityFilter('warning')}>Warning</ToggleChip>
+                  <select 
+                    value={categoryFilter} 
+                    onChange={e => setCategoryFilter(e.target.value)}
+                    className="h-7 text-xs bg-background border border-border rounded-lg px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-accent ml-2"
+                  >
+                    <option value="all">All Categories</option>
+                    {categoryOptions.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
-            {lowStockItems.length > 0 && (
-              <span className={`px-2.5 py-1 text-xs font-bold rounded-full border flex items-center gap-1.5 ${hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20'}`}>
-                {criticalCount > 0 && <span>{criticalCount} critical</span>}
-                {criticalCount > 0 && warningCount > 0 && <span className="opacity-50">·</span>}
-                {warningCount > 0 && <span>{warningCount} low</span>}
-              </span>
-            )}
+            <div className="flex flex-col items-end space-y-3">
+              {lowStockItems.length > 0 && (
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full border flex items-center gap-1.5 ${filteredLowStockItems.some(item => item.severity === 'critical') ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-accent/10 text-accent border-accent/20'}`}>
+                  {filteredLowStockItems.filter(item => item.severity === 'critical').length > 0 && <span>{filteredLowStockItems.filter(item => item.severity === 'critical').length} critical</span>}
+                  {filteredLowStockItems.filter(item => item.severity === 'critical').length > 0 && filteredLowStockItems.filter(item => item.severity === 'warning').length > 0 && <span className="opacity-50">·</span>}
+                  {filteredLowStockItems.filter(item => item.severity === 'warning').length > 0 && <span>{filteredLowStockItems.filter(item => item.severity === 'warning').length} low</span>}
+                </span>
+              )}
+              {lowStockItems.length > 0 && (
+                <button
+                  onClick={() => buildLowStockReportPdf(filteredLowStockItems, { formatCurrency })}
+                  disabled={filteredLowStockItems.length === 0}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
-            {lowStockItems.length === 0 ? (
+            {filteredLowStockItems.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
                 <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
                   <CheckCircle weight="duotone" className="w-8 h-8" />
@@ -223,7 +297,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {lowStockItems.slice(0, 5).map((part) => {
+                  {filteredLowStockItems.slice(0, 5).map((part) => {
                     const isCritical = part.severity === 'critical';
                     const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
                     
@@ -261,16 +335,16 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             )}
           </div>
 
-          {lowStockItems.length > 5 && (
+          {filteredLowStockItems.length > 5 && (
             <button 
               onClick={() => {
                 setSelectedCategory('All');
                 setPage('catalog');
                 setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
               }}
-              className={`w-full flex items-center justify-center gap-1 py-2 text-xs font-bold rounded-lg transition-colors ${hasCriticalStock ? 'text-destructive hover:bg-destructive/10' : 'text-accent hover:bg-accent/10'}`}
+              className="w-full py-2.5 mt-2 text-xs font-bold text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-xl transition-colors border border-border/50 flex items-center justify-center gap-1"
             >
-              View all {lowStockItems.length} warnings
+              View all {filteredLowStockItems.length} warnings
               <ArrowRight weight="duotone" className="w-3.5 h-3.5" />
             </button>
           )}
@@ -286,13 +360,20 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             
             <ul aria-live="polite" aria-atomic="false" className="space-y-4 max-h-[300px] overflow-y-auto pr-1 list-none">
               {(() => {
+                const formatPaymentMethod = (pm) => String(pm || 'Cash').replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
                 const combinedLogs = [
-                  ...logs,
+                  ...logs.filter(l => l.type !== 'auth'), // Remove frontend auth logs if any remain
+                  ...authLogs.map(al => ({
+                    id: `al-${al.id}`,
+                    timestamp: al.createdAt,
+                    type: 'auth',
+                    message: `${al.email} logged in (${al.ipAddress || 'unknown ip'})`
+                  })),
                   ...transactions.map(tx => ({
                     id: `tx-${tx.id}`,
                     timestamp: tx.transactionDate || tx.createdAt,
                     type: 'sale',
-                    message: `Sale completed for ${tx.customerName || 'Walk-in'} (${tx.items?.length ?? 0} item${(tx.items?.length ?? 0) === 1 ? '' : 's'}, ${formatCurrency(tx.total)})`
+                    message: `Sale completed for ${tx.customerName || 'Walk-in'} (${tx.items?.length ?? 0} item${(tx.items?.length ?? 0) === 1 ? '' : 's'}, ${formatBaseCurrency(tx.total)}) via ${formatPaymentMethod(tx.paymentMethod)} [${tx.invoiceNumber}]`
                   }))
                 ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 20);
 
