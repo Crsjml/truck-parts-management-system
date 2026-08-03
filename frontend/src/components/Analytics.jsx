@@ -190,7 +190,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {trend.length === 0 ? (
+            {currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
               <ChartRenderer type="trend" data={trend} formatCurrency={formatBaseCurrency} />
@@ -223,7 +223,9 @@ export default function Analytics({ parts = [], transactions = [] }) {
           </div>
 
           <div className="w-full min-h-[320px] h-80">
-            {catRevenue.length === 0 ? (
+            {currentTx.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
+            ) : catRevenue.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No revenue data for categories.</div>
             ) : (
               <ChartRenderer 
@@ -243,13 +245,23 @@ export default function Analytics({ parts = [], transactions = [] }) {
               <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
               <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
             </div>
-            <button aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
-              <ArrowsOut weight="duotone" className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('best-selling')}
+                className="text-xs font-semibold text-brandBlue-400 hover:text-brandBlue-300 flex items-center gap-1 bg-secondary/80 px-2.5 py-1 rounded-lg border border-border transition-all"
+              >
+                View full report →
+              </button>
+              <button aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+                <ArrowsOut weight="duotone" className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {movers.length === 0 ? (
+            {currentTx.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
+            ) : movers.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
             ) : (
               <ChartRenderer type="movers" data={movers} formatCurrency={formatBaseCurrency} />
@@ -270,7 +282,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {payments.length === 0 ? (
+            {currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
               <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />

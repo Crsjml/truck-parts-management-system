@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import DateRangePicker from './DateRangePicker';
-import { rankPartsBySales } from '../../utils/salesAnalytics';
+import { rankPartsBySales, getRankDeltaBadge } from '../../utils/salesAnalytics';
 import { useSettings } from '../../context/SettingsContext';
 
 export default function BestSellingPartsReport({ transactions, parts }) {
@@ -50,6 +50,7 @@ export default function BestSellingPartsReport({ transactions, parts }) {
             <thead>
               <tr className="text-muted-foreground font-semibold uppercase border-b border-border">
                 <th className="py-3 px-3 w-16 text-center">Rank</th>
+                <th className="py-3 px-3 text-center">Momentum</th>
                 <th className="py-3 px-3">Part Name</th>
                 <th className="py-3 px-3">SKU</th>
                 <th className="py-3 px-3 text-right">Units Sold</th>
@@ -57,19 +58,27 @@ export default function BestSellingPartsReport({ transactions, parts }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
-              {ranked.map((item) => (
-                <tr key={item.name} className="hover:bg-secondary transition-colors">
-                  <td className="py-3 px-3 text-center">
-                    <span className="font-bold text-brandBlue-400 bg-brandBlue-950/40 border border-brandBlue-800/35 px-2 py-0.5 rounded">
-                      #{item.rank}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 font-semibold text-foreground">{item.name}</td>
-                  <td className="py-3 px-3 text-muted-foreground">{item.sku}</td>
-                  <td className="py-3 px-3 text-right font-bold text-foreground">{item.quantity}</td>
-                  <td className="py-3 px-3 text-right font-bold text-emerald-400">{formatBaseCurrency(item.revenue)}</td>
-                </tr>
-              ))}
+              {ranked.map((item) => {
+                const { text, style } = getRankDeltaBadge(item.rankDelta);
+                return (
+                  <tr key={item.name} className="hover:bg-secondary transition-colors">
+                    <td className="py-3 px-3 text-center">
+                      <span className="font-bold text-brandBlue-400 bg-brandBlue-950/40 border border-brandBlue-800/35 px-2 py-0.5 rounded">
+                        #{item.rank}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${style}`}>
+                        {text}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-semibold text-foreground">{item.name}</td>
+                    <td className="py-3 px-3 text-muted-foreground">{item.sku}</td>
+                    <td className="py-3 px-3 text-right font-bold text-foreground">{item.quantity}</td>
+                    <td className="py-3 px-3 text-right font-bold text-emerald-400">{formatBaseCurrency(item.revenue)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

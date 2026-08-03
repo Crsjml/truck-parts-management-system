@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Treemap, Cell } from 'recharts';
-import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS } from '../../utils/salesAnalytics';
+import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
 
 function TreemapCell({ x, y, width, height, name, revenue, value, hasChildren, maxRev, onDrill, formatCurrency }) {
   if (!width || !height || width < 5 || height < 5) return null;
@@ -52,16 +52,9 @@ export function MoverTick({ x, y, payload, movers }) {
   let badgeStyle = 'text-muted-foreground bg-slate-800/80 border-slate-700/50';
 
   if (item) {
-    if (item.rankDelta === null) {
-      badgeText = 'NEW';
-      badgeStyle = 'text-purple-400 bg-purple-950/50 border-purple-800/40';
-    } else if (item.rankDelta > 0) {
-      badgeText = `▲${item.rankDelta}`;
-      badgeStyle = 'text-emerald-400 bg-emerald-950/50 border-emerald-800/40';
-    } else if (item.rankDelta < 0) {
-      badgeText = `▼${Math.abs(item.rankDelta)}`;
-      badgeStyle = 'text-rose-400 bg-rose-950/50 border-rose-800/40';
-    }
+    const badge = getRankDeltaBadge(item.rankDelta);
+    badgeText = badge.text;
+    badgeStyle = badge.style;
   }
 
   return (
@@ -95,8 +88,8 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             formatter={(value) => [formatCurrency(value), undefined]}
           />
           <Legend wrapperStyle={{ paddingTop: '10px' }} />
-          <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-          <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+          <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={data.length === 1} activeDot={{ r: 6, strokeWidth: 0 }} />
+          <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={data.length === 1} activeDot={{ r: 6, strokeWidth: 0 }} />
         </LineChart>
       </ResponsiveContainer>
     );
