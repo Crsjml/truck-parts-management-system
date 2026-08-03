@@ -123,12 +123,18 @@ export default function AddPartDrawer({
 
   if (!isOpen && !isSubmitting) return null;
 
+  const isDirty = formName || formSku || formOem || formCategory || formPrice || formStock || formDescription || formImage || formCompatibleWith.some(c => c.brand || c.series || c.year);
+  const requestClose = () => {
+    if (isDirty && !window.confirm("Discard this part? Your input will be lost.")) return;
+    onClose();
+  };
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm">
           {/* Drawer backdrop click to close */}
-          <div className="absolute inset-0" onClick={onClose} />
+          <div className="absolute inset-0" onClick={requestClose} />
           
           <motion.div 
             initial={{ x: '100%' }}
@@ -144,7 +150,7 @@ export default function AddPartDrawer({
                 <p className="text-xs text-muted-foreground mt-1">Step {step} of 3: {step === 1 ? 'Basic Info' : step === 2 ? 'Details & Compatibility' : 'Pricing & Stock'}</p>
               </div>
               <button 
-                onClick={onClose}
+                onClick={requestClose}
                 className="p-2 bg-secondary hover:bg-background rounded-xl text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X weight="bold" className="w-5 h-5" />
@@ -475,7 +481,7 @@ export default function AddPartDrawer({
             <div className="p-5 border-t border-border bg-background flex items-center justify-between">
               <button 
                 type="button" 
-                onClick={step === 1 ? onClose : prevStep}
+                onClick={step === 1 ? requestClose : prevStep}
                 disabled={isSubmitting}
                 className="px-5 py-2.5 bg-secondary hover:bg-background text-muted-foreground text-sm font-bold rounded-xl border border-border transition-all flex items-center gap-2 disabled:opacity-50"
               >
