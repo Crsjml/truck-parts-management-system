@@ -132,7 +132,7 @@ export default function App() {
           setActiveView('admin-app');
           if (event === 'SIGNED_IN') {
              setLogs((prev) => {
-               if (prev.some(l => l.type === 'auth' && l.message === `${email} logged in` && (new Date() - new Date(l.timestamp) < 2000))) {
+               if (prev.some(l => l.type === 'auth' && l.message === `${email} logged in`)) {
                  return prev;
                }
                return [{
