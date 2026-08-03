@@ -54,6 +54,21 @@ class PurchaseOrdersController extends BaseController {
     }
   };
 
+  updateItemPrices = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { items } = req.body; // [{ id, unitPrice }]
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ msg: 'items array required.' });
+      }
+      const po = await purchaseOrdersService.updateItemPrices(id, items);
+      res.json(po);
+    } catch (err) {
+      console.error('[update item prices]', err);
+      res.status(400).json({ msg: err.message || 'Server error updating prices.' });
+    }
+  };
+
 }
 
 export default new PurchaseOrdersController();

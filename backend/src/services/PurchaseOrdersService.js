@@ -68,12 +68,15 @@ class PurchaseOrdersService {
         throw new Error(`Cannot change status of a ${po.status} order.`);
       }
 
-      // Stock increment on Received
+      // Stock increment and base price (procurement cost) update on Received
       if (status === 'Received' && po.status !== 'Received') {
         for (const item of po.items) {
           await tx.part.update({
             where: { id: item.partId },
-            data: { stock: { increment: item.quantity } }
+            data: { 
+              stock: { increment: item.quantity },
+              price: item.unitPrice // Update base cost to newest quoted price
+            }
           });
         }
       }
@@ -110,6 +113,37 @@ class PurchaseOrdersService {
     }
 
     return await purchaseOrdersRepository.update(id, { billingStatus });
+  }
+
+  // Update quoted prices on PO items (after supplier reply).
+  // items: [{ id, unitPrice }]
+  async updateItemPrices(id, items) {
+    return await purchaseOrdersRepository.executeTransaction(async (tx) => {
+      const po = await tx.purchaseOrder.findUnique({ where: { id }, include: { items: true } });
+      if (!po) throw new Error('Purchase Order not found.');
+      if (po.status === 'Received' || po.status === 'Cancelled') {
+        throw new Error(`Cannot edit prices on a ${po.status} order.`);
+      }
+
+      // Patch each item
+      for (const { id: itemId, unitPrice } of items) {
+        const qty = po.items.find(i => i.id === itemId)?.quantity ?? 1;
+        await tx.purchaseOrderItem.update({
+          where: { id: itemId },
+          data: { unitPrice: Number(unitPrice), subtotal: qty * Number(unitPrice) }
+        });
+      }
+
+      // Recalculate PO total
+      const updatedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: id } });
+      const totalAmount = updatedItems.reduce((s, i) => s + i.subtotal, 0);
+
+      return await tx.purchaseOrder.update({
+        where: { id },
+        data: { totalAmount },
+        include: { supplier: true, items: { include: { part: true } } }
+      });
+    });
   }
 }
 
