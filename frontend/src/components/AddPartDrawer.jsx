@@ -221,6 +221,7 @@ export default function AddPartDrawer({
                       placeholder="e.g. Starter Motor Assembly (24V)"
                       value={formName}
                       onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                       className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                     />
                     {formErrors.name && <p className="text-2xs text-destructive font-semibold">{formErrors.name}</p>}
@@ -236,6 +237,7 @@ export default function AddPartDrawer({
                         placeholder="e.g. ELC-STR"
                         value={formSku}
                         onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       {formErrors.sku && <p className="text-2xs text-destructive font-semibold">{formErrors.sku}</p>}
@@ -249,6 +251,7 @@ export default function AddPartDrawer({
                         placeholder="e.g. 1-81100-341-1"
                         value={formOem}
                         onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       {formErrors.oem && <p className="text-2xs text-destructive font-semibold">{formErrors.oem}</p>}
@@ -431,6 +434,7 @@ export default function AddPartDrawer({
                       step="0.01" min="0" placeholder="0.00"
                       value={formPrice}
                       onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                       className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                     />
                     {formErrors.price && <p className="text-2xs text-destructive font-semibold">{formErrors.price}</p>}
@@ -446,6 +450,7 @@ export default function AddPartDrawer({
                         min="0" placeholder="0"
                         value={formStock}
                         onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       {formErrors.stock && <p className="text-2xs text-destructive font-semibold">{formErrors.stock}</p>}
@@ -460,6 +465,7 @@ export default function AddPartDrawer({
                         min="0" placeholder="5"
                         value={formMinStock}
                         onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       {formErrors.minStock && <p className="text-2xs text-destructive font-semibold">{formErrors.minStock}</p>}
