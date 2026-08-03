@@ -8,6 +8,8 @@ import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/catego
 import PartCard from './PartCard';
 import PartTableRow from './PartTableRow';
 import AddPartDrawer from './AddPartDrawer';
+import Select from 'react-select';
+import { customSelectStyles } from './ui/PurchasingAtoms';
 import { z } from 'zod';
 
 const partSchema = z.object({
@@ -1041,31 +1043,40 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                       <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
                         <Funnel weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Category / Subcategory *
                       </label>
-                      <select 
-                        value={formCategory}
-                        onChange={(e) => { setFormCategory(e.target.value); setFormErrors(prev => ({...prev, category: ''})); }}
-                        required
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.category ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : 'border-border focus:border-destructive'}`}
-                      >
-                        {categoriesList.length === 0 ? (
-                          <option value="" disabled>Loading categories…</option>
-                        ) : (
-                          <>
-                            <option value="" disabled>-- Select Category / Subcategory --</option>
-                            {categoriesList.filter(c => !c.parentCategory).map(parent => {
-                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString());
-                              return (
-                                <optgroup key={parent.id} label={parent.name}>
-                                  <option value={parent.id}>{parent.name} (Main)</option>
-                                  {subs.map(sub => (
-                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                  ))}
-                                </optgroup>
-                              );
-                            })}
-                          </>
-                        )}
-                      </select>
+                      <div className={`${formErrors.category ? 'rounded-xl ring-1 ring-destructive' : ''}`}>
+                        <Select
+                          options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
+                            label: parent.name,
+                            options: [
+                              { value: parent.id, label: `${parent.name} (Main)`, catName: parent.name, iconName: parent.iconName, colorTheme: parent.colorTheme },
+                              ...categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString()).map(sub => ({ value: sub.id, label: sub.name, catName: sub.name, iconName: sub.iconName, colorTheme: sub.colorTheme }))
+                            ]
+                          }))}
+                          value={
+                            formCategory 
+                              ? (() => {
+                                  const c = categoriesList.find(cat => String(cat.id) === String(formCategory));
+                                  return c ? { value: c.id, label: c.name, catName: c.name, iconName: c.iconName, colorTheme: c.colorTheme } : null;
+                                })()
+                              : null
+                          }
+                          onChange={(selected) => { setFormCategory(selected?.value || ''); setFormErrors(prev => ({...prev, category: ''})); }}
+                          placeholder="-- Select Category --"
+                          styles={customSelectStyles}
+                          isClearable
+                          classNamePrefix="react-select"
+                          formatOptionLabel={(option) => {
+                            if (!option.catName) return <span>{option.label}</span>;
+                            const { Icon, color } = getCategoryIconAndColor(option.catName, option.iconName, option.colorTheme);
+                            return (
+                              <div className="flex items-center gap-2">
+                                <Icon className={`w-4 h-4 ${color}`} weight="duotone" />
+                                <span>{option.label}</span>
+                              </div>
+                            );
+                          }}
+                        />
+                      </div>
                       {formErrors.category && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
                       {categoriesList.length === 0 && <p className="text-2xs text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
                     </div>
