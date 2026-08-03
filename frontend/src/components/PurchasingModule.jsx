@@ -1131,7 +1131,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         menuPortalTarget={document.body}
                         isClearable
                         isSearchable
-                        classNamePrefix="react-selec
+                        classNamePrefix="react-select"
                       />
                     </div>
                   </div>
