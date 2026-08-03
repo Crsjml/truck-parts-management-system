@@ -221,9 +221,9 @@ export default function AddPartDrawer({
                       placeholder="e.g. Starter Motor Assembly (24V)"
                       value={formName}
                       onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
-                      className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                      className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                     />
-                    {formErrors.name && <p className="text-2xs text-red-400 font-semibold">{formErrors.name}</p>}
+                    {formErrors.name && <p className="text-2xs text-destructive font-semibold">{formErrors.name}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -236,9 +236,9 @@ export default function AddPartDrawer({
                         placeholder="e.g. ELC-STR"
                         value={formSku}
                         onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.sku && <p className="text-2xs text-red-400 font-semibold">{formErrors.sku}</p>}
+                      {formErrors.sku && <p className="text-2xs text-destructive font-semibold">{formErrors.sku}</p>}
                     </div>
                     <div className="space-y-1.5 group">
                       <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
@@ -249,9 +249,9 @@ export default function AddPartDrawer({
                         placeholder="e.g. 1-81100-341-1"
                         value={formOem}
                         onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.oem && <p className="text-2xs text-red-400 font-semibold">{formErrors.oem}</p>}
+                      {formErrors.oem && <p className="text-2xs text-destructive font-semibold">{formErrors.oem}</p>}
                     </div>
                   </div>
 
@@ -259,7 +259,7 @@ export default function AddPartDrawer({
                     <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
                       <Funnel weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Category *
                     </label>
-                    <div className={`${formErrors.category ? 'rounded-xl ring-1 ring-red-500' : ''}`}>
+                    <div className={`${formErrors.category ? 'rounded-xl ring-1 ring-destructive' : ''}`}>
                       <Select
                         options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
                           label: parent.name,
@@ -293,7 +293,7 @@ export default function AddPartDrawer({
                         }}
                       />
                     </div>
-                    {formErrors.category && <p className="text-2xs text-red-400 font-semibold">{formErrors.category}</p>}
+                    {formErrors.category && <p className="text-2xs text-destructive font-semibold">{formErrors.category}</p>}
                   </div>
                 </motion.div>
               )}
@@ -351,7 +351,7 @@ export default function AddPartDrawer({
                               setFormCompatibleWith(formCompatibleWith.filter((_, i) => i !== idx));
                             }}
                             disabled={formCompatibleWith.length === 1}
-                            className={`p-2 rounded-xl border border-border transition-colors ${formCompatibleWith.length === 1 ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-muted-foreground' : 'hover:bg-red-500/10 hover:border-red-500/30 text-red-400'}`}
+                            className={`p-2 rounded-xl border border-border transition-colors ${formCompatibleWith.length === 1 ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-muted-foreground' : 'hover:bg-destructive/10 hover:border-destructive/30 text-destructive'}`}
                           >
                             <Trash weight="bold" className="w-4 h-4" />
                           </button>
@@ -409,7 +409,7 @@ export default function AddPartDrawer({
                         <button 
                           type="button"
                           onClick={() => setFormImage('')}
-                          className="text-2xs font-bold text-red-500 hover:bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/30 transition-colors"
+                          className="text-2xs font-bold text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-lg border border-destructive/30 transition-colors"
                         >
                           Remove
                         </button>
@@ -431,9 +431,9 @@ export default function AddPartDrawer({
                       step="0.01" min="0" placeholder="0.00"
                       value={formPrice}
                       onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
-                      className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                      className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                     />
-                    {formErrors.price && <p className="text-2xs text-red-400 font-semibold">{formErrors.price}</p>}
+                    {formErrors.price && <p className="text-2xs text-destructive font-semibold">{formErrors.price}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -446,9 +446,9 @@ export default function AddPartDrawer({
                         min="0" placeholder="0"
                         value={formStock}
                         onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.stock && <p className="text-2xs text-red-400 font-semibold">{formErrors.stock}</p>}
+                      {formErrors.stock && <p className="text-2xs text-destructive font-semibold">{formErrors.stock}</p>}
                     </div>
 
                     <div className="space-y-1.5 group">
@@ -460,15 +460,15 @@ export default function AddPartDrawer({
                         min="0" placeholder="5"
                         value={formMinStock}
                         onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.minStock && <p className="text-2xs text-red-400 font-semibold">{formErrors.minStock}</p>}
+                      {formErrors.minStock && <p className="text-2xs text-destructive font-semibold">{formErrors.minStock}</p>}
                     </div>
                   </div>
 
                   {serverError && (
-                    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-300 text-sm font-semibold animate-fadeIn">
-                      <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold animate-fadeIn">
+                      <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive" />
                       <span>{serverError}</span>
                     </div>
                   )}

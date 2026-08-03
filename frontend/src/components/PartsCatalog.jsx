@@ -999,9 +999,9 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         placeholder="e.g. Starter Motor Assembly (24V)"
                         value={formName}
                         onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formName ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : formName ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                       />
-                      {formErrors.name && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
+                      {formErrors.name && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1016,9 +1016,9 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           placeholder="e.g. ELC-STR"
                           value={formSku}
                           onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formSku ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : formSku ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
-                        {formErrors.sku && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
+                        {formErrors.sku && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
                       </div>
                       <div className="space-y-1.5 group">
                         <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formOem ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -1031,9 +1031,9 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           placeholder="e.g. 1-81100-341-1"
                           value={formOem}
                           onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formOem ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : formOem ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
-                        {formErrors.oem && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
+                        {formErrors.oem && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
                       </div>
                     </div>
 
@@ -1045,7 +1045,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         value={formCategory}
                         onChange={(e) => { setFormCategory(e.target.value); setFormErrors(prev => ({...prev, category: ''})); }}
                         required
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.category ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.category ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : 'border-border focus:border-destructive'}`}
                       >
                         {categoriesList.length === 0 ? (
                           <option value="" disabled>Loading categories…</option>
@@ -1066,7 +1066,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           </>
                         )}
                       </select>
-                      {formErrors.category && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
+                      {formErrors.category && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
                       {categoriesList.length === 0 && <p className="text-2xs text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
                     </div>
                     
@@ -1101,9 +1101,9 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           placeholder="0.00"
                           value={formPrice}
                           onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formPrice ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : formPrice ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
-                        {formErrors.price && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
+                        {formErrors.price && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
                       </div>
                       <div className="space-y-1.5 group">
                         <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formStock !== '' ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -1118,21 +1118,21 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           value={formStock}
                           disabled={modalType === 'edit'}
                           onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${formErrors.stock ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : formStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
-                        {formErrors.stock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
+                        {formErrors.stock && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
                       </div>
 
                       {modalType === 'edit' && parseInt(formStock) !== originalStock && (
                         <div className="space-y-1.5 col-span-3">
-                          <label className="text-xs font-bold text-red-500 uppercase flex items-center gap-1.5">Reason for Stock Adjustment *</label>
+                          <label className="text-xs font-bold text-destructive uppercase flex items-center gap-1.5">Reason for Stock Adjustment *</label>
                           <input 
                             type="text" 
                             required
                             placeholder="e.g. damaged goods, return"
                             value={editAdjustmentReason}
                             onChange={(e) => setEditAdjustmentReason(e.target.value)}
-                            className="w-full bg-background border border-red-500/50 focus:border-red-500 ring-1 ring-red-500/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground animate-fadeIn"
+                            className="w-full bg-background border border-destructive/50 focus:border-destructive ring-1 ring-destructive/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground animate-fadeIn"
                           />
                         </div>
                       )}
@@ -1149,9 +1149,9 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           placeholder="5"
                           value={formMinStock}
                           onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formMinStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20 animate-shake' : formMinStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
                         />
-                        {formErrors.minStock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
+                        {formErrors.minStock && <p className="text-2xs text-destructive font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
                       </div>
                     </div>
 
