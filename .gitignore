@@ -9,3 +9,5 @@ firebase-service-account.json
 
 # Archived scratch scripts
 .archive/
+
+.worktrees/
