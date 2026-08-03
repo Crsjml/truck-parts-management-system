@@ -1,7 +1,40 @@
 import React, { useState } from 'react';
 import Select from 'react-select';
-import { Truck, ShoppingCart, ArrowRight, Star, Tag, SquaresFour, ListDashes, ClipboardText, Plus, ShieldCheck, GridFour } from '@phosphor-icons/react';
+import { ArrowRight, Star, SquaresFour, ListDashes, Plus, GridFour, Truck, Package, MagnifyingGlass, Wrench } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
+
+const getAvailableStock = (part) => part.stock - (part.reservedStock || 0);
+
+const getStockLabel = (part) => {
+  const availableStock = getAvailableStock(part);
+  if (availableStock <= 0) return 'Out of stock';
+  if (availableStock <= part.minStock) return `${availableStock} left`;
+  return `${availableStock} in stock`;
+};
+
+const getStockTone = (part) => {
+  const availableStock = getAvailableStock(part);
+  if (availableStock <= 0) return 'text-red-500 bg-red-500/10 border-red-500/20';
+  if (availableStock <= part.minStock) return 'text-amber-600 bg-amber-500/10 border-amber-500/20';
+  return 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20';
+};
+
+const getVisiblePages = (currentPage, totalPages) => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const pages = [1];
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (start > 2) pages.push('start-ellipsis');
+  for (let page = start; page <= end; page += 1) pages.push(page);
+  if (end < totalPages - 1) pages.push('end-ellipsis');
+  pages.push(totalPages);
+
+  return pages;
+};
 
 export default function ProductGrid({
   filteredParts,
@@ -14,10 +47,16 @@ export default function ProductGrid({
   setCurrentPage,
   itemsPerPage,
   sortOrder,
-  setSortOrder
+  setSortOrder,
+  selectedTruckSummary = 'All compatible trucks',
+  vehicleFilter,
+  search = '',
+  priceRangeError = '',
+  onClearFilters,
+  onChangeTruck
 }) {
   const { formatCurrency } = useSettings();
-  const [viewMode, setViewMode] = useState('grid-3x'); // 'grid-3x' | 'grid-5x' | 'table'
+  const [viewMode, setViewMode] = useState('grid-3x');
 
   const sortOptions = [
     { value: 'recommended', label: 'Sort by: Recommended' },
@@ -70,10 +109,10 @@ export default function ProductGrid({
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isSelected 
-        ? 'hsl(var(--accent) / 0.1)' 
-        : state.isFocused 
-          ? 'hsl(var(--secondary))' 
+      backgroundColor: state.isSelected
+        ? 'hsl(var(--accent) / 0.1)'
+        : state.isFocused
+          ? 'hsl(var(--secondary))'
           : 'transparent',
       color: state.isSelected ? 'hsl(var(--accent))' : 'hsl(var(--foreground))',
       cursor: 'pointer',
@@ -86,20 +125,23 @@ export default function ProductGrid({
     })
   };
 
+  const totalPages = Math.ceil(filteredParts.length / itemsPerPage);
+  const visiblePages = getVisiblePages(currentPage, totalPages);
+  const hasTruckFilter = Boolean(vehicleFilter?.brand);
+
   return (
     <section className="grid gap-5 lg:grid-cols-12">
       <div className="lg:col-span-12">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground font-display">Shop catalog</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground font-display">Popular parts for customer browsing</h2>
+        <div className="mb-6 flex flex-col gap-4 text-left lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="font-display text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground">Product catalog</p>
+            <h2 className="font-display mt-2 text-2xl font-bold tracking-tight text-foreground">Parts ready to check and order</h2>
+            <p className="mt-2 text-sm font-semibold text-muted-foreground">
+              {hasTruckFilter ? `Showing parts compatible with ${selectedTruckSummary}.` : 'Select a truck above when fitment matters.'}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
-            <div className="rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground shadow-sm">
-              {filteredParts.length} results
-            </div>
-            
-            <div className="relative flex items-center min-w-[200px] z-30">
+          <div className="flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+            <div className="relative z-30 flex min-w-[200px] items-center">
               <Select
                 value={sortOptions.find(o => o.value === (sortOrder || 'recommended'))}
                 onChange={(selected) => setSortOrder?.(selected.value)}
@@ -113,132 +155,140 @@ export default function ProductGrid({
 
             <div className="flex items-center gap-1 rounded-full border border-border bg-background p-1 shadow-sm">
               <button
+                type="button"
                 onClick={() => setViewMode('grid-3x')}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-full transition-colors ${viewMode === 'grid-3x' ? 'bg-accent/10 text-accent dark:text-red-300 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                aria-label="Standard Grid View"
-                title="Standard Grid (3x)"
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 transition-colors ${viewMode === 'grid-3x' ? 'bg-accent/10 text-accent dark:text-red-300 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                aria-label="Comfortable grid view"
+                title="Comfortable grid"
               >
-                <SquaresFour weight={viewMode === 'grid-3x' ? "fill" : "duotone"} className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">3x</span>
+                <SquaresFour weight={viewMode === 'grid-3x' ? 'fill' : 'duotone'} className="h-4 w-4" />
+                <span className="hidden text-[10px] font-bold uppercase tracking-wider sm:block">Comfortable</span>
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('grid-5x')}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-full transition-colors ${viewMode === 'grid-5x' ? 'bg-accent/10 text-accent dark:text-red-300 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                aria-label="Compact Grid View"
-                title="Compact Grid (5x)"
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 transition-colors ${viewMode === 'grid-5x' ? 'bg-accent/10 text-accent dark:text-red-300 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                aria-label="Compact grid view"
+                title="Compact grid"
               >
-                <GridFour weight={viewMode === 'grid-5x' ? "fill" : "duotone"} className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">5x</span>
+                <GridFour weight={viewMode === 'grid-5x' ? 'fill' : 'duotone'} className="h-4 w-4" />
+                <span className="hidden text-[10px] font-bold uppercase tracking-wider sm:block">Compact</span>
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-full transition-colors ${viewMode === 'table' ? 'bg-accent/10 text-accent dark:text-red-300 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                aria-label="Table View"
-                title="List View"
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 transition-colors ${viewMode === 'table' ? 'bg-accent/10 text-accent dark:text-red-300 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                aria-label="List view"
+                title="List view"
               >
-                <ListDashes weight={viewMode === 'table' ? "fill" : "duotone"} className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">List</span>
+                <ListDashes weight={viewMode === 'table' ? 'fill' : 'duotone'} className="h-4 w-4" />
+                <span className="hidden text-[10px] font-bold uppercase tracking-wider sm:block">List</span>
               </button>
             </div>
           </div>
         </div>
 
-        {viewMode.startsWith('grid') ? (
+        {filteredParts.length === 0 ? (
+          <div className="rounded-[2rem] border border-dashed border-border bg-background/80 p-8 text-center shadow-sm">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
+              {priceRangeError ? <Wrench weight="duotone" className="h-7 w-7" /> : <MagnifyingGlass weight="duotone" className="h-7 w-7" />}
+            </div>
+            <h3 className="mt-5 text-2xl font-black tracking-tight text-foreground">No parts match these filters</h3>
+            <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-muted-foreground">
+              {priceRangeError ? 'Fix the price range to continue.' : `We could not find parts for ${selectedTruckSummary}${search ? ` matching "${search}"` : ''}. Try to broaden the search, clear filters, or ask the shop for fitment help.`}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onClearFilters}
+                className="min-h-[44px] rounded-xl bg-foreground px-5 text-xs font-black uppercase tracking-[0.18em] text-background transition hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Clear filters
+              </button>
+              <button
+                type="button"
+                onClick={onChangeTruck}
+                className="min-h-[44px] rounded-xl border border-border bg-secondary/40 px-5 text-xs font-black uppercase tracking-[0.18em] text-foreground transition hover:border-accent/40 hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Check another truck
+              </button>
+            </div>
+            <p className="mt-4 text-xs font-semibold text-muted-foreground">Need help? Contact the shop with your truck model and the part name.</p>
+          </div>
+        ) : viewMode.startsWith('grid') ? (
           <div className={`grid gap-6 ${viewMode === 'grid-5x' ? 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
             {paginatedParts.map((part) => {
-              const { icon: CatIcon, color, bg } = getCategoryStyles(part.category);
+              const { icon: CatIcon, color } = getCategoryStyles(part.category);
               const isCompact = viewMode === 'grid-5x';
+              const availableStock = getAvailableStock(part);
+              const isOutOfStock = availableStock <= 0;
               return (
                 <article
                   key={part.id}
-                  className="group relative rounded-[2rem] border border-border/50 bg-background/80 backdrop-blur-md transition-all duration-500 ease-spring-physics hover:-translate-y-2 hover:border-accent/50 flex flex-col h-full shadow-sm hover:shadow-2xl hover:shadow-black/10"
+                  className="group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-border/60 bg-background/90 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/35 hover:shadow-xl hover:shadow-black/5"
                 >
-                  {/* Image Section */}
-                  <div className={`relative w-full overflow-hidden rounded-[2rem] bg-secondary flex items-center justify-center p-1 ${isCompact ? 'h-40' : 'h-56'}`}>
-                    {part.image ? (
-                      <img 
-                        src={part.image} 
-                        alt={part.name} 
-                        onError={(e) => { e.target.onerror = null; e.target.src = getCategoryPlaceholder(part.category); }}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 group-hover:blur-sm transition-all duration-700" 
-                        loading="lazy" 
-                      />
-                    ) : (
-                      <img src={getCategoryPlaceholder(part.category)} alt={part.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 group-hover:blur-sm transition-all duration-700" loading="lazy" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                    
-                    {/* Hover Actions Overlay (Aceternity Style) */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-spring-physics flex flex-col sm:flex-row items-center justify-center gap-3 backdrop-blur-sm z-20">
+                  <div className={`relative flex w-full items-center justify-center overflow-hidden bg-secondary ${isCompact ? 'h-36' : 'h-48'}`}>
+                    <img
+                      src={part.image || getCategoryPlaceholder(part.category)}
+                      alt={part.name}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = getCategoryPlaceholder(part.category);
+                      }}
+                      className="absolute inset-0 h-full w-full object-cover opacity-85 transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+
+                    <div className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/20 bg-black/45 text-white shadow-lg backdrop-blur-md ${isCompact ? 'px-2 py-1 text-[8px]' : 'px-3 py-1.5 text-[10px]'} font-bold uppercase tracking-[0.18em]`}>
+                      {CatIcon && <CatIcon weight="duotone" className={isCompact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />}
+                      <span className={isCompact ? 'hidden sm:block' : ''}>{part.category}</span>
+                    </div>
+
+                    <div className={`absolute bottom-3 left-3 rounded-2xl border border-white/10 bg-black/45 text-white shadow-xl backdrop-blur-md ${isCompact ? 'px-2.5 py-1.5' : 'px-3.5 py-2'}`}>
+                      <p className={`${isCompact ? 'text-[8px]' : 'text-[9px]'} mb-0.5 font-bold uppercase tracking-[0.2em] opacity-70`}>Unit Price</p>
+                      <p className={`${isCompact ? 'text-sm' : 'text-base'} font-black leading-none`}>{formatCurrency(part.price)}</p>
+                    </div>
+                  </div>
+
+                  <div className={`flex flex-1 flex-col ${isCompact ? 'gap-2 p-4' : 'gap-3 p-5'}`}>
+                    <div>
+                      <p className={`mb-1 font-bold uppercase tracking-[0.24em] text-accent/80 dark:text-red-400/80 ${isCompact ? 'text-[8px]' : 'text-[10px]'}`}>SKU {part.sku}</p>
+                      <h3 className={`${isCompact ? 'text-sm' : 'text-base'} line-clamp-2 font-bold leading-tight text-foreground`}>{part.name}</h3>
+                      <div className="mt-1.5 flex items-center gap-1">
+                        <Star weight="fill" className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="text-[10px] font-bold text-muted-foreground">{part.reviewStats?.averageRating || 0} ({part.reviewStats?.totalReviews || 0})</span>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 text-xs font-semibold text-muted-foreground">
+                      <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 ${getStockTone(part)}`}>
+                        <Package weight="fill" className="h-3.5 w-3.5" />
+                        {getStockLabel(part)}
+                      </span>
+                      <span className="inline-flex items-start gap-1.5 leading-snug">
+                        <Truck weight="duotone" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent dark:text-red-300" />
+                        <span className="line-clamp-2">{part.compatibility || 'Compatibility listed in details'}</span>
+                      </span>
+                    </div>
+
+                    <div className="mt-auto grid grid-cols-2 gap-2 border-t border-border/60 pt-4">
                       <button
                         type="button"
                         onClick={() => setSelectedPart(part)}
-                        className="px-4 py-2 bg-white/90 hover:bg-white text-black text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl"
+                        className="min-h-[42px] rounded-xl border border-border bg-secondary/40 px-3 text-xs font-black uppercase tracking-[0.14em] text-foreground transition hover:border-foreground hover:bg-foreground hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       >
                         Details
                       </button>
                       <button
                         type="button"
                         onClick={() => addToCart(part)}
-                        disabled={(part.stock - (part.reservedStock || 0)) === 0}
-                        className="px-4 py-2 bg-accent/90 hover:bg-accent text-white text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(var(--accent-rgb),0.5)] disabled:opacity-50 disabled:hover:scale-100"
+                        disabled={isOutOfStock}
+                        aria-label={isOutOfStock ? 'Out of stock' : undefined}
+                        className="min-h-[42px] rounded-xl bg-accent px-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-secondary disabled:text-muted-foreground disabled:shadow-none"
                       >
-                        <Plus weight="bold" className="w-4 h-4 inline-block mr-1" /> Add
+                        {isOutOfStock ? 'Unavailable' : 'Add'}
                       </button>
-                    </div>
-
-                    {/* Top Left: Category Tag */}
-                    <div className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full backdrop-blur-md bg-black/40 text-white border border-white/20 ${isCompact ? 'px-2 py-1 text-[8px]' : 'px-3 py-1.5 text-[10px]'} font-bold uppercase tracking-[0.2em] shadow-lg z-10 pointer-events-none group-hover:opacity-0 transition-opacity`}>
-                      {CatIcon && <CatIcon weight="duotone" className={isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />}
-                      <span className={isCompact ? 'hidden sm:block' : ''}>{part.category}</span>
-                    </div>
-
-                    {/* Floating Tags over Image: Price & OEM */}
-                    <div className={`absolute left-3 flex gap-2 ${isCompact ? 'bottom-3' : 'bottom-4'} z-10 pointer-events-none group-hover:opacity-0 transition-opacity`}>
-                      <div className={`rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md text-white shadow-xl flex flex-col justify-center ${isCompact ? 'px-2.5 py-1.5' : 'px-3.5 py-2'}`}>
-                        <p className={`${isCompact ? 'text-[8px]' : 'text-[9px]'} font-bold opacity-70 uppercase tracking-[0.2em] mb-0.5`}>Unit Price</p>
-                        <p className={`${isCompact ? 'text-sm' : 'text-base'} font-black leading-none`}>{formatCurrency(part.price)}</p>
-                      </div>
-                      {!isCompact && (() => {
-                        // Generate deterministic badge based on SKU
-                        const badges = [
-                          { title: 'OEM', subtitle: 'Verified', color: 'text-emerald-400', icon: ShieldCheck },
-                          { title: 'Surplus', subtitle: 'Grade A', color: 'text-amber-400', icon: ShieldCheck },
-                          { title: 'ISO 9001', subtitle: 'Certified', color: 'text-blue-400', icon: ShieldCheck },
-                          { title: 'Premium', subtitle: 'Aftermarket', color: 'text-purple-400', icon: ShieldCheck },
-                          { title: 'Genuine', subtitle: 'Factory', color: 'text-teal-400', icon: ShieldCheck }
-                        ];
-                        const hash = part.sku.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                        const badge = badges[hash % badges.length];
-                        const BadgeIcon = badge.icon;
-                        
-                        return (
-                          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-3.5 py-2 text-white shadow-xl flex flex-col justify-center">
-                            <p className={`text-[10px] font-bold ${badge.color} uppercase tracking-widest flex items-center gap-1`}>
-                              <BadgeIcon weight="fill" className="w-3.5 h-3.5" /> {badge.title}
-                            </p>
-                            <p className="text-[9px] font-medium opacity-70 mt-0.5 uppercase tracking-widest">{badge.subtitle}</p>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Content Section */}
-                  <div className={`flex flex-col flex-1 ${isCompact ? 'p-4 pt-4 gap-2' : 'p-6 pt-6 gap-3'}`}>
-                    <div>
-                      <p className={`mb-1 uppercase tracking-[0.24em] font-bold text-accent/80 dark:text-red-400/80 ${isCompact ? 'text-[8px]' : 'text-[10px]'}`}>SKU {part.sku}</p>
-                      <h3 className={`${isCompact ? 'text-sm' : 'text-base'} font-bold text-foreground leading-tight line-clamp-2`}>{part.name}</h3>
-                      <div className="flex items-center gap-1 mt-1.5">
-                        <Star weight="fill" className="text-amber-400 w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold text-muted-foreground">{part.reviewStats?.averageRating || 0} ({part.reviewStats?.totalReviews || 0})</span>
-                      </div>
-                    </div>
-                    <div className={`mt-auto border-t border-border/50 ${isCompact ? 'pt-3' : 'pt-4'}`}>
-                      <span className={`${isCompact ? 'text-[10px]' : 'text-xs'} font-bold flex items-center gap-1.5 ${(part.stock - (part.reservedStock || 0)) > 0 ? ((part.stock - (part.reservedStock || 0)) <= part.minStock ? 'text-amber-500' : 'text-emerald-500') : 'text-red-500'}`}>
-                        <div className={`w-2 h-2 rounded-full ${(part.stock - (part.reservedStock || 0)) > 0 ? ((part.stock - (part.reservedStock || 0)) <= part.minStock ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse') : 'bg-red-500'}`} />
-                        {(part.stock - (part.reservedStock || 0)) > 0 ? `${(part.stock - (part.reservedStock || 0))} in stock` : 'Out of Stock'}
-                      </span>
                     </div>
                   </div>
                 </article>
@@ -246,76 +296,78 @@ export default function ProductGrid({
             })}
           </div>
         ) : (
-          <div className="overflow-x-auto bg-background rounded-3xl border border-border shadow-sm">
-            <table className="w-full text-left text-sm border-collapse">
+          <div className="overflow-x-auto rounded-3xl border border-border bg-background shadow-sm">
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider border-b border-border bg-secondary/30">
-                  <th className="py-4 px-6">SKU</th>
-                  <th className="py-4 px-4">Part Details</th>
-                  <th className="py-4 px-4">Category</th>
-                  <th className="py-4 px-4">Compatibility</th>
-                  <th className="py-4 px-4 text-right">Price</th>
-                  <th className="py-4 px-4 text-center">Stock</th>
-                  <th className="py-4 px-6 text-right">Action</th>
+                <tr className="border-b border-border bg-secondary/30 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <th className="px-6 py-4">SKU</th>
+                  <th className="px-4 py-4">Part Details</th>
+                  <th className="px-4 py-4">Category</th>
+                  <th className="px-4 py-4">Compatibility</th>
+                  <th className="px-4 py-4 text-right">Price</th>
+                  <th className="px-4 py-4 text-center">Stock</th>
+                  <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {paginatedParts.map((part) => {
                   const { icon: CatIcon, color, bg } = getCategoryStyles(part.category);
+                  const availableStock = getAvailableStock(part);
+                  const isOutOfStock = availableStock <= 0;
                   return (
-                    <tr key={part.id} className="even:bg-secondary/30 hover:bg-secondary/80 transition-colors group">
-                      <td className="py-2.5 px-6 font-mono font-bold text-accent dark:text-red-300 text-xs tracking-tight">
+                    <tr key={part.id} className="group transition-colors even:bg-secondary/30 hover:bg-secondary/80">
+                      <td className="px-6 py-2.5 font-mono text-xs font-bold tracking-tight text-accent dark:text-red-300">
                         {part.sku}
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="px-4 py-2.5">
                         <div className="flex flex-col gap-0.5">
-                          <button onClick={() => setSelectedPart(part)} className="font-bold text-foreground hover:text-accent transition-colors text-left text-sm line-clamp-1">
+                          <button type="button" onClick={() => setSelectedPart(part)} className="line-clamp-1 text-left text-sm font-bold text-foreground transition-colors hover:text-accent">
                             {part.name}
                           </button>
                           <div className="flex items-center gap-1">
-                            <Star weight="fill" className="text-amber-400 w-3 h-3" />
+                            <Star weight="fill" className="h-3 w-3 text-amber-400" />
                             <span className="text-[9px] font-bold text-muted-foreground">{part.reviewStats?.averageRating || 0} ({part.reviewStats?.totalReviews || 0} reviews)</span>
                           </div>
                         </div>
                       </td>
-                      <td className="py-2.5 px-4">
-                         <div className={`inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${bg} ${color}`}>
-                           {CatIcon && <CatIcon weight="duotone" className="w-3 h-3" />}
-                           {part.category}
-                         </div>
+                      <td className="px-4 py-2.5">
+                        <div className={`inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${bg} ${color}`}>
+                          {CatIcon && <CatIcon weight="duotone" className="h-3 w-3" />}
+                          {part.category}
+                        </div>
                       </td>
-                      <td className="py-2.5 px-4 max-w-[150px]">
-                        <p className="text-xs text-muted-foreground truncate" title={part.compatibility}>
-                          {part.compatibility}
+                      <td className="max-w-[150px] px-4 py-2.5">
+                        <p className="truncate text-xs text-muted-foreground" title={part.compatibility}>
+                          {part.compatibility || 'Compatibility listed in details'}
                         </p>
                       </td>
-                      <td className="py-2.5 px-4 text-right font-black text-foreground text-sm">
+                      <td className="px-4 py-2.5 text-right text-sm font-black text-foreground">
                         {formatCurrency(part.price)}
                       </td>
-                      <td className="py-2.5 px-4 text-center">
-                         <div className="flex items-center justify-center gap-2" title={`${(part.stock - (part.reservedStock || 0))} available`}>
-                           <div className={`w-2 h-2 rounded-full ${(part.stock - (part.reservedStock || 0)) > 0 ? ((part.stock - (part.reservedStock || 0)) <= part.minStock ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]') : 'bg-red-500'}`} />
-                           <span className="text-xs font-bold text-muted-foreground w-6 text-left">{(part.stock - (part.reservedStock || 0))}</span>
-                         </div>
+                      <td className="px-4 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-2" title={`${availableStock} available`}>
+                          <div className={`h-2 w-2 rounded-full ${availableStock > 0 ? (availableStock <= part.minStock ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]') : 'bg-red-500'}`} />
+                          <span className="w-16 text-left text-xs font-bold text-muted-foreground">{getStockLabel(part)}</span>
+                        </div>
                       </td>
-                      <td className="py-2.5 px-6 text-right">
+                      <td className="px-6 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => setSelectedPart(part)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background border border-border text-foreground hover:bg-foreground hover:border-foreground hover:text-background transition-all shadow-sm"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition-all hover:border-foreground hover:bg-foreground hover:text-background"
                             aria-label="View Details"
                           >
-                            <ArrowRight weight="bold" className="w-4 h-4" />
+                            <ArrowRight weight="bold" className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => addToCart(part)}
-                            disabled={(part.stock - (part.reservedStock || 0)) === 0}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background border border-border text-foreground hover:bg-accent hover:border-accent hover:text-white transition-all disabled:opacity-50 shadow-sm"
-                            aria-label="Add to Cart"
+                            disabled={isOutOfStock}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition-all hover:border-accent hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={isOutOfStock ? 'Out of stock' : 'Add to Cart'}
                           >
-                            <Plus weight="bold" className="w-4 h-4" />
+                            <Plus weight="bold" className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -327,36 +379,40 @@ export default function ProductGrid({
           </div>
         )}
 
-        {/* Pagination Controls */}
-        {Math.ceil(filteredParts.length / itemsPerPage) > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-10 pt-4 border-t border-border/50">
+        {totalPages > 1 && (
+          <div className="mt-10 flex items-center justify-center gap-2 border-t border-border/50 pt-4">
             <button
               type="button"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               Previous
             </button>
-            {Array.from({ length: Math.ceil(filteredParts.length / itemsPerPage) }, (_, i) => i + 1).map(pageNumber => (
-              <button
-                key={pageNumber}
-                type="button"
-                onClick={() => setCurrentPage(pageNumber)}
-                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                  currentPage === pageNumber
-                    ? 'bg-accent text-white font-extrabold shadow-md shadow-accent/20 border border-transparent'
-                    : 'border border-border text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }`}
-              >
-                {pageNumber}
-              </button>
+            {visiblePages.map((page) => (
+              typeof page === 'number' ? (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  aria-current={currentPage === page ? 'page' : undefined}
+                  className={`h-9 w-9 rounded-xl text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                    currentPage === page
+                      ? 'border border-transparent bg-accent text-white shadow-md shadow-accent/20'
+                      : 'border border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  {page}
+                </button>
+              ) : (
+                <span key={page} className="px-1 text-xs font-bold text-muted-foreground">...</span>
+              )
             ))}
             <button
               type="button"
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredParts.length / itemsPerPage)))}
-              disabled={currentPage === Math.ceil(filteredParts.length / itemsPerPage)}
-              className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               Next
             </button>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowsIn, ArrowsOut } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
 import { lookupCustomers, verifyOverridePin } from '../authStore';
 import PosCatalogPanel from './pos/PosCatalogPanel';
@@ -17,15 +18,34 @@ export default function TransactionPOS({ parts, onCheckout }) {
   const [lastTx, setLastTx] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [discount, setDiscount] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const posContainerRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // Warnings are transient — they must never persist into the next customer.
+  // Fullscreen sync handler
   useEffect(() => {
-    if (!warning) return;
-    const timer = setTimeout(() => setWarning(null), 4000);
-    return () => clearTimeout(timer);
-  }, [warning]);
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      posContainerRef.current?.requestFullscreen?.().catch((err) => {
+        console.warn('Fullscreen request failed:', err);
+      });
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  // Warnings are persistent until dismissed or the transaction is cleared.
+  useEffect(() => {
+    if (cart.length === 0) setWarning(null);
+  }, [cart.length]);
 
   const availableFor = useCallback(
     (partId) => {
@@ -125,7 +145,8 @@ export default function TransactionPOS({ parts, onCheckout }) {
       changeGiven: payment.changeGiven,
       chequeNumber: payment.chequeNumber,
       chequeBank: payment.chequeBank,
-      chequeDate: payment.chequeDate
+      chequeDate: payment.chequeDate,
+      gcashReference: payment.gcashReference
     };
 
     const ok = await onCheckout(txData);
@@ -165,10 +186,44 @@ export default function TransactionPOS({ parts, onCheckout }) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [cart.length, mode, lastTx]);
 
+  const pressable = 'transition-transform duration-150 ease-out active:scale-[0.97]';
+
   return (
-    <div className="space-y-4 animate-fadeIn">
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 items-stretch">
-        <div className="xl:col-span-3">
+    <div
+      ref={posContainerRef}
+      className={`space-y-4 animate-fadeIn flex flex-col ${
+        isFullscreen ? 'bg-background p-6 h-screen w-screen fixed inset-0 z-50' : ''
+      }`}
+    >
+      {/* Shell Action Bar / Header */}
+      <div className="flex items-center justify-between px-1 shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Register POS</span>
+          <span className="px-2 py-0.5 text-2xs font-bold rounded-md bg-secondary border border-border text-foreground">
+            Counter Kiosk
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label="Toggle Fullscreen Mode"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-secondary text-xs font-bold text-foreground hover:bg-secondary/80 ${pressable}`}
+        >
+          {isFullscreen ? (
+            <>
+              <ArrowsIn weight="bold" className="w-4 h-4" /> Exit Fullscreen
+            </>
+          ) : (
+            <>
+              <ArrowsOut weight="bold" className="w-4 h-4" /> Fullscreen Mode
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 items-stretch flex-1 min-h-0">
+        <div className="xl:col-span-3 h-full min-h-0">
           <PosCatalogPanel
             parts={parts}
             cart={cart}
@@ -178,7 +233,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
           />
         </div>
 
-        <div className="xl:col-span-2 flex flex-col gap-4">
+        <div className="xl:col-span-2 flex flex-col gap-4 h-full min-h-0">
           {lastTx && (
             <PosSaleComplete
               tx={lastTx}
@@ -207,6 +262,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
               totals={totals}
               formatCurrency={formatBaseCurrency}
               warning={warning}
+              onDismissWarning={() => setWarning(null)}
             />
           )}
         </div>

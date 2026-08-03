@@ -2,6 +2,9 @@ import { Page, Locator, expect } from '@playwright/test';
 
 export class StorefrontPage {
   readonly page: Page;
+  readonly heroTruckButton: Locator;
+  readonly heroBrowseButton: Locator;
+  readonly heroSearchInput: Locator;
   readonly searchInput: Locator;
   readonly productCards: Locator;
   readonly cartButton: Locator;
@@ -9,6 +12,9 @@ export class StorefrontPage {
 
   constructor(page: Page) {
     this.page = page;
+    this.heroTruckButton = page.getByRole('button', { name: /select your truck/i }).first();
+    this.heroBrowseButton = page.getByRole('button', { name: /browse catalog/i }).first();
+    this.heroSearchInput = page.getByRole('searchbox', { name: /search parts/i });
     this.searchInput = page.locator('input[placeholder*="Search"]');
     this.productCards = page.locator('div:has(> button:has-text("Add to Cart"))');
     this.cartButton = page.getByRole('button', { name: /Cart/i }).first();
