@@ -10,6 +10,7 @@ import PartTableRow from './PartTableRow';
 import AddPartDrawer from './AddPartDrawer';
 import Select from 'react-select';
 import { customSelectStyles } from './ui/PurchasingAtoms';
+import ToggleChip from './ui/ToggleChip';
 import { z } from 'zod';
 
 const partSchema = z.object({
@@ -444,21 +445,18 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
               const { icon: CatIcon, color } = getCategoryStyles(cat);
               const isSelected = selectedCategory === cat;
               return (
-                <button
+                <ToggleChip
                   key={cat}
+                  active={isSelected}
                   onClick={() => {
                     setSelectedCategory(cat);
                     setSelectedSubCategory(['All']); // Reset subcategory
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${
-                    isSelected 
-                      ? 'bg-accent/10 border-accent/30 text-accent shadow-sm' 
-                      : 'bg-background border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className="flex items-center gap-1.5 rounded-full whitespace-nowrap"
                 >
                   {CatIcon && <CatIcon weight={isSelected ? "fill" : "duotone"} className={`w-3.5 h-3.5 ${isSelected ? '' : color}`} />}
                   {cat}
-                </button>
+                </ToggleChip>
               );
             });
           })()}
@@ -481,23 +479,21 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
             return (
               <div className="flex overflow-x-auto custom-scrollbar pb-1 items-center gap-2 pl-4 border-l-2 border-border/50">
-                <button
+                <ToggleChip
+                  active={selectedSubCategory.includes('All')}
                   onClick={() => setSelectedSubCategory(['All'])}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
-                    selectedSubCategory.includes('All') 
-                      ? 'bg-secondary border-border text-foreground' 
-                      : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                  }`}
+                  className="flex items-center gap-1.5 rounded-full text-2xs whitespace-nowrap py-1"
                 >
                   <SquaresFour weight="duotone" className="w-3 h-3" />
                   All {selectedCategory}
-                </button>
+                </ToggleChip>
                 {subCats.map((sub) => {
                   const isSelected = selectedSubCategory.includes(sub.name);
                   const { icon: SubIcon, color } = getCategoryStyles(sub.name);
                   return (
-                    <button
+                    <ToggleChip
                       key={sub.id}
+                      active={isSelected}
                       onClick={() => {
                         setSelectedSubCategory(prev => {
                           const current = Array.isArray(prev) ? prev : [prev];
@@ -510,15 +506,11 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           }
                         });
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
-                        isSelected 
-                          ? 'bg-secondary border-border text-foreground shadow-sm' 
-                          : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                      }`}
+                      className="flex items-center gap-1.5 rounded-full text-2xs whitespace-nowrap py-1"
                     >
                       {SubIcon && <SubIcon weight={isSelected ? "fill" : "duotone"} className={`w-3 h-3 ${isSelected ? 'text-foreground' : color}`} />}
                       {sub.name}
-                    </button>
+                    </ToggleChip>
                   );
                 })}
               </div>
@@ -530,37 +522,41 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
       {/* View Controls Bar */}
       <div className="flex items-center justify-between bg-background/50 border border-border p-2 rounded-xl">
         <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg border border-border/50">
-          <button 
+          <ToggleChip 
+            active={viewMode === 'table'}
             onClick={() => setViewMode('table')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'table' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+            className="flex items-center gap-1.5 rounded-md"
           >
             <ListDashes weight={viewMode === 'table' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">List</span>
-          </button>
-          <button 
+          </ToggleChip>
+          <ToggleChip 
+            active={viewMode === 'grid3'}
             onClick={() => setViewMode('grid3')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'grid3' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+            className="flex items-center gap-1.5 rounded-md"
           >
             <SquaresFour weight={viewMode === 'grid3' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">Compact</span>
-          </button>
-          <button 
+          </ToggleChip>
+          <ToggleChip 
+            active={viewMode === 'grid4'}
             onClick={() => setViewMode('grid4')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'grid4' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+            className="flex items-center gap-1.5 rounded-md"
           >
             <GridFour weight={viewMode === 'grid4' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">Detailed</span>
-          </button>
+          </ToggleChip>
           {!isReadOnly && (
             <>
               <div className="w-px h-4 bg-border mx-1"></div>
-              <button 
+              <ToggleChip 
+                active={viewMode === 'auditLog'}
                 onClick={() => setViewMode('auditLog')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'auditLog' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+                className="flex items-center gap-1.5 rounded-md"
               >
                 <ShieldCheck weight={viewMode === 'auditLog' ? 'fill' : 'duotone'} className="w-4 h-4" />
                 <span className="hidden sm:inline">Audit Log</span>
-              </button>
+              </ToggleChip>
             </>
           )}
         </div>
