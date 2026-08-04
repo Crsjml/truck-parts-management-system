@@ -81,6 +81,25 @@ function PopoverPanel({
     };
   }, [triggerRef]);
 
+  // Focus management
+  useEffect(() => {
+    const triggerEl = triggerRef.current;
+    
+    // Focus the panel when it opens
+    if (panelRef.current) {
+      panelRef.current.focus({ preventScroll: true });
+    }
+
+    // Return focus when the panel unmounts (closes)
+    return () => {
+      if (triggerEl && document.body.contains(triggerEl)) {
+        setTimeout(() => {
+          triggerEl.focus();
+        }, 0);
+      }
+    };
+  }, [triggerRef]);
+
   const panelTransition = reduceMotion
     ? { duration: 0 }
     : { duration: 0.18, ease: 'easeOut' };
@@ -88,13 +107,15 @@ function PopoverPanel({
   return createPortal(
     <motion.div
       ref={panelRef}
-      role="region"
+      role="dialog"
+      aria-modal="false"
+      tabIndex={-1}
       aria-labelledby={labelledBy}
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
       transition={panelTransition}
-      className={`fixed z-50 pointer-events-auto ${className}`}
+      className={`fixed z-50 pointer-events-auto focus:outline-none ${className}`}
       style={{
         top: coords.top !== -9999 ? coords.top : -9999,
         right: coords.right,

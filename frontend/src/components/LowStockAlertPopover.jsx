@@ -64,10 +64,17 @@ export default function LowStockAlertPopover({
           <Bell weight="duotone" className="w-5 h-5 text-accent" />
           <h2 id="alert-popover-heading" className="text-sm font-bold text-foreground font-display">Low Stock Alerts</h2>
         </div>
-        <button onClick={onClose} aria-label="Close notifications" className="p-1 hover:bg-muted rounded-md text-muted-foreground transition-colors">
+        <button onClick={onClose} aria-label="Close notifications" className="w-8 h-8 flex items-center justify-center hover:bg-muted rounded-md text-muted-foreground transition-colors">
           <X weight="bold" className="w-4 h-4" />
         </button>
       </div>
+      
+      {displayParts.length > 0 && (
+        <div className="px-4 py-2 border-b border-border bg-background text-xs text-muted-foreground flex justify-between items-center">
+          <span>Showing {visibleParts.length} of {displayParts.length}</span>
+          <span>Most critical first</span>
+        </div>
+      )}
 
       <ul aria-live="polite" aria-atomic="false" className="list-none flex-1 overflow-y-auto max-h-[400px] p-2 space-y-1 custom-scrollbar">
         {displayParts.length === 0 ? (
@@ -108,18 +115,20 @@ export default function LowStockAlertPopover({
                     </div>
                   </div>
                   
-                  <div className="flex flex-col gap-3 shrink-0">
+                  <div className="flex flex-col gap-2 shrink-0">
                     <button
                       onClick={(e) => handleDismiss(e, part)}
-                      className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                      className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                       aria-label={`Dismiss ${part.name}`}
+                      title="Dismiss alert"
                     >
                       <X weight="bold" className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onNavigateToPart(part.sku)}
-                      className="p-2 bg-foreground hover:bg-foreground/90 text-background rounded-md transition-colors shadow-sm"
+                      className="w-10 h-10 flex items-center justify-center bg-foreground hover:bg-foreground/90 text-background rounded-md transition-colors shadow-sm"
                       aria-label={`Restock ${part.name}`}
+                      title="Restock part"
                     >
                       <Package weight="bold" className="w-4 h-4" />
                     </button>
