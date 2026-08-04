@@ -9,6 +9,7 @@ import { z } from 'zod';
 import Select from 'react-select';
 import { customSelectStyles } from './ui/PurchasingAtoms';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
+import { Drawer } from './ui/Drawer';
 
 const partSchema = z.object({
   name: z.string().min(3, "Part name must be at least 3 characters."),
@@ -41,6 +42,8 @@ export default function AddPartDrawer({
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
   const [formMinStock, setFormMinStock] = useState('');
+
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
   const [formCompatibleWith, setFormCompatibleWith] = useState([{ brand: '', series: '', year: '' }]);
   const [formDescription, setFormDescription] = useState('');
   const [formImage, setFormImage] = useState('');
@@ -139,7 +142,16 @@ export default function AddPartDrawer({
 
   const isDirty = formName || formSku || formOem || formCategory || formPrice || formStock || formDescription || formImage || formCompatibleWith.some(c => c.brand || c.series || c.year);
   const requestClose = () => {
-    if (isDirty && !window.confirm("Discard this part? Your input will be lost.")) return;
+    if (isDirty) {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Discard unsaved changes?',
+        message: 'Your input will be lost.',
+        confirmText: 'Discard',
+        onConfirm: () => onClose()
+      });
+      return;
+    }
     onClose();
   };
 
@@ -202,22 +214,35 @@ export default function AddPartDrawer({
                         type="button"
                         onClick={() => {
                           if (!cloneId) return;
+                          
+                          const applyTemplate = () => {
+                            const p = parts.find(x => String(x.id) === String(cloneId));
+                            if (p) {
+                              setFormName(p.name + ' (Copy)');
+                              setFormOem(p.oem || '');
+                              setFormCategory(p.categoryId || p.category?.id || p.category || '');
+                              setFormPrice(p.price || '');
+                              setFormMinStock(p.min_stock || p.minStock || 0);
+                              setFormStock(0);
+                              setFormSku('');
+                              setFormCompatibleWith(p.compatibleWith?.length ? p.compatibleWith : [{ brand: p.compatibility || '', series: '', year: '' }]);
+                              setFormDescription(p.description || '');
+                              setFormErrors({});
+                            }
+                          };
+
                           if (formName || formSku || formOem || formPrice) {
-                            if (!window.confirm("Are you sure you want to apply this template? This will overwrite your current inputs.")) return;
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Apply Template?',
+                              message: 'Are you sure you want to apply this template? This will overwrite your current inputs.',
+                              confirmText: 'Apply Template',
+                              onConfirm: applyTemplate
+                            });
+                            return;
                           }
-                          const p = parts.find(x => String(x.id) === String(cloneId));
-                          if (p) {
-                            setFormName(p.name + ' (Copy)');
-                            setFormOem(p.oem || '');
-                            setFormCategory(p.categoryId || p.category?.id || p.category || '');
-                            setFormPrice(p.price || '');
-                            setFormMinStock(p.min_stock || p.minStock || 0);
-                            setFormStock(0);
-                            setFormSku('');
-                            setFormCompatibleWith(p.compatibleWith?.length ? p.compatibleWith : [{ brand: p.compatibility || '', series: '', year: '' }]);
-                            setFormDescription(p.description || '');
-                            setFormErrors({});
-                          }
+                          
+                          applyTemplate();
                         }}
                         className="px-4 py-2 bg-brandBlue-500 hover:bg-brandBlue-600 text-white text-sm font-bold rounded-xl transition-colors shrink-0"
                       >
@@ -227,8 +252,8 @@ export default function AddPartDrawer({
                   </div>
 
                   <div className="space-y-1.5 group">
-                    <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formName ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      <Package weight="duotone" className={`w-4 h-4 ${formName ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Part Name *
+                    <label className={`text-sm font-medium flex items-center gap-1.5 transition-colors ${formName ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      Part Name *
                     </label>
                     <input 
                       type="text" 
@@ -238,13 +263,13 @@ export default function AddPartDrawer({
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                       className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                     />
-                    {formErrors.name && <p className="text-2xs text-destructive font-semibold">{formErrors.name}</p>}
+                    {formErrors.name && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.name}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <ListDashes weight="duotone" className="w-4 h-4 text-brandBlue-400" /> SKU *
+                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        SKU *
                       </label>
                       <input 
                         type="text" 
@@ -254,11 +279,11 @@ export default function AddPartDrawer({
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.sku && <p className="text-2xs text-destructive font-semibold">{formErrors.sku}</p>}
+                      {formErrors.sku && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.sku}</p>}
                     </div>
                     <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <Tag weight="duotone" className="w-4 h-4 text-brandBlue-400" /> OEM No. *
+                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        OEM No. *
                       </label>
                       <input 
                         type="text" 
@@ -268,16 +293,18 @@ export default function AddPartDrawer({
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.oem && <p className="text-2xs text-destructive font-semibold">{formErrors.oem}</p>}
+                      {formErrors.oem && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.oem}</p>}
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <Funnel weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Category *
+                    <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      Category *
                     </label>
                     <div className={`${formErrors.category ? 'rounded-xl ring-1 ring-destructive' : ''}`}>
                       <Select
+                        aria-invalid={!!formErrors.category}
+                        aria-describedby={formErrors.category ? "category-error" : undefined}
                         options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
                           label: parent.name,
                           options: [
@@ -310,7 +337,7 @@ export default function AddPartDrawer({
                         }}
                       />
                     </div>
-                    {formErrors.category && <p className="text-2xs text-destructive font-semibold">{formErrors.category}</p>}
+                    {formErrors.category && <p id="category-error" className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.category}</p>}
                   </div>
                 </motion.div>
               )}
@@ -326,6 +353,12 @@ export default function AddPartDrawer({
                       </button>
                     </label>
                     <div className="space-y-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="flex-1 text-2xs uppercase text-muted-foreground font-bold">Make</span>
+                        <span className="flex-1 text-2xs uppercase text-muted-foreground font-bold">Model/Series</span>
+                        <span className="flex-1 text-2xs uppercase text-muted-foreground font-bold">Years</span>
+                        <span className="w-9"></span>
+                      </div>
                       {formCompatibleWith.map((comp, idx) => (
                         <div key={idx} className="flex items-center gap-2">
                           <input 
@@ -369,6 +402,7 @@ export default function AddPartDrawer({
                             }}
                             disabled={formCompatibleWith.length === 1}
                             className={`p-2 rounded-xl border border-border transition-colors ${formCompatibleWith.length === 1 ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-muted-foreground' : 'hover:bg-destructive/10 hover:border-destructive/30 text-destructive'}`}
+                            aria-label="Remove compatibility row"
                           >
                             <Trash weight="bold" className="w-4 h-4" />
                           </button>
@@ -378,8 +412,8 @@ export default function AddPartDrawer({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                      <ListDashes weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Technical Description
+                    <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                      Technical Description
                     </label>
                     <textarea 
                       rows="4"
@@ -391,8 +425,8 @@ export default function AddPartDrawer({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <Image className="w-4 h-4 text-brandBlue-400" weight="duotone" /> Part Image
+                    <label htmlFor="part-image" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      Part Image
                     </label>
                     <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4">
                       <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border">
@@ -404,6 +438,7 @@ export default function AddPartDrawer({
                       </div>
                       <div className="space-y-1 flex-1">
                         <input 
+                          id="part-image"
                           type="file" 
                           accept="image/*"
                           onChange={(e) => {
@@ -433,7 +468,7 @@ export default function AddPartDrawer({
                         </button>
                       )}
                     </div>
-                    {formErrors.image && <p className="text-2xs text-destructive font-semibold mt-2">{formErrors.image}</p>}
+                    {formErrors.image && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold mt-2">{formErrors.image}</p>}
                   </div>
                 </motion.div>
               )}
@@ -442,8 +477,8 @@ export default function AddPartDrawer({
               {step === 3 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
                   <div className="space-y-1.5 group">
-                    <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                      <CurrencyDollar weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Retail Price (₱) *
+                    <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                      Retail Price (₱) *
                     </label>
                     <input 
                       type="number" 
@@ -453,13 +488,13 @@ export default function AddPartDrawer({
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                       className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                     />
-                    {formErrors.price && <p className="text-2xs text-destructive font-semibold">{formErrors.price}</p>}
+                    {formErrors.price && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.price}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <Package weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Initial Stock *
+                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        Initial Stock *
                       </label>
                       <input 
                         type="number" 
@@ -469,12 +504,12 @@ export default function AddPartDrawer({
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.stock && <p className="text-2xs text-destructive font-semibold">{formErrors.stock}</p>}
+                      {formErrors.stock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.stock}</p>}
                     </div>
 
                     <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <WarningCircle weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Min Stock Alert *
+                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        Min Stock Alert *
                       </label>
                       <input 
                         type="number" 
@@ -484,13 +519,13 @@ export default function AddPartDrawer({
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                         className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.minStock && <p className="text-2xs text-destructive font-semibold">{formErrors.minStock}</p>}
+                      {formErrors.minStock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.minStock}</p>}
                     </div>
                   </div>
 
                   {serverError && (
-                    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold animate-fadeIn">
-                      <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive" />
+                    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive dark:text-destructive-foreground text-sm font-semibold animate-fadeIn">
+                      <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive dark:text-destructive-foreground" />
                       <span>{serverError}</span>
                     </div>
                   )}
@@ -538,5 +573,54 @@ export default function AddPartDrawer({
       )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText }) {
+  return (
+    <Drawer 
+      isOpen={isOpen} 
+      onClose={onClose}
+      labelledBy="confirm-title"
+      describedBy="confirm-desc"
+      wrapperClassName="flex items-center justify-center p-4 z-[60]"
+      overlayClassName="bg-background/80 backdrop-blur-sm"
+      panelClassName="bg-background border border-border shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden flex flex-col"
+      panelVariants={{
+        initial: { opacity: 0, scale: 0.95, y: 10 },
+        animate: { opacity: 1, scale: 1, y: 0 },
+        exit: { opacity: 0, scale: 0.95, y: 10 },
+        transition: { duration: 0.2, ease: "easeOut" }
+      }}
+    >
+      <div className="p-6">
+        <h2 id="confirm-title" className="text-lg font-bold mb-2 flex items-center gap-2">
+          <WarningCircle weight="duotone" className="w-5 h-5 text-destructive" />
+          {title}
+        </h2>
+        <p id="confirm-desc" className="text-sm text-muted-foreground mb-6 leading-relaxed">
+          {message}
+        </p>
+        <div className="flex items-center justify-end gap-3">
+          <button 
+            type="button" 
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            type="button" 
+            onClick={() => {
+              if (onConfirm) onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-colors"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </Drawer>
   );
 }

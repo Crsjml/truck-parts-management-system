@@ -248,7 +248,8 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   <select 
                     value={categoryFilter} 
                     onChange={e => setCategoryFilter(e.target.value)}
-                    className="h-7 text-xs bg-background border border-border rounded-lg px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-accent ml-2"
+                    aria-label="Filter by category"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-background border-border text-foreground focus:outline-none focus:ring-1 focus:ring-accent ml-2"
                   >
                     <option value="all">All Categories</option>
                     {categoryOptions.map(c => (
@@ -288,13 +289,31 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
 
           <div className="overflow-x-auto">
             {filteredLowStockItems.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-                <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                  <CheckCircle weight="duotone" className="w-8 h-8" />
+              lowStockItems.length === 0 ? (
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
+                    <CheckCircle weight="duotone" className="w-8 h-8" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">Stable stock</p>
+                  <p className="text-xs text-muted-foreground max-w-[250px]">No low stock warnings. All warehouse inventory levels are healthy.</p>
                 </div>
-                <p className="text-sm font-medium text-foreground">Stable stock</p>
-                <p className="text-xs text-muted-foreground max-w-[250px]">No low stock warnings. All warehouse inventory levels are healthy.</p>
-              </div>
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="p-3 bg-secondary text-muted-foreground rounded-full border border-border">
+                    <Package weight="duotone" className="w-8 h-8" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    {severityFilter === 'critical' 
+                      ? 'No critical items' 
+                      : severityFilter === 'warning'
+                        ? 'No warning items'
+                        : 'No matches in this category'}
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-[250px]">
+                    {criticalCount} critical and {warningCount} warning-level items exist outside this filter.
+                  </p>
+                </div>
+              )
             ) : (
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
@@ -302,7 +321,10 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                     <th className="py-3 px-2 w-8 text-center">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background"
+                        aria-label={filteredLowStockItems.length > 5 ? "Bulk-select only covers the 5 items shown — use View all to manage the full list" : "Select all visible low-stock items"}
+                        title={filteredLowStockItems.length > 5 ? "Bulk-select only covers the 5 items shown — use View all to manage the full list" : "Select all visible low-stock items"}
+                        disabled={filteredLowStockItems.length > 5}
+                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background disabled:opacity-50 disabled:cursor-not-allowed"
                         checked={filteredLowStockItems.slice(0, 5).length > 0 && filteredLowStockItems.slice(0, 5).every(p => selectedWatchlistItems.has(p.id))}
                         onChange={(e) => {
                           const newSet = new Set(selectedWatchlistItems);
@@ -341,6 +363,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                         <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
                           <input 
                             type="checkbox" 
+                            aria-label={`Select ${part.name}`}
                             className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background"
                             checked={selectedWatchlistItems.has(part.id)}
                             onChange={(e) => {
@@ -358,10 +381,11 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                         <td className="py-3 px-2 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {isCritical ? (
-                              <WarningOctagon weight="duotone" className={`w-4 h-4 ${deficitColor}`} />
+                              <WarningOctagon aria-hidden="true" weight="duotone" className={`w-4 h-4 ${deficitColor}`} />
                             ) : (
-                              <WarningCircle weight="duotone" className={`w-4 h-4 ${deficitColor}`} />
+                              <WarningCircle aria-hidden="true" weight="duotone" className={`w-4 h-4 ${deficitColor}`} />
                             )}
+                            <span className="sr-only">{isCritical ? 'Critical' : 'Warning'}</span>
                             <span className={`text-lg font-bold font-display ${deficitColor}`}>-{part.deficit}</span>
                           </div>
                         </td>

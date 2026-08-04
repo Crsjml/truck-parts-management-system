@@ -1,48 +1,12 @@
 import React from 'react';
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Treemap, Cell } from 'recharts';
-import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, STATUS_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
 
-function TreemapCell({ x, y, width, height, name, revenue, value, hasChildren, maxRev, onDrill, formatCurrency }) {
-  if (!width || !height || width < 5 || height < 5) return null;
+const CHART_TOOLTIP_STYLE = { backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '12px' };
+const CHART_ITEM_STYLE = { color: 'hsl(var(--popover-foreground))' };
+const CHART_AXIS_TICK = { fill: 'hsl(var(--muted-foreground))', fontSize: 12 };
 
-  const rev = revenue ?? value ?? 0;
-  const ratio = maxRev > 0 ? Math.min(1, Math.max(0, rev / maxRev)) : 0.5;
-  const fill = `hsl(217, 85%, ${Math.round(18 + ratio * 30)}%)`;
 
-  const handleClick = () => {
-    if (hasChildren && onDrill) {
-      onDrill(name);
-    }
-  };
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <rect
-        width={width}
-        height={height}
-        fill={fill}
-        stroke="#0f172a"
-        strokeWidth={2}
-        rx={6}
-        ry={6}
-        className={hasChildren ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}
-        onClick={handleClick}
-      />
-      {width > 40 && height > 28 && (
-        <foreignObject x={4} y={4} width={width - 8} height={height - 8} style={{ pointerEvents: 'none' }}>
-          <div className="w-full h-full flex flex-col justify-between p-1 text-white overflow-hidden">
-            <span className="text-xs font-semibold leading-tight truncate" title={name}>
-              {name}
-            </span>
-            <span className="text-[11px] font-bold text-blue-200">
-              {formatCurrency ? formatCurrency(rev) : `₱${rev.toLocaleString()}`}
-            </span>
-          </div>
-        </foreignObject>
-      )}
-    </g>
-  );
-}
 
 export function MoverTick({ x, y, payload, movers }) {
   const name = payload?.value || '';
@@ -59,13 +23,13 @@ export function MoverTick({ x, y, payload, movers }) {
 
   return (
     <g transform={`translate(${x},${y})`}>
-      <foreignObject x="-215" y="-18" width="210" height="36">
-        <div className="flex items-center justify-end gap-1.5 w-full h-full pr-1">
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeStyle}`}>
-            {badgeText}
-          </span>
-          <span className="text-[11px] text-foreground font-medium truncate text-right max-w-[140px]" title={name}>
+      <foreignObject x="-220" y="-12" width="210" height="24">
+        <div className="flex items-center justify-between w-full h-full pr-2 gap-2">
+          <span className="text-xs text-muted-foreground truncate flex-1 text-right" title={name}>
             {name}
+          </span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border min-w-[36px] text-center shrink-0 ${badgeStyle}`}>
+            {badgeText}
           </span>
         </div>
       </foreignObject>
@@ -76,120 +40,308 @@ export function MoverTick({ x, y, payload, movers }) {
 export default function ChartRenderer({ type, data, formatCurrency, extraProps }) {
   if (type === 'trend') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-          <Tooltip 
-            cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-            itemStyle={{ color: '#f8fafc' }}
-            formatter={(value) => [formatCurrency(value), undefined]}
-          />
-          <Legend wrapperStyle={{ paddingTop: '10px' }} />
-          <Line dataKey="revenue" name="Current Period" type="monotone" stroke="#059669" strokeWidth={2} dot={data.length === 1} activeDot={{ r: 6, strokeWidth: 0 }} />
-          <Line dataKey="prior" name="Prior Period" type="monotone" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 4" dot={data.length === 1} activeDot={{ r: 6, strokeWidth: 0 }} />
-        </LineChart>
-      </ResponsiveContainer>
+      <>
+        <table className="sr-only">
+          <caption>Revenue Trend Data</caption>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Current Period Revenue</th>
+              <th>Prior Period Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, i) => (
+              <tr key={i}>
+                <td>{row.label}</td>
+                <td>{formatCurrency(row.revenue || 0)}</td>
+                <td>{formatCurrency(row.prior || 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
+            <Tooltip 
+              cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '4 4' }}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              itemStyle={CHART_ITEM_STYLE}
+              formatter={(value) => [formatCurrency(value), undefined]}
+            />
+            <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="plainline" />
+            <Line dataKey="revenue" name="Current Period" type="monotone" stroke="hsl(var(--chart-positive))" strokeWidth={2} dot={data.length === 1} activeDot={{ r: 6, strokeWidth: 0 }} />
+            <Line dataKey="prior" name="Prior Period" type="monotone" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="4 4" dot={data.length === 1} activeDot={{ r: 6, strokeWidth: 0 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </>
     );
   }
 
   if (type === 'movers') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ top: 20, right: 60, left: 40, bottom: 20 }}>
-          <XAxis type="number" hide />
-          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={<MoverTick movers={data} />} width={220} />
-          <Tooltip 
-            cursor={{ fill: '#1e293b' }}
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-            itemStyle={{ color: '#f8fafc' }}
-            formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
-          />
-          <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 6, 6, 0]} barSize={40} label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }} />
-        </BarChart>
-      </ResponsiveContainer>
+      <>
+        <table className="sr-only">
+          <caption>Top Movers Data</caption>
+          <thead>
+            <tr>
+              <th>Part Name</th>
+              <th>Volume</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, i) => (
+              <tr key={i}>
+                <td>{row.name}</td>
+                <td>{row.quantity} units</td>
+                <td>{formatCurrency(row.payload?.revenue || row.revenue || 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} layout="vertical" margin={{ top: 20, right: 60, left: 40, bottom: 20 }}>
+            <XAxis type="number" hide />
+            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={<MoverTick movers={data} />} width={220} />
+            <Tooltip 
+              cursor={{ fill: '#1e293b' }}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              itemStyle={CHART_ITEM_STYLE}
+              formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
+            />
+            <Bar 
+              dataKey="quantity" 
+              radius={[0, 6, 6, 0]} 
+              barSize={40} 
+              label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }}
+              onClick={(data) => {
+                const { onMoverClick } = extraProps || {};
+                if (onMoverClick && data && data.name) onMoverClick(data.name);
+              }}
+              cursor="pointer"
+            >
+              {data.map((entry, index) => {
+                let fill = '#64748b'; // slate-500 (no change)
+                if (entry.rankDelta === null) fill = '#a855f7'; // purple-500 (new)
+                else if (entry.rankDelta > 0) fill = '#10b981'; // emerald-500 (up)
+                else if (entry.rankDelta < 0) fill = '#f43f5e'; // rose-500 (down)
+                return <Cell key={`cell-${index}`} fill={fill} />;
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </>
     );
   }
 
-  if (type === 'treemap') {
-    const { maxCatRevenue, onDrill } = extraProps || {};
+  if (type === 'treemap' || type === 'donut') {
+    const { onDrill } = extraProps || {};
+    const COLORS = ['#3b82f6', '#059669', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4', '#64748b', '#10b981', '#f43f5e', '#a855f7'];
+
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <Treemap
-          data={data}
-          dataKey="revenue"
-          aspectRatio={4 / 3}
-          stroke="#0f172a"
-          content={
-            <TreemapCell
-              maxRev={maxCatRevenue}
-              onDrill={onDrill}
-              formatCurrency={formatCurrency}
+      <>
+        <table className="sr-only">
+          <caption>Category Revenue Allocation Data</caption>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, i) => (
+              <tr key={i}>
+                <td>{row.name}</td>
+                <td>{formatCurrency ? formatCurrency(row.revenue || 0) : row.revenue}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="revenue"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius="55%"
+              outerRadius="80%"
+              paddingAngle={4}
+              stroke="none"
+              onClick={(entry) => {
+                 if (entry.hasChildren && onDrill) onDrill(entry.name);
+              }}
+            >
+              {data.map((entry, index) => {
+                const fill = entry.name === 'Uncategorized' ? '#64748b' : COLORS[index % COLORS.length];
+                return (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={fill} 
+                    style={{ cursor: entry.hasChildren ? 'pointer' : 'default', transition: 'opacity 0.2s', outline: 'none' }}
+                    onMouseEnter={(e) => { e.target.style.opacity = 0.8; }}
+                    onMouseLeave={(e) => { e.target.style.opacity = 1; }}
+                  />
+                );
+              })}
+            </Pie>
+            <Tooltip 
+              contentStyle={CHART_TOOLTIP_STYLE}
+              itemStyle={CHART_ITEM_STYLE}
+              formatter={(val) => [formatCurrency ? formatCurrency(val) : `₱${val.toLocaleString()}`, 'Revenue']}
             />
-          }
-        >
-          <Tooltip 
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-            itemStyle={{ color: '#f8fafc' }}
-            formatter={(val) => [formatCurrency(val), 'Revenue']}
-          />
-        </Treemap>
-      </ResponsiveContainer>
+            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </>
     );
   }
 
   if (type === 'payments') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-          <Tooltip 
-            cursor={{ fill: '#1e293b' }}
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-            itemStyle={{ color: '#f8fafc' }}
-            formatter={(value) => [formatCurrency(value), undefined]}
-          />
-          <Legend wrapperStyle={{ paddingTop: '10px' }} />
-          {PAYMENT_METHODS.map((method) => (
-            <Bar 
-              key={method} 
-              dataKey={method} 
-              name={PAYMENT_LABELS[method]} 
-              fill={PAYMENT_COLORS[method]} 
-              stackId="a" 
+      <>
+        <table className="sr-only">
+          <caption>Payment Method Mix Data</caption>
+          <thead>
+            <tr>
+              <th>Period</th>
+              {PAYMENT_METHODS.map(m => <th key={m}>{PAYMENT_LABELS[m] || m}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, i) => (
+              <tr key={i}>
+                <td>{row.label}</td>
+                {PAYMENT_METHODS.map(m => <td key={m}>{formatCurrency(row[m] || 0)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
+            <Tooltip 
+              cursor={{ fill: '#1e293b' }}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              itemStyle={CHART_ITEM_STYLE}
+              formatter={(value) => [formatCurrency(value), undefined]}
             />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
+            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+            {PAYMENT_METHODS.map((method) => (
+              <Bar 
+                key={method} 
+                dataKey={method} 
+                name={PAYMENT_LABELS[method]} 
+                fill={PAYMENT_COLORS[method]} 
+                stackId="a" 
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </>
     );
   }
 
   if (type === 'peak') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-          <Tooltip 
-            cursor={{ fill: '#1e293b' }}
-            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-            itemStyle={{ color: '#f8fafc' }}
-            formatter={(value) => [formatCurrency(value), undefined]}
-          />
-          <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
-            {
-              data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.isPeak ? '#059669' : '#3b82f6'} />
-              ))
-            }
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <>
+        <table className="sr-only">
+          <caption>Peak Sales Data</caption>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, i) => (
+              <tr key={i}>
+                <td>{row.label}</td>
+                <td>{formatCurrency(row.revenue || 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
+            <Tooltip 
+              cursor={{ fill: '#1e293b' }}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              itemStyle={CHART_ITEM_STYLE}
+              formatter={(value) => [formatCurrency(value), undefined]}
+            />
+            <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+              {
+                data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.isPeak ? '#059669' : '#3b82f6'} />
+                ))
+              }
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </>
+    );
+  }
+
+  if (type === 'status') {
+    return (
+      <>
+        <table className="sr-only">
+          <caption>Order Status Data</caption>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Orders</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((row, i) => (
+              <tr key={i}>
+                <td>{row.name}</td>
+                <td>{row.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="count"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius="55%"
+              outerRadius="80%"
+              paddingAngle={4}
+              stroke="none"
+            >
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={STATUS_COLORS[entry.name] || '#64748b'} 
+                  style={{ outline: 'none' }}
+                />
+              ))}
+            </Pie>
+            <Tooltip 
+              contentStyle={CHART_TOOLTIP_STYLE}
+              itemStyle={CHART_ITEM_STYLE}
+              formatter={(val) => [val, 'Orders']}
+            />
+            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </>
     );
   }
 

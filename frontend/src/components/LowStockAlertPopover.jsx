@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Popover } from './ui/Popover';
-import { Bell, X, CheckCircle, ShoppingCart } from '@phosphor-icons/react';
+import { Bell, X, CheckCircle, Package } from '@phosphor-icons/react';
 
 export default function LowStockAlertPopover({
   lowStockParts,
   isOpen,
   onClose,
   triggerRef,
+  showToast,
   onNavigateToPart,
   onNavigateToCatalog
 }) {
@@ -30,12 +31,23 @@ export default function LowStockAlertPopover({
   const visibleParts = displayParts.slice(0, 8);
   const hasMore = displayParts.length > 8;
 
-  const handleDismiss = (e, id) => {
+  const handleDismiss = (e, part) => {
     e.stopPropagation();
     setSeenIds(prev => {
       const next = new Set(prev);
-      next.add(id);
+      next.add(part.id);
       return next;
+    });
+    
+    showToast?.(`${part.name} dismissed`, 'info', {
+      label: 'Undo',
+      onClick: () => {
+        setSeenIds(prev => {
+          const next = new Set(prev);
+          next.delete(part.id);
+          return next;
+        });
+      }
     });
   };
 
@@ -45,7 +57,7 @@ export default function LowStockAlertPopover({
       onClose={onClose}
       triggerRef={triggerRef}
       labelledBy="alert-popover-heading"
-      className="w-full max-w-[320px] bg-background border border-border rounded-xl flex flex-col shadow-xl overflow-hidden"
+      className="w-full max-w-[360px] bg-background border border-border rounded-xl flex flex-col shadow-xl overflow-hidden"
     >
       <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/50">
         <div className="flex items-center gap-2">
@@ -83,8 +95,8 @@ export default function LowStockAlertPopover({
                     </div>
                     <div className="text-xs font-mono text-muted-foreground mt-0.5 truncate">{part.sku}</div>
                     
-                    {/* Stat tiles revealed on hover/focus-within */}
-                    <div className="hidden group-hover:grid group-focus-within:grid grid-cols-2 gap-2 mt-2">
+                    {/* Stat tiles permanently visible for data density */}
+                    <div className="grid grid-cols-2 gap-2 mt-2">
                       <div className="p-1.5 bg-background rounded-md border border-border">
                         <div className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
                         <div className="text-sm font-bold text-foreground">{actualStock}</div>
@@ -96,20 +108,20 @@ export default function LowStockAlertPopover({
                     </div>
                   </div>
                   
-                  <div className="flex flex-col gap-1 shrink-0">
+                  <div className="flex flex-col gap-3 shrink-0">
                     <button
-                      onClick={(e) => handleDismiss(e, part.id)}
-                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                      onClick={(e) => handleDismiss(e, part)}
+                      className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                       aria-label={`Dismiss ${part.name}`}
                     >
-                      <X weight="bold" className="w-3.5 h-3.5" />
+                      <X weight="bold" className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onNavigateToPart(part.sku)}
-                      className="p-1.5 bg-foreground hover:bg-foreground/90 text-background rounded-md transition-colors shadow-sm"
+                      className="p-2 bg-foreground hover:bg-foreground/90 text-background rounded-md transition-colors shadow-sm"
                       aria-label={`Restock ${part.name}`}
                     >
-                      <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
+                      <Package weight="bold" className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

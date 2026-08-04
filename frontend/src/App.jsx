@@ -1087,6 +1087,7 @@ export default function App() {
         isOpen={isAlertDrawerOpen}
         onClose={() => setIsAlertDrawerOpen(false)}
         triggerRef={bellButtonRef}
+        showToast={showToast}
         onNavigateToPart={(sku) => {
           setIsAlertDrawerOpen(false);
           setSelectedCategory('All');

@@ -5,49 +5,51 @@ import { CaretRight, X, Funnel, ArrowsDownUp, Star, MagnifyingGlass } from '@pho
 export const customSelectStyles = {
   control: (base, state) => ({
     ...base,
-    backgroundColor: 'var(--color-secondary)',
-    borderColor: state.isFocused ? 'var(--color-accent)' : 'var(--color-border)',
-    boxShadow: state.isFocused ? '0 0 0 1px var(--color-accent)' : 'none',
+    backgroundColor: 'hsl(var(--background))',
+    borderColor: state.isFocused ? '#3c6ba3' : 'hsl(var(--border))',
+    boxShadow: state.isFocused ? '0 0 0 1px #3c6ba3' : 'none',
+    outline: state.isFocused ? '1px solid #3c6ba3' : 'none',
+    outlineOffset: '-1px',
     '&:hover': {
-      borderColor: 'var(--color-accent)'
+      borderColor: '#3c6ba3'
     },
-    color: 'var(--color-foreground)',
-    borderRadius: '0.5rem',
+    color: 'hsl(var(--foreground))',
+    borderRadius: '0.75rem',
     minHeight: '38px',
     padding: '0 4px',
   }),
   menu: (base) => ({
     ...base,
-    backgroundColor: '#0f172a', // Tailwind slate-900 for dark mode dropdown menu
-    border: '1px solid #1e293b',
-    borderRadius: '0.5rem',
+    backgroundColor: 'hsl(var(--background))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '0.75rem',
     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
     zIndex: 9999
   }),
   option: (base, state) => ({
     ...base,
     backgroundColor: state.isSelected
-      ? 'var(--color-accent)'
+      ? '#3c6ba3'
       : state.isFocused
-        ? 'rgba(255, 255, 255, 0.05)'
+        ? 'hsl(var(--secondary))'
         : 'transparent',
-    color: state.isSelected ? '#fff' : '#e2e8f0', // slate-200 text
+    color: state.isSelected ? '#fff' : 'hsl(var(--foreground))',
     '&:active': {
-      backgroundColor: 'var(--color-accent)'
+      backgroundColor: '#3c6ba3'
     },
     padding: '8px 12px'
   }),
   singleValue: (base) => ({
     ...base,
-    color: 'var(--color-foreground)'
+    color: 'hsl(var(--foreground))'
   }),
   input: (base) => ({
     ...base,
-    color: 'var(--color-foreground)'
+    color: 'hsl(var(--foreground))'
   }),
   placeholder: (base) => ({
     ...base,
-    color: 'var(--color-muted-foreground)'
+    color: 'hsl(var(--muted-foreground))'
   }),
   menuPortal: base => ({ ...base, zIndex: 9999 })
 };
