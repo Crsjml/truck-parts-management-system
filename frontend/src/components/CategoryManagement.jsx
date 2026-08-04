@@ -4,6 +4,20 @@ import { Tag, Plus, Pencil, Trash, CaretRight, Warning, CheckCircle, CircleNotch
 import { fetchCategoriesList, createCategory, updateCategory, deleteCategory } from '../authStore';
 import { ICON_MAP, COLOR_THEMES, autoSuggest, getCategoryIconAndColor } from '../utils/categoryIcons';
 
+const COLOR_THEME_LABELS = {
+  primary: 'Brand Blue',
+  secondary: 'Cool Gray',
+  success: 'Mint',
+  warning: 'Gold',
+  danger: 'Red',
+  info: 'Sky Blue'
+};
+
+const RECOMMENDED_COLOR_THEMES = ['blue', 'emerald', 'amber', 'red', 'purple', 'gray'];
+
+const formatThemeLabel = (colorKey) =>
+  COLOR_THEME_LABELS[colorKey] || colorKey.replace(/-/g, ' ');
+
 export default function CategoryManagement({ onAddLog }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,12 +37,14 @@ export default function CategoryManagement({ onAddLog }) {
   const [colorTheme, setColorTheme] = useState('gray');
   const [manualOverride, setManualOverride] = useState(false);
   const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
+  const [showMoreColors, setShowMoreColors] = useState(false);
   const nameInputRef = useRef(null);
   
   // Feedback
   const [notice, setNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
 
   const loadCategories = async (preserveSelection = false) => {
     setLoading(true);
@@ -82,6 +98,7 @@ export default function CategoryManagement({ onAddLog }) {
     setColorTheme('gray');
     setErrorMsg('');
     setIsAppearanceOpen(false);
+    setShowMoreColors(false);
   };
 
   useEffect(() => {
@@ -124,8 +141,20 @@ export default function CategoryManagement({ onAddLog }) {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
       setErrorMsg('Category name is required.');
+      return;
+    }
+
+    const duplicateCategory = categories.find(cat =>
+      cat.id !== editId
+      && cat.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (duplicateCategory) {
+      setErrorMsg(`"${trimmedName}" already exists. Use a unique category name so staff can tell categories apart.`);
       return;
     }
 
@@ -134,7 +163,7 @@ export default function CategoryManagement({ onAddLog }) {
     setNotice('');
 
     const payload = {
-      name: name.trim(),
+      name: trimmedName,
       parentCategory: parentCategory || null,
       iconName,
       colorTheme
@@ -209,28 +238,58 @@ export default function CategoryManagement({ onAddLog }) {
   const duplicatedNames = categories.filter((cat, index, list) =>
     list.findIndex(item => item.name.trim().toLowerCase() === cat.name.trim().toLowerCase()) !== index
   );
-  const taxonomyStatus = orphanCategories.length > 0 || duplicatedNames.length > 0
-    ? 'Needs review'
-    : 'Organized';
+  const reviewIssueCount = orphanCategories.length + duplicatedNames.length;
+  const reviewIssues = [
+    ...orphanCategories.map(cat => ({
+      id: `orphan-${cat.id}`,
+      title: cat.name,
+      detail: 'Subcategory is missing a valid main category. Edit it and choose a parent category.'
+    })),
+    ...duplicatedNames.map(cat => ({
+      id: `duplicate-${cat.id}`,
+      title: cat.name,
+      detail: 'Another category already uses this name. Rename one so staff can tell them apart.'
+    }))
+  ];
+  const allColorThemeKeys = Object.keys(COLOR_THEMES);
+  const visibleColorThemeKeys = showMoreColors
+    ? allColorThemeKeys
+    : Array.from(new Set([...RECOMMENDED_COLOR_THEMES, colorTheme])).filter(key => COLOR_THEMES[key]);
+
+  const renderInlineError = () => (
+    <div role="alert" className="mx-5 mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs flex gap-3 items-start text-red-700 dark:text-red-200">
+      <Warning className="text-red-500 shrink-0 mt-0.5 w-4 h-4" weight="duotone" />
+      <div className="leading-relaxed">{errorMsg}</div>
+      <button type="button" aria-label="Dismiss error" onClick={() => setErrorMsg('')} className="ml-auto text-red-500 hover:text-red-700 dark:hover:text-white">
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
 
   const renderFeedback = () => {
+    if (isFormOpen && errorMsg) {
+      return null;
+    }
+
     if (errorMsg) {
-      return (
-        <div role="alert" className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full rounded-2xl border border-red-500/20 bg-red-950/80 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-red-100">
+      const alert = (
+        <div role="alert" className="fixed top-20 right-6 z-[300] max-w-md w-[calc(100%-2rem)] rounded-2xl border border-red-500/20 bg-red-950/95 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-red-100">
           <Warning className="text-red-500 shrink-0 mt-0.5 w-5 h-5" weight="duotone" />
           <div className="leading-snug">{errorMsg}</div>
           <button type="button" aria-label="Dismiss error" onClick={() => setErrorMsg('')} className="ml-auto text-red-400 hover:text-white"><X /></button>
         </div>
       );
+      return createPortal(alert, document.body);
     }
     if (notice) {
-      return (
-        <div role="status" className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/80 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-emerald-100">
+      const status = (
+        <div role="status" className="fixed top-20 right-6 z-[300] max-w-md w-[calc(100%-2rem)] rounded-2xl border border-emerald-500/20 bg-emerald-950/95 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-emerald-100">
           <CheckCircle className="text-emerald-500 shrink-0 mt-0.5 w-5 h-5" weight="duotone" />
           <div className="leading-snug">{notice}</div>
           <button type="button" aria-label="Dismiss notice" onClick={() => setNotice('')} className="ml-auto text-emerald-400 hover:text-white"><X /></button>
         </div>
       );
+      return createPortal(status, document.body);
     }
     return null;
   };
@@ -239,43 +298,44 @@ export default function CategoryManagement({ onAddLog }) {
     <div className="space-y-6 animate-fadeIn min-h-[500px]">
       {renderFeedback()}
 
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border border-border flex flex-col xl:flex-row xl:items-center justify-between gap-6 shrink-0">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-display flex items-center gap-2.5">
-            <Tag weight="duotone" className="w-8 h-8 text-brandBlue-500" />
-            Category Management
-          </h1>
-          <p className="text-muted-foreground text-sm max-w-xl leading-relaxed">
-            Organize the product catalog into clear main groups and subcategories so staff can find, filter, and maintain parts faster.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="rounded-xl border border-border bg-background/60 px-4 py-3">
-            <div className="text-2xs uppercase tracking-widest text-muted-foreground font-bold">Main groups</div>
-            <div className="mt-1 text-xl font-bold text-foreground">{topLevelCategories.length}</div>
+      {/* Header Toolbar */}
+      <div className="rounded-2xl glass-panel p-5 md:p-6 border border-border shrink-0">
+        <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground font-display flex items-center gap-2.5">
+                <Tag weight="duotone" className="w-8 h-8 text-brandBlue-500" />
+                Category Management
+              </h1>
+              <p className="text-muted-foreground text-sm max-w-2xl leading-relaxed">
+                Organize catalog groups so staff can find, filter, and maintain truck parts faster.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-muted-foreground">
+              <span>{topLevelCategories.length} main {topLevelCategories.length === 1 ? 'category' : 'categories'}</span>
+              <span className="text-border">/</span>
+              <span>{totalSubCategories} {totalSubCategories === 1 ? 'subcategory' : 'subcategories'}</span>
+              {reviewIssueCount > 0 && (
+                <>
+                  <span className="text-border">/</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsReviewOpen(open => !open)}
+                    aria-expanded={isReviewOpen}
+                    aria-controls="category-review-issues"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 transition-colors"
+                  >
+                    <WarningCircle className="w-3.5 h-3.5" weight="duotone" />
+                    Review {reviewIssueCount} {reviewIssueCount === 1 ? 'issue' : 'issues'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="rounded-xl border border-border bg-background/60 px-4 py-3">
-            <div className="text-2xs uppercase tracking-widest text-muted-foreground font-bold">Subcategories</div>
-            <div className="mt-1 text-xl font-bold text-foreground">{totalSubCategories}</div>
-          </div>
-          <div className="rounded-xl border border-border bg-background/60 px-4 py-3">
-            <div className="text-2xs uppercase tracking-widest text-muted-foreground font-bold">Status</div>
-            <div className={`mt-1 text-sm font-bold ${taxonomyStatus === 'Organized' ? 'text-emerald-500' : 'text-amber-500'}`}>{taxonomyStatus}</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => openForm()}
-            className="rounded-xl bg-accent hover:bg-accent/90 text-white font-bold transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-1.5 px-4 py-3"
-          >
-            <Plus weight="bold" className="w-4 h-4" /> Add Category
-          </button>
-        </div>
-        
-        <div className="flex flex-col gap-3 xl:min-w-56">
-          <div className="flex bg-secondary border border-border p-1 rounded-xl">
+
+          <div className="flex flex-col sm:flex-row xl:justify-end gap-3">
+          <div className="flex bg-secondary border border-border p-1 rounded-xl sm:min-w-56">
             <button
               type="button"
               onClick={() => setActiveTab('hierarchy')}
@@ -293,7 +353,30 @@ export default function CategoryManagement({ onAddLog }) {
               <Table weight="bold" /> Flat List
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => openForm()}
+            className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus weight="bold" className="w-4 h-4 shrink-0" /> <span>Add Category</span>
+          </button>
+          </div>
         </div>
+
+        {reviewIssueCount > 0 && isReviewOpen && (
+          <div id="category-review-issues" className="mt-5 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Category issues to fix</div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+              {reviewIssues.map(issue => (
+                <div key={issue.id} className="rounded-lg border border-amber-500/20 bg-background/70 p-3">
+                  <div className="text-sm font-bold text-foreground">{issue.title}</div>
+                  <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{issue.detail}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {loading && categories.length === 0 ? (
@@ -582,6 +665,7 @@ export default function CategoryManagement({ onAddLog }) {
                 <X weight="bold" className="w-4 h-4" />
               </button>
             </div>
+            {errorMsg && renderInlineError()}
             
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
               <form id="categoryForm" noValidate onSubmit={handleFormSubmit} className="flex flex-col gap-6">
@@ -672,46 +756,45 @@ export default function CategoryManagement({ onAddLog }) {
                   <div className="space-y-3 bg-background/50 p-5 rounded-2xl border border-border/50">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <Palette className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Color Theme
+                        <Palette className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Category Color
                       </div>
                     </div>
                     <div className="text-2xs text-muted-foreground leading-relaxed">
-                      Colors marked with a dot are already used by another category.
+                      Pick a simple visual cue for this category. The system will suggest one from the name when it can.
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {Object.keys(COLOR_THEMES).map(colorKey => {
+                      {visibleColorThemeKeys.map(colorKey => {
                         const themeClasses = COLOR_THEMES[colorKey];
                         const bgClass = themeClasses.split(' ').find(c => c.startsWith('bg-'));
                         const borderClass = themeClasses.split(' ').find(c => c.startsWith('border-'));
                         const textClass = themeClasses.split(' ').find(c => c.startsWith('text-'));
                         const isColorSelected = colorTheme === colorKey;
-                        
-                        const isUsed = categories.some(c => {
-                          if (c.id === editId) return false;
-                          const actualColorTheme = c.colorTheme || autoSuggest(c.name)?.colorTheme || 'gray';
-                          return actualColorTheme === colorKey;
-                        });
+                        const colorLabel = formatThemeLabel(colorKey);
                         
                         return (
                           <button
                             key={colorKey}
                             type="button"
-                            aria-label={`Use ${colorKey} color theme${isUsed ? ', already used' : ''}`}
+                            aria-label={`Use ${colorLabel} category color`}
                             onClick={() => selectColor(colorKey)}
-                            className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${isColorSelected ? `bg-secondary border-brandBlue-500/50 shadow-sm` : 'bg-transparent border-border hover:bg-secondary/50'}`}
-                            title={`${colorKey} ${isUsed ? '(Already Used)' : ''}`}
+                            className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${isColorSelected ? `bg-secondary border-brandBlue-500/50 shadow-sm` : 'bg-transparent border-border hover:bg-secondary/50'}`}
+                            title={colorLabel}
                           >
                             <div className={`w-3.5 h-3.5 rounded-full border ${borderClass} ${bgClass} shrink-0`} />
                             <span className={`text-2xs font-bold uppercase tracking-wider ${isColorSelected ? textClass : 'text-muted-foreground'}`}>
-                              {colorKey}
+                              {colorLabel}
                             </span>
-                            {isUsed && (
-                              <div className="absolute right-0 top-0 -mr-1 -mt-1 w-2.5 h-2.5 rounded-full bg-foreground/30 border-2 border-background" title="Already in use" />
-                            )}
                           </button>
                         );
                       })}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreColors(open => !open)}
+                      className="text-2xs font-bold uppercase tracking-wider text-brandBlue-600 dark:text-brandBlue-400 hover:underline"
+                    >
+                      {showMoreColors ? 'Show recommended colors' : 'More colors'}
+                    </button>
                   </div>
 
                   {/* Icon Picker */}
@@ -756,7 +839,7 @@ export default function CategoryManagement({ onAddLog }) {
               <button type="button" onClick={closeForm} className="px-6 py-2.5 bg-secondary border border-border hover:bg-muted text-foreground font-bold rounded-xl text-xs transition-colors shadow-sm">
                 Cancel
               </button>
-              <button form="categoryForm" type="submit" disabled={submitLoading} className="px-8 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs shadow-lg shadow-accent/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+              <button form="categoryForm" type="submit" disabled={submitLoading} className="px-8 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
                 {submitLoading ? <CircleNotch className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
                 {editId ? 'Save Updates' : 'Add Category'}
               </button>

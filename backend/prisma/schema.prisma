@@ -223,6 +223,19 @@ model Setting {
   updatedAt       DateTime @updatedAt
 }
 
+model AuthLog {
+  id        String   @id @db.Uuid
+  authId    String   @db.Uuid
+  email     String
+  role      String   @default("customer")
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([authId])
+  @@index([createdAt])
+}
+
 model StockAdjustment {
   id         String   @id @default(uuid()) @db.Uuid
   partId     String   @db.Uuid
