@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, ChartPieSlice, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye } from '@phosphor-icons/react';
+import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, TrendDown, Stack, ChartPieSlice, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
 import ChannelSelector from './analytics/ChannelSelector';
 import KpiTile from './analytics/KpiTile';
@@ -194,6 +194,21 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             <div className="flex items-center gap-2">
               <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
               <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
+              {(() => {
+                const delta = kpis.deltas?.revenue;
+                const hasDelta = delta !== null && delta !== undefined;
+                const isPositive = hasDelta && delta >= 0;
+                return hasDelta ? (
+                  <span className={`ml-2 text-2xs flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border ${isPositive ? 'text-emerald-400 bg-emerald-950/50 border-emerald-800/35' : 'text-rose-400 bg-rose-950/50 border-rose-800/35'}`}>
+                    {isPositive ? <TrendUp weight="bold" className="w-3 h-3" /> : <TrendDown weight="bold" className="w-3 h-3" />}
+                    {isPositive ? '+' : '-'}{Math.abs(delta).toFixed(1)}% vs prior
+                  </span>
+                ) : (
+                  <span className="ml-2 text-2xs text-muted-foreground flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border border-border/50 bg-secondary/50">
+                    No prior period
+                  </span>
+                );
+              })()}
             </div>
             <button title="Expand Chart" aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
@@ -223,11 +238,6 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                   {drilledCategory ? `Category Revenue: ${drilledCategory}` : 'Category Revenue Allocation'}
                 </h3>
               </div>
-              {!drilledCategory && (
-                <span className="text-[11px] text-muted-foreground ml-7 leading-tight mt-0.5">
-                  'Uncategorized' groups deleted parts or missing categories
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-2">
               {drilledCategory && (
