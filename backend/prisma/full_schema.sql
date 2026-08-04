@@ -29,6 +29,19 @@ CREATE TABLE "Customer" (
 );
 
 -- CreateTable
+CREATE TABLE "AuthLog" (
+    "id" UUID NOT NULL,
+    "authId" UUID NOT NULL,
+    "email" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'customer',
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuthLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Part" (
     "id" UUID NOT NULL,
     "name" TEXT NOT NULL,
@@ -203,6 +216,12 @@ CREATE UNIQUE INDEX "Customer_authId_key" ON "Customer"("authId");
 CREATE UNIQUE INDEX "Customer_email_key" ON "Customer"("email");
 
 -- CreateIndex
+CREATE INDEX "AuthLog_authId_idx" ON "AuthLog"("authId");
+
+-- CreateIndex
+CREATE INDEX "AuthLog_createdAt_idx" ON "AuthLog"("createdAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Part_sku_key" ON "Part"("sku");
 
 -- CreateIndex
@@ -261,4 +280,3 @@ ALTER TABLE "_CustomerSavedParts" ADD CONSTRAINT "_CustomerSavedParts_A_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "_CustomerSavedParts" ADD CONSTRAINT "_CustomerSavedParts_B_fkey" FOREIGN KEY ("B") REFERENCES "Part"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
