@@ -819,6 +819,7 @@ export default function CustomerStorefront({
               userId={customerSession?.user?.id}
               transactions={transactions} 
               onReorder={handleReorder}
+              showToast={showToast}
             />
           )}
 
