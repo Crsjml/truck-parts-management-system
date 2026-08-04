@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Package, CheckCircle, Truck, Star, X, ClipboardText } from '@phosphor-icons/react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createReview } from '../authStore';
 import OrderCard from './OrderCard';
+import { buildInvoicePdf } from '../utils/invoicePdf';
 
-export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder }) {
+export default function MyOrders({ customerName, customerEmail, userId, transactions, onReorder, showToast }) {
   const { displayCurrency, formatBaseCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('All');
   const [purchaseType, setPurchaseType] = useState('online'); // 'online' | 'ftf'
@@ -30,12 +29,12 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     });
     setSubmittingReview(false);
     if (res.ok) {
-      alert('Review submitted successfully!');
+      if (showToast) showToast('Review submitted successfully!', 'success');
       setReviewModal({ isOpen: false, partId: null, partName: '' });
       setNewRating(0);
       setNewReviewBody('');
     } else {
-      alert(res.error || 'Failed to submit review.');
+      if (showToast) showToast(res.error || 'Failed to submit review.', 'error');
     }
   };
 
@@ -72,73 +71,11 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     if (e) e.stopPropagation();
     if (!tx) return;
     try {
-      const doc = new jsPDF();
-      doc.setFillColor(27, 54, 93);
-      doc.rect(0, 0, 210, 40, 'F');
-      doc.setFillColor(220, 38, 38);
-      doc.rect(0, 40, 210, 3, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('Helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('TARLAC TRUCK PARTS', 15, 20);
-      doc.setFont('Helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text('Quality Truck Accessories & Spare Parts Wholesale & Retail', 15, 27);
-      doc.text('Tarlac City, Philippines | Contact: 0917-XXX-XXXX', 15, 33);
-      doc.setFont('Helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('SALES INVOICE (DUPLICATE)', 130, 18);
-      doc.setFont('Helvetica', 'normal');
-      doc.setFontSize(9.5);
-      doc.text(`Invoice No: ${tx.invoiceNumber}`, 130, 24);
-      doc.text(`Date: ${new Date(tx.transactionDate).toLocaleString('en-US')}`, 130, 30);
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(10.5);
-      doc.setFont('Helvetica', 'bold');
-      doc.text('BILL TO / CUSTOMER INFO:', 15, 56);
-      doc.setFont('Helvetica', 'normal');
-      doc.setFontSize(9.5);
-      doc.text(`Customer Name: ${tx.customerName}`, 15, 62);
-      doc.text(`Contact Phone: ${tx.customerContact}`, 15, 68);
-      const tableRows = tx.items.map((item, i) => [
-        i + 1, item.name,
-        formatBaseCurrency(item.price),
-        item.quantity,
-        formatBaseCurrency(item.price * item.quantity),
-      ]);
-      autoTable(doc, {
-        startY: 76,
-        head: [['#', 'Part Description', 'Unit Price', 'Qty', 'Total']],
-        body: tableRows,
-        headStyles: { fillColor: [27, 54, 93], textColor: [255, 255, 255], fontSize: 9.5, fontStyle: 'bold', halign: 'left' },
-        bodyStyles: { fontSize: 9, textColor: [33, 41, 54] },
-        alternateRowStyles: { fillColor: [247, 249, 252] },
-        columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 100 }, 2: { cellWidth: 35 }, 3: { cellWidth: 20 }, 4: { cellWidth: 30 } },
-        theme: 'grid', margin: { left: 15, right: 15 },
-      });
-      const finalY = doc.lastAutoTable.finalY + 8;
-      doc.setFontSize(9.5);
-      doc.setFont('Helvetica', 'normal');
-      doc.text('Subtotal:', 130, finalY);
-      doc.text(formatBaseCurrency(tx.subtotal), 195, finalY, { align: 'right' });
-      doc.text('Discount Deductions:', 130, finalY + 5.5);
-      doc.text(`-${formatBaseCurrency(tx.discount)}`, 195, finalY + 5.5, { align: 'right' });
-      doc.text('VAT Amount (12%):', 130, finalY + 11);
-      doc.text(formatBaseCurrency(tx.taxAmount), 195, finalY + 11, { align: 'right' });
-      doc.setFillColor(27, 54, 93);
-      doc.rect(128, finalY + 15, 68, 7.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('Helvetica', 'bold');
-      doc.text('NET TOTAL:', 131, finalY + 20);
-      doc.text(formatBaseCurrency(tx.total), 193, finalY + 20, { align: 'right' });
-      doc.setTextColor(100, 116, 139);
-      doc.setFont('Helvetica', 'italic');
-      doc.setFontSize(8.5);
-      doc.text('Thank you for your business!', 105, finalY + 36, { align: 'center' });
-      doc.text('Return Policy: Exchange is only valid within 7 days with this sales invoice.', 105, finalY + 41, { align: 'center' });
-      doc.save(`Invoice_${tx.invoiceNumber}.pdf`);
+      buildInvoicePdf(tx, { formatCurrency: formatBaseCurrency, displayCurrency, duplicate: true });
+      if (showToast) showToast('Invoice downloaded', 'success');
     } catch (err) {
       console.error(err);
+      if (showToast) showToast('Couldn\'t generate invoice — try again', 'error');
     }
   };
 
@@ -229,7 +166,6 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
             <OrderCard
               key={tx.id || tx.invoiceNumber}
               transaction={tx}
-              displayCurrency={displayCurrency}
               formatCurrency={formatBaseCurrency}
               onDownloadPDF={(txn) => handleDownloadPDF(txn, null)}
               onReview={(partId, partName) => {

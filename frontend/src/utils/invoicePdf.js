@@ -12,7 +12,7 @@ function safe(value, maxLen = 200) {
 export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate = false }) {
   const doc = new jsPDF();
 
-  doc.setFillColor(27, 54, 93);
+  doc.setFillColor(37, 99, 235);
   doc.rect(0, 0, 210, 40, 'F');
   doc.setFillColor(220, 38, 38);
   doc.rect(0, 40, 210, 3, 'F');
@@ -54,7 +54,7 @@ export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate
       item.quantity,
       `${displayCurrency} ${item.price * item.quantity}`
     ]),
-    headStyles: { fillColor: [27, 54, 93], textColor: [255, 255, 255], fontSize: 9.5, fontStyle: 'bold', halign: 'left' },
+    headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontSize: 9.5, fontStyle: 'bold', halign: 'left' },
     bodyStyles: { fontSize: 9, textColor: [33, 41, 54] },
     alternateRowStyles: { fillColor: [247, 249, 252] },
     columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 100 }, 2: { cellWidth: 35 }, 3: { cellWidth: 20 }, 4: { cellWidth: 30 } },
@@ -72,7 +72,7 @@ export function buildInvoicePdf(tx, { formatCurrency, displayCurrency, duplicate
   doc.text('VAT Amount (12%):', 130, y + 11);
   doc.text(`${displayCurrency} ${tx.taxAmount}`, 195, y + 11, { align: 'right' });
 
-  doc.setFillColor(27, 54, 93);
+  doc.setFillColor(37, 99, 235);
   doc.rect(128, y + 15, 68, 7.5, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('Helvetica', 'bold');
