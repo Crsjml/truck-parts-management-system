@@ -247,3 +247,16 @@ model CustomerAddress {
 
   @@index([customerId])
 }
+
+model AuthLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  authId    String   @db.Uuid
+  email     String
+  role      String   @default("customer")
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([authId])
+  @@index([createdAt])
+}

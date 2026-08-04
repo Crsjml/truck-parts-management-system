@@ -500,7 +500,7 @@ router.post('/merge', requireAuth, requireRole('ADMIN'), async (req, res) => {
 // merge with online accounts.
 router.get('/lookup', requireAuth, async (req, res) => {
   try {
-    const staff = await prisma.staffRole.findUnique({ where: { email: req.auth.email } });
+    const staff = await prisma.staffRole.findUnique({ where: { email: req.auth.email.toLowerCase() } });
     if (!staff) return res.status(403).json({ msg: 'Staff access required.' });
 
     const q = String(req.query.q || '').trim();

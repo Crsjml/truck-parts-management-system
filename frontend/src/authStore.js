@@ -124,6 +124,10 @@ export const fetchParts = async (search = '', category = 'All', filters = {}, fo
     if (filters.series) params.append('series', filters.series);
     if (filters.engineCode) params.append('engineCode', filters.engineCode);
     if (forceRefresh) params.append('_t', Date.now());
+    
+    // Always fetch a large limit so the dashboard and catalog have all parts
+    params.append('limit', '10000');
+
     if (params.toString()) query = `?${params.toString()}`;
 
     const { ok, data } = await apiGet(`/api/parts${query}`, { supabase });

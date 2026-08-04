@@ -51,9 +51,9 @@ describe('TransactionPOS Integration Tests', () => {
     const addBtn = screen.getByRole('button', { name: /Add Brake Pad/i });
     fireEvent.click(addBtn);
 
-    expect(screen.getByTestId('cart-subtotal')).toHaveTextContent('₱44.64');
-    expect(screen.getByTestId('cart-vat')).toHaveTextContent('₱5.36');
-    expect(screen.getByTestId('cart-total')).toHaveTextContent('₱50.00');
+    expect(screen.getByTestId('pos-total')).toHaveTextContent('₱50.00');
+    expect(screen.getByTestId('pos-vat-note')).toHaveTextContent('₱44.64');
+    expect(screen.getByTestId('pos-vat-note')).toHaveTextContent('₱5.36');
   });
 
   it('Step 3: Completes immediate walk-in cash sale', async () => {
