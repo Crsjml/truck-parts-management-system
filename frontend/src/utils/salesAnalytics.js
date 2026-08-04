@@ -5,19 +5,14 @@ export const PERIODS = [
 ];
 
 export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GCASH'];
-export const PAYMENT_COLORS = { CASH: '#059669', CARD: '#3b82f6', CHEQUE: '#d97706', BANK_TRANSFER: '#8b5cf6', GCASH: '#0891b2' };
-export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer', GCASH: 'GCash' };
-
-export const STATUS_COLORS = { 
-  'Completed': '#10b981',
-  'Ready for Pickup': '#3b82f6',
-  'Cancelled': '#f43f5e',
-  'Order Placed': '#f59e0b',
-  'COMPLETED': '#10b981',
-  'READY_FOR_PICKUP': '#3b82f6',
-  'CANCELLED': '#f43f5e',
-  'ORDER_PLACED': '#f59e0b'
+export const PAYMENT_COLORS = {
+  CASH: 'hsl(var(--chart-2))',
+  CARD: 'hsl(var(--chart-1))',
+  CHEQUE: 'hsl(var(--chart-4))',
+  BANK_TRANSFER: 'hsl(var(--chart-3))',
+  GCASH: 'hsl(var(--chart-5))'
 };
+export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer', GCASH: 'GCash' };
 
 export function resolvePeriod(key, now = new Date()) {
   const p = PERIODS.find(x => x.key === key) || PERIODS.find(x => x.key === '30d');
@@ -304,13 +299,13 @@ export function rankPartsBySales(transactions, { start, end }, limit) {
 
 export function getRankDeltaBadge(rankDelta) {
   if (rankDelta === null) {
-    return { text: 'NEW', style: 'text-purple-400 bg-purple-950/50 border-purple-800/40' };
+    return { text: 'NEW', style: 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30' };
   } else if (rankDelta > 0) {
-    return { text: `▲${rankDelta}`, style: 'text-emerald-400 bg-emerald-950/50 border-emerald-800/40' };
+    return { text: `▲${rankDelta}`, style: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30' };
   } else if (rankDelta < 0) {
-    return { text: `▼${Math.abs(rankDelta)}`, style: 'text-rose-400 bg-rose-950/50 border-rose-800/40' };
+    return { text: `▼${Math.abs(rankDelta)}`, style: 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30' };
   }
-  return { text: '—', style: 'text-muted-foreground bg-slate-800/80 border-slate-700/50' };
+  return { text: '—', style: 'text-muted-foreground bg-secondary border-border' };
 }
 
 export function slowMovingParts(parts, transactions, { start, end }, threshold = 0) {

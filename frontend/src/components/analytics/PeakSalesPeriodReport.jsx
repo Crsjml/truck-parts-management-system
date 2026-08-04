@@ -27,10 +27,10 @@ export default function PeakSalesPeriodReport({ transactions }) {
   }, [transactions, dateRange, bucketBy]);
 
   return (
-    <div className="glass-panel p-5 rounded-2xl space-y-4">
+    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-border">
         <div>
-          <h3 className="text-base font-bold text-foreground font-display">Peak Sales Period</h3>
+          <h3 className="text-base font-bold text-foreground font-display">Busy Periods</h3>
           <p className="text-xs text-muted-foreground">Highlighting the highest revenue period in the range.</p>
         </div>
         
@@ -40,9 +40,9 @@ export default function PeakSalesPeriodReport({ transactions }) {
               <button
                 key={b}
                 onClick={() => setBucketBy(b)}
-                className={`px-3 py-1 text-xs font-semibold rounded-md capitalize transition-all ${
+                className={`px-3 py-1 text-xs font-semibold rounded-md capitalize transition-colors ${
                   bucketBy === b 
-                    ? 'bg-background text-foreground shadow-sm' 
+                    ? 'bg-background text-brandBlue-600 dark:text-brandBlue-400 border border-border' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

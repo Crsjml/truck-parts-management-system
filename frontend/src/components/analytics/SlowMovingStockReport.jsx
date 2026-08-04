@@ -24,7 +24,7 @@ export default function SlowMovingStockReport({ transactions, parts }) {
   }, [transactions, parts, dateRange]);
 
   return (
-    <div className="glass-panel p-5 rounded-2xl space-y-4">
+    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-border">
         <div>
           <h3 className="text-base font-bold text-foreground font-display">Slow-Moving Stock</h3>
@@ -47,14 +47,14 @@ export default function SlowMovingStockReport({ transactions, parts }) {
                 <th className="py-3 px-3 text-center">Last Sale</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50">
+            <tbody className="divide-y divide-border">
               {slowMoving.map((item) => (
                 <tr key={item.id} className="hover:bg-secondary transition-colors">
                   <td className="py-3 px-3 font-semibold text-foreground">{item.name}</td>
                   <td className="py-3 px-3 text-muted-foreground">{item.sku || 'N/A'}</td>
                   <td className="py-3 px-3 text-right font-bold text-foreground">{item.stock}</td>
                   <td className="py-3 px-3 text-right">
-                    <span className="font-bold text-alarm-red bg-alarm-red/10 border border-alarm-red/20 px-2 py-0.5 rounded">
+                    <span className="font-bold text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border border-brandRed-500/30 px-2 py-0.5 rounded">
                       {item.unitsSold}
                     </span>
                   </td>

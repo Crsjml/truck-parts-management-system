@@ -22,6 +22,7 @@ function DrawerPanel({
   describedBy,
   children,
   wrapperClassName = '',
+  wrapperStyle,
   panelClassName = '',
   panelStyle,
   overlayClassName = '',
@@ -117,13 +118,13 @@ function DrawerPanel({
     : (panelVariants?.transition ?? { duration: 0.4, ease: [0.32, 0.72, 0, 1] });
 
   return createPortal(
-    <div ref={wrapperRef} className={`fixed inset-0 z-50 pointer-events-none ${wrapperClassName}`}>
+    <div ref={wrapperRef} className={`fixed inset-0 z-50 pointer-events-none ${wrapperClassName}`} style={wrapperStyle}>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={overlayTransition}
-        className={`fixed inset-0 pointer-events-auto ${overlayClassName}`}
+        className={`fixed inset-0 z-0 pointer-events-auto ${overlayClassName}`}
         onClick={closeOnOverlayClick ? onClose : undefined}
       />
       <motion.div
@@ -137,7 +138,7 @@ function DrawerPanel({
         animate={reduceMotion ? { opacity: 1 } : (panelVariants?.animate ?? { opacity: 1 })}
         exit={reduceMotion ? { opacity: 0 } : (panelVariants?.exit ?? { opacity: 0 })}
         transition={panelTransition}
-        className={`pointer-events-auto ${panelClassName}`}
+        className={`relative z-10 pointer-events-auto ${panelClassName}`}
         style={panelStyle}
       >
         {children}

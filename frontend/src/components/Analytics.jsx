@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSettings } from '../context/SettingsContext';
-import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, TrendDown, Stack, ChartPieSlice, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye } from '@phosphor-icons/react';
+import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, TrendDown, Stack, ChartPieSlice, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye, WarningCircle, ArrowClockwise } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
 import ChannelSelector from './analytics/ChannelSelector';
 import KpiTile from './analytics/KpiTile';
@@ -9,7 +10,7 @@ import BestSellingPartsReport from './analytics/BestSellingPartsReport';
 import SlowMovingStockReport from './analytics/SlowMovingStockReport';
 import PeakSalesPeriodReport from './analytics/PeakSalesPeriodReport';
 import PartDetailDrawer from './PartDetailDrawer';
-import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, PAYMENT_METHODS, PAYMENT_COLORS, PAYMENT_LABELS } from '../utils/salesAnalytics';
+import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, slowMovingParts } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +19,7 @@ import { supabase } from '../supabaseClient';
 const ZOOM_TITLES = {
   trend: 'Revenue Trend',
   movers: 'Top Movers',
-  treemap: 'Category Revenue Allocation',
+  donut: 'Category Revenue Allocation',
   payments: 'Payment Method Mix',
   status: 'Order Status Breakdown'
 };
@@ -26,15 +27,30 @@ const ZOOM_TITLES = {
 const ZOOM_ICONS = {
   trend: TrendUp,
   movers: ChartBar,
-  treemap: Stack,
+  donut: Stack,
   payments: CurrencyDollar,
   status: Package
+};
+
+const ORDER_STATUSES = ['Order Placed', 'Ready for Pickup', 'Completed', 'Cancelled'];
+
+const normalizeStatus = (status) => {
+  if (status === 'ORDER_PLACED') return 'Order Placed';
+  if (status === 'READY_FOR_PICKUP') return 'Ready for Pickup';
+  if (status === 'COMPLETED') return 'Completed';
+  if (status === 'CANCELLED') return 'Cancelled';
+  return status || 'Order Placed';
+};
+
+const renderPortal = (node) => {
+  if (typeof document === 'undefined') return node;
+  return createPortal(node, document.body);
 };
 
 // Removed inline chart components, moved to ChartRenderer
 
 export default function Analytics({ parts = [], transactions = [], isLoading = false }) {
-  const { formatCurrency, displayCurrency, formatBaseCurrency } = useSettings();
+  const { displayCurrency, formatBaseCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [ledgerPage, setLedgerPage] = useState(1);
   const [zoomedChart, setZoomedChart] = useState(null); // 'trend' | 'movers' | 'donut' | 'payments' | null
@@ -46,6 +62,10 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   const [detailedPart, setDetailedPart] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [channel, setChannel] = useState('all');
+  const [statusDraft, setStatusDraft] = useState('Order Placed');
+  const [isStatusPending, setIsStatusPending] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   // Close modals on Escape key
   useEffect(() => {
@@ -59,6 +79,18 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!selectedInvoice && !zoomedChart) return undefined;
+    if (typeof document === 'undefined') return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedInvoice, zoomedChart]);
+
   // Sync with props if transactions change from App.jsx
   useEffect(() => {
     setLocalTransactions(transactions);
@@ -69,7 +101,14 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     setLedgerPage(1);
   }, [channel, period]);
 
-  // Fetch category hierarchy for treemap drill-down
+  useEffect(() => {
+    if (!selectedInvoice) return;
+    setStatusDraft(normalizeStatus(selectedInvoice.status));
+    setStatusMessage(null);
+    setConfirmCancel(false);
+  }, [selectedInvoice?.id]);
+
+  // Fetch category hierarchy for category drill-down
   useEffect(() => {
     fetchCategoriesList()
       .then(data => setCategories(data || []))
@@ -80,6 +119,8 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   }, []);
 
   const handleStatusUpdate = async (id, newStatus) => {
+    setIsStatusPending(true);
+    setStatusMessage(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
@@ -97,18 +138,25 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
         if (selectedInvoice?.id === id) {
           setSelectedInvoice(prev => ({ ...prev, status: newStatus }));
         }
+        setStatusMessage({ type: 'success', text: `Status updated to ${newStatus}.` });
+        setConfirmCancel(false);
+        return true;
       } else {
         console.error('Failed to update status');
-        alert('Failed to update status. Please try again.');
+        setStatusMessage({ type: 'error', text: 'Status update failed. Check the connection and try again.' });
+        return false;
       }
     } catch (err) {
       console.error(err);
-      alert('Error updating status.');
+      setStatusMessage({ type: 'error', text: 'Status update failed. Check the connection and try again.' });
+      return false;
+    } finally {
+      setIsStatusPending(false);
     }
   };
 
   const getStatusIcon = (status) => {
-    switch(status) {
+    switch(normalizeStatus(status)) {
       case 'Completed': return CheckCircle;
       case 'Ready for Pickup': return Truck;
       case 'Cancelled': return X;
@@ -117,11 +165,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
-      case 'Completed': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case 'Ready for Pickup': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-      case 'Cancelled': return 'text-alarm-red bg-alarm-red/10 border-alarm-red/20';
-      default: return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+    switch(normalizeStatus(status)) {
+      case 'Completed': return 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30';
+      case 'Ready for Pickup': return 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30';
+      case 'Cancelled': return 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30';
+      default: return 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30';
     }
   };
 
@@ -144,6 +192,37 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   const movers = useMemo(() => topMovers(currentTx, previousTx, 5), [currentTx, previousTx]);
   const payments = useMemo(() => paymentMix(currentTx, range), [currentTx, range]);
   const orderStatuses = useMemo(() => orderStatusBreakdown(currentTx, range), [currentTx, range]);
+  const slowMovingAttention = useMemo(
+    () => slowMovingParts(parts, channelTx, { start: range.start, end: range.end }, 0),
+    [parts, channelTx, range.start, range.end]
+  );
+  const openOrderCount = useMemo(
+    () => currentTx.filter(tx => !['Completed', 'Cancelled'].includes(normalizeStatus(tx.status))).length,
+    [currentTx]
+  );
+  const attentionItems = useMemo(() => {
+    const items = [
+      {
+        key: 'orders',
+        label: `${openOrderCount} pickup/order pending`,
+        detail: openOrderCount === 0 ? 'No active fulfillment follow-up in this period.' : 'Review open invoices before closing the day.',
+        tone: openOrderCount > 0 ? 'attention' : 'neutral'
+      },
+      {
+        key: 'slow',
+        label: `${slowMovingAttention.length} stocked ${slowMovingAttention.length === 1 ? 'part has' : 'parts have'} no sales`,
+        detail: slowMovingAttention.length === 0 ? 'Stocked parts are moving in the selected period.' : 'Check reorder, display, or fitment visibility.',
+        tone: slowMovingAttention.length > 0 ? 'risk' : 'neutral'
+      },
+      {
+        key: 'movers',
+        label: movers[0] ? `${movers[0].name} leads movement` : 'No top mover yet',
+        detail: movers[0] ? `${movers[0].quantity} units sold in the selected period.` : 'Sales movement will appear after invoices are logged.',
+        tone: 'neutral'
+      }
+    ];
+    return items;
+  }, [movers, openOrderCount, slowMovingAttention.length]);
 
   // Filtered transactions for the log
   const filteredTransactions = currentTx.filter(tx => 
@@ -152,7 +231,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-5 animate-fadeIn">
       {/* Tab Navigation */}
       <div className="flex overflow-x-auto border-b border-border hide-scrollbar">
         {['overview', 'best-selling', 'slow-moving', 'peak-sales'].map(tab => (
@@ -161,14 +240,14 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             onClick={() => setActiveTab(tab)}
             className={`whitespace-nowrap px-5 py-3 font-semibold text-sm border-b-2 transition-colors ${
               activeTab === tab 
-                ? 'border-brandBlue-500 text-brandBlue-400' 
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-slate-700'
+                ? 'border-brandBlue-500 text-brandBlue-600 dark:text-brandBlue-400' 
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             }`}
           >
             {tab === 'overview' && 'Overview'}
             {tab === 'best-selling' && 'Best-Selling Parts'}
             {tab === 'slow-moving' && 'Slow-Moving Stock'}
-            {tab === 'peak-sales' && 'Peak Sales Period'}
+            {tab === 'peak-sales' && 'Busy Periods'}
           </button>
         ))}
       </div>
@@ -176,35 +255,62 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       {activeTab === 'overview' && (
         <>
           {/* KPI Stats Row */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
-            <h2 className="text-xl font-bold text-foreground font-display">Sales Overview</h2>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-foreground font-display">Sales health</h2>
+              <p className="text-sm text-muted-foreground max-w-2xl">
+                Monitor revenue, spot order follow-up, and connect parts movement to inventory decisions.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <ChannelSelector selectedChannel={channel} onSelectChannel={setChannel} />
               <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
             </div>
           </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <KpiTile label="Total Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} iconBgClass="bg-emerald-950/40" iconColorClass="text-emerald-400" iconBorderClass="border-emerald-800/35" />
-        <KpiTile label="Total Invoices" value={kpis.invoices} delta={kpis.deltas?.invoices} icon={FileText} iconBgClass="bg-brandBlue-900/40" iconColorClass="text-brandBlue-400" iconBorderClass="border-brandBlue-700/30" />
-        <KpiTile label="Average Invoice" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} iconBgClass="bg-amber-950/40" iconColorClass="text-amber-500" iconBorderClass="border-amber-800/35" />
-        <KpiTile label="Units per Invoice" value={kpis.unitsPerInvoice.toFixed(1)} delta={kpis.deltas?.unitsPerInvoice} icon={ShoppingCart} iconBgClass="bg-violet-950/40" iconColorClass="text-violet-400" iconBorderClass="border-violet-800/35" />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiTile label="Total Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} />
+            <KpiTile label="Total Invoices" value={kpis.invoices} delta={kpis.deltas?.invoices} icon={FileText} />
+            <KpiTile label="Average Invoice" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} />
+            <KpiTile label="Units per Invoice" value={kpis.unitsPerInvoice.toFixed(1)} delta={kpis.deltas?.unitsPerInvoice} icon={ShoppingCart} />
+          </div>
+
+          <section className="bg-card border border-border rounded-xl p-4" aria-labelledby="attention-heading">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <WarningCircle weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
+                <h3 id="attention-heading" className="text-base font-bold text-foreground font-display">Needs attention</h3>
+              </div>
+              <span className="text-2xs font-semibold text-muted-foreground">
+                {channel === 'all' ? 'All channels' : channel === 'store' ? 'In-store' : 'Online'} · {period === '30d' ? 'Last 30 days' : period === '7d' ? 'Last 7 days' : 'All time'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {attentionItems.map(item => (
+                <div key={item.key} className="rounded-lg border border-border bg-secondary/50 p-3">
+                  <p className={`text-sm font-bold ${item.tone === 'risk' ? 'text-brandRed-700 dark:text-brandRed-300' : item.tone === 'attention' ? 'text-brandBlue-700 dark:text-brandBlue-300' : 'text-foreground'}`}>
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
 
       {/* Analytics Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Revenue Trend (Full Width) */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col col-span-1 lg:col-span-2">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4 flex flex-col col-span-1 lg:col-span-2">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
+              <TrendUp weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
               <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
               {(() => {
                 const delta = kpis.deltas?.revenue;
                 const hasDelta = delta !== null && delta !== undefined;
                 const isPositive = hasDelta && delta >= 0;
                 return hasDelta ? (
-                  <span className={`ml-2 text-2xs flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border ${isPositive ? 'text-emerald-400 bg-emerald-950/50 border-emerald-800/35' : 'text-rose-400 bg-rose-950/50 border-rose-800/35'}`}>
+                  <span className={`ml-2 text-2xs flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border ${isPositive ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30'}`}>
                     {isPositive ? <TrendUp weight="bold" className="w-3 h-3" /> : <TrendDown weight="bold" className="w-3 h-3" />}
                     {isPositive ? '+' : '-'}{Math.abs(delta).toFixed(1)}% vs prior
                   </span>
@@ -215,7 +321,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 );
               })()}
             </div>
-            <button title="Expand Chart" aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button title="Expand Chart" aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
@@ -223,7 +329,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
             {isLoading ? (
               <div className="h-full w-full flex items-center justify-center p-4">
-                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+                <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
             ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
@@ -234,11 +340,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
         </div>
 
         {/* Category Revenue Donut */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4 flex flex-col">
           <div className="flex items-start justify-between pb-3 border-b border-border">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <ChartPieSlice weight="duotone" className="w-5 h-5 text-accent" />
+                <ChartPieSlice weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
                 <h3 className="text-base font-bold text-foreground font-display">
                   {drilledCategory ? `Category Revenue: ${drilledCategory}` : 'Category Revenue Allocation'}
                 </h3>
@@ -248,12 +354,12 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               {drilledCategory && (
                 <button
                   onClick={() => setDrilledCategory(null)}
-                  className="text-xs font-semibold text-brandBlue-400 hover:text-brandBlue-300 flex items-center gap-1 bg-secondary/80 px-2.5 py-1 rounded-lg border border-border transition-all"
+                  className="text-xs font-semibold text-brandBlue-600 dark:text-brandBlue-400 hover:text-foreground flex items-center gap-1 bg-secondary px-2.5 py-1 rounded-lg border border-border transition-colors"
                 >
                   ← Back
                 </button>
               )}
-              <button title="Expand Chart" aria-label="Zoom Category Revenue" onClick={() => setZoomedChart('donut')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <button title="Expand Chart" aria-label="Zoom Category Revenue" onClick={() => setZoomedChart('donut')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowsOut weight="duotone" className="w-4 h-4" />
               </button>
             </div>
@@ -262,7 +368,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           <div className="w-full min-h-[320px] h-80">
             {isLoading ? (
               <div className="h-full w-full flex items-center justify-center p-4">
-                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+                <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
             ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
@@ -280,11 +386,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
         </div>
 
         {/* Top Movers Panel */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4 flex flex-col">
           <div className="flex items-start justify-between pb-3 border-b border-border">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
+                <ChartBar weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
                 <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
               </div>
               <span className="text-[11px] text-muted-foreground ml-7 leading-tight mt-0.5">Rank change by volume vs previous</span>
@@ -292,11 +398,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab('best-selling')}
-                className="text-xs font-semibold text-brandBlue-400 hover:text-brandBlue-300 flex items-center gap-1 bg-secondary/80 px-2.5 py-1 rounded-lg border border-border transition-all"
+                className="text-xs font-semibold text-brandBlue-600 dark:text-brandBlue-400 hover:text-foreground flex items-center gap-1 bg-secondary px-2.5 py-1 rounded-lg border border-border transition-colors"
               >
                 View full report →
               </button>
-              <button title="Expand Chart" aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <button title="Expand Chart" aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowsOut weight="duotone" className="w-4 h-4" />
               </button>
             </div>
@@ -305,7 +411,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
             {isLoading ? (
               <div className="h-full w-full flex items-center justify-center p-4">
-                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+                <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
             ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
@@ -328,13 +434,13 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
         </div>
 
         {/* Payment Method Mix (1 Column) */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4 flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <CurrencyDollar weight="duotone" className="w-5 h-5 text-violet-400" />
+              <CurrencyDollar weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
               <h3 className="text-base font-bold text-foreground font-display">Payment Method Mix</h3>
             </div>
-            <button title="Expand Chart" aria-label="Zoom Payment Method Mix" onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button title="Expand Chart" aria-label="Zoom Payment Method Mix" onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
@@ -342,21 +448,21 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
             {isLoading ? (
               <div className="h-full w-full flex items-center justify-center p-4">
-                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+                <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
             ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : channel === 'online' ? (
               <div className="h-full flex items-center justify-center p-4">
-                <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5 w-full max-w-sm">
+                <div className="bg-secondary border border-border rounded-lg p-4 flex items-center justify-between w-full max-w-sm">
                   <div className="space-y-2">
                     <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
                     <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
-                    <p className="text-2xs font-medium text-emerald-400 flex items-center gap-1">
+                    <p className="text-2xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
                       {currentTx.length} orders · {formatBaseCurrency(kpis.revenue)}
                     </p>
                   </div>
-                  <div className="p-3 rounded-xl border bg-violet-950/40 text-violet-400 border-violet-800/35">
+                  <div className="p-2.5 rounded-lg border border-border bg-background text-brandBlue-600 dark:text-brandBlue-400">
                     <CurrencyDollar weight="duotone" className="w-5 h-5" />
                   </div>
                 </div>
@@ -368,13 +474,13 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
         </div>
 
         {/* Order Status Breakdown (1 Column) */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4 flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <Package weight="duotone" className="w-5 h-5 text-amber-500" />
+              <Package weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
               <h3 className="text-base font-bold text-foreground font-display">Order Status</h3>
             </div>
-            <button title="Expand Chart" aria-label="Zoom Order Status" onClick={() => setZoomedChart('status')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button title="Expand Chart" aria-label="Zoom Order Status" onClick={() => setZoomedChart('status')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
@@ -382,7 +488,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
             {isLoading ? (
               <div className="h-full w-full flex items-center justify-center p-4">
-                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+                <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
             ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
@@ -394,11 +500,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       </div>
 
       {/* Invoice Ledger History */}
-      <div className="glass-panel p-5 rounded-2xl space-y-4">
+      <div className="bg-card border border-border rounded-xl p-4 space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-3 border-b border-border">
           <div className="space-y-1 w-full sm:w-auto">
             <h3 className="text-base font-bold text-foreground font-display">Sales Invoice Ledger</h3>
-            <p className="text-xs text-muted-foreground">View payment history and re-download generated PDF receipts.</p>
+            <p className="text-xs text-muted-foreground">Reconcile invoices, inspect line items, and download duplicate receipts.</p>
           </div>
           
           <div className="relative w-full sm:w-64">
@@ -411,7 +517,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 setSearchInvoice(e.target.value);
                 setLedgerPage(1);
               }}
-              className="w-full bg-background border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-brandBlue-500 transition-colors text-foreground"
             />
           </div>
         </div>
@@ -433,22 +539,24 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                   <th className="py-3 px-3 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
+              <tbody className="divide-y divide-border">
                 {(() => {
                   const itemsPerPage = 5;
-                  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
                   const paginatedTransactions = filteredTransactions.slice(
                     (ledgerPage - 1) * itemsPerPage,
                     ledgerPage * itemsPerPage
                   );
                   return (
                     <>
-                      {paginatedTransactions.map((tx) => (
+                      {paginatedTransactions.map((tx) => {
+                        const status = normalizeStatus(tx.status);
+                        const StatusIcon = getStatusIcon(status);
+                        return (
                         <tr 
                           key={tx.id} 
                           className="hover:bg-secondary transition-colors"
                         >
-                          <td className="py-3 px-3 font-semibold text-red-500">{tx.invoiceNumber}</td>
+                          <td className="py-3 px-3 font-semibold text-brandBlue-600 dark:text-brandBlue-400">{tx.invoiceNumber}</td>
                           <td className="py-3 px-3 text-muted-foreground">
                             {new Date(tx.transactionDate).toLocaleDateString(undefined, { 
                               year: 'numeric', 
@@ -464,29 +572,16 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                             {formatBaseCurrency(tx.total)}
                           </td>
                           <td className="py-3 px-3 text-center">
-                            <div className="relative inline-flex items-center group cursor-pointer" title="Click to change order status">
-                              <select 
-                                value={tx.status || 'Order Placed'}
-                                onChange={(e) => handleStatusUpdate(tx.id, e.target.value)}
-                                className={`text-xs pl-3 pr-8 py-1.5 rounded-md border appearance-none outline-none text-left cursor-pointer font-bold transition-all shadow-sm group-hover:shadow focus-visible:ring-2 focus-visible:ring-accent
-                                  ${tx.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 group-hover:border-emerald-500/40' : 
-                                    tx.status === 'Ready for Pickup' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 group-hover:border-blue-500/40' : 
-                                    tx.status === 'Cancelled' ? 'bg-alarm-red/10 text-alarm-red border-alarm-red/20 group-hover:border-alarm-red/40' : 
-                                    'bg-amber-500/10 text-amber-500 border-amber-500/20 group-hover:border-amber-500/40'}`}
-                              >
-                                <option value="Order Placed" className="bg-background text-foreground font-medium">ORDER_PLACED</option>
-                                <option value="Ready for Pickup" className="bg-background text-foreground font-medium">Ready for Pickup</option>
-                                <option value="Completed" className="bg-background text-foreground font-medium">Completed</option>
-                                <option value="Cancelled" className="bg-background text-foreground font-medium">Cancelled</option>
-                              </select>
-                              <CaretDown weight="bold" className="w-3.5 h-3.5 absolute right-2.5 pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity" />
-                            </div>
+                            <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold ${getStatusColor(status)}`}>
+                              <StatusIcon weight="bold" className="w-3.5 h-3.5" />
+                              {status}
+                            </span>
                           </td>
                           <td className="py-3 px-3 text-center">
                             <button 
                               aria-label="View Invoice Details"
                               onClick={() => setSelectedInvoice(tx)}
-                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all mx-auto"
+                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors mx-auto"
                               title="View Invoice Details"
                             >
                               <Eye weight="duotone" className="w-4 h-4" />
@@ -496,14 +591,14 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                             <button 
                               aria-label="Download Invoice PDF"
                               onClick={() => buildInvoicePdf(tx, { formatCurrency: formatBaseCurrency, displayCurrency, duplicate: true })}
-                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all mx-auto"
+                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors mx-auto"
                               title="Download Invoice"
                             >
                               <Download weight="duotone" className="w-4 h-4" />
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      );})}
                     </>
                   );
                 })()}
@@ -522,14 +617,14 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <button
                 onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
                 disabled={ledgerPage === 1}
-                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all text-foreground"
+                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
               >
                 Previous
               </button>
               <button
                 onClick={() => setLedgerPage(p => Math.min(Math.ceil(filteredTransactions.length / 5), p + 1))}
                 disabled={ledgerPage >= Math.ceil(filteredTransactions.length / 5)}
-                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all text-foreground"
+                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
               >
                 Next
               </button>
@@ -545,28 +640,28 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       {activeTab === 'peak-sales' && <PeakSalesPeriodReport transactions={channelTx} />}
 
       {/* ZOOM MODAL */}
-      <AnimatePresence>
+      {renderPortal(<AnimatePresence>
         {zoomedChart && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[320] flex items-center justify-center p-4 sm:p-8 bg-foreground/55 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-5xl h-[80vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl flex flex-col relative"
+              className="w-full max-w-5xl h-[80dvh] bg-card border border-border rounded-lg overflow-hidden flex flex-col relative shadow-2xl shadow-black/10 dark:shadow-black/40"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
                 <div className="flex items-center gap-2">
-                  {React.createElement(ZOOM_ICONS[zoomedChart] || ChartBar, { weight: 'duotone', className: 'w-6 h-6 text-accent' })}
+                  {React.createElement(ZOOM_ICONS[zoomedChart] || ChartBar, { weight: 'duotone', className: 'w-6 h-6 text-brandBlue-600 dark:text-brandBlue-400' })}
                   <h3 className="text-xl font-bold text-foreground font-display">
                     {ZOOM_TITLES[zoomedChart] || 'Chart View'}
                   </h3>
                 </div>
-                <button aria-label="Close modal" onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-all">
+                <button aria-label="Close modal" onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-colors">
                   <X weight="bold" className="w-6 h-6" />
                 </button>
               </div>
@@ -600,15 +695,15 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 {zoomedChart === 'payments' && (
                   channel === 'online' ? (
                     <div className="h-full flex items-center justify-center p-4">
-                      <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5 w-full max-w-sm">
+                      <div className="bg-secondary border border-border rounded-lg p-4 flex items-center justify-between w-full max-w-sm">
                         <div className="space-y-2">
                           <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
                           <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
-                          <p className="text-2xs font-medium text-emerald-400 flex items-center gap-1">
+                          <p className="text-2xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
                             {currentTx.length} orders · {formatBaseCurrency(kpis.revenue)}
                           </p>
                         </div>
-                        <div className="p-3 rounded-xl border bg-violet-950/40 text-violet-400 border-violet-800/35">
+                        <div className="p-2.5 rounded-lg border border-border bg-background text-brandBlue-600 dark:text-brandBlue-400">
                           <CurrencyDollar weight="duotone" className="w-6 h-6" />
                         </div>
                       </div>
@@ -622,18 +717,19 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>)}
 
       {/* SELECTED INVOICE SIDE-DRAWER */}
-      <AnimatePresence>
+      {renderPortal(<AnimatePresence>
         {selectedInvoice && (
           <motion.div
             role="dialog"
             aria-modal="true"
+            aria-label={`Invoice ${selectedInvoice.invoiceNumber} details`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[320] flex justify-end bg-foreground/55 backdrop-blur-sm"
           >
             {/* Backdrop click to close */}
             <div className="absolute inset-0" onClick={() => setSelectedInvoice(null)} />
@@ -644,14 +740,17 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-full max-w-2xl bg-secondary h-full border-l border-border shadow-2xl flex flex-col relative z-10"
+              className="w-full max-w-2xl bg-card h-dvh border-l border-border flex flex-col relative z-10 shadow-2xl shadow-black/10 dark:shadow-black/40"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-background shrink-0">
-                <div>
-                  <h3 className="text-xl font-bold text-foreground font-display flex items-center gap-2">
-                    <Receipt className="w-6 h-6 text-accent" />
-                    Invoice {selectedInvoice.invoiceNumber}
+              <div className="flex items-start justify-between gap-4 px-5 sm:px-6 py-5 border-b border-border bg-background shrink-0">
+                <div className="min-w-0">
+                  <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Invoice detail</p>
+                  <h3 className="text-lg sm:text-xl font-bold text-foreground font-display flex items-center gap-2 min-w-0">
+                    <Receipt className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400 shrink-0" />
+                    <span className="truncate">
+                      Invoice {selectedInvoice.invoiceNumber}
+                    </span>
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {new Date(selectedInvoice.transactionDate).toLocaleString(undefined, { 
@@ -662,43 +761,104 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 <button 
                   aria-label="Close invoice details"
                   onClick={() => setSelectedInvoice(null)} 
-                  className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-full transition-all bg-background border border-border hover:border-muted-foreground/30 shadow-sm"
+                  className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-colors bg-background border border-border hover:border-muted-foreground/30"
                 >
                   <X weight="bold" className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-background custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-background custom-scrollbar">
                 
                 {/* Status & Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Customer Card */}
-                  <div className="bg-secondary/50 rounded-xl p-5 border border-border/50">
+                  <div className="bg-secondary/50 rounded-lg p-5 border border-border">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Customer Details</p>
                     <p className="font-bold text-foreground text-lg">{selectedInvoice.customerName}</p>
                     <p className="text-sm text-muted-foreground">ID: {selectedInvoice.userId}</p>
                   </div>
 
                   {/* Status Card */}
-                  <div className={`rounded-xl p-5 border ${getStatusColor(selectedInvoice.status)}`}>
-                    <p className="text-xs uppercase tracking-wider opacity-70 font-semibold mb-2">Order Status</p>
-                    <div className="flex items-center gap-3">
-                      {React.createElement(getStatusIcon(selectedInvoice.status), { weight: 'fill', className: 'w-8 h-8' })}
-                      <div className="flex-1 relative group cursor-pointer" title="Click to change status">
-                        <select 
-                          value={selectedInvoice.status || 'Order Placed'}
-                          onChange={(e) => handleStatusUpdate(selectedInvoice.id, e.target.value)}
-                          className="w-full appearance-none bg-transparent font-bold text-xl outline-none cursor-pointer"
-                        >
-                          <option value="Order Placed" className="bg-background text-foreground text-base">ORDER_PLACED</option>
-                          <option value="Ready for Pickup" className="bg-background text-foreground text-base">Ready for Pickup</option>
-                          <option value="Completed" className="bg-background text-foreground text-base">Completed</option>
-                          <option value="Cancelled" className="bg-background text-foreground text-base">Cancelled</option>
-                        </select>
-                        <CaretDown weight="bold" className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
+                  <div className="rounded-lg p-5 border border-border bg-secondary/50 space-y-4">
+                    {(() => {
+                      const currentStatus = normalizeStatus(selectedInvoice.status);
+                      const StatusIcon = getStatusIcon(currentStatus);
+                      const statusChanged = statusDraft !== currentStatus;
+                      const needsCancelConfirm = statusDraft === 'Cancelled' && currentStatus !== 'Cancelled';
+                      const canUpdate = statusChanged && !isStatusPending && (!needsCancelConfirm || confirmCancel);
+                      return (
+                        <>
+                          <div className="space-y-2">
+                            <p className="text-xs uppercase text-muted-foreground font-semibold">Order Status</p>
+                            <div className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm font-bold ${getStatusColor(currentStatus)}`}>
+                              <StatusIcon weight="bold" className="w-4 h-4" />
+                              {currentStatus}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label htmlFor="invoice-status" className="text-xs font-semibold text-foreground">
+                              New order status
+                            </label>
+                            <div className="relative">
+                              <select
+                                id="invoice-status"
+                                value={statusDraft}
+                                onChange={(e) => {
+                                  setStatusDraft(e.target.value);
+                                  setStatusMessage(null);
+                                  setConfirmCancel(false);
+                                }}
+                                className="w-full appearance-none bg-background border border-border rounded-lg py-2 pl-3 pr-9 text-sm font-semibold text-foreground outline-none focus:border-brandBlue-500"
+                              >
+                                {ORDER_STATUSES.map(status => (
+                                  <option key={status} value={status} className="bg-background text-foreground">
+                                    {status}
+                                  </option>
+                                ))}
+                              </select>
+                              <CaretDown weight="bold" className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                            </div>
+                          </div>
+
+                          {needsCancelConfirm && (
+                            <label className="flex items-start gap-2 rounded-lg border border-brandRed-500/30 bg-brandRed-500/10 p-3 text-xs text-brandRed-700 dark:text-brandRed-300">
+                              <input
+                                type="checkbox"
+                                checked={confirmCancel}
+                                onChange={(e) => setConfirmCancel(e.target.checked)}
+                                className="mt-0.5"
+                              />
+                              Confirm this order should be marked cancelled.
+                            </label>
+                          )}
+
+                          {statusMessage && (
+                            <div
+                              role={statusMessage.type === 'error' ? 'alert' : 'status'}
+                              className={`rounded-lg border p-3 text-xs font-medium ${
+                                statusMessage.type === 'error'
+                                  ? 'border-brandRed-500/30 bg-brandRed-500/10 text-brandRed-700 dark:text-brandRed-300'
+                                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              }`}
+                            >
+                              {statusMessage.text}
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={!canUpdate}
+                            onClick={() => handleStatusUpdate(selectedInvoice.id, statusDraft)}
+                            className="w-full py-2.5 bg-brandBlue-600 hover:bg-brandBlue-500 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isStatusPending ? <ArrowClockwise weight="bold" className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
+                            {isStatusPending ? 'Updating status...' : 'Update status'}
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -707,8 +867,8 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                   <h4 className="font-bold text-foreground mb-4 text-lg border-b border-border/50 pb-2">Line Items</h4>
                   <div className="space-y-3">
                     {selectedInvoice.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 border border-border/50 hover:bg-secondary/50 transition-colors">
-                        <div className="w-12 h-12 rounded-lg bg-background border border-border/50 flex items-center justify-center shrink-0">
+                      <div key={idx} className="flex items-center gap-4 p-4 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors">
+                        <div className="w-12 h-12 rounded-lg bg-background border border-border flex items-center justify-center shrink-0">
                           <Package className="w-6 h-6 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -725,9 +885,9 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 </div>
 
                 {/* Totals */}
-                <div className="bg-secondary/50 rounded-xl p-5 border border-border/50 flex justify-between items-center">
+                <div className="bg-secondary/50 rounded-lg p-5 border border-border flex justify-between items-center gap-4">
                   <span className="text-muted-foreground font-semibold uppercase tracking-wider text-sm">Total Amount</span>
-                  <span className="text-2xl font-bold text-accent">{formatBaseCurrency(selectedInvoice.total)}</span>
+                  <span className="text-xl sm:text-2xl font-bold text-foreground text-right">{formatBaseCurrency(selectedInvoice.total)}</span>
                 </div>
               </div>
               
@@ -735,7 +895,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <div className="p-4 border-t border-border bg-background shrink-0">
                 <button 
                   onClick={() => buildInvoicePdf(selectedInvoice, { formatCurrency: formatBaseCurrency, displayCurrency, duplicate: true })}
-                  className="w-full py-3 bg-brandBlue-600 hover:bg-brandBlue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all hover:shadow-lg shadow-brandBlue-500/20"
+                  className="w-full py-3 bg-brandBlue-600 hover:bg-brandBlue-500 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors"
                 >
                   <Download weight="bold" className="w-5 h-5" />
                   Download PDF Invoice
@@ -745,7 +905,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>)}
 
       <PartDetailDrawer
         part={detailedPart}

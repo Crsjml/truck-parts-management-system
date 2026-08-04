@@ -8,7 +8,7 @@ const CHANNELS = [
 
 export default function ChannelSelector({ selectedChannel, onSelectChannel }) {
   return (
-    <div className="flex bg-secondary/50 p-1 rounded-xl glass-panel w-max border border-border/50">
+    <div className="flex bg-secondary p-1 rounded-lg w-max border border-border">
       {CHANNELS.map((channel) => {
         const isActive = selectedChannel === channel.key;
         return (
@@ -17,9 +17,9 @@ export default function ChannelSelector({ selectedChannel, onSelectChannel }) {
             onClick={() => onSelectChannel(channel.key)}
             aria-pressed={isActive}
             className={`
-              px-4 py-1.5 text-xs font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/50
+              px-3 py-1.5 text-xs font-semibold rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-brandBlue-500/50
               ${isActive 
-                ? 'bg-amber-500 text-amber-950 shadow-sm' 
+                ? 'bg-background text-brandBlue-600 dark:text-brandBlue-400 border border-border' 
                 : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }
             `}

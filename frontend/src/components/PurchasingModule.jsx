@@ -6,7 +6,7 @@ import {
   Star, Funnel, ArrowsDownUp, ChartBar, Receipt, EnvelopeSimple,
   Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf, Clock,
   TrendUp, ClockCounterClockwise, Truck, ListDashes, SquaresFour,
-  WarningCircle, CheckSquare, Timer, HandPointing, CalendarBlank
+  WarningCircle, CheckSquare, Timer, CalendarBlank
 } from '@phosphor-icons/react';
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
@@ -564,6 +564,20 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'pos', label: 'Purchase Orders' },
     { key: 'suppliers', label: 'Suppliers' },
   ];
+  const getNewButtonLabel = () => {
+    if (activeSection === 'products') return 'New Product';
+    if (activeSection === 'orders' && activeOrderTab === 'suppliers') return 'New Supplier';
+    return 'New PO';
+  };
+  const getPoModalSubtitle = () => {
+    if (!viewingPo) return 'Prepare supplier, arrival, products, notes, and total before saving this purchase draft.';
+    if (viewingPo.status === 'Draft') return 'Draft purchase order ready for supplier request or direct confirmation.';
+    if (viewingPo.status === 'RFQ Sent') return 'Supplier quotation request is out; review prices before confirming.';
+    if (viewingPo.status === 'Confirmed') return 'Confirmed order awaiting bills and receipt checks.';
+    if (viewingPo.status === 'Received') return 'Received purchase order retained as an inventory document.';
+    if (viewingPo.status === 'Cancelled') return 'Cancelled purchase order retained for purchasing history.';
+    return 'Review this purchase order document.';
+  };
 
   // ── RFQ columns ───────────────────────────────────────────────────────────────
   const rfqColumns = [
@@ -642,7 +656,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         </div>
         <div className="flex items-center gap-1 bg-secondary border border-border p-1 rounded-xl">
           {sectionTabs.map(t => (
-            <button key={t.key} onClick={() => setActiveSection(t.key)} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${activeSection === t.key ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            <button key={t.key} onClick={() => setActiveSection(t.key)} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${activeSection === t.key ? 'bg-background text-accent border border-border' : 'text-muted-foreground hover:text-foreground border border-transparent'}`}>
               <t.icon weight={activeSection === t.key ? 'duotone' : 'regular'} className="w-4 h-4" />
               {t.label}
             </button>
@@ -654,9 +668,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             else if (activeSection === 'orders' && activeOrderTab === 'suppliers') openSupplierModal();
             else if (activeSection === 'orders') openPoModal();
           }}
-          className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow transition-all active:scale-95 flex items-center gap-2"
+          className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
         >
-          <Plus weight="bold" /> New
+          <Plus weight="bold" /> {getNewButtonLabel()}
         </button>
       </div>
 
@@ -683,7 +697,6 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <StatChip label="RFQ Sent" count={rfqStats.sent} icon={EnvelopeSimple} color="bg-cyan-500/15 border-cyan-500/30 text-cyan-400" active={rfqStatFilter === 'sent'} onClick={() => setRfqStatFilter(p => p === 'sent' ? null : 'sent')} />
                   <StatChip label="Late RFQ" count={rfqStats.lateRfq} icon={Timer} color="bg-orange-500/15 border-orange-500/30 text-orange-400" active={rfqStatFilter === 'lateRfq'} onClick={() => setRfqStatFilter(p => p === 'lateRfq' ? null : 'lateRfq')} />
                   <StatChip label="Not Acknowledged" count={rfqStats.notAcknowledged} icon={WarningCircle} color="bg-amber-500/15 border-amber-500/30 text-amber-400" active={rfqStatFilter === 'notAck'} onClick={() => setRfqStatFilter(p => p === 'notAck' ? null : 'notAck')} />
-                  <StatChip label="Late Receipt" count={rfqStats.lateReceipt} icon={HandPointing} color="bg-red-500/15 border-red-500/30 text-red-400" active={rfqStatFilter === 'lateReceipt'} onClick={() => setRfqStatFilter(p => p === 'lateReceipt' ? null : 'lateReceipt')} />
                 </div>
                 <ControlPanel
                   search={rfqSearch} onSearch={setRfqSearch}
@@ -838,8 +851,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               <span className="text-2xs text-muted-foreground mt-2">From order confirmation to receipt</span>
             </div>
             <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-purple-500/20 group-hover:bg-purple-500 transition-colors" />
-              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-purple-400" /> Pending Orders</span>
+              <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 group-hover:bg-primary transition-colors" />
+              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-primary" /> Pending Orders</span>
               <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.pendingRfqs} <span className="text-sm text-muted-foreground font-semibold">requests</span></span>
               <span className="text-2xs text-muted-foreground mt-2">Drafts and pending POs</span>
             </div>
@@ -877,7 +890,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
             {/* Pipeline Bottleneck Distribution */}
             <div className="bg-background border border-border rounded-xl p-5 shadow-sm flex flex-col">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ChartBar weight="duotone" className="w-4 h-4 text-purple-400" /> Order Pipeline Distribution</h3>
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ChartBar weight="duotone" className="w-4 h-4 text-primary" /> Order Pipeline Distribution</h3>
               {reportData.pipelineData.length > 0 ? (
                 <div className="w-full h-64 flex items-center justify-center relative">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1151,13 +1164,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
       {/* ── PO MODAL ── */}
       {isPoModalOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-10 pb-10 px-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn custom-scrollbar">
-          <div className="w-full max-w-5xl bg-secondary border border-border shadow-2xl rounded-2xl overflow-hidden animate-scaleUp flex flex-col relative my-auto">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-8 pb-8 px-4 bg-foreground/30 overflow-y-auto animate-fadeIn custom-scrollbar">
+          <div className="w-full max-w-6xl bg-background border border-border shadow-none rounded-xl overflow-hidden flex flex-col relative my-auto">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-20">
-              <h3 className="text-xl font-bold text-foreground">
-                {viewingPo ? viewingPo.poNumber : 'New Purchase Order'}
-              </h3>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background sticky top-0 z-20">
+              <div>
+                <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Purchasing document</p>
+                <h3 className="text-xl font-bold text-foreground leading-tight">
+                  {viewingPo ? viewingPo.poNumber : 'New Purchase Order'}
+                </h3>
+              </div>
               <div className="flex items-center gap-4">
                 <div className="hidden md:block">
                   <PipelineChevron currentStatus={viewingPo?.status || 'Draft'} />
@@ -1167,19 +1183,22 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             </div>
 
             {/* Body */}
-            <div className="p-6 md:p-10 bg-background">
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold text-foreground">{viewingPo ? viewingPo.poNumber : 'New Purchase Order'}</h1>
-                {viewingPo && <div className="flex items-center gap-3 mt-2">
+            <div className="p-5 md:p-6 bg-background">
+              <div className="mb-6 flex flex-col gap-3 rounded-xl border border-border bg-secondary/25 p-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">{viewingPo ? viewingPo.poNumber : 'New Purchase Order'}</h1>
+                  <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{getPoModalSubtitle()}</p>
+                </div>
+                {viewingPo && <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <StatusBadge status={viewingPo.status} />
                   <StatusBadge status={viewingPo.billingStatus || 'Waiting Bills'} />
                 </div>}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm mb-10">
+              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 mb-6">
                 <div className="space-y-4">
-                  <div className="flex items-center border-b border-border pb-1">
-                    <label className="w-1/3 font-bold text-foreground">Supplier</label>
-                    <div className="w-2/3">
+                  <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Supplier</label>
+                    <div className="min-w-0">
                       <Select
                         isDisabled={!!viewingPo}
                         value={poForm.supplier ? { value: poForm.supplier, label: suppliers.find(s => s.id === poForm.supplier)?.name || poForm.supplier } : null}
@@ -1194,19 +1213,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       />
                     </div>
                   </div>
-                  <div className="flex border-b border-border pb-1">
-                      <label className="w-1/3 font-bold text-foreground">Source RFQ</label>
-                      <input type="text" disabled={!!viewingPo} value={poForm.sourceRfq} onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })} placeholder="RFQ reference..." className="w-2/3 bg-transparent focus:outline-none text-foreground font-mono text-sm" />
+                  <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Source RFQ</label>
+                      <input type="text" disabled={!!viewingPo} value={poForm.sourceRfq} onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })} placeholder="RFQ reference..." className="min-w-0 bg-transparent focus:outline-none text-foreground font-mono text-sm" />
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex border-b border-border pb-1">
-                      <label className="w-1/3 font-bold text-foreground">Order Date</label>
-                      <span className="w-2/3 text-foreground">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
+                    <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Order Date</label>
+                      <span className="text-foreground">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
                     </div>
-                    <div className="flex items-center border-b border-border pb-1">
-                      <label className="w-1/3 font-bold text-foreground">Expected Arrival</label>
-                      <div className="w-2/3 flex items-center gap-2">
+                    <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
+                      <label htmlFor="po-expected-date" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Expected Arrival</label>
+                      <div className="flex min-w-0 items-center gap-2">
                         <input
                           id="po-expected-date"
                           disabled={!!viewingPo}
@@ -1228,28 +1247,31 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       </div>
                     </div>
                     {viewingPo?.confirmationDate && (
-                      <div className="flex border-b border-border pb-1">
-                        <label className="w-1/3 font-bold text-foreground">Confirmed On</label>
-                        <span className="w-2/3 text-foreground">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
+                      <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Confirmed On</label>
+                        <span className="text-foreground">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Items table */}
-                <div className="border-b border-border mb-4 flex"><button className="border-b-2 border-accent text-accent font-bold pb-2 text-sm">Products</button></div>
-                <div className="min-h-[200px]">
-                  <table className="w-full text-left text-sm whitespace-nowrap mb-4">
-                    <thead><tr className="border-b-2 border-border text-muted-foreground">
-                      <th className="py-2 px-2 font-bold w-1/2">Product</th>
-                      <th className="py-2 px-2 font-bold text-right w-1/8">Qty</th>
+                <div className="mb-3 flex items-end justify-between border-b border-border">
+                  <button className="border-b-2 border-accent text-accent font-bold pb-2 text-sm">Products</button>
+                  <span className="pb-2 text-xs font-semibold text-muted-foreground">{poForm.items.length} line{poForm.items.length === 1 ? '' : 's'}</span>
+                </div>
+                <div className="min-h-[200px] overflow-hidden rounded-xl border border-border bg-background">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead><tr className="border-b border-border bg-secondary/60 text-muted-foreground">
+                      <th className="py-2.5 px-3 font-bold w-1/2">Product</th>
+                      <th className="py-2.5 px-3 font-bold text-right w-1/8">Qty</th>
                       {viewingPo && viewingPo.status === 'Confirmed' ? (
-                        <th className="py-2 px-2 font-bold text-right w-1/6">Quoted Price</th>
+                        <th className="py-2.5 px-3 font-bold text-right w-1/6">Quoted Price</th>
                       ) : (
-                        <th className="py-2 px-2 font-bold text-right w-1/6">Unit Price</th>
+                        <th className="py-2.5 px-3 font-bold text-right w-1/6">Unit Price</th>
                       )}
-                      <th className="py-2 px-2 font-bold text-right w-1/6">Subtotal</th>
-                      {viewingPo?.status === 'Confirmed' && <th className="py-2 px-2 font-bold text-center w-20">Received</th>}
+                      <th className="py-2.5 px-3 font-bold text-right w-1/6">Subtotal</th>
+                      {viewingPo?.status === 'Confirmed' && <th className="py-2.5 px-3 font-bold text-center w-20">Received</th>}
                       {!viewingPo && <th className="w-8" />}
                     </tr></thead>
                     <tbody className="divide-y divide-border">
@@ -1258,9 +1280,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         const isConfirmed = viewingPo?.status === 'Confirmed';
                         return (
                           <tr key={idx} className={`hover:bg-secondary/50 transition-colors ${isConfirmed && isDelivered ? 'bg-emerald-500/5' : ''}`}>
-                            <td className="py-2 px-2 font-medium">[{item.sku}] {item.name}</td>
-                            <td className="py-2 px-2 text-right">{item.quantity}</td>
-                            <td className="py-2 px-2 text-right">
+                            <td className="py-3 px-3 font-medium">[{item.sku}] {item.name}</td>
+                            <td className="py-3 px-3 text-right">{item.quantity}</td>
+                            <td className="py-3 px-3 text-right">
                               {isConfirmed ? (
                                 <input
                                   type="number"
@@ -1274,13 +1296,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 formatCurrency(item.unitPrice)
                               )}
                             </td>
-                            <td className="py-2 px-2 text-right font-bold">
+                            <td className="py-3 px-3 text-right font-bold">
                               {isConfirmed
                                 ? formatCurrency((parseFloat(quotedPrices[item.id]) || item.unitPrice) * item.quantity)
                                 : formatCurrency(item.subtotal)}
                             </td>
                             {isConfirmed && (
-                              <td className="py-2 px-2 text-center">
+                              <td className="py-3 px-3 text-center">
                                 <button
                                   type="button"
                                   onClick={() => setDeliveredItems(prev => {
@@ -1299,14 +1321,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 </button>
                               </td>
                             )}
-                            {!viewingPo && <td className="py-2 px-2 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
+                            {!viewingPo && <td className="py-3 px-3 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
                           </tr>
                         );
                       })}
                       {!viewingPo && (
-                        <tr><td colSpan="5" className="py-2">
-                          <div className="flex items-center gap-2 mt-2">
-                            <div className="w-1/2">
+                        <tr><td colSpan="5" className="bg-secondary/25 p-3">
+                          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                            <div className="min-w-[240px] flex-1">
                               <Select
                                 styles={customSelectStyles}
                                 menuPortalTarget={document.body}
@@ -1340,100 +1362,101 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 <Plus weight="bold" className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                            <button onClick={addPoItem} className="px-3 py-1.5 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
+                            <button onClick={addPoItem} className="px-3 py-2 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
                           </div>
                         </td></tr>
                       )}
                     </tbody>
                   </table>
-                  <div className="flex justify-between items-start mt-4 pt-4 border-t border-border">
-                    <div className="w-1/2">
+                </div>
+                  <div className="grid gap-4 mt-4 pt-4 border-t border-border md:grid-cols-[1fr_320px] md:items-start">
+                    <div>
                       <label className="block text-xs font-bold text-muted-foreground mb-1">Notes</label>
                       <textarea disabled={!!viewingPo} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} className="w-full bg-transparent border border-border rounded-lg p-2 focus:ring-1 focus:ring-accent text-sm resize-none h-16 focus:outline-none" />
                     </div>
-                    <div className="w-1/3 flex flex-col items-end gap-4">
-                      <div className="w-full flex justify-between font-bold text-lg text-foreground pt-2 border-t border-border">
+                    <div className="flex flex-col items-end gap-4">
+                      <div className="w-full flex justify-between rounded-lg border border-border bg-secondary/25 px-3 py-2 font-bold text-lg text-foreground">
                         <span>Total</span>
                         <span>{formatCurrency(poForm.items.reduce((s, i) => s + i.subtotal, 0))}</span>
                       </div>
                       {!viewingPo ? (
-                        <div className="flex gap-2 justify-end w-full">
-                          <button
-                            type="button"
-                            onClick={() => setIsPoModalOpen(false)}
-                            className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
-                          >
-                            Discard
-                          </button>
-                          <button
-                            type="button"
-                            onClick={savePo}
-                            className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95"
-                          >
-                            Save Draft
-                          </button>
+                          <div className="flex gap-2 justify-end w-full">
+                            <button
+                              type="button"
+                              onClick={() => setIsPoModalOpen(false)}
+                              className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
+                            >
+                              Discard
+                            </button>
+                            <button
+                              type="button"
+                              onClick={savePo}
+                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors"
+                            >
+                              Save Draft
+                            </button>
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-2 justify-end w-full">
-                          <button
-                            type="button"
-                            onClick={() => generateRfqPDF(viewingPo)}
-                            className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
-                            title="Download RFQ PDF (for supplier)"
-                          >
-                            <FilePdf weight="duotone" className="w-4 h-4 text-blue-400" /> RFQ PDF
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => generatePDF(viewingPo)}
-                            className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5"
-                            title="Download PO PDF"
-                          >
-                            <FilePdf weight="duotone" className="w-4 h-4 text-red-400" /> PO PDF
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => generateRfqPDF(viewingPo)}
+                              className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg flex items-center gap-1.5"
+                              title="Download RFQ PDF (for supplier)"
+                            >
+                              <FilePdf weight="duotone" className="w-4 h-4 text-primary" /> RFQ PDF
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => generatePDF(viewingPo)}
+                              className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg flex items-center gap-1.5"
+                              title="Download PO PDF"
+                            >
+                              <FilePdf weight="duotone" className="w-4 h-4 text-accent" /> PO PDF
+                            </button>
 
                           {viewingPo.status === 'Draft' && (
                             <>
+                                <button
+                                  type="button"
+                                  onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
                               <button
-                                type="button"
-                                onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
-                                className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Cancel
-                              </button>
+                                  type="button"
+                                  onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
+                                >
+                                  Confirm Order
+                                </button>
                               <button
-                                type="button"
-                                onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
-                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Confirm Order
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
-                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Send RFQ
-                              </button>
+                                  type="button"
+                                  onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
+                                  className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors"
+                                >
+                                  Send RFQ
+                                </button>
                             </>
                           )}
 
                           {viewingPo.status === 'RFQ Sent' && (
                             <>
+                                <button
+                                  type="button"
+                                  onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
                               <button
-                                type="button"
-                                onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
-                                className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
-                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow-sm"
-                              >
-                                Confirm Order
-                              </button>
+                                  type="button"
+                                  onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                                  className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors"
+                                >
+                                  Confirm Order
+                                </button>
                             </>
                           )}
 
@@ -1441,20 +1464,20 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             <>
                               {/* Quoted prices save */}
                               <button
-                                type="button"
-                                onClick={saveQuotedPrices}
-                                disabled={savingPrices}
-                                className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-500 text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-                              >
+                                  type="button"
+                                  onClick={saveQuotedPrices}
+                                  disabled={savingPrices}
+                                  className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-500 text-sm font-bold rounded-lg flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                                >
                                 {savingPrices ? <span className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" /> : <CurrencyDollar weight="bold" className="w-4 h-4" />}
                                 Save Quoted Prices
                               </button>
                               {viewingPo.billingStatus === 'Waiting Bills' && (
                                 <button
-                                  type="button"
-                                  onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
-                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
-                                >
+                                    type="button"
+                                    onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                                    className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
+                                  >
                                   Mark Bills Received
                                 </button>
                               )}
@@ -1464,13 +1487,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 return (
                                   <button
                                     type="button"
-                                    disabled={!allDelivered}
-                                    onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
-                                    className={`px-4 py-2 text-white text-sm font-bold rounded-lg shadow-sm transition-all ${
-                                      allDelivered
-                                        ? 'bg-accent hover:bg-accent/90 active:scale-95'
-                                        : 'bg-accent/30 cursor-not-allowed'
-                                    }`}
+                                      disabled={!allDelivered}
+                                      onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
+                                      className={`px-4 py-2 text-white text-sm font-bold rounded-lg transition-colors ${
+                                        allDelivered
+                                          ? 'bg-accent hover:bg-accent/90'
+                                          : 'bg-accent/30 cursor-not-allowed'
+                                      }`}
                                     title={allDelivered ? 'Confirm receipt' : `Check all ${poForm.items.length} items first`}
                                   >
                                     <span className="flex items-center gap-1.5">
@@ -1485,10 +1508,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
                           {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
                             <button
-                              type="button"
-                              onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
-                              className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg shadow-sm"
-                            >
+                                type="button"
+                                onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
+                              >
                               Mark Bills Received
                             </button>
                           )}
@@ -1498,8 +1521,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   </div>
                 </div>
               </div>
-            </div>
-          </div>, document.body
+            </div>, document.body
       )}
 
           {/* ── PRODUCT PROFILE MODAL ── */}

@@ -321,14 +321,13 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                     <th className="py-3 px-2 w-8 text-center">
                       <input 
                         type="checkbox" 
-                        aria-label={filteredLowStockItems.length > 5 ? "Bulk-select only covers the 5 items shown — use View all to manage the full list" : "Select all visible low-stock items"}
-                        title={filteredLowStockItems.length > 5 ? "Bulk-select only covers the 5 items shown — use View all to manage the full list" : "Select all visible low-stock items"}
-                        disabled={filteredLowStockItems.length > 5}
+                        aria-label="Select all visible low-stock items"
+                        title="Select all visible low-stock items"
                         className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background disabled:opacity-50 disabled:cursor-not-allowed"
-                        checked={filteredLowStockItems.slice(0, 5).length > 0 && filteredLowStockItems.slice(0, 5).every(p => selectedWatchlistItems.has(p.id))}
+                        checked={filteredLowStockItems.length > 0 && filteredLowStockItems.every(p => selectedWatchlistItems.has(p.id))}
                         onChange={(e) => {
                           const newSet = new Set(selectedWatchlistItems);
-                          const visibleParts = filteredLowStockItems.slice(0, 5);
+                          const visibleParts = filteredLowStockItems;
                           if (e.target.checked) {
                             visibleParts.forEach(p => newSet.add(p.id));
                           } else {
@@ -345,7 +344,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredLowStockItems.slice(0, 5).map((part) => {
+                  {filteredLowStockItems.map((part) => {
                     const isCritical = part.severity === 'critical';
                     const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
                     
@@ -414,7 +413,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             )}
           </div>
 
-          {filteredLowStockItems.length > 5 && (
+          {filteredLowStockItems.length > 0 && (
             <button 
               onClick={() => {
                 setSelectedCategory('All');

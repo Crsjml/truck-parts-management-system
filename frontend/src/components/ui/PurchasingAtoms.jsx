@@ -75,7 +75,7 @@ export const StatusBadge = ({ status }) => {
 export const StatChip = ({ label, count, icon: Icon, color, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${active ? `${color} shadow-sm` : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
+    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${active ? color : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
       }`}
   >
     {Icon && <Icon weight="duotone" className="w-3.5 h-3.5" />}
@@ -227,7 +227,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
             Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
           </button>
           {showFilters && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-2xl p-2 min-w-[200px] animate-fadeIn">
+            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[200px] animate-fadeIn">
               {filters.map(f => (
                 <label key={f.value} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary cursor-pointer text-sm text-foreground transition-colors focus-within:ring-2 focus-within:ring-accent">
                   <input
@@ -260,7 +260,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
             {activeGroup ? `By: ${activeGroup}` : 'Group By'}
           </button>
           {showGroup && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-2xl p-2 min-w-[160px] animate-fadeIn">
+            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[160px] animate-fadeIn">
               {activeGroup && (
                 <button onClick={() => { onGroupBy(null); setShowGroup(false); }} className="w-full px-3 py-2 rounded-lg hover:bg-secondary text-left text-xs text-accent font-semibold mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   Clear grouping
@@ -318,7 +318,7 @@ export const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favor
   };
 
   return (
-    <div className="glass-panel border border-border rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-background border border-border rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead>
