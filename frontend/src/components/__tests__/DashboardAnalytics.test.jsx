@@ -4,6 +4,10 @@ import { describe, it, expect, vi } from 'vitest';
 import Dashboard from '../Dashboard';
 import Analytics from '../Analytics';
 
+vi.mock('../../api/apiClient', () => ({
+  apiGet: vi.fn().mockResolvedValue([])
+}));
+
 vi.mock('../../context/SettingsContext', () => ({
   useSettings: () => ({
     settings: { active_markup: 15 },

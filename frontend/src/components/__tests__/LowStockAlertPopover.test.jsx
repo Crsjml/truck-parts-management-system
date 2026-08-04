@@ -90,15 +90,14 @@ describe('LowStockAlertPopover', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('stat tiles are hidden by default and revealed on hover/focus', () => {
+  it('stat tiles are permanently visible for data density', () => {
     render(<TestWrapper parts={[parts[1]]} />);
     
     const currentLabel = screen.getByText('Current');
     const tileContainer = currentLabel.parentElement.parentElement;
     
-    // Check that it's hidden by default and relies on group hover/focus
-    expect(tileContainer.className).toContain('hidden');
-    expect(tileContainer.className).toContain('group-hover:grid');
-    expect(tileContainer.className).toContain('group-focus-within:grid');
+    // Check that it's permanently visible (no hidden class)
+    expect(tileContainer.className).not.toContain('hidden');
+    expect(tileContainer.className).toContain('grid');
   });
 });
