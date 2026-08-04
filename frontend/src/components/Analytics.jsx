@@ -64,6 +64,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     setLocalTransactions(transactions);
   }, [transactions]);
 
+  // Reset ledger pagination when filters change
+  useEffect(() => {
+    setLedgerPage(1);
+  }, [channel, period]);
+
   // Fetch category hierarchy for treemap drill-down
   useEffect(() => {
     fetchCategoriesList()
@@ -141,7 +146,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   const orderStatuses = useMemo(() => orderStatusBreakdown(currentTx, range), [currentTx, range]);
 
   // Filtered transactions for the log
-  const filteredTransactions = localTransactions.filter(tx => 
+  const filteredTransactions = currentTx.filter(tx => 
     tx.invoiceNumber.toLowerCase().includes(searchInvoice.toLowerCase()) ||
     tx.customerName.toLowerCase().includes(searchInvoice.toLowerCase())
   ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
