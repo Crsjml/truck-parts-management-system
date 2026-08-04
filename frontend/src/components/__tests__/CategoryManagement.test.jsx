@@ -90,6 +90,20 @@ describe('CategoryManagement', () => {
     expect(createCategory).not.toHaveBeenCalled();
   });
 
+  it('shows an error before saving when the category name already exists', async () => {
+    render(<CategoryManagement />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /add category/i }));
+    const dialog = await screen.findByRole('dialog', { name: /create new category/i });
+    fireEvent.change(within(dialog).getByLabelText(/category name/i), {
+      target: { value: 'Engine & Powertrain' }
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: /add category$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/already exists/i);
+    expect(createCategory).not.toHaveBeenCalled();
+  });
+
   it('uses an in-app delete confirmation instead of deleting immediately', async () => {
     render(<CategoryManagement />);
 
@@ -114,7 +128,7 @@ describe('CategoryManagement', () => {
     fireEvent.click(appearanceToggle);
 
     expect(appearanceToggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /use blue color theme/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /use blue category color/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /use wrench icon/i })).toBeInTheDocument();
   });
 });
