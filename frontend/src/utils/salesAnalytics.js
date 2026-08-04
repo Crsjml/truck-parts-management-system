@@ -8,6 +8,17 @@ export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GCAS
 export const PAYMENT_COLORS = { CASH: '#059669', CARD: '#3b82f6', CHEQUE: '#d97706', BANK_TRANSFER: '#8b5cf6', GCASH: '#0891b2' };
 export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer', GCASH: 'GCash' };
 
+export const STATUS_COLORS = { 
+  'Completed': '#10b981',
+  'Ready for Pickup': '#3b82f6',
+  'Cancelled': '#f43f5e',
+  'Order Placed': '#f59e0b',
+  'COMPLETED': '#10b981',
+  'READY_FOR_PICKUP': '#3b82f6',
+  'CANCELLED': '#f43f5e',
+  'ORDER_PLACED': '#f59e0b'
+};
+
 export function resolvePeriod(key, now = new Date()) {
   const p = PERIODS.find(x => x.key === key) || PERIODS.find(x => x.key === '30d');
   const end = now;
@@ -31,6 +42,17 @@ export function inRange(transactions, start, end) {
     const d = new Date(t.transactionDate);
     return d >= start && d <= end;
   });
+}
+
+// ponytail: stripeSessionId presence indicates online channel vs in-store POS
+export function byChannel(transactions, channel) {
+  if (channel === 'online') {
+    return transactions.filter(t => t.stripeSessionId != null);
+  }
+  if (channel === 'store') {
+    return transactions.filter(t => t.stripeSessionId == null);
+  }
+  return transactions;
 }
 
 export function computeKpis(current, previous) {
@@ -373,4 +395,24 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
   });
   
   return series;
+}
+
+export function orderStatusBreakdown(transactions, { start, end }) {
+  const current = inRange(transactions, start, end);
+  const statusCounts = new Map();
+  
+  for (const t of current) {
+    let s = t.status || 'Order Placed';
+    if (s === 'ORDER_PLACED') s = 'Order Placed';
+    if (s === 'READY_FOR_PICKUP') s = 'Ready for Pickup';
+    if (s === 'COMPLETED') s = 'Completed';
+    if (s === 'CANCELLED') s = 'Cancelled';
+    
+    statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
+  }
+  
+  return Array.from(statusCounts.entries()).map(([name, count]) => ({
+    name,
+    count
+  })).sort((a, b) => b.count - a.count);
 }

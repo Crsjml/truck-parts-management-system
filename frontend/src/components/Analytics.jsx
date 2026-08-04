@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye } from '@phosphor-icons/react';
+import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, Stack, ChartPieSlice, CalendarBlank, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye } from '@phosphor-icons/react';
 import PeriodSelector from './analytics/PeriodSelector';
+import ChannelSelector from './analytics/ChannelSelector';
 import KpiTile from './analytics/KpiTile';
 import ChartRenderer from './analytics/ChartRenderer';
 import BestSellingPartsReport from './analytics/BestSellingPartsReport';
 import SlowMovingStockReport from './analytics/SlowMovingStockReport';
 import PeakSalesPeriodReport from './analytics/PeakSalesPeriodReport';
-import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, PAYMENT_METHODS, PAYMENT_COLORS, PAYMENT_LABELS } from '../utils/salesAnalytics';
+import PartDetailDrawer from './PartDetailDrawer';
+import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, PAYMENT_METHODS, PAYMENT_COLORS, PAYMENT_LABELS } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,29 +19,33 @@ const ZOOM_TITLES = {
   trend: 'Revenue Trend',
   movers: 'Top Movers',
   treemap: 'Category Revenue Allocation',
-  payments: 'Payment Method Mix'
+  payments: 'Payment Method Mix',
+  status: 'Order Status Breakdown'
 };
 
 const ZOOM_ICONS = {
   trend: TrendUp,
   movers: ChartBar,
   treemap: Stack,
-  payments: CurrencyDollar
+  payments: CurrencyDollar,
+  status: Package
 };
 
 // Removed inline chart components, moved to ChartRenderer
 
-export default function Analytics({ parts = [], transactions = [] }) {
+export default function Analytics({ parts = [], transactions = [], isLoading = false }) {
   const { formatCurrency, displayCurrency, formatBaseCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [ledgerPage, setLedgerPage] = useState(1);
-  const [zoomedChart, setZoomedChart] = useState(null); // 'trend' | 'movers' | 'treemap' | 'payments' | null
+  const [zoomedChart, setZoomedChart] = useState(null); // 'trend' | 'movers' | 'donut' | 'payments' | null
   const [localTransactions, setLocalTransactions] = useState(transactions);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [period, setPeriod] = useState('30d');
   const [categories, setCategories] = useState([]);
   const [drilledCategory, setDrilledCategory] = useState(null);
+  const [detailedPart, setDetailedPart] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [channel, setChannel] = useState('all');
 
   // Close modals on Escape key
   useEffect(() => {
@@ -116,8 +122,9 @@ export default function Analytics({ parts = [], transactions = [] }) {
 
   // Computations
   const range = useMemo(() => resolvePeriod(period), [period]);
-  const currentTx = useMemo(() => inRange(localTransactions, range.start, range.end), [localTransactions, range]);
-  const previousTx = useMemo(() => inRange(localTransactions, range.prevStart, range.prevEnd), [localTransactions, range]);
+  const channelTx = useMemo(() => byChannel(localTransactions, channel), [localTransactions, channel]);
+  const currentTx = useMemo(() => inRange(channelTx, range.start, range.end), [channelTx, range]);
+  const previousTx = useMemo(() => inRange(channelTx, range.prevStart, range.prevEnd), [channelTx, range]);
   const kpis = useMemo(() => computeKpis(currentTx, previousTx), [currentTx, previousTx]);
   const trend = useMemo(() => trendSeries(currentTx, previousTx, range), [currentTx, previousTx, range]);
 
@@ -131,6 +138,7 @@ export default function Analytics({ parts = [], transactions = [] }) {
   // ponytail: top movers ranking by period with rank-change indicators
   const movers = useMemo(() => topMovers(currentTx, previousTx, 5), [currentTx, previousTx]);
   const payments = useMemo(() => paymentMix(currentTx, range), [currentTx, range]);
+  const orderStatuses = useMemo(() => orderStatusBreakdown(currentTx, range), [currentTx, range]);
 
   // Filtered transactions for the log
   const filteredTransactions = localTransactions.filter(tx => 
@@ -165,7 +173,10 @@ export default function Analytics({ parts = [], transactions = [] }) {
           {/* KPI Stats Row */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
             <h2 className="text-xl font-bold text-foreground font-display">Sales Overview</h2>
-            <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
+            <div className="flex items-center gap-2">
+              <ChannelSelector selectedChannel={channel} onSelectChannel={setChannel} />
+              <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
+            </div>
           </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -184,13 +195,17 @@ export default function Analytics({ parts = [], transactions = [] }) {
               <TrendUp weight="duotone" className="w-5 h-5 text-emerald-400" />
               <h3 className="text-base font-bold text-foreground font-display">Revenue Trend</h3>
             </div>
-            <button aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button title="Expand Chart" aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {currentTx.length === 0 ? (
+            {isLoading ? (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+              </div>
+            ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
               <ChartRenderer type="trend" data={trend} formatCurrency={formatBaseCurrency} />
@@ -198,14 +213,21 @@ export default function Analytics({ parts = [], transactions = [] }) {
           </div>
         </div>
 
-        {/* Category Revenue Treemap */}
+        {/* Category Revenue Donut */}
         <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Stack weight="duotone" className="w-5 h-5 text-brandBlue-400" />
-              <h3 className="text-base font-bold text-foreground font-display">
-                {drilledCategory ? `Category Revenue: ${drilledCategory}` : 'Category Revenue Allocation'}
-              </h3>
+          <div className="flex items-start justify-between pb-3 border-b border-border">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <ChartPieSlice weight="duotone" className="w-5 h-5 text-accent" />
+                <h3 className="text-base font-bold text-foreground font-display">
+                  {drilledCategory ? `Category Revenue: ${drilledCategory}` : 'Category Revenue Allocation'}
+                </h3>
+              </div>
+              {!drilledCategory && (
+                <span className="text-[11px] text-muted-foreground ml-7 leading-tight mt-0.5">
+                  'Uncategorized' groups deleted parts or missing categories
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {drilledCategory && (
@@ -216,20 +238,24 @@ export default function Analytics({ parts = [], transactions = [] }) {
                   ← Back
                 </button>
               )}
-              <button aria-label="Zoom Category Revenue" onClick={() => setZoomedChart('treemap')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <button title="Expand Chart" aria-label="Zoom Category Revenue" onClick={() => setZoomedChart('donut')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
                 <ArrowsOut weight="duotone" className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           <div className="w-full min-h-[320px] h-80">
-            {currentTx.length === 0 ? (
+            {isLoading ? (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+              </div>
+            ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : catRevenue.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No revenue data for categories.</div>
             ) : (
               <ChartRenderer 
-                type="treemap" 
+                type="donut" 
                 data={catRevenue} 
                 formatCurrency={formatBaseCurrency}
                 extraProps={{ maxCatRevenue, onDrill: setDrilledCategory }}
@@ -240,10 +266,13 @@ export default function Analytics({ parts = [], transactions = [] }) {
 
         {/* Top Movers Panel */}
         <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
-              <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
+          <div className="flex items-start justify-between pb-3 border-b border-border">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <ChartBar weight="duotone" className="w-5 h-5 text-accent" />
+                <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
+              </div>
+              <span className="text-[11px] text-muted-foreground ml-7 leading-tight mt-0.5">Rank change by volume vs previous</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -252,40 +281,98 @@ export default function Analytics({ parts = [], transactions = [] }) {
               >
                 View full report →
               </button>
-              <button aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <button title="Expand Chart" aria-label="Zoom Top Movers" onClick={() => setZoomedChart('movers')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
                 <ArrowsOut weight="duotone" className="w-4 h-4" />
               </button>
             </div>
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {currentTx.length === 0 ? (
+            {isLoading ? (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+              </div>
+            ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : movers.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
             ) : (
-              <ChartRenderer type="movers" data={movers} formatCurrency={formatBaseCurrency} />
+              <ChartRenderer 
+                type="movers" 
+                data={movers} 
+                formatCurrency={formatBaseCurrency}
+                extraProps={{
+                  onMoverClick: (partName) => {
+                    const found = parts.find(p => p.name === partName);
+                    if (found) setDetailedPart(found);
+                  }
+                }}
+              />
             )}
           </div>
         </div>
 
-        {/* Payment Method Mix (Full Width) */}
-        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col col-span-1 lg:col-span-2">
+        {/* Payment Method Mix (1 Column) */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
               <CurrencyDollar weight="duotone" className="w-5 h-5 text-violet-400" />
               <h3 className="text-base font-bold text-foreground font-display">Payment Method Mix</h3>
             </div>
-            <button aria-label="Zoom Payment Method Mix" onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+            <button title="Expand Chart" aria-label="Zoom Payment Method Mix" onClick={() => setZoomedChart('payments')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
             </button>
           </div>
           
           <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
-            {currentTx.length === 0 ? (
+            {isLoading ? (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+              </div>
+            ) : currentTx.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
+            ) : channel === 'online' ? (
+              <div className="h-full flex items-center justify-center p-4">
+                <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5 w-full max-w-sm">
+                  <div className="space-y-2">
+                    <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
+                    <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
+                    <p className="text-2xs font-medium text-emerald-400 flex items-center gap-1">
+                      {currentTx.length} orders · {formatBaseCurrency(kpis.revenue)}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl border bg-violet-950/40 text-violet-400 border-violet-800/35">
+                    <CurrencyDollar weight="duotone" className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
             ) : (
               <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />
+            )}
+          </div>
+        </div>
+
+        {/* Order Status Breakdown (1 Column) */}
+        <div className="glass-panel p-5 rounded-2xl space-y-4 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Package weight="duotone" className="w-5 h-5 text-amber-500" />
+              <h3 className="text-base font-bold text-foreground font-display">Order Status</h3>
+            </div>
+            <button title="Expand Chart" aria-label="Zoom Order Status" onClick={() => setZoomedChart('status')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all">
+              <ArrowsOut weight="duotone" className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="w-full min-h-[320px] h-80 pt-2 flex flex-col">
+            {isLoading ? (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="w-full h-full bg-slate-800/20 animate-pulse rounded-xl border border-slate-700/30"></div>
+              </div>
+            ) : currentTx.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
+            ) : (
+              <ChartRenderer type="status" data={orderStatuses} formatCurrency={formatBaseCurrency} />
             )}
           </div>
         </div>
@@ -438,9 +525,9 @@ export default function Analytics({ parts = [], transactions = [] }) {
       </>
       )}
 
-      {activeTab === 'best-selling' && <BestSellingPartsReport transactions={localTransactions} parts={parts} />}
-      {activeTab === 'slow-moving' && <SlowMovingStockReport transactions={localTransactions} parts={parts} />}
-      {activeTab === 'peak-sales' && <PeakSalesPeriodReport transactions={localTransactions} />}
+      {activeTab === 'best-selling' && <BestSellingPartsReport transactions={channelTx} parts={parts} />}
+      {activeTab === 'slow-moving' && <SlowMovingStockReport transactions={channelTx} parts={parts} />}
+      {activeTab === 'peak-sales' && <PeakSalesPeriodReport transactions={channelTx} />}
 
       {/* ZOOM MODAL */}
       <AnimatePresence>
@@ -471,16 +558,51 @@ export default function Analytics({ parts = [], transactions = [] }) {
               
               <div className="flex-1 bg-background p-8 min-h-[400px]">
                 {zoomedChart === 'trend' && <ChartRenderer type="trend" data={trend} formatCurrency={formatBaseCurrency} />}
-                {zoomedChart === 'movers' && <ChartRenderer type="movers" data={movers} formatCurrency={formatBaseCurrency} />}
-                {zoomedChart === 'treemap' && (
+                {zoomedChart === 'movers' && (
                   <ChartRenderer 
-                    type="treemap" 
+                    type="movers" 
+                    data={movers} 
+                    formatCurrency={formatBaseCurrency} 
+                    extraProps={{
+                      onMoverClick: (partName) => {
+                        const found = parts.find(p => p.name === partName);
+                        if (found) {
+                          setZoomedChart(null);
+                          setDetailedPart(found);
+                        }
+                      }
+                    }}
+                  />
+                )}
+                {zoomedChart === 'donut' && (
+                  <ChartRenderer 
+                    type="donut" 
                     data={catRevenue} 
                     formatCurrency={formatBaseCurrency} 
                     extraProps={{ maxCatRevenue, onDrill: setDrilledCategory }} 
                   />
                 )}
-                {zoomedChart === 'payments' && <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />}
+                {zoomedChart === 'payments' && (
+                  channel === 'online' ? (
+                    <div className="h-full flex items-center justify-center p-4">
+                      <div className="glass-panel p-5 rounded-2xl flex items-center justify-between border-t border-t-white/5 w-full max-w-sm">
+                        <div className="space-y-2">
+                          <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
+                          <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
+                          <p className="text-2xs font-medium text-emerald-400 flex items-center gap-1">
+                            {currentTx.length} orders · {formatBaseCurrency(kpis.revenue)}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-xl border bg-violet-950/40 text-violet-400 border-violet-800/35">
+                          <CurrencyDollar weight="duotone" className="w-6 h-6" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />
+                  )
+                )}
+                {zoomedChart === 'status' && <ChartRenderer type="status" data={orderStatuses} formatCurrency={formatBaseCurrency} />}
               </div>
             </motion.div>
           </motion.div>
@@ -609,6 +731,15 @@ export default function Analytics({ parts = [], transactions = [] }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PartDetailDrawer
+        part={detailedPart}
+        nestedCategories={categories}
+        customerSession={null}
+        transactions={localTransactions}
+        addToCart={() => {}}
+        onClose={() => setDetailedPart(null)}
+      />
     </div>
   );
 }
