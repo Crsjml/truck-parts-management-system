@@ -173,7 +173,7 @@ export function categoryRevenue(transactions, parts, tree, drilled) {
   
   for (const t of transactions) {
     for (const item of (t.items || [])) {
-      const cat = partMap.get(item.partId);
+      const cat = item.part?.category?.name || partMap.get(item.partId);
       const revenue = (item.quantity || 0) * (item.price || 0);
       
       if (!cat) {

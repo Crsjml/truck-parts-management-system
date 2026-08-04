@@ -28,7 +28,7 @@ class TransactionsService {
 
     return await prisma.transaction.findMany({
       where: { OR: orFilters },
-      include: { items: { include: { part: true } } },
+      include: { items: { include: { part: { include: { category: true } } } } },
       orderBy: { transactionDate: 'desc' },
       take: 100
     });
