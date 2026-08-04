@@ -1,15 +1,15 @@
 import React, { memo } from 'react';
-import { Sliders, Wrench, XCircle } from '@phosphor-icons/react';
+import { ShoppingCart, Sliders, Wrench, XCircle } from '@phosphor-icons/react';
 import { getCategoryPlaceholder, getCategoryIconAndColor } from '../utils/categoryIcons';
 
 const PartTableRow = memo(({ 
   part, 
   openDetailsModal, 
   formatCurrency,
-  formatBaseCurrency,
   openAdjustStockModal,
   openEditModal,
-  onDeletePart
+  onDeletePart,
+  setPage
 }) => {
   const isLowStock = part.stock <= part.minStock;
   return (
@@ -41,15 +41,16 @@ const PartTableRow = memo(({
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex flex-col items-end">
-          <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(part.price)}</span>
-          <span className="text-xs text-muted-foreground/70 font-medium" title="Wholesale / Base Cost">
-            {formatBaseCurrency(part.price)}
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Unit Price</span>
+          <span className="mt-1 text-base font-semibold text-foreground tabular-nums">
+            {formatCurrency(part.price)}
           </span>
         </div>
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex flex-col items-end gap-1">
-          <span className={`font-mono font-bold ${isLowStock ? 'text-destructive' : 'text-foreground'}`}>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Quantity</span>
+          <span className={`mt-1 text-base font-semibold tabular-nums ${isLowStock ? 'text-destructive' : 'text-foreground'}`}>
             {part.stock} / {part.minStock}
           </span>
           {isLowStock ? (
@@ -57,37 +58,57 @@ const PartTableRow = memo(({
               LOW STOCK
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-950/70 border border-emerald-800/40 text-2xs font-extrabold text-emerald-500">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brandBlue-500/10 border border-brandBlue-500/25 text-2xs font-extrabold text-brandBlue-600 dark:text-brandBlue-400">
               IN STOCK
             </span>
           )}
         </div>
       </td>
       <td className="px-4 py-3 text-right">
-        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent('purchasingIntent', { detail: part }));
+              if (setPage) setPage('purchasing');
+            }}
+            className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-accent/35 bg-background px-2.5 text-[11px] font-bold text-accent transition-colors hover:bg-accent hover:text-accent-foreground"
+            title="Create PO"
+            aria-label={`Create PO for ${part.name}`}
+          >
+            <ShoppingCart weight="bold" className="w-3.5 h-3.5 shrink-0" />
+            Create PO
+          </button>
           <button 
+            type="button"
             onClick={(e) => { e.stopPropagation(); openAdjustStockModal(part); }}
-            className="p-1.5 bg-background hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500 rounded border border-border/50 hover:border-emerald-500/30 transition-all"
+            className="inline-flex h-8 w-8 items-center justify-center bg-background hover:bg-brandBlue-500/10 text-muted-foreground hover:text-brandBlue-600 dark:hover:text-brandBlue-400 rounded-lg border border-border/60 hover:border-brandBlue-500/30 transition-all"
             title="Adjust Stock Count"
+            aria-label="Adjust stock count"
           >
             <Sliders weight="duotone" className="w-4 h-4" />
           </button>
           <button 
+            type="button"
             onClick={(e) => { e.stopPropagation(); openEditModal(part); }}
-            className="p-1.5 text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-lg transition-colors border border-border"
+            className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-foreground bg-background hover:bg-secondary rounded-lg transition-colors border border-border/60"
             title="Edit"
+            aria-label="Edit part"
           >
             <Wrench weight="duotone" className="w-4 h-4" />
           </button>
           <button 
+            type="button"
             onClick={(e) => { 
               e.stopPropagation(); 
               if (confirm(`Are you sure you want to remove ${part.name}?`)) {
                 onDeletePart(part.id);
               }
             }}
-            className="p-1.5 text-muted-foreground hover:text-destructive bg-secondary/50 hover:bg-destructive/10 rounded-lg transition-colors border border-border hover:border-destructive/30"
+            className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-destructive bg-background hover:bg-destructive/10 rounded-lg transition-colors border border-border/60 hover:border-destructive/30"
             title="Archive"
+            aria-label="Archive part"
           >
             <XCircle weight="duotone" className="w-4 h-4" />
           </button>

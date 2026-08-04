@@ -1,10 +1,36 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
-import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, STATUS_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
+import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
 
 const CHART_TOOLTIP_STYLE = { backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '12px' };
 const CHART_ITEM_STYLE = { color: 'hsl(var(--popover-foreground))' };
 const CHART_AXIS_TICK = { fill: 'hsl(var(--muted-foreground))', fontSize: 12 };
+const CHART_CURSOR_FILL = 'hsl(var(--chart-cursor))';
+const CHART_SERIES = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+  'hsl(var(--chart-6))',
+  'hsl(var(--chart-danger))'
+];
+const RANK_COLORS = {
+  neutral: 'hsl(var(--chart-6))',
+  new: 'hsl(var(--chart-3))',
+  up: 'hsl(var(--chart-2))',
+  down: 'hsl(var(--chart-danger))'
+};
+const STATUS_CHART_COLORS = {
+  Completed: 'hsl(var(--chart-2))',
+  'Ready for Pickup': 'hsl(var(--chart-1))',
+  Cancelled: 'hsl(var(--chart-danger))',
+  'Order Placed': 'hsl(var(--chart-4))',
+  COMPLETED: 'hsl(var(--chart-2))',
+  READY_FOR_PICKUP: 'hsl(var(--chart-1))',
+  CANCELLED: 'hsl(var(--chart-danger))',
+  ORDER_PLACED: 'hsl(var(--chart-4))'
+};
 
 
 
@@ -13,7 +39,7 @@ export function MoverTick({ x, y, payload, movers }) {
   const item = movers?.find(m => m.name === name);
 
   let badgeText = '—';
-  let badgeStyle = 'text-muted-foreground bg-slate-800/80 border-slate-700/50';
+  let badgeStyle = 'text-muted-foreground bg-secondary border-border';
 
   if (item) {
     const badge = getRankDeltaBadge(item.rankDelta);
@@ -107,7 +133,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             <XAxis type="number" hide />
             <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={<MoverTick movers={data} />} width={220} />
             <Tooltip 
-              cursor={{ fill: '#1e293b' }}
+              cursor={{ fill: CHART_CURSOR_FILL }}
               contentStyle={CHART_TOOLTIP_STYLE}
               itemStyle={CHART_ITEM_STYLE}
               formatter={(value, name, item) => [`${value} units (${formatCurrency(item?.payload?.revenue || 0)})`, 'Volume']}
@@ -116,7 +142,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               dataKey="quantity" 
               radius={[0, 6, 6, 0]} 
               barSize={40} 
-              label={{ position: 'right', fill: '#f8fafc', fontSize: 14, fontWeight: 'bold' }}
+              label={{ position: 'right', fill: 'hsl(var(--foreground))', fontSize: 14, fontWeight: 'bold' }}
               onClick={(data) => {
                 const { onMoverClick } = extraProps || {};
                 if (onMoverClick && data && data.name) onMoverClick(data.name);
@@ -124,10 +150,10 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               cursor="pointer"
             >
               {data.map((entry, index) => {
-                let fill = '#64748b'; // slate-500 (no change)
-                if (entry.rankDelta === null) fill = '#a855f7'; // purple-500 (new)
-                else if (entry.rankDelta > 0) fill = '#10b981'; // emerald-500 (up)
-                else if (entry.rankDelta < 0) fill = '#f43f5e'; // rose-500 (down)
+                let fill = RANK_COLORS.neutral;
+                if (entry.rankDelta === null) fill = RANK_COLORS.new;
+                else if (entry.rankDelta > 0) fill = RANK_COLORS.up;
+                else if (entry.rankDelta < 0) fill = RANK_COLORS.down;
                 return <Cell key={`cell-${index}`} fill={fill} />;
               })}
             </Bar>
@@ -139,8 +165,6 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
 
   if (type === 'treemap' || type === 'donut') {
     const { onDrill } = extraProps || {};
-    const COLORS = ['#3b82f6', '#059669', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4', '#64748b', '#10b981', '#f43f5e', '#a855f7'];
-
     return (
       <>
         <table className="sr-only">
@@ -177,7 +201,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               }}
             >
               {data.map((entry, index) => {
-                const fill = entry.name === 'Uncategorized' ? '#64748b' : COLORS[index % COLORS.length];
+                const fill = entry.name === 'Uncategorized' ? 'hsl(var(--chart-6))' : CHART_SERIES[index % CHART_SERIES.length];
                 return (
                   <Cell 
                     key={`cell-${index}`} 
@@ -227,7 +251,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
             <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
             <Tooltip 
-              cursor={{ fill: '#1e293b' }}
+              cursor={{ fill: CHART_CURSOR_FILL }}
               contentStyle={CHART_TOOLTIP_STYLE}
               itemStyle={CHART_ITEM_STYLE}
               formatter={(value) => [formatCurrency(value), undefined]}
@@ -274,7 +298,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
             <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
             <Tooltip 
-              cursor={{ fill: '#1e293b' }}
+              cursor={{ fill: CHART_CURSOR_FILL }}
               contentStyle={CHART_TOOLTIP_STYLE}
               itemStyle={CHART_ITEM_STYLE}
               formatter={(value) => [formatCurrency(value), undefined]}
@@ -282,7 +306,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
               {
                 data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.isPeak ? '#059669' : '#3b82f6'} />
+                  <Cell key={`cell-${index}`} fill={entry.isPeak ? 'hsl(var(--chart-2))' : 'hsl(var(--chart-1))'} />
                 ))
               }
             </Bar>
@@ -328,7 +352,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               {data.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 
-                  fill={STATUS_COLORS[entry.name] || '#64748b'} 
+                  fill={STATUS_CHART_COLORS[entry.name] || 'hsl(var(--chart-6))'} 
                   style={{ outline: 'none' }}
                 />
               ))}

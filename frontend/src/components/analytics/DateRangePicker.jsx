@@ -28,7 +28,7 @@ export default function DateRangePicker({ start, end, onChange }) {
         max={today}
         value={start || ''}
         onChange={handleStartChange}
-        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:glowing-blue-border transition-all"
+        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:glowing-blue-border transition-colors"
       />
       <span className="text-muted-foreground text-sm">to</span>
       <input
@@ -36,7 +36,7 @@ export default function DateRangePicker({ start, end, onChange }) {
         max={today}
         value={end || ''}
         onChange={handleEndChange}
-        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:glowing-blue-border transition-all"
+        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:glowing-blue-border transition-colors"
       />
     </div>
   );

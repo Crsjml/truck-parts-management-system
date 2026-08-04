@@ -23,17 +23,18 @@ export default function BestSellingPartsReport({ transactions, parts }) {
     
     const rankedData = rankPartsBySales(transactions, { start, end });
     
-    // Add SKU lookup
-    const partMap = new Map(parts.map(p => [p.name, p.sku]));
+    const partMap = new Map(parts.map(p => [p.name, p]));
     
     return rankedData.map(r => ({
       ...r,
-      sku: partMap.get(r.name) || 'N/A'
+      sku: partMap.get(r.name)?.sku || 'N/A',
+      stock: partMap.get(r.name)?.stock ?? 'N/A',
+      category: partMap.get(r.name)?.category || partMap.get(r.name)?.categoryName || 'Uncategorized'
     }));
   }, [transactions, parts, dateRange]);
 
   return (
-    <div className="glass-panel p-5 rounded-2xl space-y-4">
+    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-border">
         <div>
           <h3 className="text-base font-bold text-foreground font-display">Best-Selling Parts</h3>
@@ -53,17 +54,19 @@ export default function BestSellingPartsReport({ transactions, parts }) {
                 <th className="py-3 px-3 text-center">Momentum</th>
                 <th className="py-3 px-3">Part Name</th>
                 <th className="py-3 px-3">SKU</th>
+                <th className="py-3 px-3">Category</th>
+                <th className="py-3 px-3 text-right">Stock</th>
                 <th className="py-3 px-3 text-right">Units Sold</th>
                 <th className="py-3 px-3 text-right">Revenue</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50">
+            <tbody className="divide-y divide-border">
               {ranked.map((item) => {
                 const { text, style } = getRankDeltaBadge(item.rankDelta);
                 return (
                   <tr key={item.name} className="hover:bg-secondary transition-colors">
                     <td className="py-3 px-3 text-center">
-                      <span className="font-bold text-brandBlue-400 bg-brandBlue-950/40 border border-brandBlue-800/35 px-2 py-0.5 rounded">
+                      <span className="font-bold text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border border-brandBlue-500/30 px-2 py-0.5 rounded">
                         #{item.rank}
                       </span>
                     </td>
@@ -74,8 +77,10 @@ export default function BestSellingPartsReport({ transactions, parts }) {
                     </td>
                     <td className="py-3 px-3 font-semibold text-foreground">{item.name}</td>
                     <td className="py-3 px-3 text-muted-foreground">{item.sku}</td>
+                    <td className="py-3 px-3 text-muted-foreground">{item.category}</td>
+                    <td className="py-3 px-3 text-right font-semibold text-foreground">{item.stock}</td>
                     <td className="py-3 px-3 text-right font-bold text-foreground">{item.quantity}</td>
-                    <td className="py-3 px-3 text-right font-bold text-emerald-400">{formatBaseCurrency(item.revenue)}</td>
+                    <td className="py-3 px-3 text-right font-bold text-emerald-700 dark:text-emerald-300">{formatBaseCurrency(item.revenue)}</td>
                   </tr>
                 );
               })}
