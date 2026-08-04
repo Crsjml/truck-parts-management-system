@@ -80,7 +80,7 @@ export default function LowStockAlertPopover({
             const actualStock = part.stock - (part.reservedStock || 0);
             const ratio = part.minStock > 0 ? actualStock / part.minStock : 0;
             const isCritical = ratio <= 0;
-            const badgeClass = isCritical ? 'bg-destructive text-white' : 'bg-amber-500 text-white';
+            const badgeClass = isCritical ? 'bg-destructive text-white' : 'bg-accent text-white';
             const label = isCritical ? 'Critical' : 'Low';
 
             return (
