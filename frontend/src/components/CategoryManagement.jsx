@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Tag, Plus, Pencil, Trash, CaretRight, Warning, CheckCircle, CircleNotch, List, FolderSimplePlus, Table, MagnifyingGlass, WarningCircle, X, Palette, Star } from '@phosphor-icons/react';
 import { fetchCategoriesList, createCategory, updateCategory, deleteCategory } from '../authStore';
@@ -22,10 +22,13 @@ export default function CategoryManagement({ onAddLog }) {
   const [iconName, setIconName] = useState('Wrench');
   const [colorTheme, setColorTheme] = useState('gray');
   const [manualOverride, setManualOverride] = useState(false);
+  const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
+  const nameInputRef = useRef(null);
   
   // Feedback
   const [notice, setNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const loadCategories = async (preserveSelection = false) => {
     setLoading(true);
@@ -78,7 +81,23 @@ export default function CategoryManagement({ onAddLog }) {
     setIconName('Wrench');
     setColorTheme('gray');
     setErrorMsg('');
+    setIsAppearanceOpen(false);
   };
+
+  useEffect(() => {
+    if (!isFormOpen) return;
+    const frame = requestAnimationFrame(() => nameInputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [isFormOpen]);
+
+  useEffect(() => {
+    if (!isFormOpen || submitLoading) return;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeForm();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFormOpen, submitLoading]);
 
   const handleNameChange = (e) => {
     const val = e.target.value;
@@ -147,12 +166,19 @@ export default function CategoryManagement({ onAddLog }) {
     setTimeout(() => setNotice(''), 3000);
   };
 
-  const handleDelete = async (id, catName) => {
-    if (!confirm(`Are you sure you want to delete category "${catName}"?`)) return;
-    
+  const requestDelete = (category) => {
+    setErrorMsg('');
+    setNotice('');
+    setDeleteTarget(category);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { id, name: catName } = deleteTarget;
     setLoading(true);
     const result = await deleteCategory(id);
     setLoading(false);
+    setDeleteTarget(null);
 
     if (!result.ok) {
       // Show error via notice system so it floats at the top
@@ -179,23 +205,30 @@ export default function CategoryManagement({ onAddLog }) {
 
   // Flat view filtering
   const filteredCategories = categories.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const orphanCategories = categories.filter(c => c.parentCategoryId && !c.parentCategory);
+  const duplicatedNames = categories.filter((cat, index, list) =>
+    list.findIndex(item => item.name.trim().toLowerCase() === cat.name.trim().toLowerCase()) !== index
+  );
+  const taxonomyStatus = orphanCategories.length > 0 || duplicatedNames.length > 0
+    ? 'Needs review'
+    : 'Organized';
 
   const renderFeedback = () => {
     if (errorMsg) {
       return (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full rounded-2xl border border-red-500/20 bg-red-950/80 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-red-100">
+        <div role="alert" className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full rounded-2xl border border-red-500/20 bg-red-950/80 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-red-100">
           <Warning className="text-red-500 shrink-0 mt-0.5 w-5 h-5" weight="duotone" />
           <div className="leading-snug">{errorMsg}</div>
-          <button onClick={() => setErrorMsg('')} className="ml-auto text-red-400 hover:text-white"><X /></button>
+          <button type="button" aria-label="Dismiss error" onClick={() => setErrorMsg('')} className="ml-auto text-red-400 hover:text-white"><X /></button>
         </div>
       );
     }
     if (notice) {
       return (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/80 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-emerald-100">
+        <div role="status" className="fixed top-24 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full rounded-2xl border border-emerald-500/20 bg-emerald-950/80 backdrop-blur-md p-4 text-xs flex gap-3 items-start shadow-2xl animate-scaleUp text-emerald-100">
           <CheckCircle className="text-emerald-500 shrink-0 mt-0.5 w-5 h-5" weight="duotone" />
           <div className="leading-snug">{notice}</div>
-          <button onClick={() => setNotice('')} className="ml-auto text-emerald-400 hover:text-white"><X /></button>
+          <button type="button" aria-label="Dismiss notice" onClick={() => setNotice('')} className="ml-auto text-emerald-400 hover:text-white"><X /></button>
         </div>
       );
     }
@@ -207,7 +240,7 @@ export default function CategoryManagement({ onAddLog }) {
       {renderFeedback()}
 
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border-l-4 border-l-brandBlue-400 flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 md:p-8 border border-border flex flex-col xl:flex-row xl:items-center justify-between gap-6 shrink-0">
         <div className="absolute top-0 right-0 w-96 h-96 bg-brandBlue-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-display flex items-center gap-2.5">
@@ -215,27 +248,46 @@ export default function CategoryManagement({ onAddLog }) {
             Category Management
           </h1>
           <p className="text-muted-foreground text-sm max-w-xl leading-relaxed">
-            Create, edit, and audit truck part categories. Subcategories are dynamically linked to catalogs for easy filtering.
+            Organize the product catalog into clear main groups and subcategories so staff can find, filter, and maintain parts faster.
           </p>
         </div>
         
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="rounded-xl border border-border bg-background/60 px-4 py-3">
+            <div className="text-2xs uppercase tracking-widest text-muted-foreground font-bold">Main groups</div>
+            <div className="mt-1 text-xl font-bold text-foreground">{topLevelCategories.length}</div>
+          </div>
+          <div className="rounded-xl border border-border bg-background/60 px-4 py-3">
+            <div className="text-2xs uppercase tracking-widest text-muted-foreground font-bold">Subcategories</div>
+            <div className="mt-1 text-xl font-bold text-foreground">{totalSubCategories}</div>
+          </div>
+          <div className="rounded-xl border border-border bg-background/60 px-4 py-3">
+            <div className="text-2xs uppercase tracking-widest text-muted-foreground font-bold">Status</div>
+            <div className={`mt-1 text-sm font-bold ${taxonomyStatus === 'Organized' ? 'text-emerald-500' : 'text-amber-500'}`}>{taxonomyStatus}</div>
+          </div>
           <button
+            type="button"
             onClick={() => openForm()}
-            className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-1.5"
+            className="rounded-xl bg-accent hover:bg-accent/90 text-white font-bold transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-1.5 px-4 py-3"
           >
             <Plus weight="bold" className="w-4 h-4" /> Add Category
           </button>
-          
+        </div>
+        
+        <div className="flex flex-col gap-3 xl:min-w-56">
           <div className="flex bg-secondary border border-border p-1 rounded-xl">
             <button
+              type="button"
               onClick={() => setActiveTab('hierarchy')}
+              aria-pressed={activeTab === 'hierarchy'}
               className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'hierarchy' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <List weight="bold" /> Hierarchy
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('flat')}
+              aria-pressed={activeTab === 'flat'}
               className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'flat' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Table weight="bold" /> Flat List
@@ -264,7 +316,18 @@ export default function CategoryManagement({ onAddLog }) {
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
               {topLevelCategories.length === 0 ? (
-                <div className="p-4 text-center text-xs text-muted-foreground italic">No main categories found.</div>
+                <div className="p-5 text-center text-xs text-muted-foreground">
+                  <FolderSimplePlus className="mx-auto mb-2 w-8 h-8 opacity-60" weight="duotone" />
+                  <p className="font-bold text-foreground">No main categories yet</p>
+                  <p className="mt-1">Start with a broad group like Engine, Brakes, or Electrical.</p>
+                  <button
+                    type="button"
+                    onClick={() => openForm()}
+                    className="mt-4 px-4 py-2 rounded-xl bg-accent text-white font-bold"
+                  >
+                    Add first category
+                  </button>
+                </div>
               ) : (
                 topLevelCategories.map(parent => {
                   const subCount = getSubcategories(parent.id).length;
@@ -272,10 +335,12 @@ export default function CategoryManagement({ onAddLog }) {
                   const { Icon: CatIcon, color, bg } = getCategoryIconAndColor(parent.name, parent.iconName, parent.colorTheme);
                   
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={parent.id}
                       onClick={() => setSelectedParentId(parent.id)}
-                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-background border-brandBlue-500/30 shadow-sm' : 'border-transparent hover:bg-secondary/80'}`}
+                      aria-pressed={isSelected}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition-all border ${isSelected ? 'bg-background border-brandBlue-500/30 shadow-sm' : 'border-transparent hover:bg-secondary/80'}`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center border border-border/30 ${bg}`}>
@@ -287,7 +352,7 @@ export default function CategoryManagement({ onAddLog }) {
                         </div>
                       </div>
                       <CaretRight className={`w-4 h-4 ${isSelected ? 'text-brandBlue-500' : 'text-muted-foreground/30'}`} weight="bold" />
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -314,13 +379,28 @@ export default function CategoryManagement({ onAddLog }) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => openForm(selectedParent)} className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(selectedParent.id, selectedParent.name)} className="p-2 hover:bg-red-950/20 rounded-lg text-muted-foreground hover:text-red-500 transition-colors border border-transparent hover:border-red-900/30"><Trash className="w-4 h-4" /></button>
+                      <button
+                        type="button"
+                        aria-label={`Edit ${selectedParent.name}`}
+                        onClick={() => openForm(selectedParent)}
+                        className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${selectedParent.name}`}
+                        onClick={() => requestDelete(selectedParent)}
+                        className="p-2 hover:bg-red-950/20 rounded-lg text-muted-foreground hover:text-red-500 transition-colors border border-transparent hover:border-red-900/30"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                   
                   <div className="mt-6 flex justify-end relative z-10">
                     <button
+                      type="button"
                       onClick={() => openForm(null, selectedParent.id)}
                       className="px-4 py-2 bg-background border border-border hover:border-brandBlue-500/50 hover:text-brandBlue-500 text-muted-foreground font-bold rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5"
                     >
@@ -335,8 +415,15 @@ export default function CategoryManagement({ onAddLog }) {
                       <FolderSimplePlus className="w-12 h-12 text-muted-foreground" weight="duotone" />
                       <div>
                         <p className="text-sm font-bold text-foreground">No Subcategories</p>
-                        <p className="text-xs text-muted-foreground">Click "Add Subcategory" to create one.</p>
+                        <p className="text-xs text-muted-foreground">Create a smaller group so staff can filter this section faster.</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => openForm(null, selectedParent.id)}
+                        className="px-4 py-2 rounded-xl bg-background border border-border text-xs font-bold text-foreground hover:border-brandBlue-500/50"
+                      >
+                        Add subcategory
+                      </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -345,13 +432,13 @@ export default function CategoryManagement({ onAddLog }) {
                         return (
                           <div 
                             key={child.id} 
-                            className={`flex flex-col p-4 bg-background border border-border hover:border-border/80 rounded-xl group/sub transition-all hover:shadow-md hover:shadow-black/5 hover:-translate-y-0.5 hover:shadow-[inset_2px_0_0_0_currentColor] ${color}`}
+                            className="flex flex-col p-4 bg-background border border-border hover:border-border/80 rounded-xl transition-all hover:shadow-md hover:shadow-black/5"
                           >
                             <div className="flex items-start justify-between">
                               <span className="font-bold text-sm text-foreground/90">{child.name}</span>
-                              <div className="flex gap-1 opacity-0 group-hover/sub:opacity-100 transition-opacity">
-                                <button onClick={() => openForm(child)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleDelete(child.id, child.name)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500"><Trash className="w-3.5 h-3.5" /></button>
+                              <div className="flex gap-1">
+                                <button type="button" aria-label={`Edit ${child.name}`} onClick={() => openForm(child)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                                <button type="button" aria-label={`Delete ${child.name}`} onClick={() => requestDelete(child)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500"><Trash className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
                             <span className="text-2xs text-muted-foreground mt-1 flex items-center gap-1"><CaretRight className={color} /> Parent: {selectedParent.name}</span>
@@ -377,7 +464,9 @@ export default function CategoryManagement({ onAddLog }) {
             <div className="relative">
               <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <input 
+                id="category-search"
                 type="text" 
+                aria-label="Search categories"
                 placeholder="Search categories..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -398,7 +487,31 @@ export default function CategoryManagement({ onAddLog }) {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredCategories.length === 0 ? (
-                  <tr><td colSpan="4" className="text-center py-8 text-muted-foreground text-xs italic">No matching categories.</td></tr>
+                  <tr>
+                    <td colSpan="4" className="text-center py-10 text-muted-foreground text-xs">
+                      <FolderSimplePlus className="mx-auto mb-2 w-8 h-8 opacity-60" weight="duotone" />
+                      <p className="font-bold text-foreground">{searchQuery ? 'No categories match this search.' : 'No categories yet.'}</p>
+                      <p className="mt-1">{searchQuery ? 'Clear the search or create a new category if this is missing.' : 'Create your first category to start organizing the catalog.'}</p>
+                      <div className="mt-4 flex flex-wrap justify-center gap-2">
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            className="px-4 py-2 rounded-xl border border-border bg-background text-foreground font-bold"
+                          >
+                            Clear search
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openForm()}
+                          className="px-4 py-2 rounded-xl bg-accent text-white font-bold"
+                        >
+                          Add category
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
                   filteredCategories.map(cat => {
                     const { Icon: CatIcon, color, bg } = getCategoryIconAndColor(cat.name, cat.iconName, cat.colorTheme);
@@ -435,8 +548,8 @@ export default function CategoryManagement({ onAddLog }) {
                           ) : '--'}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button onClick={() => openForm(cat)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground inline-block mx-1 border border-transparent hover:border-border"><Pencil className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => handleDelete(cat.id, cat.name)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500 inline-block mx-1 border border-transparent hover:border-red-900/30"><Trash className="w-3.5 h-3.5" /></button>
+                          <button type="button" aria-label={`Edit ${cat.name}`} onClick={() => openForm(cat)} className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground inline-block mx-1 border border-transparent hover:border-border"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button type="button" aria-label={`Delete ${cat.name}`} onClick={() => requestDelete(cat)} className="p-1.5 hover:bg-red-950/20 rounded-md text-muted-foreground hover:text-red-500 inline-block mx-1 border border-transparent hover:border-red-900/30"><Trash className="w-3.5 h-3.5" /></button>
                         </td>
                       </tr>
                     );
@@ -451,19 +564,27 @@ export default function CategoryManagement({ onAddLog }) {
       {/* ── CREATE / EDIT MODAL WITH ICON/COLOR PICKER ── */}
       {isFormOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-4xl bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col max-h-[90vh]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={editId ? 'category-dialog-edit-title' : 'category-dialog-create-title'}
+            className="w-full max-w-3xl bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col max-h-[90vh]"
+          >
             <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-background/50">
-              <h3 className="text-base font-bold text-foreground font-display flex items-center gap-2">
+              <h3
+                id={editId ? 'category-dialog-edit-title' : 'category-dialog-create-title'}
+                className="text-base font-bold text-foreground font-display flex items-center gap-2"
+              >
                 <FolderSimplePlus className="text-accent w-5 h-5" weight="duotone" />
-                {editId ? 'Modify Category' : 'Create New Category'}
+                {editId ? 'Edit Category' : 'Create New Category'}
               </h3>
-              <button onClick={closeForm} className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+              <button type="button" aria-label="Close category dialog" onClick={closeForm} className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                 <X weight="bold" className="w-4 h-4" />
               </button>
             </div>
             
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
-              <form id="categoryForm" onSubmit={handleFormSubmit} className="flex flex-col gap-6">
+              <form id="categoryForm" noValidate onSubmit={handleFormSubmit} className="flex flex-col gap-6">
                 
                 {/* LIVE PREVIEW BOX (Full Width) */}
                 <div className="flex items-center justify-between p-5 rounded-2xl border border-border/50 bg-secondary/30 shadow-inner">
@@ -488,13 +609,15 @@ export default function CategoryManagement({ onAddLog }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* LEFT COLUMN: Details & Colors */}
-                  <div className="space-y-8">
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Details */}
+                  <div className="space-y-6">
                     <div className="space-y-6">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Category Name *</label>
+                        <label htmlFor="category-name" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Category Name *</label>
                         <input
+                          id="category-name"
+                          ref={nameInputRef}
                           type="text"
                           required
                           placeholder="e.g. Engine Components"
@@ -510,8 +633,9 @@ export default function CategoryManagement({ onAddLog }) {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Parent Category (Optional)</label>
+                        <label htmlFor="category-parent" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Parent Category (Optional)</label>
                         <select
+                          id="category-parent"
                           value={parentCategory}
                           onChange={(e) => setParentCategory(e.target.value)}
                           className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brandBlue-500 text-foreground transition-all"
@@ -527,58 +651,75 @@ export default function CategoryManagement({ onAddLog }) {
                       </div>
                     </div>
 
-                    {/* COLOR THEME PICKER */}
-                    <div className="space-y-3 bg-background/50 p-5 rounded-2xl border border-border/50">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Palette className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Color Theme
-                        </label>
+                    <button
+                      type="button"
+                      aria-expanded={isAppearanceOpen}
+                      aria-controls="category-appearance-controls"
+                      onClick={() => setIsAppearanceOpen(open => !open)}
+                      className="w-full flex items-center justify-between rounded-2xl border border-border bg-background/50 p-4 text-left"
+                    >
+                      <span>
+                        <span className="block text-xs font-bold text-foreground uppercase tracking-wider">Appearance overrides</span>
+                        <span className="mt-1 block text-2xs text-muted-foreground">Optional: choose a custom icon and color, or let the name auto-suggest them.</span>
+                      </span>
+                      <CaretRight className={`w-4 h-4 text-muted-foreground transition-transform ${isAppearanceOpen ? 'rotate-90' : ''}`} weight="bold" />
+                    </button>
+                  </div>
+
+                  {isAppearanceOpen && (
+                  <div id="category-appearance-controls" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* COLOR THEME PICKER */}
+                  <div className="space-y-3 bg-background/50 p-5 rounded-2xl border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Palette className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Color Theme
                       </div>
-                      <div className="text-2xs text-muted-foreground leading-relaxed">
-                        Select a vibrant theme. Colors marked with a dot are already in use.
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {Object.keys(COLOR_THEMES).map(colorKey => {
-                          const themeClasses = COLOR_THEMES[colorKey];
-                          const bgClass = themeClasses.split(' ').find(c => c.startsWith('bg-'));
-                          const borderClass = themeClasses.split(' ').find(c => c.startsWith('border-'));
-                          const textClass = themeClasses.split(' ').find(c => c.startsWith('text-'));
-                          const isColorSelected = colorTheme === colorKey;
-                          
-                          const isUsed = categories.some(c => {
-                            if (c.id === editId) return false;
-                            const actualColorTheme = c.colorTheme || autoSuggest(c.name)?.colorTheme || 'gray';
-                            return actualColorTheme === colorKey;
-                          });
-                          
-                          return (
-                            <button
-                              key={colorKey}
-                              type="button"
-                              onClick={() => selectColor(colorKey)}
-                              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${isColorSelected ? `bg-secondary border-brandBlue-500/50 shadow-sm` : 'bg-transparent border-border hover:bg-secondary/50'}`}
-                              title={`${colorKey} ${isUsed ? '(Already Used)' : ''}`}
-                            >
-                              <div className={`w-3.5 h-3.5 rounded-full border ${borderClass} ${bgClass} shrink-0`} />
-                              <span className={`text-2xs font-bold uppercase tracking-wider ${isColorSelected ? textClass : 'text-muted-foreground'}`}>
-                                {colorKey}
-                              </span>
-                              {isUsed && (
-                                <div className="absolute right-0 top-0 -mr-1 -mt-1 w-2.5 h-2.5 rounded-full bg-foreground/30 border-2 border-background" title="Already in use" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    </div>
+                    <div className="text-2xs text-muted-foreground leading-relaxed">
+                      Colors marked with a dot are already used by another category.
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {Object.keys(COLOR_THEMES).map(colorKey => {
+                        const themeClasses = COLOR_THEMES[colorKey];
+                        const bgClass = themeClasses.split(' ').find(c => c.startsWith('bg-'));
+                        const borderClass = themeClasses.split(' ').find(c => c.startsWith('border-'));
+                        const textClass = themeClasses.split(' ').find(c => c.startsWith('text-'));
+                        const isColorSelected = colorTheme === colorKey;
+                        
+                        const isUsed = categories.some(c => {
+                          if (c.id === editId) return false;
+                          const actualColorTheme = c.colorTheme || autoSuggest(c.name)?.colorTheme || 'gray';
+                          return actualColorTheme === colorKey;
+                        });
+                        
+                        return (
+                          <button
+                            key={colorKey}
+                            type="button"
+                            aria-label={`Use ${colorKey} color theme${isUsed ? ', already used' : ''}`}
+                            onClick={() => selectColor(colorKey)}
+                            className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${isColorSelected ? `bg-secondary border-brandBlue-500/50 shadow-sm` : 'bg-transparent border-border hover:bg-secondary/50'}`}
+                            title={`${colorKey} ${isUsed ? '(Already Used)' : ''}`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full border ${borderClass} ${bgClass} shrink-0`} />
+                            <span className={`text-2xs font-bold uppercase tracking-wider ${isColorSelected ? textClass : 'text-muted-foreground'}`}>
+                              {colorKey}
+                            </span>
+                            {isUsed && (
+                              <div className="absolute right-0 top-0 -mr-1 -mt-1 w-2.5 h-2.5 rounded-full bg-foreground/30 border-2 border-background" title="Already in use" />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* RIGHT COLUMN: Icon Picker */}
+                  {/* Icon Picker */}
                   <div className="space-y-4 bg-background/50 p-5 rounded-2xl border border-border/50 h-full flex flex-col">
                     <div className="flex items-center justify-between shrink-0">
-                      <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <div className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
                         <Star className="text-brandBlue-500 w-4 h-4" weight="duotone" /> Category Icon
-                      </label>
+                      </div>
                     </div>
                     <div className="text-2xs text-muted-foreground leading-relaxed shrink-0">
                       Choose a recognizable icon to pair with your color theme.
@@ -594,6 +735,7 @@ export default function CategoryManagement({ onAddLog }) {
                           <button
                             key={iconKey}
                             type="button"
+                            aria-label={`Use ${iconKey} icon`}
                             onClick={() => selectIcon(iconKey)}
                             className={`flex flex-col items-center justify-center p-3 gap-2 rounded-xl transition-all ${isIconSelected ? `border border-border/50 shadow-sm ${activeBg} ${activeColor}` : 'text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm border border-transparent'}`}
                             title={iconKey}
@@ -604,6 +746,8 @@ export default function CategoryManagement({ onAddLog }) {
                       })}
                     </div>
                   </div>
+                  </div>
+                  )}
                 </div>
               </form>
             </div>
@@ -615,6 +759,48 @@ export default function CategoryManagement({ onAddLog }) {
               <button form="categoryForm" type="submit" disabled={submitLoading} className="px-8 py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs shadow-lg shadow-accent/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
                 {submitLoading ? <CircleNotch className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
                 {editId ? 'Save Updates' : 'Add Category'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {deleteTarget && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-category-title"
+            className="w-full max-w-md rounded-2xl border border-red-500/20 bg-secondary shadow-2xl overflow-hidden animate-scaleUp"
+          >
+            <div className="p-5 border-b border-border bg-background/50 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                <WarningCircle className="w-5 h-5" weight="duotone" />
+              </div>
+              <div>
+                <h3 id="delete-category-title" className="text-base font-bold text-foreground font-display">Delete category?</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  This removes <span className="font-bold text-foreground">"{deleteTarget.name}"</span> from category management. Make sure no staff are relying on it for catalog filtering.
+                </p>
+              </div>
+            </div>
+            <div className="p-5 flex flex-col sm:flex-row sm:justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-5 py-2.5 rounded-xl border border-border bg-background text-xs font-bold text-foreground hover:bg-secondary"
+              >
+                Keep category
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={loading}
+                className="px-5 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-500 disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {loading ? <CircleNotch className="w-4 h-4 animate-spin" /> : <Trash className="w-4 h-4" />}
+                Delete category
               </button>
             </div>
           </div>
