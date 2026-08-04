@@ -52,7 +52,7 @@ describe('LowStockAlertPopover', () => {
     
     const low = screen.getByText('Low Part').closest('li');
     const lowBadge = within(low).getByText('Low');
-    expect(lowBadge.className).toMatch(/bg-amber-500/);
+    expect(lowBadge.className).toMatch(/bg-accent/);
   });
 
   it('dismiss removes row but does not change props', () => {
