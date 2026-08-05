@@ -64,6 +64,10 @@ export const StatusBadge = ({ status }) => {
     'Cancelled': 'bg-red-500/15 text-red-400 border-red-500/30',
     'Waiting Bills': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
     'Bills Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'Pending': 'bg-secondary text-muted-foreground border-border',
+    'Due Soon': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    'Overdue': 'bg-red-500/15 text-red-400 border-red-500/30',
+    'Paid': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   };
   return (
     <span className={`px-2.5 py-0.5 text-11px font-bold rounded-full border ${map[status] || map['Draft']}`}>

@@ -54,7 +54,7 @@ describe('Dashboard watchlist', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the full low-stock queue instead of a five-item teaser', () => {
+  it('renders the first low-stock page with pagination controls', () => {
     render(
       <Dashboard
         parts={sixLowStockParts}
@@ -66,6 +66,8 @@ describe('Dashboard watchlist', () => {
     );
 
     expect(screen.getByText(/low-stock watchlist/i)).toBeInTheDocument();
-    expect(screen.getAllByRole('row').length).toBeGreaterThan(6);
+    expect(screen.getAllByRole('row')).toHaveLength(6);
+    expect(screen.getByText('Showing 1 to 5 of 6 items')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next page/i })).toBeEnabled();
   });
 });

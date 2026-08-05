@@ -20,10 +20,21 @@ class PurchaseOrdersController extends BaseController {
       res.status(201).json(po);
     } catch (err) {
       console.error('[create PO]', err);
-      if (err.message.includes('required')) {
+      if (err.message.includes('required') || err.message.includes('must be') || err.message.includes('invalid')) {
         return res.status(400).json({ msg: err.message });
       }
       this.handleError(res, err, 'Server error creating PO.');
+    }
+  };
+
+  updatePurchaseOrderDetails = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const po = await purchaseOrdersService.updatePurchaseOrderDetails(id, req.body || {});
+      res.json(po);
+    } catch (err) {
+      console.error('[update PO details]', err);
+      res.status(err.status || 400).json({ msg: err.message || 'Server error updating PO details.' });
     }
   };
 
@@ -51,6 +62,17 @@ class PurchaseOrdersController extends BaseController {
         return res.status(400).json({ msg: err.message });
       }
       this.handleError(res, err, 'Server error updating billing status.');
+    }
+  };
+
+  updatePayment = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const po = await purchaseOrdersService.updatePayment(id, req.body || {});
+      res.json(po);
+    } catch (err) {
+      console.error('[update supplier payment]', err);
+      res.status(400).json({ msg: err.message || 'Server error updating supplier payment.' });
     }
   };
 
