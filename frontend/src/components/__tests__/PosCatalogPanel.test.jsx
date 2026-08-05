@@ -58,7 +58,7 @@ describe('PosCatalogPanel', () => {
   it('filters by vehicle brand compatibility', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /vehicle filter/i }));
-    fireEvent.change(screen.getByLabelText(/vehicle brand/i), { target: { value: 'Isuzu' } });
+    fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'Isuzu' } });
     expect(screen.getByText('Brake Pad Set')).toBeInTheDocument();
     expect(screen.queryByText('Oil Filter')).not.toBeInTheDocument();
   });
@@ -83,24 +83,24 @@ describe('PosCatalogPanel', () => {
     expect(screen.getByText(/no parts match/i)).toBeInTheDocument();
   });
 
-  it('shows every match in one scrolling list with no pagination', () => {
+  it('paginates matches to 8 per page', () => {
     const many = Array.from({ length: 24 }, (_, i) => ({
       id: `p${i}`, name: `Filter ${i}`, sku: `F-${i}`, oem: '', category: 'Filters',
       price: 100, stock: 5, reservedStock: 0, compatibleWith: []
     }));
     renderPanel({ parts: many });
 
-    expect(screen.queryByRole('button', { name: /^next$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^prev$/i })).not.toBeInTheDocument();
-    expect(screen.getByText('Filter 23')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next page/i })).toBeInTheDocument();
+    expect(screen.queryByText('Filter 23')).not.toBeInTheDocument();
+    expect(screen.getByText('Filter 7')).toBeInTheDocument();
   });
 
   it('keeps the vehicle filters collapsed until asked for', () => {
     renderPanel({});
-    expect(screen.queryByLabelText(/vehicle brand/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Brand')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /vehicle filter/i }));
-    expect(screen.getByLabelText(/vehicle brand/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Brand')).toBeInTheDocument();
   });
 });
 

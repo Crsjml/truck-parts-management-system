@@ -4,16 +4,15 @@ import { prisma } from '../config/prisma.js';
 class TransactionsRepository {
   async findMany() {
     return await prisma.transaction.findMany({
-      include: { items: { include: { part: true } } },
-      orderBy: { transactionDate: 'desc' },
-      take: 100
+      include: { items: { include: { part: { include: { category: true } } } } },
+      orderBy: { transactionDate: 'desc' }
     });
   }
 
   async findManyByUserId(userId) {
     return await prisma.transaction.findMany({
       where: { userId },
-      include: { items: { include: { part: true } } },
+      include: { items: { include: { part: { include: { category: true } } } } },
       orderBy: { transactionDate: 'desc' },
       take: 100
     });

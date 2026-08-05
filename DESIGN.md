@@ -74,6 +74,9 @@ Two semantic colors carry the entire system; everything else is structural (pape
 - **Mist Ink** (`hsl(215.4 16.3% 46.9%)`): Muted/secondary text — captions, helper text, disabled states.
 - **Hairline** (`hsl(214.3 31.8% 91.4%)`): Borders and input strokes. The only border color in the system — don't introduce a second gray.
 
+### Tertiary
+- **Chart Positive** (`hsl(160 84% 39%)`): Positive trend/delta indicator. Formalizes the emerald convention established in `getRankDeltaBadge` and `KpiTile`.
+
 ### Category Ramps
 - **Parts Blue** (`#2d5382`) / **Parts Red** (`#dc2626`): Full 50–900 ramps (`brandBlue`, `brandRed` in `tailwind.config.js`) used for category color-coding (`categoryIcons.jsx`) and badge/icon accents across catalog, dashboard, and staff surfaces. Distinct from Fleet Navy / Signal Red — these code categories, not brand actions.
 

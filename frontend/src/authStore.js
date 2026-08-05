@@ -124,6 +124,10 @@ export const fetchParts = async (search = '', category = 'All', filters = {}, fo
     if (filters.series) params.append('series', filters.series);
     if (filters.engineCode) params.append('engineCode', filters.engineCode);
     if (forceRefresh) params.append('_t', Date.now());
+    
+    // Always fetch a large limit so the dashboard and catalog have all parts
+    params.append('limit', '10000');
+
     if (params.toString()) query = `?${params.toString()}`;
 
     const { ok, data } = await apiGet(`/api/parts${query}`, { supabase });
@@ -473,22 +477,6 @@ export const resetPassword = async ({ token, password }) => {
   }
 };
 
-// ── Change Password (Authenticated) ──────────────────────────────────────────
-
-export const changePassword = async ({ email, currentPassword, newPassword }) => {
-  try {
-    const { ok, data } = await apiPost('/api/auth/change-password', {
-      email: email.trim().toLowerCase(),
-      current_password: currentPassword,
-      new_password: newPassword,
-    }, { supabase });
-    if (!ok) return { ok: false, error: data.msg || 'Password change failed.' };
-    return { ok: true, message: data.msg };
-  } catch {
-    return { ok: false, error: 'Could not reach the backend server. Is it running?' };
-  }
-};
-
 // ── Verification notice helper (used by UI) ──────────────────────────────────
 
 export const getVerificationNotice = (email, code) =>
@@ -656,6 +644,11 @@ export const createPurchaseOrder = api(async (poData) => {
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to create Purchase Order.' };
 });
 
+export const updatePurchaseOrderDetails = api(async (id, poData) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}`, poData, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update RFQ details.' };
+});
+
 export const updatePurchaseOrderStatus = api(async (id, status) => {
   const { ok, data } = await apiPut(`/api/purchase-orders/${id}/status`, { status }, { supabase });
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update PO status.' };
@@ -664,6 +657,11 @@ export const updatePurchaseOrderStatus = api(async (id, status) => {
 export const updatePoBillingStatus = api(async (id, billingStatus) => {
   const { ok, data } = await apiPut(`/api/purchase-orders/${id}/billing`, { billingStatus }, { supabase });
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update billing status.' };
+});
+
+export const updatePoPayment = api(async (id, paymentData) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/payment`, paymentData, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update supplier payment.' };
 });
 
 export const updatePoItemPrices = api(async (id, items) => {

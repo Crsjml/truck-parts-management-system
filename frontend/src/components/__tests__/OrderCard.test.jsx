@@ -8,7 +8,7 @@ describe('OrderCard', () => {
     id: '1',
     invoiceNumber: 'INV-001',
     transactionDate: '2026-07-26T10:00:00Z',
-    status: 'READY_FOR_PICKUP',
+    status: 'COMPLETED',
     items: [
       { id: '1', name: 'Brake Pads', price: 500, quantity: 2 }
     ],
@@ -40,7 +40,7 @@ describe('OrderCard', () => {
     
     // Header assertions
     expect(screen.getByText(/INV-001/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ready for Pickup/i)).toBeInTheDocument();
+    expect(screen.getByText(/Completed/i)).toBeInTheDocument();
     
     // Body assertions
     expect(screen.getByText('Brake Pads')).toBeInTheDocument();

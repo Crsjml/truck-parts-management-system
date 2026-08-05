@@ -3,12 +3,17 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, CheckCircle, WarningCircle, ArrowRight, ArrowLeft, 
-  Package, ListDashes, Tag, Funnel, Truck, CurrencyDollar, Image, SquaresFour, Plus, Trash 
+  Package, ListDashes, CurrencyDollar, Image, SquaresFour 
 } from '@phosphor-icons/react';
 import { z } from 'zod';
 import Select from 'react-select';
 import { customSelectStyles } from './ui/PurchasingAtoms';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
+import { Drawer } from './ui/Drawer';
+import CompatibilityEditor from './inventory/CompatibilityEditor';
+import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
+
+const emptyConfirmDialog = () => ({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
 
 const partSchema = z.object({
   name: z.string().min(3, "Part name must be at least 3 characters."),
@@ -40,8 +45,10 @@ export default function AddPartDrawer({
   const [formCategory, setFormCategory] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
-  const [formMinStock, setFormMinStock] = useState(0);
-  const [formCompatibleWith, setFormCompatibleWith] = useState([{ brand: '', series: '', year: '' }]);
+  const [formMinStock, setFormMinStock] = useState('');
+
+  const [confirmDialog, setConfirmDialog] = useState(emptyConfirmDialog);
+  const [formCompatibleWith, setFormCompatibleWith] = useState(normalizeCompatibilityRows(''));
   const [formDescription, setFormDescription] = useState('');
   const [formImage, setFormImage] = useState('');
 
@@ -49,6 +56,7 @@ export default function AddPartDrawer({
   React.useEffect(() => {
     if (isOpen) {
       setStep(1);
+      setCloneId('');
       setFormName('');
       setFormSku('');
       setFormOem('');
@@ -56,26 +64,43 @@ export default function AddPartDrawer({
       setFormPrice('');
       setFormStock('');
       setFormMinStock('');
-      setFormCompatibleWith([{ brand: '', series: '', year: '' }]);
+      setFormCompatibleWith(normalizeCompatibilityRows(''));
       setFormDescription('');
       setFormImage('');
       setFormErrors({});
       setServerError('');
       setIsSubmitting(false);
+      setConfirmDialog(emptyConfirmDialog());
+    } else {
+      setConfirmDialog(emptyConfirmDialog());
     }
   }, [isOpen]);
 
   const validateStep = (currentStep) => {
     const errors = {};
     if (currentStep === 1) {
-      if (!formName.trim() || formName.length < 3) errors.name = "Part name must be at least 3 characters.";
-      if (!formSku.trim()) errors.sku = "SKU is required.";
-      if (!formOem.trim()) errors.oem = "OEM number is required.";
-      if (!formCategory) errors.category = "Category is required.";
+      const result = partSchema.pick({ name: true, sku: true, oem: true, category: true }).safeParse({
+        name: formName.trim(),
+        sku: formSku.trim(),
+        oem: formOem.trim(),
+        category: formCategory
+      });
+      if (!result.success) {
+        result.error.issues.forEach(issue => {
+          errors[issue.path[0]] = issue.message;
+        });
+      }
     } else if (currentStep === 3) {
-      if (isNaN(parseFloat(formPrice)) || parseFloat(formPrice) < 0) errors.price = "Valid price required.";
-      if (isNaN(parseInt(formStock)) || parseInt(formStock) < 0) errors.stock = "Valid stock required.";
-      if (isNaN(parseInt(formMinStock)) || parseInt(formMinStock) < 0) errors.minStock = "Valid min stock required.";
+      const result = partSchema.pick({ price: true, stock: true, minStock: true }).safeParse({
+        price: isNaN(parseFloat(formPrice)) ? -1 : parseFloat(formPrice),
+        stock: isNaN(parseInt(formStock)) ? -1 : parseInt(formStock),
+        minStock: isNaN(parseInt(formMinStock)) ? -1 : parseInt(formMinStock)
+      });
+      if (!result.success) {
+        result.error.issues.forEach(issue => {
+          errors[issue.path[0]] = issue.message;
+        });
+      }
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -101,8 +126,8 @@ export default function AddPartDrawer({
       price: parseFloat(formPrice),
       stock: parseInt(formStock),
       minStock: parseInt(formMinStock),
-      compatibility: '',
-      compatibleWith: formCompatibleWith.filter(c => c.brand.trim() || c.series.trim() || c.year.trim()),
+      compatibility: compatibilityRowsToSummary(formCompatibleWith),
+      compatibleWith: compatibilityRowsToPayload(formCompatibleWith),
       description: formDescription.trim(),
       image: formImage
     };
@@ -123,29 +148,67 @@ export default function AddPartDrawer({
 
   if (!isOpen && !isSubmitting) return null;
 
+  const isDirty = formName || formSku || formOem || formCategory || formPrice || formStock || formDescription || formImage || formCompatibleWith.some(c => c.brand || c.series || c.year);
+  const filledCompatibilityRows = formCompatibleWith.filter(row => row.brand || row.series || row.year).length;
+  const closeConfirmDialog = () => setConfirmDialog(emptyConfirmDialog());
+  const requestClose = () => {
+    if (isDirty) {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Discard unsaved changes?',
+        message: 'Your input will be lost.',
+        confirmText: 'Discard',
+        onConfirm: onClose
+      });
+      return;
+    }
+    onClose();
+  };
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 lg:p-8">
           {/* Drawer backdrop click to close */}
-          <div className="absolute inset-0" onClick={onClose} />
+          <div className="absolute inset-0" onClick={requestClose} />
           
           <motion.div 
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative w-full max-w-xl h-full bg-secondary border-l border-border shadow-2xl flex flex-col"
+            initial={{ opacity: 0, scale: 0.96, y: 24 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 24 }}
+            transition={{ type: 'spring', damping: 24, stiffness: 220 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-part-drawer-title"
+            className="relative w-full max-w-5xl h-[min(100%,calc(100vh-2rem))] sm:h-[min(100%,calc(100vh-3rem))] bg-secondary/95 border border-border shadow-[0_30px_90px_rgba(15,23,42,0.22)] rounded-3xl overflow-hidden flex flex-col backdrop-blur-2xl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border bg-background z-10">
-              <div>
-                <h3 className="text-xl font-bold text-foreground font-display">Add New Part</h3>
-                <p className="text-xs text-muted-foreground mt-1">Step {step} of 3: {step === 1 ? 'Basic Info' : step === 2 ? 'Details & Compatibility' : 'Pricing & Stock'}</p>
+            <div className="flex items-start justify-between gap-4 px-6 py-5 sm:px-8 border-b border-border bg-background/85 backdrop-blur-xl z-10">
+              <div className="min-w-0 space-y-3">
+                <div className="space-y-1">
+                  <h3 id="add-part-drawer-title" className="text-2xl sm:text-[1.65rem] font-bold text-foreground font-display">Add New Part</h3>
+                  <p className="text-sm text-muted-foreground max-w-2xl">
+                    Build a new catalog item with fitment, description, and stock controls in one clean flow.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-full border border-brandBlue-200 bg-brandBlue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brandBlue-700">
+                    Step {step} of 3
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+                    {step === 1 ? 'Basic Info' : step === 2 ? 'Details & Compatibility' : 'Pricing & Stock'}
+                  </span>
+                  {cloneId && (
+                    <span className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold text-foreground">
+                      Template selected
+                    </span>
+                  )}
+                </div>
               </div>
               <button 
-                onClick={onClose}
-                className="p-2 bg-secondary hover:bg-background rounded-xl text-muted-foreground hover:text-foreground transition-colors"
+                onClick={requestClose}
+                aria-label="Close add part drawer"
+                className="shrink-0 p-2.5 bg-secondary hover:bg-background rounded-2xl text-muted-foreground hover:text-foreground transition-colors border border-border"
               >
                 <X weight="bold" className="w-5 h-5" />
               </button>
@@ -157,20 +220,33 @@ export default function AddPartDrawer({
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
+            <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 custom-scrollbar relative bg-secondary/60">
               
               {/* Step 1: Basic Info */}
               {step === 1 && (
-                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
-                  <div className="space-y-1.5 bg-secondary/30 p-4 rounded-xl border border-border">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <SquaresFour weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Clone Existing Part Template
-                    </label>
-                    <div className="flex gap-2">
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
+                          <SquaresFour weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Start from a template
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          Pull an existing part into this form, then edit the details that are different.
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-brandBlue-200 bg-brandBlue-50 px-3 py-1 text-[11px] font-semibold leading-none text-brandBlue-700 sm:self-center">
+                        Optional shortcut
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="flex-1">
                         <Select
                           options={parts.map(p => ({ value: p.id, label: `${p.sku} - ${p.name}` }))}
-                          value={cloneId ? { value: cloneId, label: parts.find(p => String(p.id) === String(cloneId))?.name || 'Selected' } : null}
+                          value={cloneId ? (() => {
+                            const selectedPart = parts.find(p => String(p.id) === String(cloneId));
+                            return selectedPart ? { value: selectedPart.id, label: `${selectedPart.sku} - ${selectedPart.name}` } : null;
+                          })() : null}
                           onChange={(selected) => setCloneId(selected?.value || '')}
                           placeholder="-- Select a part to clone its details --"
                           styles={customSelectStyles}
@@ -182,232 +258,241 @@ export default function AddPartDrawer({
                         type="button"
                         onClick={() => {
                           if (!cloneId) return;
+                          
+                          const applyTemplate = () => {
+                            const p = parts.find(x => String(x.id) === String(cloneId));
+                            if (p) {
+                              setFormName(p.name + ' (Copy)');
+                              setFormOem(p.oem || '');
+                              setFormCategory(p.categoryId || p.category?.id || p.category || '');
+                              setFormPrice(p.price || '');
+                              setFormMinStock(p.min_stock || p.minStock || 0);
+                              setFormStock(0);
+                              setFormSku('');
+                              setFormCompatibleWith(normalizeCompatibilityRows(p.compatibleWith?.length ? p.compatibleWith : p.compatibility || ''));
+                              setFormDescription(p.description || '');
+                              setFormImage(p.image || '');
+                              setFormErrors({});
+                            }
+                          };
+
                           if (formName || formSku || formOem || formPrice) {
-                            if (!window.confirm("Are you sure you want to apply this template? This will overwrite your current inputs.")) return;
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Apply Template?',
+                              message: 'Are you sure you want to apply this template? This will overwrite your current inputs.',
+                              confirmText: 'Apply Template',
+                              onConfirm: applyTemplate
+                            });
+                            return;
                           }
-                          const p = parts.find(x => String(x.id) === String(cloneId));
-                          if (p) {
-                            setFormName(p.name + ' (Copy)');
-                            setFormOem(p.oem || '');
-                            setFormCategory(p.categoryId || p.category?.id || p.category || '');
-                            setFormPrice(p.price || '');
-                            setFormMinStock(p.min_stock || p.minStock || 0);
-                            setFormStock(0);
-                            setFormSku('');
-                            setFormCompatibleWith(p.compatibleWith?.length ? p.compatibleWith : [{ brand: p.compatibility || '', series: '', year: '' }]);
-                            setFormDescription(p.description || '');
-                            setFormErrors({});
-                          }
+                          
+                          applyTemplate();
                         }}
-                        className="px-4 py-2 bg-brandBlue-500 hover:bg-brandBlue-600 text-white text-sm font-bold rounded-xl transition-colors shrink-0"
+                        className="px-4 py-2.5 bg-brandBlue-500 hover:bg-brandBlue-600 text-white text-sm font-bold rounded-2xl transition-colors shrink-0 shadow-sm shadow-brandBlue-500/15"
                       >
                         Apply Template
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 group">
-                    <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formName ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      <Package weight="duotone" className={`w-4 h-4 ${formName ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Part Name *
-                    </label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Starter Motor Assembly (24V)"
-                      value={formName}
-                      onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
-                      className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
-                    />
-                    {formErrors.name && <p className="text-2xs text-red-400 font-semibold">{formErrors.name}</p>}
-                  </div>
+                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <Package weight="duotone" className="w-4 h-4 text-brandBlue-400" />
+                        Core identity
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Name, SKU, OEM, and category drive search, filtering, and inventory reporting.
+                      </p>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <ListDashes weight="duotone" className="w-4 h-4 text-brandBlue-400" /> SKU *
+                      <label htmlFor="add-part-name" className={`text-sm font-medium flex items-center gap-1.5 transition-colors ${formName ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        Part Name *
                       </label>
                       <input 
+                        id="add-part-name"
                         type="text" 
-                        placeholder="e.g. ELC-STR"
-                        value={formSku}
-                        onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                        placeholder="e.g. Starter Motor Assembly (24V)"
+                        value={formName}
+                        onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
+                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.sku && <p className="text-2xs text-red-400 font-semibold">{formErrors.sku}</p>}
+                      {formErrors.name && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.name}</p>}
                     </div>
-                    <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <Tag weight="duotone" className="w-4 h-4 text-brandBlue-400" /> OEM No. *
-                      </label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. 1-81100-341-1"
-                        value={formOem}
-                        onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
-                      />
-                      {formErrors.oem && <p className="text-2xs text-red-400 font-semibold">{formErrors.oem}</p>}
-                    </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <Funnel weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Category *
-                    </label>
-                    <div className={`${formErrors.category ? 'rounded-xl ring-1 ring-red-500' : ''}`}>
-                      <Select
-                        options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
-                          label: parent.name,
-                          options: [
-                            { value: parent.id, label: `${parent.name} (Main)`, catName: parent.name, iconName: parent.iconName, colorTheme: parent.colorTheme },
-                            ...categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString()).map(sub => ({ value: sub.id, label: sub.name, catName: sub.name, iconName: sub.iconName, colorTheme: sub.colorTheme }))
-                          ]
-                        }))}
-                        value={
-                          formCategory 
-                            ? (() => {
-                                const c = categoriesList.find(cat => String(cat.id) === String(formCategory));
-                                return c ? { value: c.id, label: c.name, catName: c.name, iconName: c.iconName, colorTheme: c.colorTheme } : null;
-                              })()
-                            : null
-                        }
-                        onChange={(selected) => { setFormCategory(selected?.value || ''); setFormErrors(prev => ({...prev, category: ''})); }}
-                        placeholder="-- Select Category --"
-                        styles={customSelectStyles}
-                        isClearable
-                        classNamePrefix="react-select"
-                        formatOptionLabel={(option) => {
-                          if (!option.catName) return <span>{option.label}</span>;
-                          const { Icon, color } = getCategoryIconAndColor(option.catName, option.iconName, option.colorTheme);
-                          return (
-                            <div className="flex items-center gap-2">
-                              <Icon className={`w-4 h-4 ${color}`} weight="duotone" />
-                              <span>{option.label}</span>
-                            </div>
-                          );
-                        }}
-                      />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5 group">
+                        <label htmlFor="add-part-sku" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                          SKU *
+                        </label>
+                        <input 
+                          id="add-part-sku"
+                          type="text" 
+                          placeholder="e.g. ELC-STR"
+                          value={formSku}
+                          onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
+                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                        />
+                        {formErrors.sku && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.sku}</p>}
+                      </div>
+                      <div className="space-y-1.5 group">
+                        <label htmlFor="add-part-oem" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                          OEM No. *
+                        </label>
+                        <input 
+                          id="add-part-oem"
+                          type="text" 
+                          placeholder="e.g. 1-81100-341-1"
+                          value={formOem}
+                          onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
+                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                        />
+                        {formErrors.oem && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.oem}</p>}
+                      </div>
                     </div>
-                    {formErrors.category && <p className="text-2xs text-red-400 font-semibold">{formErrors.category}</p>}
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="add-part-category" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                        Category *
+                      </label>
+                      <div className={`${formErrors.category ? 'rounded-2xl ring-1 ring-destructive' : ''}`}>
+                        <Select
+                          inputId="add-part-category"
+                          aria-invalid={!!formErrors.category}
+                          aria-describedby={formErrors.category ? "category-error" : undefined}
+                          options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
+                            label: parent.name,
+                            options: [
+                              { value: parent.id, label: `${parent.name} (Main)`, catName: parent.name, iconName: parent.iconName, colorTheme: parent.colorTheme },
+                              ...categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString()).map(sub => ({ value: sub.id, label: sub.name, catName: sub.name, iconName: sub.iconName, colorTheme: sub.colorTheme }))
+                            ]
+                          }))}
+                          value={
+                            formCategory 
+                              ? (() => {
+                                  const c = categoriesList.find(cat => String(cat.id) === String(formCategory));
+                                  return c ? { value: c.id, label: c.name, catName: c.name, iconName: c.iconName, colorTheme: c.colorTheme } : null;
+                                })()
+                              : null
+                          }
+                          onChange={(selected) => { setFormCategory(selected?.value || ''); setFormErrors(prev => ({...prev, category: ''})); }}
+                          placeholder="-- Select Category --"
+                          styles={customSelectStyles}
+                          isClearable
+                          classNamePrefix="react-select"
+                          formatOptionLabel={(option) => {
+                            if (!option.catName) return <span>{option.label}</span>;
+                            const { Icon, color } = getCategoryIconAndColor(option.catName, option.iconName, option.colorTheme);
+                            return (
+                              <div className="flex items-center gap-2">
+                                <Icon className={`w-4 h-4 ${color}`} weight="duotone" />
+                                <span>{option.label}</span>
+                              </div>
+                            );
+                          }}
+                        />
+                      </div>
+                      {formErrors.category && <p id="category-error" className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.category}</p>}
+                    </div>
                   </div>
                 </motion.div>
               )}
 
               {/* Step 2: Compatibility & Description */}
               {step === 2 && (
-                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase flex items-center justify-between gap-1.5 text-muted-foreground">
-                      <div className="flex items-center gap-1.5"><Truck weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Compatibility Models</div>
-                      <button type="button" onClick={() => setFormCompatibleWith([...formCompatibleWith, { brand: '', series: '', year: '' }])} className="flex items-center gap-1 text-[10px] bg-brandBlue-500/10 text-brandBlue-500 px-2 py-1 rounded hover:bg-brandBlue-500/20 transition-colors">
-                        <Plus className="w-3 h-3" /> Add Row
-                      </button>
-                    </label>
-                    <div className="space-y-2">
-                      {formCompatibleWith.map((comp, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <Package className="w-4 h-4 text-brandBlue-400" />
+                          Fitment
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Add one row per compatible truck or leave it blank for universal parts.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+                        {filledCompatibilityRows} filled row{filledCompatibilityRows === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <CompatibilityEditor rows={formCompatibleWith} onChange={setFormCompatibleWith} mode="add" />
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                    <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-1.5">
+                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <ListDashes className="w-4 h-4 text-brandBlue-400" />
+                        Technical Description
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Capture the details that help staff match, verify, and sell the part quickly.
+                      </p>
+                      <textarea 
+                        rows="6"
+                        placeholder="Enter part details, technical specs..."
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                        className="mt-2 w-full bg-background border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground resize-none custom-scrollbar"
+                      />
+                    </div>
+
+                    <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-3">
+                      <div className="space-y-1">
+                        <label htmlFor="part-image" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                          <Image className="w-4 h-4 text-brandBlue-400" />
+                          Part Image
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          Use a clear image so the inventory card stays easy to scan.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4 bg-background border border-border rounded-2xl p-4">
+                        <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden bg-secondary flex items-center justify-center border border-border">
+                          {formImage ? (
+                            <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <Image className="w-6 h-6 text-muted-foreground/30" weight="duotone" />
+                          )}
+                        </div>
+                        <div className="space-y-1 flex-1">
                           <input 
-                            type="text" 
-                            placeholder="Make (e.g. Isuzu)"
-                            value={comp.brand}
+                            id="part-image"
+                            type="file" 
+                            accept="image/*"
                             onChange={(e) => {
-                              const newArr = [...formCompatibleWith];
-                              newArr[idx].brand = e.target.value;
-                              setFormCompatibleWith(newArr);
+                              const file = e.target.files[0];
+                              if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  setFormErrors(prev => ({...prev, image: 'Image size must be smaller than 2MB.'}));
+                                  return;
+                                }
+                                setFormErrors(prev => ({...prev, image: ''}));
+                                const reader = new FileReader();
+                                reader.onloadend = () => setFormImage(reader.result);
+                                reader.readAsDataURL(file);
+                              }
                             }}
-                            className="flex-1 min-w-0 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                            className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brandBlue-50 file:text-brandBlue-600 hover:file:bg-brandBlue-100 transition-colors"
                           />
-                          <input 
-                            type="text" 
-                            placeholder="Model/Series (e.g. ELF NPR)"
-                            value={comp.series}
-                            onChange={(e) => {
-                              const newArr = [...formCompatibleWith];
-                              newArr[idx].series = e.target.value;
-                              setFormCompatibleWith(newArr);
-                            }}
-                            className="flex-1 min-w-0 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
-                          />
-                          <input 
-                            type="text" 
-                            placeholder="Years (e.g. 1998-2005)"
-                            value={comp.year}
-                            onChange={(e) => {
-                              const newArr = [...formCompatibleWith];
-                              newArr[idx].year = e.target.value;
-                              setFormCompatibleWith(newArr);
-                            }}
-                            className="flex-1 min-w-0 bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
-                          />
+                          <p className="text-2xs text-muted-foreground/70">Max size: 2MB. Square ratio recommended.</p>
+                        </div>
+                        {formImage && (
                           <button 
                             type="button"
-                            onClick={() => {
-                              if (formCompatibleWith.length === 1) return;
-                              setFormCompatibleWith(formCompatibleWith.filter((_, i) => i !== idx));
-                            }}
-                            disabled={formCompatibleWith.length === 1}
-                            className={`p-2 rounded-xl border border-border transition-colors ${formCompatibleWith.length === 1 ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-muted-foreground' : 'hover:bg-red-500/10 hover:border-red-500/30 text-red-400'}`}
+                            onClick={() => setFormImage('')}
+                            className="text-2xs font-bold text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-lg border border-destructive/30 transition-colors"
                           >
-                            <Trash weight="bold" className="w-4 h-4" />
+                            Remove
                           </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                      <ListDashes weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Technical Description
-                    </label>
-                    <textarea 
-                      rows="4"
-                      placeholder="Enter part details, technical specs..."
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground resize-none custom-scrollbar"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <Image className="w-4 h-4 text-brandBlue-400" weight="duotone" /> Part Image
-                    </label>
-                    <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4">
-                      <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border">
-                        {formImage ? (
-                          <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <Image className="w-6 h-6 text-muted-foreground/30" weight="duotone" />
                         )}
                       </div>
-                      <div className="space-y-1 flex-1">
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              if (file.size > 2 * 1024 * 1024) {
-                                alert("Image size must be smaller than 2MB.");
-                                return;
-                              }
-                              const reader = new FileReader();
-                              reader.onloadend = () => setFormImage(reader.result);
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-background transition file:cursor-pointer"
-                        />
-                        <p className="text-3xs text-muted-foreground">PNG, JPG, WEBP. Max size: 2MB.</p>
-                      </div>
-                      {formImage && (
-                        <button 
-                          type="button"
-                          onClick={() => setFormImage('')}
-                          className="text-2xs font-bold text-red-500 hover:bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/30 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      )}
+                      {formErrors.image && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.image}</p>}
                     </div>
                   </div>
                 </motion.div>
@@ -415,69 +500,90 @@ export default function AddPartDrawer({
 
               {/* Step 3: Pricing & Stock */}
               {step === 3 && (
-                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
-                  <div className="space-y-1.5 group">
-                    <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                      <CurrencyDollar weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Retail Price (₱) *
-                    </label>
-                    <input 
-                      type="number" 
-                      step="0.01" min="0" placeholder="0.00"
-                      value={formPrice}
-                      onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
-                      className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
-                    />
-                    {formErrors.price && <p className="text-2xs text-red-400 font-semibold">{formErrors.price}</p>}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <Package weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Initial Stock *
-                      </label>
-                      <input 
-                        type="number" 
-                        min="0" placeholder="0"
-                        value={formStock}
-                        onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
-                      />
-                      {formErrors.stock && <p className="text-2xs text-red-400 font-semibold">{formErrors.stock}</p>}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <CurrencyDollar className="w-4 h-4 text-brandBlue-400" />
+                        Pricing
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Set the retail and alert values that the POS, inventory alerts, and reorder flow will use.
+                      </p>
                     </div>
 
                     <div className="space-y-1.5 group">
-                      <label className="text-xs font-semibold uppercase flex items-center gap-1.5 text-muted-foreground">
-                        <WarningCircle weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Min Stock Alert *
+                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        Retail Price (₱) *
                       </label>
                       <input 
                         type="number" 
-                        min="0" placeholder="5"
-                        value={formMinStock}
-                        onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 ring-1 ring-red-500/20' : 'border-border focus:border-brandBlue-500'}`}
+                        step="0.01" min="0" placeholder="0.00"
+                        value={formPrice}
+                        onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
+                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.minStock && <p className="text-2xs text-red-400 font-semibold">{formErrors.minStock}</p>}
+                      {formErrors.price && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.price}</p>}
                     </div>
-                  </div>
 
-                  {serverError && (
-                    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-300 text-sm font-semibold animate-fadeIn">
-                      <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
-                      <span>{serverError}</span>
+                    <div className="rounded-3xl border border-border bg-secondary/30 p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <CheckCircle className="w-4 h-4 text-brandBlue-400" />
+                        Stock planning
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5 group">
+                          <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                            Initial Stock *
+                          </label>
+                          <input 
+                            type="number" 
+                            min="0" placeholder="0"
+                            value={formStock}
+                            onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
+                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                          />
+                          {formErrors.stock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.stock}</p>}
+                        </div>
+
+                        <div className="space-y-1.5 group">
+                          <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                            Min Stock Alert *
+                          </label>
+                          <input 
+                            type="number" 
+                            min="0" placeholder="5"
+                            value={formMinStock}
+                            onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
+                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                          />
+                          {formErrors.minStock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.minStock}</p>}
+                        </div>
+                      </div>
                     </div>
-                  )}
+
+                    {serverError && (
+                      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive dark:text-destructive-foreground text-sm font-semibold animate-fadeIn">
+                        <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive dark:text-destructive-foreground" />
+                        <span>{serverError}</span>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
 
             </div>
 
             {/* Footer Navigation */}
-            <div className="p-5 border-t border-border bg-background flex items-center justify-between">
+            <div className="p-4 sm:p-5 border-t border-border bg-background/90 backdrop-blur-xl flex items-center justify-between">
               <button 
                 type="button" 
-                onClick={step === 1 ? onClose : prevStep}
+                onClick={step === 1 ? requestClose : prevStep}
                 disabled={isSubmitting}
-                className="px-5 py-2.5 bg-secondary hover:bg-background text-muted-foreground text-sm font-bold rounded-xl border border-border transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-5 py-2.5 bg-secondary hover:bg-background text-muted-foreground text-sm font-bold rounded-2xl border border-border transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 {step > 1 && <ArrowLeft weight="bold" className="w-4 h-4" />}
                 {step === 1 ? 'Cancel' : 'Back'}
@@ -487,7 +593,7 @@ export default function AddPartDrawer({
                 type="button"
                 onClick={step === 3 ? handleFormSubmit : nextStep}
                 disabled={isSubmitting}
-                className="px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/60 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
+                className="px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/60 text-white text-sm font-bold rounded-2xl shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -508,7 +614,67 @@ export default function AddPartDrawer({
           </motion.div>
         </div>
       )}
+      {confirmDialog.isOpen && (
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          onClose={closeConfirmDialog}
+          onConfirm={confirmDialog.onConfirm}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+        />
+      )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText }) {
+  return (
+    <Drawer 
+      isOpen={isOpen} 
+      onClose={onClose}
+      labelledBy="confirm-title"
+      describedBy="confirm-desc"
+      wrapperClassName="flex items-center justify-center p-4 z-[140]"
+      wrapperStyle={{ zIndex: 140 }}
+      overlayClassName="bg-background/85 backdrop-blur-md"
+      panelClassName="bg-background border border-border shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden flex flex-col ring-1 ring-black/5"
+      panelVariants={{
+        initial: { opacity: 0, scale: 0.95, y: 10 },
+        animate: { opacity: 1, scale: 1, y: 0 },
+        exit: { opacity: 0, scale: 0.95, y: 10 },
+        transition: { duration: 0.2, ease: "easeOut" }
+      }}
+    >
+      <div className="p-6">
+        <h2 id="confirm-title" className="text-lg font-bold mb-2 flex items-center gap-2">
+          <WarningCircle weight="duotone" className="w-5 h-5 text-destructive" />
+          {title}
+        </h2>
+        <p id="confirm-desc" className="text-sm text-muted-foreground mb-6 leading-relaxed">
+          {message}
+        </p>
+        <div className="flex items-center justify-end gap-3">
+          <button 
+            type="button" 
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            type="button" 
+            onClick={() => {
+              onClose();
+              if (onConfirm) onConfirm();
+            }}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-colors"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </Drawer>
   );
 }

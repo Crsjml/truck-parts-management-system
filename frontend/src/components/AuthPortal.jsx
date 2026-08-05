@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiPost } from '../api/apiClient';
 import { ArrowLeft, CheckCircle, LockKey, CircleNotch, EnvelopeOpen, ShieldCheck, Truck, Warning, Bell, User, Phone, EnvelopeSimple, Eye, EyeSlash } from '@phosphor-icons/react';
 import Logo from './Logo';
 import GoogleSignInButton from './GoogleSignInButton';
@@ -244,6 +245,11 @@ export default function AuthPortal({
         setLoading(false);
         return;
       }
+      try {
+        await apiPost('/api/audit/login', {}, { supabase });
+      } catch (logErr) {
+        console.warn('Failed to post audit log', logErr);
+      }
       // App.jsx will automatically route based on authStateChanged
     } catch (err) {
       setNotice(err.message || 'Login failed.');
@@ -314,6 +320,12 @@ export default function AuthPortal({
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password });
       if (error) throw error;
+      
+      try {
+        await apiPost('/api/audit/login', {}, { supabase });
+      } catch (logErr) {
+        console.warn('Failed to post audit log', logErr);
+      }
       // App.jsx will route based on onAuthStateChanged
     } catch (err) {
       setNotice(err.message || 'Admin login failed.');
@@ -329,6 +341,12 @@ export default function AuthPortal({
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: 'admin@tarlactruckparts.local', password: 'Admin@12345' });
       if (error) throw error;
+      
+      try {
+        await apiPost('/api/audit/login', {}, { supabase });
+      } catch (logErr) {
+        console.warn('Failed to post audit log', logErr);
+      }
     } catch (err) {
       setNotice(err.message || 'Auto-login failed.');
       triggerShake();

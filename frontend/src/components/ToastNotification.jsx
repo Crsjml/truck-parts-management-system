@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, Info, X } from '@phosphor-icons/react';
 
 // ── Individual Toast ───────────────────────────────────────────────────────────
-function Toast({ id, type = 'success', message, onDismiss }) {
+function Toast({ id, type = 'success', message, action, onDismiss }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -52,7 +52,22 @@ function Toast({ id, type = 'success', message, onDismiss }) {
       `}
     >
       <Icon weight="duotone" className={`w-5 h-5 shrink-0 mt-0.5 ${c.icon_cls}`} />
-      <p className={`text-sm font-semibold leading-snug flex-1 ${c.text}`}>{message}</p>
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <p className={`text-sm font-semibold leading-snug ${c.text}`}>{message}</p>
+        {action && (
+          <button
+            onClick={() => {
+              action.onClick();
+              setVisible(false);
+              setTimeout(() => onDismiss(id), 350);
+            }}
+            className="text-xs font-bold self-start px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-md transition-colors w-fit uppercase tracking-wider"
+            style={{ color: 'inherit' }}
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
       <button
         onClick={() => {
           setVisible(false);
@@ -89,9 +104,9 @@ export default function ToastNotification({ toasts, onDismiss }) {
 export function useToast() {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = (message, type = 'success', action = null) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type, action }]);
   };
 
   const dismissToast = (id) => {

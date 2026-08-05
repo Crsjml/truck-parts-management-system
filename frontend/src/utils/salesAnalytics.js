@@ -5,7 +5,13 @@ export const PERIODS = [
 ];
 
 export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GCASH'];
-export const PAYMENT_COLORS = { CASH: '#059669', CARD: '#3b82f6', CHEQUE: '#d97706', BANK_TRANSFER: '#8b5cf6', GCASH: '#0891b2' };
+export const PAYMENT_COLORS = {
+  CASH: 'hsl(var(--chart-2))',
+  CARD: 'hsl(var(--chart-1))',
+  CHEQUE: 'hsl(var(--chart-4))',
+  BANK_TRANSFER: 'hsl(var(--chart-3))',
+  GCASH: 'hsl(var(--chart-5))'
+};
 export const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer', GCASH: 'GCash' };
 
 export function resolvePeriod(key, now = new Date()) {
@@ -31,6 +37,17 @@ export function inRange(transactions, start, end) {
     const d = new Date(t.transactionDate);
     return d >= start && d <= end;
   });
+}
+
+// ponytail: stripeSessionId presence indicates online channel vs in-store POS
+export function byChannel(transactions, channel) {
+  if (channel === 'online') {
+    return transactions.filter(t => t.stripeSessionId != null);
+  }
+  if (channel === 'store') {
+    return transactions.filter(t => t.stripeSessionId == null);
+  }
+  return transactions;
 }
 
 export function computeKpis(current, previous) {
@@ -68,28 +85,54 @@ export function computeKpis(current, previous) {
 }
 
 export function trendSeries(current, previous, range) {
-  const { start, bucket, comparable, spanMs } = range;
+  let { start, bucket, comparable, spanMs } = range;
+  
+  if (spanMs === 0 && current.length > 0) {
+    let minD = new Date(current[0].transactionDate).getTime();
+    let maxD = minD;
+    for (const t of current) {
+      const ms = new Date(t.transactionDate).getTime();
+      if (ms < minD) minD = ms;
+      if (ms > maxD) maxD = ms;
+    }
+    start = new Date(minD);
+    spanMs = maxD - minD;
+    if (spanMs === 0) spanMs = 1;
+  }
   
   const numBuckets = bucket === 'day' ? Math.round(spanMs / 864e5) : bucket === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
   const buckets = Math.max(numBuckets, 1);
   const bucketMs = spanMs > 0 ? spanMs / buckets : 1;
   
-  const series = Array.from({ length: buckets }, (_, i) => ({
-    label: `Bucket ${i}`,
-    revenue: 0,
-    prior: comparable ? 0 : null
-  }));
+  const series = Array.from({ length: buckets }, (_, i) => {
+    const d = new Date(start.getTime() + (i * bucketMs));
+    let label = '';
+    if (bucket === 'day') {
+      label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } else if (bucket === 'week') {
+      label = `Wk ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    } else {
+      label = d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    }
+    return {
+      label,
+      revenue: 0,
+      prior: comparable ? 0 : null
+    };
+  });
   
   for (const t of current) {
     const d = new Date(t.transactionDate);
-    const i = Math.floor((d - start) / bucketMs);
+    let i = Math.floor((d - start) / bucketMs);
+    if (i === buckets && buckets > 0) i = buckets - 1;
     if (i >= 0 && i < buckets) series[i].revenue += (t.total || 0);
   }
   
   if (comparable) {
     for (const t of previous) {
       const d = new Date(t.transactionDate);
-      const i = Math.floor((d - (start.getTime() - spanMs)) / bucketMs);
+      let i = Math.floor((d - (start.getTime() - spanMs)) / bucketMs);
+      if (i === buckets && buckets > 0) i = buckets - 1;
       if (i >= 0 && i < buckets) series[i].prior += (t.total || 0);
     }
   }
@@ -125,7 +168,7 @@ export function categoryRevenue(transactions, parts, tree, drilled) {
   
   for (const t of transactions) {
     for (const item of (t.items || [])) {
-      const cat = partMap.get(item.partId);
+      const cat = item.part?.category?.name || partMap.get(item.partId);
       const revenue = (item.quantity || 0) * (item.price || 0);
       
       if (!cat) {
@@ -195,13 +238,36 @@ export function topMovers(current, previous, limit) {
 }
 
 export function paymentMix(transactions, range) {
-  const { start, spanMs, bucket } = range;
+  let { start, spanMs, bucket } = range;
+  
+  if (spanMs === 0 && transactions.length > 0) {
+    let minD = new Date(transactions[0].transactionDate).getTime();
+    let maxD = minD;
+    for (const t of transactions) {
+      const ms = new Date(t.transactionDate).getTime();
+      if (ms < minD) minD = ms;
+      if (ms > maxD) maxD = ms;
+    }
+    start = new Date(minD);
+    spanMs = maxD - minD;
+    if (spanMs === 0) spanMs = 1;
+  }
+  
   const numBuckets = bucket === 'day' ? Math.round(spanMs / 864e5) : bucket === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
   const buckets = Math.max(numBuckets, 1);
   const bucketMs = spanMs > 0 ? spanMs / buckets : 1;
   
   const series = Array.from({ length: buckets }, (_, i) => {
-    const row = { label: `Bucket ${i}` };
+    const d = new Date(start.getTime() + (i * bucketMs));
+    let label = '';
+    if (bucket === 'day') {
+      label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } else if (bucket === 'week') {
+      label = `Wk ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    } else {
+      label = d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    }
+    const row = { label };
     PAYMENT_METHODS.forEach(m => row[m] = 0);
     return row;
   });
@@ -211,11 +277,137 @@ export function paymentMix(transactions, range) {
     if (!PAYMENT_METHODS.includes(m)) m = 'CASH';
     
     const d = new Date(t.transactionDate);
-    const i = Math.floor((d - start) / bucketMs);
+    let i = Math.floor((d - start) / bucketMs);
+    if (i === buckets && buckets > 0) i = buckets - 1;
     if (i >= 0 && i < buckets) {
       series[i][m] += (t.total || 0);
     }
   }
   
   return series;
+}
+
+export function rankPartsBySales(transactions, { start, end }, limit) {
+  const spanMs = end - start;
+  const prevEnd = start;
+  const prevStart = new Date(start.getTime() - spanMs);
+  
+  const current = inRange(transactions, start, end);
+  const previous = inRange(transactions, prevStart, prevEnd);
+  return topMovers(current, previous, limit).map((m, i) => ({ ...m, rank: i + 1 }));
+}
+
+export function getRankDeltaBadge(rankDelta) {
+  if (rankDelta === null) {
+    return { text: 'NEW', style: 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30' };
+  } else if (rankDelta > 0) {
+    return { text: `▲${rankDelta}`, style: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30' };
+  } else if (rankDelta < 0) {
+    return { text: `▼${Math.abs(rankDelta)}`, style: 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30' };
+  }
+  return { text: '—', style: 'text-muted-foreground bg-secondary border-border' };
+}
+
+export function slowMovingParts(parts, transactions, { start, end }, threshold = 0) {
+  const current = inRange(transactions, start, end);
+  const curCounts = new Map();
+  
+  for (const t of current) {
+    for (const item of (t.items || [])) {
+      curCounts.set(item.partId, (curCounts.get(item.partId) || 0) + (item.quantity || 0));
+    }
+  }
+  
+  const result = [];
+  for (const p of parts) {
+    if (p.stock > 0) {
+      const sold = curCounts.get(p.id) || 0;
+      if (sold <= threshold) {
+        let lastSale = null;
+        for (const t of transactions) {
+          if ((t.items || []).some(i => i.partId === p.id)) {
+            const d = new Date(t.transactionDate);
+            if (!lastSale || d > lastSale) lastSale = d;
+          }
+        }
+        let daysSinceLastSale = null;
+        if (lastSale) {
+           daysSinceLastSale = Math.floor((new Date() - lastSale) / 86400000);
+        }
+        result.push({ ...p, unitsSold: sold, daysSinceLastSale });
+      }
+    }
+  }
+  return result.sort((a, b) => a.unitsSold - b.unitsSold);
+}
+
+export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
+  const current = inRange(transactions, start, end);
+  const spanMs = end - start;
+  
+  const numBuckets = bucketBy === 'day' ? Math.round(spanMs / 864e5) : bucketBy === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
+  const buckets = Math.max(numBuckets, 1);
+  const bucketMs = spanMs > 0 ? spanMs / buckets : 1;
+  
+  const series = Array.from({ length: buckets }, (_, i) => ({
+    label: '',
+    date: new Date(start.getTime() + i * bucketMs),
+    revenue: 0,
+    invoices: 0,
+    isPeak: false
+  }));
+  
+  for (const t of current) {
+    const d = new Date(t.transactionDate);
+    let i = Math.floor((d - start) / bucketMs);
+    if (i === buckets && buckets > 0) i = buckets - 1;
+    if (i >= 0 && i < buckets) {
+      series[i].revenue += (t.total || 0);
+      series[i].invoices += 1;
+    }
+  }
+  
+  let maxRev = -1;
+  let peakIndex = -1;
+  for (let i = 0; i < series.length; i++) {
+    if (series[i].revenue > maxRev) {
+      maxRev = series[i].revenue;
+      peakIndex = i;
+    }
+  }
+  if (peakIndex >= 0) {
+    series[peakIndex].isPeak = true;
+  }
+  
+  series.forEach(s => {
+    if (bucketBy === 'day') {
+      s.label = s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } else if (bucketBy === 'week') {
+      s.label = `Wk ${s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    } else {
+      s.label = s.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    }
+  });
+  
+  return series;
+}
+
+export function orderStatusBreakdown(transactions, { start, end }) {
+  const current = inRange(transactions, start, end);
+  const statusCounts = new Map();
+  
+  for (const t of current) {
+    let s = t.status || 'Order Placed';
+    if (s === 'ORDER_PLACED') s = 'Order Placed';
+    if (s === 'READY_FOR_PICKUP') s = 'Ready for Pickup';
+    if (s === 'COMPLETED') s = 'Completed';
+    if (s === 'CANCELLED') s = 'Cancelled';
+    
+    statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
+  }
+  
+  return Array.from(statusCounts.entries()).map(([name, count]) => ({
+    name,
+    count
+  })).sort((a, b) => b.count - a.count);
 }
