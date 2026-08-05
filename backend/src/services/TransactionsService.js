@@ -2,6 +2,19 @@
 import transactionsRepository from '../repositories/TransactionsRepository.js';
 import { prisma } from '../config/prisma.js';
 
+const ORDER_STATUS = {
+  'Order Placed': 'ORDER_PLACED',
+  'Ready for Pickup': 'READY_FOR_PICKUP',
+  Completed: 'COMPLETED',
+  Cancelled: 'CANCELLED',
+  ORDER_PLACED: 'ORDER_PLACED',
+  READY_FOR_PICKUP: 'READY_FOR_PICKUP',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+};
+
+const normalizeOrderStatus = (status) => ORDER_STATUS[status] || status;
+
 class TransactionsService {
   async getTransactions() {
     return await transactionsRepository.findMany();
@@ -35,6 +48,8 @@ class TransactionsService {
   }
 
   async updateStatus(id, status) {
+    const nextStatus = normalizeOrderStatus(status);
+
     return await transactionsRepository.executeTransaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({
         where: { id },
@@ -43,13 +58,15 @@ class TransactionsService {
 
       if (!transaction) throw new Error('Transaction not found.');
 
-      if (transaction.status === status) return transaction;
+      const currentStatus = normalizeOrderStatus(transaction.status);
 
-      if (transaction.status === 'Completed' || transaction.status === 'Cancelled') {
+      if (currentStatus === nextStatus) return transaction;
+
+      if (currentStatus === 'COMPLETED' || currentStatus === 'CANCELLED') {
         throw new Error(`Cannot change status of a ${transaction.status} transaction.`);
       }
 
-      if (status === 'Completed') {
+      if (nextStatus === 'COMPLETED') {
         for (const item of transaction.items) {
           await tx.part.update({
             where: { id: item.partId },
@@ -59,7 +76,7 @@ class TransactionsService {
             }
           });
         }
-      } else if (status === 'Cancelled') {
+      } else if (nextStatus === 'CANCELLED') {
         for (const item of transaction.items) {
           await tx.part.update({
             where: { id: item.partId },
@@ -70,7 +87,7 @@ class TransactionsService {
 
       return await tx.transaction.update({
         where: { id },
-        data: { status }
+        data: { status: nextStatus }
       });
     });
   }
@@ -108,6 +125,14 @@ class TransactionsService {
     const isImmediateSale = status === 'COMPLETED';
 
     return await transactionsRepository.executeTransaction(async (tx) => {
+      if (invoiceNumber) {
+        const existingTransaction = await tx.transaction.findUnique({
+          where: { invoiceNumber },
+          include: { items: true }
+        });
+        if (existingTransaction) return existingTransaction;
+      }
+
       for (const item of items) {
         const part = await tx.part.findUnique({ where: { id: item.partId } });
         if (!part) {

@@ -644,6 +644,11 @@ export const createPurchaseOrder = api(async (poData) => {
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to create Purchase Order.' };
 });
 
+export const updatePurchaseOrderDetails = api(async (id, poData) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}`, poData, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update RFQ details.' };
+});
+
 export const updatePurchaseOrderStatus = api(async (id, status) => {
   const { ok, data } = await apiPut(`/api/purchase-orders/${id}/status`, { status }, { supabase });
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update PO status.' };
@@ -652,6 +657,11 @@ export const updatePurchaseOrderStatus = api(async (id, status) => {
 export const updatePoBillingStatus = api(async (id, billingStatus) => {
   const { ok, data } = await apiPut(`/api/purchase-orders/${id}/billing`, { billingStatus }, { supabase });
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update billing status.' };
+});
+
+export const updatePoPayment = api(async (id, paymentData) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/payment`, paymentData, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update supplier payment.' };
 });
 
 export const updatePoItemPrices = api(async (id, items) => {

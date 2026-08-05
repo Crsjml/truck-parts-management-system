@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, Plus, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker, Truck, CheckCircle } from '@phosphor-icons/react';
+import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker, Truck, CheckCircle } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions, updateTransactionStatus } from '../authStore';
 
@@ -233,6 +233,11 @@ export default function CustomerManagement({ showToast }) {
       if (sortKey === 'lastOrderDate') return (new Date(a.lastOrderDate || 0) - new Date(b.lastOrderDate || 0)) * m;
       return 0;
     });
+  const dashboardTransactions = [...dashTxOnline, ...dashTxFtf];
+  const dashboardOrderCount = dashboardTransactions.length || dashboardCustomer?.orderCount || 0;
+  const dashboardTotalSpend = dashboardTransactions.length > 0
+    ? dashboardTransactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0)
+    : dashboardCustomer?.totalSpend || 0;
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -241,15 +246,6 @@ export default function CustomerManagement({ showToast }) {
         <div>
           <h1 className="text-2xl font-black text-foreground tracking-tight font-display">Customer Management</h1>
           <p className="text-sm text-muted-foreground mt-1">View and manage online accounts and face-to-face clients</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => openCreateModal(tab === 'ftf')}
-            className="flex items-center gap-2 px-4.5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl text-sm font-bold shadow-md shadow-accent/20 transition-all active:scale-[0.97]"
-          >
-            <Plus weight="bold" className="w-4 h-4" />
-            Add Customer
-          </button>
         </div>
       </div>
 
@@ -732,20 +728,20 @@ export default function CustomerManagement({ showToast }) {
                   <div className="grid grid-cols-3 gap-3 mt-4">
                     <div className="p-3 bg-secondary/50 rounded-xl text-center">
                       <div className="text-lg font-black text-foreground">
-                        {(dashTxOnline.length + dashTxFtf.length) || dashboardCustomer.orderCount || 0}
+                        {dashboardOrderCount}
                       </div>
                       <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Total Orders</div>
                     </div>
                     <div className="p-3 bg-secondary/50 rounded-xl text-center">
                       <div className="text-lg font-black text-accent font-mono">
-                        {fmt(dashboardCustomer.totalSpend || 0)}
+                        {fmt(dashboardTotalSpend)}
                       </div>
                       <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Total Spend</div>
                     </div>
                     <div className="p-3 bg-secondary/50 rounded-xl text-center">
                       <div className="text-lg font-black text-foreground">
-                        {dashTxOnline.length > 0 || dashTxFtf.length > 0
-                          ? fmt((dashboardCustomer.totalSpend || 0) / ((dashTxOnline.length + dashTxFtf.length) || 1))
+                        {dashboardTransactions.length > 0
+                          ? fmt(dashboardTotalSpend / dashboardTransactions.length)
                           : '—'}
                       </div>
                       <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Avg. Order</div>

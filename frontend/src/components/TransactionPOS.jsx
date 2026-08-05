@@ -22,6 +22,19 @@ export default function TransactionPOS({ parts, onCheckout }) {
 
   const posContainerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const submitInFlightRef = useRef(false);
+  const invoiceNumberRef = useRef(null);
+
+  const resetSaleAttempt = useCallback(() => {
+    invoiceNumberRef.current = null;
+  }, []);
+
+  const getSaleInvoiceNumber = useCallback(() => {
+    if (!invoiceNumberRef.current) {
+      invoiceNumberRef.current = `TTP-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    return invoiceNumberRef.current;
+  }, []);
 
   // Fullscreen sync handler
   useEffect(() => {
@@ -58,6 +71,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
   const addToCart = useCallback(
     (part) => {
       setLastTx(null);
+      resetSaleAttempt();
       const available = part.stock - (part.reservedStock || 0);
       setCart((prev) => {
         const existing = prev.find((i) => i.id === part.id);
@@ -72,7 +86,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
         return prev.map((i) => (i.id === part.id ? { ...i, quantity: i.quantity + 1 } : i));
       });
     },
-    [markupFactor]
+    [markupFactor, resetSaleAttempt]
   );
 
   const updateQuantity = useCallback(
@@ -85,6 +99,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
         if (next <= 0) return prev.filter((i) => i.id !== partId);
 
         const available = availableFor(partId);
+        resetSaleAttempt();
         if (next > available) {
           setWarning(`Only ${available} of ${item.name} in stock — selling ${available}.`);
           return prev.map((i) => (i.id === partId ? { ...i, quantity: available } : i));
@@ -92,12 +107,13 @@ export default function TransactionPOS({ parts, onCheckout }) {
         return prev.map((i) => (i.id === partId ? { ...i, quantity: next } : i));
       });
     },
-    [availableFor]
+    [availableFor, resetSaleAttempt]
   );
 
   const removeFromCart = useCallback((partId) => {
+    resetSaleAttempt();
     setCart((prev) => prev.filter((i) => i.id !== partId));
-  }, []);
+  }, [resetSaleAttempt]);
 
   const totals = useMemo(
     () => computePosTotals({ cart, discount, vatRate: VAT_RATE }),
@@ -115,14 +131,15 @@ export default function TransactionPOS({ parts, onCheckout }) {
   }, []);
 
   const handleConfirmSale = async (payment) => {
-    if (submitting) return;
+    if (submitting || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setSubmitting(true);
 
     const discountVal = Math.min(Number(discount) || 0, totals.lineSum);
     const finalTotals = computePosTotals({ cart, discount: discountVal, vatRate: VAT_RATE });
 
     const txData = {
-      invoiceNumber: `TTP-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      invoiceNumber: getSaleInvoiceNumber(),
       transactionDate: new Date().toISOString(),
       status: 'COMPLETED',
       customerName: payment.customerName,
@@ -149,17 +166,22 @@ export default function TransactionPOS({ parts, onCheckout }) {
       gcashReference: payment.gcashReference
     };
 
-    const ok = await onCheckout(txData);
-    setSubmitting(false);
-    if (!ok) {
-      setWarning('Sale could not be completed. Nothing was charged — check stock and try again.');
-      return;
-    }
+    try {
+      const ok = await onCheckout(txData);
+      if (!ok) {
+        setWarning('Sale could not be completed. Nothing was charged — check stock and try again.');
+        return;
+      }
 
-    setLastTx(txData);
-    setCart([]);
-    setDiscount(0);
-    setMode('cart');
+      setLastTx(txData);
+      setCart([]);
+      setDiscount(0);
+      resetSaleAttempt();
+      setMode('cart');
+    } finally {
+      submitInFlightRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   // Shortcuts. Bound at document level because focus may sit anywhere in the panel.

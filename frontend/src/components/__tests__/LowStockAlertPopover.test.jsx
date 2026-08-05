@@ -52,7 +52,7 @@ describe('LowStockAlertPopover', () => {
     
     const low = screen.getByText('Low Part').closest('li');
     const lowBadge = within(low).getByText('Low');
-    expect(lowBadge.className).toMatch(/bg-accent/);
+    expect(lowBadge.className).toMatch(/bg-secondary/);
   });
 
   it('dismiss removes row but does not change props', () => {
@@ -90,14 +90,13 @@ describe('LowStockAlertPopover', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('stat tiles are permanently visible for data density', () => {
+  it('inline stock ratio is permanently visible for data density', () => {
     render(<TestWrapper parts={[parts[1]]} />);
     
-    const currentLabel = screen.getByText('Current');
-    const tileContainer = currentLabel.parentElement.parentElement;
-    
-    // Check that it's permanently visible (no hidden class)
-    expect(tileContainer.className).not.toContain('hidden');
-    expect(tileContainer.className).toContain('grid');
+    const lowItem = screen.getByText('Low Part').closest('li');
+
+    expect(within(lowItem).getByText('4')).toBeInTheDocument();
+    expect(within(lowItem).getByText('/')).toBeInTheDocument();
+    expect(within(lowItem).getByText('5 min')).toBeInTheDocument();
   });
 });

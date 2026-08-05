@@ -31,7 +31,10 @@ class PurchaseOrdersRepository {
   async create(data) {
     return await prisma.purchaseOrder.create({
       data,
-      include: { supplier: true }
+      include: {
+        supplier: true,
+        items: { include: { part: true } }
+      }
     });
   }
 

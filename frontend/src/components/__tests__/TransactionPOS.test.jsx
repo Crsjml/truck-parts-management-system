@@ -100,6 +100,33 @@ describe('TransactionPOS Integration Tests', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('reuses the same invoice number when a POS sale is retried after failure', async () => {
+    onCheckoutMock
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    renderPos({ onCheckout: onCheckoutMock });
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Brake Pad/i }));
+    fireEvent.keyDown(document, { key: 'F4' });
+
+    fireEvent.change(screen.getByLabelText(/Customer name \*/i), { target: { value: 'John Doe' } });
+    fireEvent.change(screen.getByLabelText(/Contact number \*/i), { target: { value: '555-1234' } });
+    fireEvent.change(screen.getByLabelText(/Email \*/i), { target: { value: 'john@example.com' } });
+    fireEvent.change(screen.getByLabelText(/Amount Tendered/i), { target: { value: '100' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Complete sale/i }));
+    await waitFor(() => {
+      expect(onCheckoutMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Complete sale/i }));
+
+    await waitFor(() => {
+      expect(onCheckoutMock).toHaveBeenCalledTimes(2);
+    });
+    expect(onCheckoutMock.mock.calls[1][0].invoiceNumber).toBe(onCheckoutMock.mock.calls[0][0].invoiceNumber);
+  });
+
   it('Step 4: Repeat buyer', async () => {
     authStore.lookupCustomers.mockResolvedValue({
       ok: true,
