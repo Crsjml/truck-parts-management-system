@@ -5,49 +5,51 @@ import { CaretRight, X, Funnel, ArrowsDownUp, Star, MagnifyingGlass } from '@pho
 export const customSelectStyles = {
   control: (base, state) => ({
     ...base,
-    backgroundColor: 'var(--color-secondary)',
-    borderColor: state.isFocused ? 'var(--color-accent)' : 'var(--color-border)',
-    boxShadow: state.isFocused ? '0 0 0 1px var(--color-accent)' : 'none',
+    backgroundColor: 'hsl(var(--background))',
+    borderColor: state.isFocused ? '#3c6ba3' : 'hsl(var(--border))',
+    boxShadow: state.isFocused ? '0 0 0 1px #3c6ba3' : 'none',
+    outline: state.isFocused ? '1px solid #3c6ba3' : 'none',
+    outlineOffset: '-1px',
     '&:hover': {
-      borderColor: 'var(--color-accent)'
+      borderColor: '#3c6ba3'
     },
-    color: 'var(--color-foreground)',
-    borderRadius: '0.5rem',
+    color: 'hsl(var(--foreground))',
+    borderRadius: '0.75rem',
     minHeight: '38px',
     padding: '0 4px',
   }),
   menu: (base) => ({
     ...base,
-    backgroundColor: '#0f172a', // Tailwind slate-900 for dark mode dropdown menu
-    border: '1px solid #1e293b',
-    borderRadius: '0.5rem',
+    backgroundColor: 'hsl(var(--background))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '0.75rem',
     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
     zIndex: 9999
   }),
   option: (base, state) => ({
     ...base,
     backgroundColor: state.isSelected
-      ? 'var(--color-accent)'
+      ? '#3c6ba3'
       : state.isFocused
-        ? 'rgba(255, 255, 255, 0.05)'
+        ? 'hsl(var(--secondary))'
         : 'transparent',
-    color: state.isSelected ? '#fff' : '#e2e8f0', // slate-200 text
+    color: state.isSelected ? '#fff' : 'hsl(var(--foreground))',
     '&:active': {
-      backgroundColor: 'var(--color-accent)'
+      backgroundColor: '#3c6ba3'
     },
     padding: '8px 12px'
   }),
   singleValue: (base) => ({
     ...base,
-    color: 'var(--color-foreground)'
+    color: 'hsl(var(--foreground))'
   }),
   input: (base) => ({
     ...base,
-    color: 'var(--color-foreground)'
+    color: 'hsl(var(--foreground))'
   }),
   placeholder: (base) => ({
     ...base,
-    color: 'var(--color-muted-foreground)'
+    color: 'hsl(var(--muted-foreground))'
   }),
   menuPortal: base => ({ ...base, zIndex: 9999 })
 };
@@ -62,6 +64,10 @@ export const StatusBadge = ({ status }) => {
     'Cancelled': 'bg-red-500/15 text-red-400 border-red-500/30',
     'Waiting Bills': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
     'Bills Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'Pending': 'bg-secondary text-muted-foreground border-border',
+    'Due Soon': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    'Overdue': 'bg-red-500/15 text-red-400 border-red-500/30',
+    'Paid': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   };
   return (
     <span className={`px-2.5 py-0.5 text-11px font-bold rounded-full border ${map[status] || map['Draft']}`}>
@@ -73,7 +79,7 @@ export const StatusBadge = ({ status }) => {
 export const StatChip = ({ label, count, icon: Icon, color, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${active ? `${color} shadow-sm` : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
+    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${active ? color : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
       }`}
   >
     {Icon && <Icon weight="duotone" className="w-3.5 h-3.5" />}
@@ -225,14 +231,14 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
             Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
           </button>
           {showFilters && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-2xl p-2 min-w-[200px] animate-fadeIn">
+            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[200px] animate-fadeIn">
               {filters.map(f => (
                 <label key={f.value} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary cursor-pointer text-sm text-foreground transition-colors focus-within:ring-2 focus-within:ring-accent">
                   <input
                     type="checkbox"
                     checked={activeFilters.includes(f.value)}
                     onChange={() => onFilter(f.value)}
-                    className="w-3.5 h-3.5 accent-accent"
+                    className="w-3.5 h-3.5 accent-primary"
                   />
                   {f.label}
                 </label>
@@ -258,7 +264,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
             {activeGroup ? `By: ${activeGroup}` : 'Group By'}
           </button>
           {showGroup && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-2xl p-2 min-w-[160px] animate-fadeIn">
+            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[160px] animate-fadeIn">
               {activeGroup && (
                 <button onClick={() => { onGroupBy(null); setShowGroup(false); }} className="w-full px-3 py-2 rounded-lg hover:bg-secondary text-left text-xs text-accent font-semibold mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   Clear grouping
@@ -316,7 +322,7 @@ export const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favor
   };
 
   return (
-    <div className="glass-panel border border-border rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-background border border-border rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead>

@@ -180,6 +180,7 @@ async function main() {
   await prisma.transaction.deleteMany();
   await prisma.purchaseOrderItem.deleteMany();
   await prisma.purchaseOrder.deleteMany();
+  await prisma.stockAdjustment.deleteMany();
   await prisma.part.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.customer.deleteMany();
@@ -313,51 +314,191 @@ async function main() {
   }
 
   console.log("🛒 Creating Transactions, Reviews & Purchase Orders...");
-  
-  // Create Transactions
-  // We want to make sure ALMOST EVERY PART is purchased so it can be reviewed
-  const numTransactions = faker.number.int({ min: 120, max: 150 });
-  const partPurchasers = {}; // Map partId -> Array of customers who bought it
+
+  /*
+   * SEED DESIGN OVERHAUL: Customer & Transaction Archetypes
+   * 1. Pure online (~10): real authId, stripeSessionId = cs_test_..., payment CARD/GCASH, WEB- invoice
+   * 2. Pure in-store (~8): temp- authId Customer, stripeSessionId = null, POS payments, INV- invoice
+   * 3. Merged (~4): real authId, mixed stripeSessionId states (simulating past in-store rewritten + future online)
+   * 4. Anonymous walk-ins (~15-20 txns): userId = null, no Customer row, stripeSessionId = null
+   * 5. Unmerged FTF (~5): temp- authId, never merged
+   */
 
   const MARKUP_FACTOR = 1.15; // must match active_markup at line 192
   const VAT_RATE = 0.12;
   const round2 = (n) => Math.round(n * 100) / 100;
 
-  for (let t = 0; t < numTransactions; t++) {
-    const customer = faker.helpers.arrayElement(customers);
-    const orderParts = faker.helpers.arrayElements(parts, faker.number.int({ min: 1, max: 5 }));
-    let total = 0;
+  // 1. Prepare Dates (24 months) + Heavy Recent Spike
+  let txDates = [];
+  const now = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 15);
+    const month = d.getMonth();
+    // Nov=10, Dec=11 (peak), Feb=1 (slow)
+    let count = 40;
+    if (month === 10 || month === 11) count = 300;
+    else if (month === 1) count = 10;
     
-    const items = orderParts.map(p => {
+    // Massive volume for current and previous month for 30-day reporting
+    if (i === 0) count += 250;
+    if (i === 1) count += 150;
+    
+    const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    
+    for (let j = 0; j < count; j++) {
+      txDates.push(faker.date.between({ from: startOfMonth, to: endOfMonth }));
+    }
+  }
+  
+  // Explicit 7-day spike for 'Last 7 Days' reports
+  for (let j = 0; j < 300; j++) {
+    txDates.push(faker.date.recent({ days: 7 }));
+  }
+  
+  // Sort dates randomly
+  txDates = faker.helpers.shuffle(txDates);
+
+  // 2. Prepare weighted parts (best-sellers, slow-movers)
+  const bestSellers = parts.slice(0, 3);
+  const slowMovers = parts.slice(3, 8);
+  const normalParts = parts.slice(8);
+  
+  function getWeightedParts() {
+    const rand = Math.random();
+    let selectedParts;
+    if (rand < 0.3) {
+      selectedParts = faker.helpers.arrayElements(bestSellers, faker.number.int({ min: 1, max: 2 }));
+    } else if (rand < 0.35) {
+      selectedParts = faker.helpers.arrayElements(slowMovers, 1);
+    } else {
+      selectedParts = faker.helpers.arrayElements(normalParts, faker.number.int({ min: 1, max: 3 }));
+    }
+    return [...new Set(selectedParts)]; // ensure unique
+  }
+
+  // 3. Create FTF Customers (Pure In-Store & Unmerged)
+  const ftfCustomers = [];
+  for (let i = 0; i < 45; i++) { // 30 pure in-store + 15 unmerged
+    const tempId = `temp-${Date.now()}-${faker.string.alphanumeric(4)}`;
+    const cust = await prisma.customer.create({
+      data: {
+        authId: tempId,
+        email: `${tempId}@walkin.local`,
+        displayName: faker.person.fullName(),
+        phoneNumber: generatePHMobile(),
+      }
+    });
+    ftfCustomers.push(cust);
+  }
+
+  // Assign customer groups
+  const pureOnlineCustomers = customers.slice(0, 10);
+  const mergedCustomers = customers.slice(10, 14); // 4 merged
+  const pureInStoreCustomers = ftfCustomers.slice(0, 30);
+  const unmergedFtfCustomers = ftfCustomers.slice(30, 45);
+
+  const allTransactionsData = [];
+  
+  function createTxData(userId, channel, customerName, customerContact, customerEmailStr) {
+    const date = txDates.pop() || faker.date.recent();
+    const isOnline = channel === 'online';
+    const isHistorical = (now - date) > 30 * 24 * 60 * 60 * 1000;
+
+    const orderParts = getWeightedParts();
+    if (orderParts.length === 0) orderParts.push(normalParts[0]);
+
+    let total = 0;
+    const itemsData = orderParts.map(p => {
       const quantity = faker.number.int({ min: 1, max: 3 });
-      // Store the selling price, matching what a customer actually paid.
       const sellingPrice = round2(p.price * MARKUP_FACTOR);
       total += quantity * sellingPrice;
-      
-      if(!partPurchasers[p.id]) partPurchasers[p.id] = new Set();
-      partPurchasers[p.id].add(customer);
-
       return { partId: p.id, name: p.name, quantity, price: sellingPrice };
     });
 
     total = round2(total);
     const vatableSale = round2(total / (1 + VAT_RATE));
     const taxAmount = round2(total - vatableSale);
+    
+    let paymentMethod, invoicePrefix, stripeSessionId;
+    if (isOnline) {
+      paymentMethod = faker.helpers.arrayElement(['CARD', 'GCASH']);
+      invoicePrefix = 'WEB-';
+      stripeSessionId = `cs_test_${faker.string.alphanumeric(16)}`;
+    } else {
+      paymentMethod = faker.helpers.arrayElement(['CASH', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'GCASH']);
+      invoicePrefix = 'INV-';
+      stripeSessionId = null;
+    }
 
-    await prisma.transaction.create({
-      data: {
-        invoiceNumber: `INV-${faker.date.recent().getTime()}-${faker.number.int({ min: 100, max: 999 })}`,
-        customerName: customer.displayName,
-        customerContact: customer.email,
-        userId: customer.authId,
-        subtotal: vatableSale,
-        taxAmount,
-        total,
-        status: faker.helpers.arrayElement(["ORDER_PLACED", "READY_FOR_PICKUP", "COMPLETED"]),
-        transactionDate: faker.date.recent({ days: 30 }),
-        items: { create: items }
-      }
-    });
+    const tx = {
+      invoiceNumber: `${invoicePrefix}${date.getTime()}-${faker.number.int({ min: 100, max: 999 })}`,
+      customerName,
+      customerContact,
+      customerEmail: customerEmailStr,
+      userId,
+      stripeSessionId,
+      subtotal: vatableSale,
+      taxAmount,
+      total,
+      status: isHistorical ? "COMPLETED" : faker.helpers.arrayElement(["ORDER_PLACED", "READY_FOR_PICKUP", "COMPLETED"]),
+      transactionDate: date,
+      paymentMethod,
+      items: { create: itemsData }
+    };
+
+    if (paymentMethod === 'CASH') {
+      tx.amountTendered = total;
+      tx.changeGiven = 0;
+    }
+
+    return tx;
+  }
+
+  // 1. Pure online
+  for (const c of pureOnlineCustomers) {
+    const count = faker.number.int({ min: 20, max: 40 });
+    for(let i=0; i<count; i++) {
+      allTransactionsData.push(createTxData(c.authId, 'online', c.email, c.authId, ""));
+    }
+  }
+
+  // 2. Pure in-store
+  for (const c of pureInStoreCustomers) {
+    const count = faker.number.int({ min: 15, max: 35 });
+    for(let i=0; i<count; i++) {
+      allTransactionsData.push(createTxData(c.authId, 'store', c.displayName, c.phoneNumber, c.email));
+    }
+  }
+
+  // 3. Merged customers
+  for (const c of mergedCustomers) {
+    const storeCount = faker.number.int({ min: 10, max: 20 });
+    const onlineCount = faker.number.int({ min: 10, max: 20 });
+    for(let i=0; i<storeCount; i++) {
+      allTransactionsData.push(createTxData(c.authId, 'store', c.displayName, c.phoneNumber, c.email));
+    }
+    for(let i=0; i<onlineCount; i++) {
+      allTransactionsData.push(createTxData(c.authId, 'online', c.email, c.authId, ""));
+    }
+  }
+
+  // 4. Anonymous walk-ins
+  const anonCount = faker.number.int({ min: 200, max: 300 });
+  for(let i=0; i<anonCount; i++) {
+    allTransactionsData.push(createTxData(null, 'store', faker.person.fullName(), faker.helpers.arrayElement([generatePHMobile(), faker.internet.email()]), ""));
+  }
+
+  // 5. Unmerged FTF
+  for (const c of unmergedFtfCustomers) {
+    const count = faker.number.int({ min: 5, max: 15 });
+    for(let i=0; i<count; i++) {
+      allTransactionsData.push(createTxData(c.authId, 'store', c.displayName, c.phoneNumber, c.email));
+    }
+  }
+
+  for (const txData of allTransactionsData) {
+    await prisma.transaction.create({ data: txData });
   }
 
   // Create Reviews (8 to 15 per part, realistic distribution) — batched for speed

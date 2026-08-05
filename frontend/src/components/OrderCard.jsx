@@ -28,8 +28,7 @@ const formatDate = (dateString) => {
 
 export default function OrderCard({
   transaction,
-  displayCurrency = '₱',
-  formatCurrency = (amt) => `${displayCurrency} ${amt}`,
+  formatCurrency = (amt) => `₱ ${amt}`,
   onDownloadPDF,
   onReview,
   onReorder
@@ -68,11 +67,11 @@ export default function OrderCard({
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-semibold text-foreground truncate">{item.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {displayCurrency} {item.price} × {item.quantity}
+                  {formatCurrency(item.price)} × {item.quantity}
                 </p>
               </div>
               <p className="text-sm font-mono font-medium text-foreground whitespace-nowrap">
-                {displayCurrency} {((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+                {formatCurrency((item.price || 0) * (item.quantity || 1))}
               </p>
             </div>
           ))
@@ -109,7 +108,8 @@ export default function OrderCard({
           </button>
           <button
             onClick={() => onReview && onReview(transaction.items?.[0]?.partId || transaction.items?.[0]?.id, transaction.items?.[0]?.name)}
-            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            disabled={transaction.status !== 'COMPLETED'}
+            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background"
             aria-label="Leave review"
           >
             <Star weight="bold" className="w-4 h-4 shrink-0" />

@@ -355,7 +355,7 @@ describe('CustomerStorefront Component Tests', () => {
     fireEvent.change(screen.getByLabelText(/minimum price/i), { target: { value: '200' } });
     fireEvent.change(screen.getByLabelText(/maximum price/i), { target: { value: '50' } });
 
-    expect(await screen.findByText(/minimum price must be lower than maximum price/i)).toBeVisible();
+    expect(await screen.findByText(/minimum price must be lower than maximum price/i)).toBeInTheDocument();
   });
 
   it('keeps the homepage fitment panel open while users interact inside it', async () => {

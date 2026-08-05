@@ -1,4 +1,5 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState, Suspense, lazy, useRef } from 'react';
+import { apiPost } from './api/apiClient';
 import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree, SignOut } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
@@ -11,6 +12,7 @@ import ToastNotification, { useToast } from './components/ToastNotification';
 import UpdatePasswordModal from './components/UpdatePasswordModal';
 import CompleteProfileModal from './components/CompleteProfileModal';
 import { Drawer } from './components/ui/Drawer';
+import LowStockAlertPopover from './components/LowStockAlertPopover';
 
 // Lazy loaded page modules to optimize initial bundle size
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -57,6 +59,7 @@ export default function App() {
     account: 'My Account'
   };
   const [supabaseUser, setSupabaseUser] = useState(null);
+  const bellButtonRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [customerProfile, setCustomerProfile] = useState(null);
@@ -130,20 +133,6 @@ export default function App() {
 
         if (userRole === 'admin') {
           setActiveView('admin-app');
-          if (event === 'SIGNED_IN') {
-             setLogs((prev) => {
-               if (prev.some(l => l.type === 'auth' && l.message === `${email} logged in` && (new Date() - new Date(l.timestamp) < 2000))) {
-                 return prev;
-               }
-               return [{
-                 id: `L-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-                 timestamp: new Date().toISOString(),
-                 type: 'auth',
-                 message: `${email} logged in`,
-                 meta: null
-               }, ...prev];
-             });
-          }
         }
         else setActiveView('storefront'); // Go directly to storefront
       } else {
@@ -431,8 +420,11 @@ export default function App() {
   };
 
   const handleCheckout = async (txData) => {
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTx = { ...txData, id: tempId };
+
     // Optimistic UI update
-    setTransactions((prev) => [txData, ...prev]);
+    setTransactions((prev) => [optimisticTx, ...prev]);
 
     // Backend sync
     const res = await createTransaction(txData);
@@ -440,8 +432,14 @@ export default function App() {
       // Re-sync all parts from backend to ensure accurate stock
       const updatedParts = await fetchParts();
       setParts(updatedParts);
+
+      // Replace optimistic update with the real transaction from the backend
+      setTransactions((prev) => prev.map(tx => tx.id === tempId ? res.transaction : tx));
+
       return true;
     } else {
+      // Revert optimistic update on failure
+      setTransactions((prev) => prev.filter(tx => tx.id !== tempId));
       addLog('system', `Error processing sale: ${res.error}`);
       alert(`Transaction failed: ${res.error}`);
       return false;
@@ -449,9 +447,6 @@ export default function App() {
   };
 
   const handleLogout = async (role) => {
-    if (role === 'admin' || role === 'SUPERADMIN' || role === 'STAFF') {
-      addLog('auth', 'Staff logged out');
-    }
     await supabase.auth.signOut();
     setActiveView('storefront');
   };
@@ -470,6 +465,12 @@ export default function App() {
       const fullName = 'Lionel Messi';
 
       let { error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      try {
+        if (!error) await apiPost('/api/audit/login', {}, { supabase });
+      } catch (e) {
+        console.warn(e);
+      }
 
       if (error?.status === 429) {
         throw new Error('Too many requests. Please wait 30 seconds and try again.');
@@ -490,6 +491,11 @@ export default function App() {
         if (signUpError) throw signUpError;
 
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        try {
+          if (!signInError) await apiPost('/api/audit/login', {}, { supabase });
+        } catch (e) {
+          console.warn(e);
+        }
         if (signInError?.message?.includes('Email not confirmed')) {
           throw new Error('Account created but email not confirmed. Contact admin to confirm.');
         }
@@ -513,6 +519,12 @@ export default function App() {
         email: 'admin@tarlactruckparts.local',
         password: 'admin123',
       });
+      
+      try {
+        if (!error) await apiPost('/api/audit/login', {}, { supabase });
+      } catch (e) {
+        console.warn(e);
+      }
 
       if (error?.status === 429) {
         throw new Error('Too many requests. Please wait 30 seconds and try again.');
@@ -527,7 +539,7 @@ export default function App() {
   };
 
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock).sort((a, b) => (b.minStock - b.stock) - (a.minStock - a.stock));
+  const lowStockParts = parts.filter((part) => (part.stock - (part.reservedStock || 0)) <= part.minStock);
   const lowStockCount = lowStockParts.length;
 
   if (!isLoaded) {
@@ -610,7 +622,7 @@ export default function App() {
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
-        <div className="flex-1 space-y-6 overflow-y-scroll overflow-x-hidden px-4 py-5 custom-scrollbar">
+        <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-5 hide-scrollbar">
           <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} px-1 py-2`}>
             {!isSidebarCollapsed ? (
               <Logo className="w-14 h-14 shrink-0" showText={true} />
@@ -783,7 +795,7 @@ export default function App() {
       {isSidebarOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm">
           <aside className="w-72 bg-background border-r border-border flex flex-col justify-between overflow-hidden animate-slideRight">
-            <div className="flex-1 space-y-6 overflow-y-scroll px-5 py-5 custom-scrollbar">
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 hide-scrollbar">
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <Logo className="w-12 h-12" showText={true} />
                 <button
@@ -979,6 +991,7 @@ export default function App() {
           <div className="flex items-center gap-3 md:gap-4">
 
             <button
+              ref={bellButtonRef}
               onClick={() => setIsAlertDrawerOpen(true)}
               className="relative p-2 hover:bg-secondary rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all group"
               aria-label="Notifications"
@@ -1002,7 +1015,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col overflow-y-auto px-6 pt-6 pb-2 md:px-8 md:pt-8 md:pb-2">
+        <main className="flex-1 flex flex-col overflow-y-auto px-6 pt-6 pb-2 md:px-8 md:pt-8 md:pb-2 custom-scrollbar">
           <AnimatePresence mode="wait">
             <motion.div
               key={page}
@@ -1068,76 +1081,25 @@ export default function App() {
         </main>
       </div>
 
-      {/* Alert Notification Drawer */}
-      <Drawer
+      {/* Alert Notification Drawer -> Popover */}
+      <LowStockAlertPopover
+        lowStockParts={lowStockParts}
         isOpen={isAlertDrawerOpen}
         onClose={() => setIsAlertDrawerOpen(false)}
-        labelledBy="alert-drawer-heading"
-        panelClassName="fixed top-0 right-0 w-full max-w-sm h-full bg-background border-l border-border flex flex-col"
-        panelVariants={{
-          initial: { x: '100%', opacity: 0.5 },
-          animate: { x: 0, opacity: 1 },
-          exit: { x: '100%', opacity: 0.5 },
-          transition: { ease: 'easeOut', duration: 0.18 },
+        triggerRef={bellButtonRef}
+        showToast={showToast}
+        onNavigateToPart={(sku) => {
+          setIsAlertDrawerOpen(false);
+          setSelectedCategory('All');
+          setPage('catalog');
+          setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: sku })), 50);
         }}
-      >
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Bell weight="duotone" className="w-5 h-5 text-accent" />
-            <h2 id="alert-drawer-heading" className="text-lg font-bold text-foreground font-display">Low Stock Alerts</h2>
-          </div>
-          <button onClick={() => setIsAlertDrawerOpen(false)} aria-label="Close notifications" className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground transition-colors">
-            <X weight="bold" className="w-4 h-4" />
-          </button>
-        </div>
-
-        <ul aria-live="polite" aria-atomic="false" className="list-none flex-1 overflow-y-auto p-5 space-y-4">
-          {lowStockParts.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-70">
-              <CheckCircle weight="duotone" className="w-12 h-12 mb-2 text-emerald-500" />
-              <p className="text-sm font-semibold">All Stock is Healthy</p>
-              <p className="text-xs text-center mt-1">No parts are below their minimum threshold.</p>
-            </div>
-          ) : (
-            lowStockParts.map(part => (
-              <li key={part.id} className="p-4 bg-secondary border border-border rounded-xl space-y-3 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1 h-full bg-destructive"></div>
-                <div className="flex justify-between items-start pl-2">
-                  <div className="pr-4">
-                    <h3 className="text-sm font-bold text-foreground leading-tight">{part.name}</h3>
-                    <p className="text-xs font-mono text-muted-foreground mt-0.5">{part.sku}</p>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs font-bold text-destructive px-2 py-0.5 bg-destructive/10 rounded-md">Low Stock</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pl-2">
-                  <div className="p-2 bg-background rounded-lg border border-border">
-                    <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
-                    <div className="text-lg font-bold text-foreground">{part.stock}</div>
-                  </div>
-                  <div className="p-2 bg-background rounded-lg border border-border">
-                    <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider">Min Threshold</div>
-                    <div className="text-lg font-bold text-foreground opacity-75">{part.minStock}</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsAlertDrawerOpen(false);
-                    setSelectedCategory('All');
-                    setPage('catalog');
-                    setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: part.sku })), 50);
-                  }}
-                  className="w-full mt-2 ml-2 py-1.5 bg-foreground hover:bg-foreground/90 text-background text-xs font-bold rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <ShoppingCart weight="bold" className="w-3.5 h-3.5" />
-                  Restock Now
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      </Drawer>
+        onNavigateToCatalog={() => {
+          setIsAlertDrawerOpen(false);
+          setSelectedCategory('All');
+          setPage('catalog');
+        }}
+      />
 
       {/* System Settings Modal */}
       {isSettingsModalOpen && (

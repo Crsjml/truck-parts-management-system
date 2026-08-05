@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Truck, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders, CurrencyDollar, Info } from '@phosphor-icons/react';
+import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders, CurrencyDollar, Info } from '@phosphor-icons/react';
 import { fetchCategoriesList } from '../authStore';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
@@ -8,6 +8,11 @@ import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/catego
 import PartCard from './PartCard';
 import PartTableRow from './PartTableRow';
 import AddPartDrawer from './AddPartDrawer';
+import CompatibilityEditor from './inventory/CompatibilityEditor';
+import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
+import Select from 'react-select';
+import { customSelectStyles } from './ui/PurchasingAtoms';
+import ToggleChip from './ui/ToggleChip';
 import { z } from 'zod';
 
 const partSchema = z.object({
@@ -21,10 +26,10 @@ const partSchema = z.object({
 });
 
 export default function PartsCatalog({ parts, categories, structuredCategories = [], selectedCategory, setSelectedCategory, onAddPart, onEditPart, onDeletePart, onRestockPart, onAddLog, adminSession, isReadOnly = false, setPage, onFetchPartAdjustments, onFetchGlobalAuditLogs }) {
-  const { formatCurrency, formatBaseCurrency } = useSettings();
+  const { formatCurrency } = useSettings();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState('recommended');
-  const [viewMode, setViewMode] = useState('grid4'); // 'grid3', 'grid4', 'table'
+  const [viewMode, setViewMode] = useState('table'); // keep inventory dense by default
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
   // Sub-category state
@@ -50,7 +55,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const [isLoadingGlobalLogs, setIsLoadingGlobalLogs] = useState(false);
   const [isLoadingAdjustments, setIsLoadingAdjustments] = useState(false);
   const [originalStock, setOriginalStock] = useState(0);
-  const [editAdjustmentReason, setEditAdjustmentReason] = useState('');
+  const [formCompatibleWith, setFormCompatibleWith] = useState(normalizeCompatibilityRows(''));
 
   useEffect(() => {
     const loadCats = async () => {
@@ -144,7 +149,6 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
   const [formMinStock, setFormMinStock] = useState('');
-  const [formCompatibility, setFormCompatibility] = useState('');
   const [formDescription, setFormDescription] = useState('');
 
   // Funnel logic
@@ -211,9 +215,8 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
     setFormPrice(part.price.toString());
     setFormStock(part.stock.toString());
     setOriginalStock(part.stock);
-    setEditAdjustmentReason('');
     setFormMinStock(part.minStock.toString());
-    setFormCompatibility(part.compatibility || '');
+    setFormCompatibleWith(normalizeCompatibilityRows(part.compatibleWith?.length ? part.compatibleWith : part.compatibility || ''));
     setFormDescription(part.description || '');
     setFormImage(part.image || '');
     setFormErrors({});
@@ -255,25 +258,22 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
     setServerError('');
     
     // Zod Validation
-    try {
-      partSchema.parse({
-        name: formName.trim(),
-        sku: formSku.trim(),
-        oem: formOem.trim(),
-        category: formCategory,
-        price: Number(formPrice),
-        stock: Number(formStock),
-        minStock: Number(formMinStock)
-      });
-      setFormErrors({});
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        const errors = {};
-        err.errors.forEach(e => { errors[e.path[0]] = e.message; });
-        setFormErrors(errors);
-        return;
-      }
+    const result = partSchema.safeParse({
+      name: formName.trim(),
+      sku: formSku.trim(),
+      oem: formOem.trim(),
+      category: formCategory,
+      price: isNaN(parseFloat(formPrice)) ? -1 : parseFloat(formPrice),
+      stock: isNaN(parseInt(formStock)) ? -1 : parseInt(formStock),
+      minStock: isNaN(parseInt(formMinStock)) ? -1 : parseInt(formMinStock)
+    });
+    if (!result.success) {
+      const errors = {};
+      result.error.issues.forEach(e => { errors[e.path[0]] = e.message; });
+      setFormErrors(errors);
+      return;
     }
+    setFormErrors({});
 
     const partData = {
       name: formName.trim(),
@@ -283,18 +283,11 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
       price: parseFloat(formPrice),
       stock: parseInt(formStock),
       minStock: parseInt(formMinStock),
-      compatibility: formCompatibility.trim(),
+      compatibility: compatibilityRowsToSummary(formCompatibleWith),
+      compatibleWith: compatibilityRowsToPayload(formCompatibleWith),
       description: formDescription.trim(),
       image: formImage
     };
-
-    if (modalType === 'edit' && parseInt(formStock) !== originalStock) {
-      if (!editAdjustmentReason.trim()) {
-        setServerError('A reason for stock adjustment is required.');
-        return;
-      }
-      partData.adjustmentReason = editAdjustmentReason.trim();
-    }
 
     setIsSubmitting(true);
     try {
@@ -442,21 +435,18 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
               const { icon: CatIcon, color } = getCategoryStyles(cat);
               const isSelected = selectedCategory === cat;
               return (
-                <button
+                <ToggleChip
                   key={cat}
+                  active={isSelected}
                   onClick={() => {
                     setSelectedCategory(cat);
                     setSelectedSubCategory(['All']); // Reset subcategory
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${
-                    isSelected 
-                      ? 'bg-accent/10 border-accent/30 text-accent shadow-sm' 
-                      : 'bg-background border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  className="flex items-center gap-1.5 rounded-full whitespace-nowrap"
                 >
                   {CatIcon && <CatIcon weight={isSelected ? "fill" : "duotone"} className={`w-3.5 h-3.5 ${isSelected ? '' : color}`} />}
                   {cat}
-                </button>
+                </ToggleChip>
               );
             });
           })()}
@@ -479,23 +469,21 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
             return (
               <div className="flex overflow-x-auto custom-scrollbar pb-1 items-center gap-2 pl-4 border-l-2 border-border/50">
-                <button
+                <ToggleChip
+                  active={selectedSubCategory.includes('All')}
                   onClick={() => setSelectedSubCategory(['All'])}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
-                    selectedSubCategory.includes('All') 
-                      ? 'bg-secondary border-border text-foreground' 
-                      : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                  }`}
+                  className="flex items-center gap-1.5 rounded-full text-2xs whitespace-nowrap py-1"
                 >
                   <SquaresFour weight="duotone" className="w-3 h-3" />
                   All {selectedCategory}
-                </button>
+                </ToggleChip>
                 {subCats.map((sub) => {
                   const isSelected = selectedSubCategory.includes(sub.name);
                   const { icon: SubIcon, color } = getCategoryStyles(sub.name);
                   return (
-                    <button
+                    <ToggleChip
                       key={sub.id}
+                      active={isSelected}
                       onClick={() => {
                         setSelectedSubCategory(prev => {
                           const current = Array.isArray(prev) ? prev : [prev];
@@ -508,15 +496,11 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                           }
                         });
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold transition-all whitespace-nowrap border ${
-                        isSelected 
-                          ? 'bg-secondary border-border text-foreground shadow-sm' 
-                          : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                      }`}
+                      className="flex items-center gap-1.5 rounded-full text-2xs whitespace-nowrap py-1"
                     >
                       {SubIcon && <SubIcon weight={isSelected ? "fill" : "duotone"} className={`w-3 h-3 ${isSelected ? 'text-foreground' : color}`} />}
                       {sub.name}
-                    </button>
+                    </ToggleChip>
                   );
                 })}
               </div>
@@ -528,37 +512,41 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
       {/* View Controls Bar */}
       <div className="flex items-center justify-between bg-background/50 border border-border p-2 rounded-xl">
         <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg border border-border/50">
-          <button 
+          <ToggleChip 
+            active={viewMode === 'table'}
             onClick={() => setViewMode('table')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'table' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+            className="flex items-center gap-1.5 rounded-md"
           >
             <ListDashes weight={viewMode === 'table' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">List</span>
-          </button>
-          <button 
+          </ToggleChip>
+          <ToggleChip 
+            active={viewMode === 'grid3'}
             onClick={() => setViewMode('grid3')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'grid3' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+            className="flex items-center gap-1.5 rounded-md"
           >
             <SquaresFour weight={viewMode === 'grid3' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">Compact</span>
-          </button>
-          <button 
+          </ToggleChip>
+          <ToggleChip 
+            active={viewMode === 'grid4'}
             onClick={() => setViewMode('grid4')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'grid4' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+            className="flex items-center gap-1.5 rounded-md"
           >
             <GridFour weight={viewMode === 'grid4' ? 'fill' : 'duotone'} className="w-4 h-4" />
             <span className="hidden sm:inline">Detailed</span>
-          </button>
+          </ToggleChip>
           {!isReadOnly && (
             <>
               <div className="w-px h-4 bg-border mx-1"></div>
-              <button 
+              <ToggleChip 
+                active={viewMode === 'auditLog'}
                 onClick={() => setViewMode('auditLog')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-semibold ${viewMode === 'auditLog' ? 'bg-background text-foreground shadow border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+                className="flex items-center gap-1.5 rounded-md"
               >
                 <ShieldCheck weight={viewMode === 'auditLog' ? 'fill' : 'duotone'} className="w-4 h-4" />
                 <span className="hidden sm:inline">Audit Log</span>
-              </button>
+              </ToggleChip>
             </>
           )}
         </div>
@@ -584,14 +572,14 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
           {/* Low Stock Toggle */}
           {!isReadOnly && (
-            <label className={`flex items-center gap-2 px-3 py-1.5 h-9 rounded-lg border cursor-pointer select-none transition-all duration-200 ${showLowStockOnly ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-transparent border-transparent text-muted-foreground hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400'}`}>
+            <label className="flex items-center gap-2 px-3 py-1.5 h-9 rounded-lg border cursor-pointer select-none transition-all duration-200 bg-transparent border-transparent text-muted-foreground hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-400 has-[:checked]:bg-red-500/10 has-[:checked]:border-red-500/30 has-[:checked]:text-red-500 group">
               <input 
                 type="checkbox" 
                 checked={showLowStockOnly} 
                 onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-                className="hidden"
+                className="sr-only peer accent-primary"
               />
-              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className={`w-4 h-4 ${showLowStockOnly ? 'text-red-500' : 'text-muted-foreground group-hover:text-red-400'}`} />
+              <Warning weight={showLowStockOnly ? "fill" : "duotone"} className="w-4 h-4 text-muted-foreground group-hover:text-red-400 peer-checked:text-red-500" />
               <span className="text-xs font-semibold hidden sm:inline">Low Stock Only</span>
             </label>
           )}
@@ -674,7 +662,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                     <th className="px-4 py-3">Part Name</th>
                     <th className="px-4 py-3">SKU / OEM</th>
                     <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3 text-right">Pricing (Retail / Cost)</th>
+                    <th className="px-4 py-3 text-right">Unit Price</th>
                     <th className="px-4 py-3 text-right">Stock</th>
                     <th className="px-4 py-3 text-right"></th>
                   </tr>
@@ -686,10 +674,10 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         part={part} 
                         openDetailsModal={openDetailsModal} 
                         formatCurrency={formatCurrency}
-                        formatBaseCurrency={formatBaseCurrency} 
                         openAdjustStockModal={openAdjustStockModal}
                         openEditModal={openEditModal}
                         onDeletePart={onDeletePart}
+                        setPage={typeof setPage !== 'undefined' ? setPage : () => {}}
                       />
                   ))}
                 </tbody>
@@ -704,7 +692,6 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                   isAdmin={true}
                   isReadOnly={isReadOnly}
                   formatCurrency={formatCurrency}
-                  formatBaseCurrency={formatBaseCurrency}
                   openDetailsModal={openDetailsModal}
                   setInquiryPart={typeof setInquiryPart !== 'undefined' ? setInquiryPart : () => {}}
                   setInquiryQty={typeof setInquiryQty !== 'undefined' ? setInquiryQty : () => {}}
@@ -761,16 +748,22 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
       {/* Main Dialog Modal */}
       {isModalOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full ${(modalType === 'details' || modalType === 'adjustStock') ? 'max-w-xl' : 'max-w-4xl'} bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp`}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="parts-modal-title"
+            className={`w-full ${(modalType === 'details' || modalType === 'adjustStock') ? 'max-w-xl' : 'max-w-5xl'} bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp`}
+          >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border">
-              <h3 className="text-lg font-bold text-foreground font-display">
+              <h3 id="parts-modal-title" className="text-lg font-bold text-foreground font-display">
                 {modalType === 'edit' && 'Edit Part Details'}
                 {modalType === 'details' && 'Part Details Overview'}
                 {modalType === 'adjustStock' && 'Adjust Stock count'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
+                aria-label="Close part modal"
                 className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X weight="duotone" className="w-5 h-5" />
@@ -935,21 +928,25 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">New Stock Count *</label>
+                  <label htmlFor="adjust-new-stock" className="text-xs font-semibold text-muted-foreground uppercase">New Stock Count *</label>
                   <input 
+                    id="adjust-new-stock"
                     type="number" 
                     required
                     min="0"
                     placeholder="Enter new stock count"
                     value={adjustNewStock}
                     onChange={(e) => setAdjustNewStock(e.target.value)}
+                    aria-invalid={!!adjustError}
+                    aria-describedby={adjustError ? 'adjust-new-stock-error' : undefined}
                     className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-600 transition-all text-foreground font-bold"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">Reason for Adjustment *</label>
+                  <label htmlFor="adjust-reason" className="text-xs font-semibold text-muted-foreground uppercase">Reason for Adjustment *</label>
                   <textarea 
+                    id="adjust-reason"
                     required
                     placeholder="e.g., Damaged items during shipment, Returned by client, Stock audit discrepancy"
                     rows="3"
@@ -960,7 +957,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 </div>
 
                 {adjustError && (
-                  <p className="text-xs text-red-400 font-semibold flex items-center gap-1 animate-shake"><WarningCircle weight="fill" /> {adjustError}</p>
+                  <p id="adjust-new-stock-error" role="alert" className="text-xs text-red-400 font-semibold flex items-center gap-1 animate-shake"><WarningCircle weight="fill" /> {adjustError}</p>
                 )}
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -982,246 +979,255 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 </div>
               </form>
             ) : (
-              // Edit Form (Bento Box Layout)
-              <form onSubmit={handleFormSubmit} className="flex flex-col max-h-[85vh]">
-                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 text-left overflow-y-auto custom-scrollbar">
-
-                  {/* Left Column: Core Identity */}
-                  <div className="space-y-4">
-                    <div className="space-y-1.5 group">
-                      <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formName ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        <Package weight="duotone" className={`w-4 h-4 ${formName ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Part Name / Component Title *
-                        {formName && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                      </label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. Starter Motor Assembly (24V)"
-                        value={formName}
-                        onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formName ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                      />
-                      {formErrors.name && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.name}</p>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5 group">
-                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formSku ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          <ListDashes weight="duotone" className={`w-4 h-4 ${formSku ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> SKU / Code *
-                          {formSku && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                        </label>
-                        <input 
-                          type="text" 
-                          required
-                          placeholder="e.g. ELC-STR"
-                          value={formSku}
-                          onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formSku ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                        />
-                        {formErrors.sku && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.sku}</p>}
-                      </div>
-                      <div className="space-y-1.5 group">
-                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formOem ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          <Tag weight="duotone" className={`w-4 h-4 ${formOem ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> OEM Part No. *
-                          {formOem && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                        </label>
-                        <input 
-                          type="text" 
-                          required
-                          placeholder="e.g. 1-81100-341-1"
-                          value={formOem}
-                          onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formOem ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                        />
-                        {formErrors.oem && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.oem}</p>}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                        <Funnel weight="duotone" className="w-4 h-4 text-brandBlue-400" /> Category / Subcategory *
-                      </label>
-                      <select 
-                        value={formCategory}
-                        onChange={(e) => { setFormCategory(e.target.value); setFormErrors(prev => ({...prev, category: ''})); }}
-                        required
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.category ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : 'border-border focus:border-red-600'}`}
-                      >
-                        {categoriesList.length === 0 ? (
-                          <option value="" disabled>Loading categories…</option>
-                        ) : (
-                          <>
-                            <option value="" disabled>-- Select Category / Subcategory --</option>
-                            {categoriesList.filter(c => !c.parentCategory).map(parent => {
-                              const subs = categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString());
-                              return (
-                                <optgroup key={parent.id} label={parent.name}>
-                                  <option value={parent.id}>{parent.name} (Main)</option>
-                                  {subs.map(sub => (
-                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                  ))}
-                                </optgroup>
-                              );
-                            })}
-                          </>
-                        )}
-                      </select>
-                      {formErrors.category && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.category}</p>}
-                      {categoriesList.length === 0 && <p className="text-2xs text-amber-500 font-semibold">⚠ Categories not loaded. Check if the backend is running.</p>}
-                    </div>
-                    
-                    <div className="space-y-1.5 group">
-                      <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formCompatibility ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        <Truck weight="duotone" className={`w-4 h-4 ${formCompatibility ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Vehicle Compatibility Models
-                        {formCompatibility && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                      </label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Isuzu ELF NPR, Forward, Hino 300"
-                        value={formCompatibility}
-                        onChange={(e) => setFormCompatibility(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formCompatibility ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column: Pricing, Stock, and Media */}
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-1.5 group">
-                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formPrice ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          <CurrencyDollar weight="duotone" className={`w-4 h-4 ${formPrice ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Price (₱) *
-                          {formPrice && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                        </label>
-                        <input 
-                          type="number" 
-                          required
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={formPrice}
-                          onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formPrice ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                        />
-                        {formErrors.price && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.price}</p>}
-                      </div>
-                      <div className="space-y-1.5 group">
-                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formStock !== '' ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          <Package weight="duotone" className={`w-4 h-4 ${formStock !== '' ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> {modalType === 'edit' ? 'Current Stock *' : 'Initial Stock *'}
-                          {formStock !== '' && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                        </label>
-                        <input 
-                          type="number" 
-                          required
-                          min="0"
-                          placeholder="0"
-                          value={formStock}
-                          disabled={modalType === 'edit'}
-                          onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${formErrors.stock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                        />
-                        {formErrors.stock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.stock}</p>}
-                      </div>
-
-                      {modalType === 'edit' && parseInt(formStock) !== originalStock && (
-                        <div className="space-y-1.5 col-span-3">
-                          <label className="text-xs font-bold text-red-500 uppercase flex items-center gap-1.5">Reason for Stock Adjustment *</label>
-                          <input 
-                            type="text" 
-                            required
-                            placeholder="e.g. damaged goods, return"
-                            value={editAdjustmentReason}
-                            onChange={(e) => setEditAdjustmentReason(e.target.value)}
-                            className="w-full bg-background border border-red-500/50 focus:border-red-500 ring-1 ring-red-500/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground animate-fadeIn"
-                          />
+              // Edit Form
+              <form onSubmit={handleFormSubmit} className="flex max-h-[82vh] flex-col">
+                <div className="overflow-y-auto bg-secondary/40 p-4 text-left custom-scrollbar sm:p-5">
+                  <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border bg-background p-4 sm:flex-row sm:items-center">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
+                      {formImage ? (
+                        <img src={formImage} alt={`${formName || 'Part'} preview`} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Package className="h-6 w-6 text-muted-foreground/50" weight="duotone" />
                         </div>
                       )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Editing inventory record</p>
+                      <h4 className="mt-1 truncate text-lg font-bold text-foreground font-display" title={formName}>{formName || 'Untitled part'}</h4>
+                      <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                        <span className="font-mono font-semibold">{formSku || 'No SKU'}</span>
+                        <span className="font-mono">{formOem || 'No OEM'}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openAdjustStockModal(selectedPart)}
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 text-xs font-semibold text-foreground transition-colors hover:bg-background"
+                    >
+                      <Sliders className="h-3.5 w-3.5" weight="duotone" />
+                      Adjust stock
+                    </button>
+                  </div>
 
-                      <div className="space-y-1.5 group">
-                        <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formMinStock !== '' ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          <WarningCircle weight="duotone" className={`w-4 h-4 ${formMinStock !== '' ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Min Stock *
-                          {formMinStock !== '' && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                        </label>
-                        <input 
-                          type="number" 
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(21rem,0.92fr)]">
+                    <section className="space-y-4 rounded-xl border border-border bg-background p-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground font-display">Identity</h4>
+                        <p className="text-xs text-muted-foreground">Search, receipts, category filters, and staff lookup use these fields.</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label htmlFor="edit-part-name" className="text-[11px] font-semibold text-muted-foreground">Part name *</label>
+                        <input
+                          id="edit-part-name"
+                          type="text"
                           required
-                          min="0"
-                          placeholder="5"
-                          value={formMinStock}
-                          onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
-                          className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-red-500 focus:border-red-500 ring-1 ring-red-500/20 animate-shake' : formMinStock !== '' ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
+                          placeholder="e.g. Starter Motor Assembly (24V)"
+                          value={formName}
+                          onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
+                          className={`h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground transition-all focus:outline-none ${formErrors.name ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-foreground/40'}`}
                         />
-                        {formErrors.minStock && <p className="text-2xs text-red-400 font-semibold flex items-center gap-1"><WarningCircle weight="fill" /> {formErrors.minStock}</p>}
+                        {formErrors.name && <p className="text-2xs font-semibold text-destructive">{formErrors.name}</p>}
                       </div>
-                    </div>
 
-                    <div className="space-y-1.5 group">
-                      <label className={`text-xs font-semibold uppercase flex items-center gap-1.5 transition-colors ${formDescription ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        <ListDashes weight="duotone" className={`w-4 h-4 ${formDescription ? 'text-emerald-500' : 'text-brandBlue-400'}`} /> Item Description
-                        {formDescription && <CheckCircle weight="fill" className="w-3.5 h-3.5 text-emerald-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />}
-                      </label>
-                      <textarea 
-                        rows="2"
-                        placeholder="e.g. High torque motor built for heavy-duty commercial applications..."
-                        value={formDescription}
-                        onChange={(e) => setFormDescription(e.target.value)}
-                        className={`w-full bg-background border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all text-foreground resize-y min-h-[80px] custom-scrollbar ${formDescription ? 'border-foreground/30 focus:border-foreground/60' : 'border-border focus:border-foreground/40'}`}
-                      />
-                    </div>
-
-                    {/* Upload Image Section */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                        <Image className="w-4 h-4 text-brandBlue-400" weight="duotone" /> Part Product Image
-                      </label>
-                      <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-3.5">
-                        <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border/10">
-                          {formImage ? (
-                            <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
-                          ) : (
-                            <Image className="w-6 h-6 text-muted-foreground/30" weight="duotone" />
-                          )}
-                        </div>
-                        <div className="space-y-1 flex-1">
-                          <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                if (file.size > 2 * 1024 * 1024) {
-                                  alert("Image size must be smaller than 2MB.");
-                                  return;
-                                }
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setFormImage(reader.result);
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="w-full text-xs text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-2xs file:font-bold file:bg-secondary file:text-foreground file:hover:bg-background transition file:cursor-pointer"
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <label htmlFor="edit-part-sku" className="text-[11px] font-semibold text-muted-foreground">SKU / code *</label>
+                          <input
+                            id="edit-part-sku"
+                            type="text"
+                            required
+                            placeholder="e.g. ELC-STR"
+                            value={formSku}
+                            onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
+                            className={`h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground transition-all focus:outline-none ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-foreground/40'}`}
                           />
-                          <p className="text-3xs text-muted-foreground">Supported formats: PNG, JPG, WEBP. Max size: 2MB.</p>
+                          {formErrors.sku && <p className="text-2xs font-semibold text-destructive">{formErrors.sku}</p>}
                         </div>
-                        {formImage && (
-                          <button 
-                            type="button"
-                            onClick={() => setFormImage('')}
-                            className="text-2xs font-bold text-red-500 hover:text-red-400 px-2 py-1 bg-red-950/20 rounded border border-red-900/30"
-                          >
-                            Remove
-                          </button>
-                        )}
+                        <div className="space-y-1.5">
+                          <label htmlFor="edit-part-oem" className="text-[11px] font-semibold text-muted-foreground">OEM part no. *</label>
+                          <input
+                            id="edit-part-oem"
+                            type="text"
+                            required
+                            placeholder="e.g. 1-81100-341-1"
+                            value={formOem}
+                            onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
+                            className={`h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground transition-all focus:outline-none ${formErrors.oem ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-foreground/40'}`}
+                          />
+                          {formErrors.oem && <p className="text-2xs font-semibold text-destructive">{formErrors.oem}</p>}
+                        </div>
                       </div>
+
+                      <div className="space-y-1.5">
+                        <label htmlFor="edit-part-category" className="text-[11px] font-semibold text-muted-foreground">Category / subcategory *</label>
+                        <div className={`${formErrors.category ? 'rounded-lg ring-1 ring-destructive' : ''}`}>
+                          <Select
+                            inputId="edit-part-category"
+                            options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
+                              label: parent.name,
+                              options: [
+                                { value: parent.id, label: `${parent.name} (Main)`, catName: parent.name, iconName: parent.iconName, colorTheme: parent.colorTheme },
+                                ...categoriesList.filter(c => c.parentCategory && c.parentCategory.id?.toString() === parent.id?.toString()).map(sub => ({ value: sub.id, label: sub.name, catName: sub.name, iconName: sub.iconName, colorTheme: sub.colorTheme }))
+                              ]
+                            }))}
+                            value={
+                              formCategory
+                                ? (() => {
+                                    const c = categoriesList.find(cat => String(cat.id) === String(formCategory));
+                                    return c ? { value: c.id, label: c.name, catName: c.name, iconName: c.iconName, colorTheme: c.colorTheme } : null;
+                                  })()
+                                : null
+                            }
+                            onChange={(selected) => { setFormCategory(selected?.value || ''); setFormErrors(prev => ({...prev, category: ''})); }}
+                            placeholder="Select category"
+                            styles={customSelectStyles}
+                            isClearable
+                            classNamePrefix="react-select"
+                            formatOptionLabel={(option) => {
+                              if (!option.catName) return <span>{option.label}</span>;
+                              const { Icon, color } = getCategoryIconAndColor(option.catName, option.iconName, option.colorTheme);
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Icon className={`w-4 h-4 ${color}`} weight="duotone" />
+                                  <span>{option.label}</span>
+                                </div>
+                              );
+                            }}
+                          />
+                        </div>
+                        {formErrors.category && <p className="text-2xs font-semibold text-destructive">{formErrors.category}</p>}
+                        {categoriesList.length === 0 && <p className="text-2xs font-semibold text-amber-500">Categories not loaded. Check if the backend is running.</p>}
+                      </div>
+                    </section>
+
+                    <div className="space-y-4">
+                      <section className="space-y-4 rounded-xl border border-border bg-background p-4">
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground font-display">Pricing and Stock</h4>
+                          <p className="text-xs text-muted-foreground">Stock quantity is audited separately from descriptive edits.</p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div className="space-y-1.5">
+                            <label htmlFor="edit-part-price" className="text-[11px] font-semibold text-muted-foreground">Unit price *</label>
+                            <input
+                              id="edit-part-price"
+                              type="number"
+                              required
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              value={formPrice}
+                              onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
+                              className={`h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground transition-all focus:outline-none ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-foreground/40'}`}
+                            />
+                            {formErrors.price && <p className="text-2xs font-semibold text-destructive">{formErrors.price}</p>}
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="edit-part-stock" className="text-[11px] font-semibold text-muted-foreground">On hand</label>
+                            <input
+                              id="edit-part-stock"
+                              type="number"
+                              required
+                              min="0"
+                              value={formStock}
+                              disabled
+                              className="h-10 w-full cursor-not-allowed rounded-lg border border-border bg-secondary px-3 text-sm text-muted-foreground"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="edit-part-min-stock" className="text-[11px] font-semibold text-muted-foreground">Min stock *</label>
+                            <input
+                              id="edit-part-min-stock"
+                              type="number"
+                              required
+                              min="0"
+                              placeholder="5"
+                              value={formMinStock}
+                              onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
+                              className={`h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground transition-all focus:outline-none ${formErrors.minStock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-foreground/40'}`}
+                            />
+                            {formErrors.minStock && <p className="text-2xs font-semibold text-destructive">{formErrors.minStock}</p>}
+                          </div>
+                        </div>
+                      </section>
+
+                      <section className="space-y-4 rounded-xl border border-border bg-background p-4">
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground font-display">Notes and Image</h4>
+                          <p className="text-xs text-muted-foreground">Keep the description short enough for staff to scan at the counter.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="edit-part-description" className="text-[11px] font-semibold text-muted-foreground">Item description</label>
+                          <textarea
+                            id="edit-part-description"
+                            rows="3"
+                            placeholder="e.g. High torque motor built for heavy-duty commercial applications..."
+                            value={formDescription}
+                            onChange={(e) => setFormDescription(e.target.value)}
+                            className="min-h-[88px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all custom-scrollbar focus:border-foreground/40 focus:outline-none"
+                          />
+                        </div>
+                        <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                          <div className="grid gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_auto] sm:items-center">
+                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-background">
+                              {formImage ? (
+                                <img src={formImage} alt="Preview" className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Image className="h-5 w-5 text-muted-foreground/40" weight="duotone" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <label htmlFor="edit-part-image" className="text-[11px] font-semibold text-muted-foreground">Part image</label>
+                              <input
+                                id="edit-part-image"
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    if (file.size > 2 * 1024 * 1024) {
+                                      setFormErrors(prev => ({...prev, image: 'Image size must be smaller than 2MB.'}));
+                                      return;
+                                    }
+                                    setFormErrors(prev => ({...prev, image: ''}));
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setFormImage(reader.result);
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="block w-full max-w-full text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-background file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-foreground hover:file:bg-secondary"
+                              />
+                              <p className="text-2xs text-muted-foreground/70">Max size: 2MB. Square ratio recommended.</p>
+                            </div>
+                            {formImage && (
+                              <button
+                                type="button"
+                                onClick={() => setFormImage('')}
+                                className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/15 sm:w-auto"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          {formErrors.image && <p className="mt-2 text-2xs font-semibold text-destructive">{formErrors.image}</p>}
+                        </div>
+                      </section>
                     </div>
                   </div>
+
+                  <section className="mt-4 rounded-xl border border-border bg-background p-4">
+                    <CompatibilityEditor rows={formCompatibleWith} onChange={setFormCompatibleWith} mode="edit" />
+                  </section>
                 </div>
 
                 {/* Server-side error banner */}
                 {serverError && (
-                  <div className="mx-5 mb-1 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-950/60 border border-red-700/50 text-red-300 text-sm font-semibold animate-fadeIn">
-                    <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                  <div className="mx-5 mb-1 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold animate-fadeIn">
+                    <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive" />
                     <span>{serverError}</span>
                   </div>
                 )}

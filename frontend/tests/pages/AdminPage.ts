@@ -17,4 +17,11 @@ export class AdminPage {
     await this.page.goto('/admin');
     await this.page.waitForLoadState('networkidle');
   }
+
+  async openInventory() {
+    const inventoryToggle = this.page.locator('button[title="Parts Inventory"]').first();
+    await inventoryToggle.waitFor({ state: 'visible', timeout: 10000 });
+    await inventoryToggle.click();
+    await this.page.waitForLoadState('networkidle');
+  }
 }

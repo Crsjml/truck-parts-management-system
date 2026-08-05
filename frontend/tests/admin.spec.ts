@@ -38,4 +38,14 @@ test.describe.skip('Admin Boundaries and Features', () => {
     // Should be redirected away or shown unauthorized
     await expect(page.locator('text=Dashboard')).not.toBeVisible();
   });
+
+  test('should open the inventory panel through the shared helper', async ({ page }) => {
+    await authPage.goto();
+    await authPage.login('admin@truckparts.com', 'admin123');
+
+    await adminPage.goto();
+    await adminPage.openInventory();
+
+    await expect(page.getByRole('button', { name: /add new part/i })).toBeVisible();
+  });
 });

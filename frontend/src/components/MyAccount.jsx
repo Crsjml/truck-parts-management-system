@@ -31,8 +31,9 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Re-authentication state
-  const [password, setPassword] = useState('');
+  // Security state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [savedPartsCount, setSavedPartsCount] = useState(0);
 
@@ -236,9 +237,33 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
     }
   };
 
-  const handleReauth = async (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
-    // TODO: Implement Supabase re-authentication for sensitive operations
+    setError('');
+    setSuccess('');
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setSuccess('Password updated.');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setError(err.message || 'Failed to update password.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -545,31 +570,34 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
           </div>
         </div>
         <div className="p-6">
-          <form onSubmit={handleReauth} className="max-w-md space-y-4">
-            <div className="space-y-1">
-              <div className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs">
-                <div className="flex items-center gap-2 mb-1">
-                  <LockKey weight="fill" className="w-4 h-4 shrink-0 text-amber-500" />
-                  <p className="font-bold text-amber-600 dark:text-amber-400">Security Verification Required</p>
-                </div>
-                <p className="font-medium text-amber-600/80 dark:text-amber-400/80">Re-enter your current password before changing sensitive account details.</p>
-              </div>
+          <form onSubmit={handleChangePassword} className="max-w-md space-y-4">
+            <div className="space-y-1 text-sm text-muted-foreground mb-4">
+              <p>Minimum 8 characters.</p>
             </div>
             
             <div className="space-y-1">
-              <label htmlFor="security-password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Current Password</label>
+              <label htmlFor="new-password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">New Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <LockKey weight="regular" className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <input id="security-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT_CLS} placeholder="Enter current password" />
+                <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={INPUT_CLS} placeholder="Minimum 8 characters" required />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="confirm-password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Confirm New Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <LockKey weight="regular" className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={INPUT_CLS} placeholder="Confirm new password" required />
               </div>
             </div>
 
             <div className="pt-1">
-              <button type="button" className="w-full py-3 bg-accent/50 text-white font-bold rounded-xl cursor-not-allowed text-xs transition-all flex justify-center items-center gap-2" disabled aria-disabled="true">
-                <LockKey weight="bold" className="w-4 h-4" />
-                Verify & Continue
+              <button type="submit" disabled={isLoading} className="w-full py-2.5 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg active:translate-y-[1px] text-xs">
+                {isLoading ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : 'Save New Password'}
               </button>
             </div>
           </form>

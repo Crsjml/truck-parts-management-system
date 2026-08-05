@@ -12,6 +12,7 @@ import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import checkoutRouter from './routes/checkout.js';
 import reviewsRouter from './routes/reviews.js';
 import staffRoutes from './routes/staffRoutes.js';
+import authLogRoutes from './routes/authLogRoutes.js';
 import customersRouter from './routes/customers.js';
 import { prisma } from './config/prisma.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -43,6 +44,7 @@ app.use('/api/suppliers', suppliersRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/staff', staffRoutes);
+app.use('/api/audit', authLogRoutes);
 app.use('/api/customers', customersRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
