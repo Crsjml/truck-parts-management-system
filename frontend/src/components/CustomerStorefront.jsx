@@ -103,6 +103,7 @@ export default function CustomerStorefront({
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
+  const cartTriggerRef = useRef(null);
 
   const [isFitmentOpen, setIsFitmentOpen] = useState(false);
   const homeFitmentRef = useRef(null);
@@ -592,6 +593,7 @@ export default function CustomerStorefront({
               
               <div className="flex items-center gap-1">
                 <button
+                  ref={cartTriggerRef}
                   onClick={() => setIsCartOpen(true)}
                   aria-label="View cart"
                   className="relative rounded-lg border border-transparent p-3 transition hover:border-border/50 hover:bg-secondary"
@@ -901,10 +903,11 @@ export default function CustomerStorefront({
         onClose={() => setPolicyModalOpen(false)} 
       />
 
-      {/* Sliding Cart Modal */}
-      <CartDrawer 
+      {/* Cart Popover — anchored to the header cart icon */}
+      <CartDrawer
         isCartOpen={isCartOpen}
         setIsCartOpen={setIsCartOpen}
+        triggerRef={cartTriggerRef}
         cart={cart}
         cartTotalItems={cartTotalItems}
         cartTotalAmount={cartTotalAmount}
