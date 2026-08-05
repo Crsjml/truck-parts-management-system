@@ -566,8 +566,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const payload = markPaid
       ? {
           paidAt: new Date().toISOString().slice(0, 10),
-          paymentReference: window.prompt('Payment reference number (optional):', po.paymentReference || '') || '',
-          paymentNotes: window.prompt('Payment notes (optional):', po.paymentNotes || '') || ''
+          paymentReference: po.paymentReference || '',
+          paymentNotes: po.paymentNotes || ''
         }
       : {
           paidAt: null,
@@ -762,30 +762,36 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'paymentReference', label: 'Reference', render: v => v ? <span className="font-mono text-xs">{v}</span> : '—' },
     { key: 'paymentNotes', label: 'Notes', render: v => v || '—' },
     {
-      key: 'actions',
-      label: 'Actions',
+      key: 'paidToggle',
+      label: 'Paid',
       align: 'right',
-      render: (_, r) => (
-        <div className="flex justify-end gap-2">
-          {r.paymentStatus === 'Paid' ? (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); updateSupplierPayment(r, false); }}
-              className="px-2 py-1 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-xs font-bold rounded-md"
-            >
-              Reopen
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); updateSupplierPayment(r, true); }}
-              className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-500 text-xs font-bold rounded-md"
-            >
-              Mark Paid
-            </button>
-          )}
-        </div>
-      )
+      sortable: false,
+      render: (_, r) => {
+        const isPaid = r.paymentStatus === 'Paid';
+        const reference = r.purchaseOrderNumber || r.rfqNumber || 'payable';
+        return (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isPaid}
+            aria-label={isPaid ? `Mark ${reference} as unpaid` : `Mark ${reference} as paid`}
+            onClick={(e) => { e.stopPropagation(); updateSupplierPayment(r, !isPaid); }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              isPaid
+                ? 'border-emerald-500/40 bg-emerald-500/20'
+                : 'border-border bg-secondary'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-background border transition-transform ${
+                isPaid
+                  ? 'translate-x-5 border-emerald-500'
+                  : 'translate-x-1 border-muted-foreground/30'
+              }`}
+            />
+          </button>
+        );
+      }
     },
   ];
   const supplierColumns = [

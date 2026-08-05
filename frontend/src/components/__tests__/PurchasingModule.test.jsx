@@ -5,6 +5,7 @@ import PurchasingModule from '../PurchasingModule';
 import {
   fetchPurchaseOrders,
   fetchSuppliers,
+  updatePoPayment,
   updatePoItemPrices
 } from '../../authStore';
 
@@ -19,6 +20,7 @@ vi.mock('../../authStore', () => ({
   updatePurchaseOrderStatus: vi.fn(),
   updatePoBillingStatus: vi.fn(),
   togglePartPublished: vi.fn(),
+  updatePoPayment: vi.fn(),
   updatePoItemPrices: vi.fn()
 }));
 
@@ -107,6 +109,14 @@ describe('PurchasingModule RFQ and PO behavior', () => {
         items: [{ ...confirmedPo.items[0], unitPrice: 30000, subtotal: 90000 }]
       }
     });
+    updatePoPayment.mockResolvedValue({
+      ok: true,
+      purchaseOrder: {
+        ...confirmedPo,
+        paidAt: '2026-08-05T00:00:00.000Z',
+        paymentStatus: 'Paid'
+      }
+    });
   });
 
   it('updates confirmed PO line subtotal and visible total from edited quoted price before saving', async () => {
@@ -150,6 +160,29 @@ describe('PurchasingModule RFQ and PO behavior', () => {
       expect(updatePoItemPrices).toHaveBeenCalledWith('po-1', [
         { id: 'item-1', unitPrice: 30000 }
       ]);
+    });
+  });
+
+  it('lets admins mark a payable as paid from the Payables table', async () => {
+    renderPurchasing();
+
+    fireEvent.click(await screen.findByText('Payables'));
+
+    const paidToggle = await screen.findByRole('switch', { name: /Mark PO-20260805-0001 as paid/i });
+    expect(paidToggle).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(paidToggle);
+
+    await waitFor(() => {
+      expect(updatePoPayment).toHaveBeenCalledWith('po-1', expect.objectContaining({
+        paidAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+      }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /Mark PO-20260805-0001 as unpaid/i })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
+      expect(screen.getByText('8/5/2026')).toBeInTheDocument();
     });
   });
 });
