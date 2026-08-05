@@ -180,6 +180,7 @@ async function main() {
   await prisma.transaction.deleteMany();
   await prisma.purchaseOrderItem.deleteMany();
   await prisma.purchaseOrder.deleteMany();
+  await prisma.stockAdjustment.deleteMany();
   await prisma.part.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.customer.deleteMany();
@@ -327,16 +328,20 @@ async function main() {
   const VAT_RATE = 0.12;
   const round2 = (n) => Math.round(n * 100) / 100;
 
-  // 1. Prepare Dates (24 months)
-  const txDates = [];
+  // 1. Prepare Dates (24 months) + Heavy Recent Spike
+  let txDates = [];
   const now = new Date();
   for (let i = 0; i < 24; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 15);
     const month = d.getMonth();
     // Nov=10, Dec=11 (peak), Feb=1 (slow)
-    let count = 10;
-    if (month === 10 || month === 11) count = 25;
-    else if (month === 1) count = 3;
+    let count = 40;
+    if (month === 10 || month === 11) count = 300;
+    else if (month === 1) count = 10;
+    
+    // Massive volume for current and previous month for 30-day reporting
+    if (i === 0) count += 250;
+    if (i === 1) count += 150;
     
     const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
     const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -345,8 +350,14 @@ async function main() {
       txDates.push(faker.date.between({ from: startOfMonth, to: endOfMonth }));
     }
   }
+  
+  // Explicit 7-day spike for 'Last 7 Days' reports
+  for (let j = 0; j < 300; j++) {
+    txDates.push(faker.date.recent({ days: 7 }));
+  }
+  
   // Sort dates randomly
-  faker.helpers.shuffle(txDates);
+  txDates = faker.helpers.shuffle(txDates);
 
   // 2. Prepare weighted parts (best-sellers, slow-movers)
   const bestSellers = parts.slice(0, 3);
@@ -368,7 +379,7 @@ async function main() {
 
   // 3. Create FTF Customers (Pure In-Store & Unmerged)
   const ftfCustomers = [];
-  for (let i = 0; i < 13; i++) { // 8 pure in-store + 5 unmerged
+  for (let i = 0; i < 45; i++) { // 30 pure in-store + 15 unmerged
     const tempId = `temp-${Date.now()}-${faker.string.alphanumeric(4)}`;
     const cust = await prisma.customer.create({
       data: {
@@ -384,8 +395,8 @@ async function main() {
   // Assign customer groups
   const pureOnlineCustomers = customers.slice(0, 10);
   const mergedCustomers = customers.slice(10, 14); // 4 merged
-  const pureInStoreCustomers = ftfCustomers.slice(0, 8);
-  const unmergedFtfCustomers = ftfCustomers.slice(8, 13);
+  const pureInStoreCustomers = ftfCustomers.slice(0, 30);
+  const unmergedFtfCustomers = ftfCustomers.slice(30, 45);
 
   const allTransactionsData = [];
   
@@ -446,7 +457,7 @@ async function main() {
 
   // 1. Pure online
   for (const c of pureOnlineCustomers) {
-    const count = faker.number.int({ min: 8, max: 20 });
+    const count = faker.number.int({ min: 20, max: 40 });
     for(let i=0; i<count; i++) {
       allTransactionsData.push(createTxData(c.authId, 'online', c.email, c.authId, ""));
     }
@@ -454,7 +465,7 @@ async function main() {
 
   // 2. Pure in-store
   for (const c of pureInStoreCustomers) {
-    const count = faker.number.int({ min: 5, max: 15 });
+    const count = faker.number.int({ min: 15, max: 35 });
     for(let i=0; i<count; i++) {
       allTransactionsData.push(createTxData(c.authId, 'store', c.displayName, c.phoneNumber, c.email));
     }
@@ -462,8 +473,8 @@ async function main() {
 
   // 3. Merged customers
   for (const c of mergedCustomers) {
-    const storeCount = faker.number.int({ min: 3, max: 8 });
-    const onlineCount = faker.number.int({ min: 3, max: 8 });
+    const storeCount = faker.number.int({ min: 10, max: 20 });
+    const onlineCount = faker.number.int({ min: 10, max: 20 });
     for(let i=0; i<storeCount; i++) {
       allTransactionsData.push(createTxData(c.authId, 'store', c.displayName, c.phoneNumber, c.email));
     }
@@ -473,14 +484,14 @@ async function main() {
   }
 
   // 4. Anonymous walk-ins
-  const anonCount = faker.number.int({ min: 15, max: 20 });
+  const anonCount = faker.number.int({ min: 200, max: 300 });
   for(let i=0; i<anonCount; i++) {
     allTransactionsData.push(createTxData(null, 'store', faker.person.fullName(), faker.helpers.arrayElement([generatePHMobile(), faker.internet.email()]), ""));
   }
 
   // 5. Unmerged FTF
   for (const c of unmergedFtfCustomers) {
-    const count = faker.number.int({ min: 2, max: 6 });
+    const count = faker.number.int({ min: 5, max: 15 });
     for(let i=0; i<count; i++) {
       allTransactionsData.push(createTxData(c.authId, 'store', c.displayName, c.phoneNumber, c.email));
     }

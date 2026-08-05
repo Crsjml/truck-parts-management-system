@@ -81,7 +81,7 @@ function PopoverPanel({
     };
   }, [triggerRef]);
 
-  // Focus management
+  // Focus management and Focus Trap
   useEffect(() => {
     const triggerEl = triggerRef.current;
     
@@ -90,8 +90,33 @@ function PopoverPanel({
       panelRef.current.focus({ preventScroll: true });
     }
 
+    const handleTabKey = (e) => {
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusableElements = panelRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === panelRef.current) {
+            e.preventDefault();
+            lastElement?.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleTabKey);
+
     // Return focus when the panel unmounts (closes)
     return () => {
+      document.removeEventListener('keydown', handleTabKey);
       if (triggerEl && document.body.contains(triggerEl)) {
         setTimeout(() => {
           triggerEl.focus();
@@ -108,7 +133,7 @@ function PopoverPanel({
     <motion.div
       ref={panelRef}
       role="dialog"
-      aria-modal="false"
+      aria-modal="true"
       tabIndex={-1}
       aria-labelledby={labelledBy}
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}

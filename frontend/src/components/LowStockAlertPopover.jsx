@@ -87,7 +87,7 @@ export default function LowStockAlertPopover({
             const actualStock = part.stock - (part.reservedStock || 0);
             const ratio = part.minStock > 0 ? actualStock / part.minStock : 0;
             const isCritical = ratio <= 0;
-            const badgeClass = isCritical ? 'bg-destructive text-white' : 'bg-accent text-white';
+            const badgeClass = isCritical ? 'bg-destructive text-white' : 'bg-secondary text-secondary-foreground border border-border';
             const label = isCritical ? 'Critical' : 'Low';
 
             return (
@@ -102,35 +102,32 @@ export default function LowStockAlertPopover({
                     </div>
                     <div className="text-xs font-mono text-muted-foreground mt-0.5 truncate">{part.sku}</div>
                     
-                    {/* Stat tiles permanently visible for data density */}
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div className="p-1.5 bg-background rounded-md border border-border">
-                        <div className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Current</div>
-                        <div className="text-sm font-bold text-foreground">{actualStock}</div>
-                      </div>
-                      <div className="p-1.5 bg-background rounded-md border border-border">
-                        <div className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Min</div>
-                        <div className="text-sm font-bold text-foreground opacity-75">{part.minStock}</div>
-                      </div>
+                    {/* Inline stats for high data density */}
+                    <div className="flex items-center gap-1.5 mt-2 text-xs">
+                      <span className="font-bold text-foreground">{actualStock}</span>
+                      <span className="text-muted-foreground font-medium">/</span>
+                      <span className="text-muted-foreground font-medium">{part.minStock} min</span>
                     </div>
                   </div>
                   
                   <div className="flex flex-col gap-2 shrink-0">
                     <button
                       onClick={(e) => handleDismiss(e, part)}
-                      className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                      className="min-w-[44px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                       aria-label={`Dismiss ${part.name}`}
                       title="Dismiss alert"
                     >
                       <X weight="bold" className="w-4 h-4" />
+                      <span className="text-[10px] font-semibold leading-none">Dismiss</span>
                     </button>
                     <button
                       onClick={() => onNavigateToPart(part.sku)}
-                      className="w-10 h-10 flex items-center justify-center bg-foreground hover:bg-foreground/90 text-background rounded-md transition-colors shadow-sm"
+                      className="min-w-[44px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 bg-foreground hover:bg-foreground/90 text-background rounded-md transition-colors shadow-sm"
                       aria-label={`Restock ${part.name}`}
                       title="Restock part"
                     >
                       <Package weight="bold" className="w-4 h-4" />
+                      <span className="text-[10px] font-semibold leading-none">Restock</span>
                     </button>
                   </div>
                 </div>

@@ -234,7 +234,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
                     type="checkbox"
                     checked={activeFilters.includes(f.value)}
                     onChange={() => onFilter(f.value)}
-                    className="w-3.5 h-3.5 accent-accent"
+                    className="w-3.5 h-3.5 accent-primary"
                   />
                   {f.label}
                 </label>
