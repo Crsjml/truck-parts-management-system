@@ -622,7 +622,7 @@ export default function App() {
   return (
     <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
-        <div className="flex-1 space-y-6 overflow-y-scroll overflow-x-hidden px-4 py-5 custom-scrollbar">
+        <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-5 hide-scrollbar">
           <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} px-1 py-2`}>
             {!isSidebarCollapsed ? (
               <Logo className="w-14 h-14 shrink-0" showText={true} />
@@ -795,7 +795,7 @@ export default function App() {
       {isSidebarOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm">
           <aside className="w-72 bg-background border-r border-border flex flex-col justify-between overflow-hidden animate-slideRight">
-            <div className="flex-1 space-y-6 overflow-y-scroll px-5 py-5 custom-scrollbar">
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 hide-scrollbar">
               <div className="flex items-center justify-between py-2 border-b border-border">
                 <Logo className="w-12 h-12" showText={true} />
                 <button
@@ -1015,7 +1015,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col overflow-y-auto px-6 pt-6 pb-2 md:px-8 md:pt-8 md:pb-2">
+        <main className="flex-1 flex flex-col overflow-y-auto px-6 pt-6 pb-2 md:px-8 md:pt-8 md:pb-2 custom-scrollbar">
           <AnimatePresence mode="wait">
             <motion.div
               key={page}

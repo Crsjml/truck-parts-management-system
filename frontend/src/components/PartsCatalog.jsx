@@ -577,7 +577,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                 type="checkbox" 
                 checked={showLowStockOnly} 
                 onChange={() => setShowLowStockOnly(!showLowStockOnly)}
-                className="sr-only peer"
+                className="sr-only peer accent-primary"
               />
               <Warning weight={showLowStockOnly ? "fill" : "duotone"} className="w-4 h-4 text-muted-foreground group-hover:text-red-400 peer-checked:text-red-500" />
               <span className="text-xs font-semibold hidden sm:inline">Low Stock Only</span>

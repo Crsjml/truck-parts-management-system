@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { apiGet } from '../api/apiClient';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
-import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, DownloadSimple, ShoppingCart, WarningCircle, WarningOctagon } from '@phosphor-icons/react';
+import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, DownloadSimple, ShoppingCart, WarningCircle, WarningOctagon, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
 import ToggleChip from './ui/ToggleChip';
 import { buildLowStockReportPdf } from '../utils/lowStockReportPdf';
@@ -13,7 +13,9 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
   const [authLogs, setAuthLogs] = useState([]);
   const [severityFilter, setSeverityFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [watchlistPage, setWatchlistPage] = useState(1);
   const [selectedWatchlistItems, setSelectedWatchlistItems] = useState(new Set());
+  const selectAllRef = useRef(null);
 
   useEffect(() => {
     let channel;
@@ -64,6 +66,22 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
       return matchSeverity && matchCategory;
     });
   }, [lowStockItems, severityFilter, categoryFilter]);
+
+  const itemsPerPage = 5;
+  const totalWatchlistPages = Math.ceil(filteredLowStockItems.length / itemsPerPage);
+  const paginatedWatchlistItems = filteredLowStockItems.slice((watchlistPage - 1) * itemsPerPage, watchlistPage * itemsPerPage);
+
+  // How many of the currently-filtered items are selected
+  const filteredSelectedCount = filteredLowStockItems.filter(p => selectedWatchlistItems.has(p.id)).length;
+  const allFilteredSelected = filteredLowStockItems.length > 0 && filteredSelectedCount === filteredLowStockItems.length;
+  const someFilteredSelected = filteredSelectedCount > 0 && !allFilteredSelected;
+
+  // Sync indeterminate state on the select-all checkbox (can't be done via JSX prop)
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someFilteredSelected;
+    }
+  }, [someFilteredSelected]);
 
   const salesKpis = useMemo(() => {
     const range = resolvePeriod('7d');
@@ -242,14 +260,14 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
               </div>
               {lowStockItems.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <ToggleChip active={severityFilter === 'all'} onClick={() => setSeverityFilter('all')}>All</ToggleChip>
-                  <ToggleChip active={severityFilter === 'critical'} onClick={() => setSeverityFilter('critical')}>Critical</ToggleChip>
-                  <ToggleChip active={severityFilter === 'warning'} onClick={() => setSeverityFilter('warning')}>Warning</ToggleChip>
+                  <ToggleChip variant="primary"     active={severityFilter === 'all'}      onClick={() => { setSeverityFilter('all');      setWatchlistPage(1); }}>All</ToggleChip>
+                  <ToggleChip variant="destructive" active={severityFilter === 'critical'} onClick={() => { setSeverityFilter('critical'); setWatchlistPage(1); }}>Critical</ToggleChip>
+                  <ToggleChip variant="accent"      active={severityFilter === 'warning'}  onClick={() => { setSeverityFilter('warning');  setWatchlistPage(1); }}>Warning</ToggleChip>
                   <select 
                     value={categoryFilter} 
-                    onChange={e => setCategoryFilter(e.target.value)}
+                    onChange={e => { setCategoryFilter(e.target.value); setWatchlistPage(1); }}
                     aria-label="Filter by category"
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-background border-border text-foreground focus:outline-none focus:ring-1 focus:ring-accent ml-2"
+                    className="custom-select px-3 py-1.5 rounded-lg text-xs font-semibold border bg-background border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary ml-2 dark:[color-scheme:dark]"
                   >
                     <option value="all">All Categories</option>
                     {categoryOptions.map(c => (
@@ -265,20 +283,20 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   <button
                     onClick={() => {
                       if (selectedWatchlistItems.size > 0) {
-                        const selectedParts = filteredLowStockItems.filter(p => selectedWatchlistItems.has(p.id));
+                        const selectedParts = lowStockItems.filter(p => selectedWatchlistItems.has(p.id));
                         window.dispatchEvent(new CustomEvent('purchasingIntent', { detail: selectedParts }));
                         setPage('purchasing');
                       }
                     }}
                     disabled={selectedWatchlistItems.size === 0}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                   >
-                    <ShoppingCart weight="bold" className="w-3.5 h-3.5" /> Restock Selected
+                    <ShoppingCart weight="bold" className="w-3.5 h-3.5" /> Restock {selectedWatchlistItems.size} Selected
                   </button>
                   <button
                     onClick={() => buildLowStockReportPdf(filteredLowStockItems, { formatCurrency })}
                     disabled={filteredLowStockItems.length === 0}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                   >
                     <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export
                   </button>
@@ -291,7 +309,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             {filteredLowStockItems.length === 0 ? (
               lowStockItems.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-                  <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
+                  <div className="p-3 bg-chart-positive/10 text-chart-positive rounded-full border border-chart-positive/20">
                     <CheckCircle weight="duotone" className="w-8 h-8" />
                   </div>
                   <p className="text-sm font-medium text-foreground">Stable stock</p>
@@ -320,31 +338,55 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                   <tr className="text-muted-foreground text-xs font-semibold uppercase border-b border-border">
                     <th className="py-3 px-2 w-8 text-center">
                       <input 
+                        ref={selectAllRef}
                         type="checkbox" 
-                        aria-label="Select all visible low-stock items"
-                        title="Select all visible low-stock items"
-                        className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background disabled:opacity-50 disabled:cursor-not-allowed"
-                        checked={filteredLowStockItems.length > 0 && filteredLowStockItems.every(p => selectedWatchlistItems.has(p.id))}
+                        aria-label={allFilteredSelected ? 'Deselect all filtered items' : 'Select all filtered items'}
+                        title={`Select all ${filteredLowStockItems.length} filtered items across all pages`}
+                        className="checkbox-primary"
+                        checked={allFilteredSelected}
                         onChange={(e) => {
                           const newSet = new Set(selectedWatchlistItems);
-                          const visibleParts = filteredLowStockItems;
                           if (e.target.checked) {
-                            visibleParts.forEach(p => newSet.add(p.id));
+                            filteredLowStockItems.forEach(p => newSet.add(p.id));
                           } else {
-                            visibleParts.forEach(p => newSet.delete(p.id));
+                            filteredLowStockItems.forEach(p => newSet.delete(p.id));
                           }
                           setSelectedWatchlistItems(newSet);
                         }}
                       />
                     </th>
-                    <th className="py-3 px-2">Part</th>
-                    <th className="py-3 px-2 text-right">Deficit</th>
-                    <th className="py-3 px-2 text-center">Stock / Min</th>
-                    <th className="py-3 px-2 text-right">Action</th>
+                    <th className="py-3 px-2" colSpan={someFilteredSelected || allFilteredSelected ? 4 : 1}>
+                      {(someFilteredSelected || allFilteredSelected) ? (
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-foreground">
+                            {filteredSelectedCount} of {filteredLowStockItems.length} selected
+                            {someFilteredSelected && ` (across all pages)`}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const newSet = new Set(selectedWatchlistItems);
+                              filteredLowStockItems.forEach(p => newSet.delete(p.id));
+                              setSelectedWatchlistItems(newSet);
+                            }}
+                            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                          >Clear filter selection</button>
+                          {selectedWatchlistItems.size > filteredSelectedCount && (
+                            <span className="text-xs text-muted-foreground">({selectedWatchlistItems.size} total across all filters)</span>
+                          )}
+                        </div>
+                      ) : 'Part'}
+                    </th>
+                    {!someFilteredSelected && !allFilteredSelected && (
+                      <>
+                        <th className="py-3 px-2 text-right">Deficit</th>
+                        <th className="py-3 px-2 text-center">Stock / Min</th>
+                        <th className="py-3 px-2 text-right">Action</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredLowStockItems.map((part) => {
+                  {paginatedWatchlistItems.map((part) => {
                     const isCritical = part.severity === 'critical';
                     const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
                     
@@ -363,7 +405,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                           <input 
                             type="checkbox" 
                             aria-label={`Select ${part.name}`}
-                            className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-background"
+                            className="checkbox-primary"
                             checked={selectedWatchlistItems.has(part.id)}
                             onChange={(e) => {
                               const newSet = new Set(selectedWatchlistItems);
@@ -413,18 +455,31 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
             )}
           </div>
 
-          {filteredLowStockItems.length > 0 && (
-            <button 
-              onClick={() => {
-                setSelectedCategory('All');
-                setPage('catalog');
-                setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
-              }}
-              className="w-full py-2.5 mt-2 text-xs font-bold text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-xl transition-colors border border-border/50 flex items-center justify-center gap-1"
-            >
-              View all {filteredLowStockItems.length} warnings
-              <ArrowRight weight="duotone" className="w-3.5 h-3.5" />
-            </button>
+          {totalWatchlistPages > 1 && (
+            <div className="flex items-center justify-between pt-1 border-t border-border">
+              <span className="text-xs text-muted-foreground font-medium pl-1">
+                Showing {(watchlistPage - 1) * itemsPerPage + 1} to {Math.min(watchlistPage * itemsPerPage, filteredLowStockItems.length)} of {filteredLowStockItems.length} items
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setWatchlistPage(p => Math.max(1, p - 1))}
+                  disabled={watchlistPage === 1}
+                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label="Previous page"
+                >
+                  <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-semibold text-foreground px-2">{watchlistPage} / {totalWatchlistPages}</span>
+                <button
+                  onClick={() => setWatchlistPage(p => Math.min(totalWatchlistPages, p + 1))}
+                  disabled={watchlistPage === totalWatchlistPages}
+                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label="Next page"
+                >
+                  <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
