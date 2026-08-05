@@ -1,13 +1,7 @@
+import { useRef } from 'react';
 import { ShoppingCart, Minus, Plus, Trash } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
-import { Drawer } from './ui/Drawer';
-
-const panelVariants = {
-  initial: { opacity: 0, y: -8, scale: 0.92 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -8, scale: 0.92 },
-  transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
-};
+import { Popover } from './ui/Popover';
 
 const headingId = 'cart-drawer-heading';
 
@@ -20,25 +14,21 @@ export default function CartDrawer({
   updateCartQuantity,
   removeFromCart,
   handleCheckout,
-  isCheckingOut
+  isCheckingOut,
+  triggerRef
 }) {
   const { formatCurrency } = useSettings();
+  const fallbackTriggerRef = useRef(null);
   const onClose = () => setIsCartOpen(false);
 
   return (
-    <Drawer
+    <Popover
       isOpen={isCartOpen}
       onClose={onClose}
+      triggerRef={triggerRef ?? fallbackTriggerRef}
       labelledBy={headingId}
-      panelClassName="fixed top-24 right-4 sm:right-6 lg:right-8 w-full max-w-[360px] bg-background/90 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] flex flex-col border border-border/60 rounded-[2rem]"
-      panelStyle={{ maxHeight: 'calc(100vh - 120px)', transformOrigin: 'top right' }}
-      panelVariants={panelVariants}
+      className="w-full max-w-[360px] max-h-[calc(100vh-120px)] bg-background/90 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] flex flex-col border border-border/60 rounded-[2rem]"
     >
-      {/* pointer aimed at the header cart icon */}
-      <div
-        aria-hidden="true"
-        className="absolute -top-1.5 right-7 h-3 w-3 rotate-45 rounded-[3px] border-l border-t border-border/60 bg-background/90"
-      />
       <div className="flex flex-1 flex-col overflow-hidden rounded-[2rem] min-h-0">
       <div className="flex items-center justify-between border-b border-border/50 p-5 bg-background/60">
         <h2 id={headingId} className="text-lg font-bold text-foreground inline-flex items-center gap-2.5">
@@ -111,6 +101,6 @@ export default function CartDrawer({
         </div>
       )}
       </div>
-    </Drawer>
+    </Popover>
   );
 }
