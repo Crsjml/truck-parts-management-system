@@ -14,6 +14,7 @@ import reviewsRouter from './routes/reviews.js';
 import staffRoutes from './routes/staffRoutes.js';
 import authLogRoutes from './routes/authLogRoutes.js';
 import customersRouter from './routes/customers.js';
+import chatRouter from './routes/chat.js';
 import { prisma } from './config/prisma.js';
 import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/reviews', reviewsRouter);
 app.use('/api/staff', staffRoutes);
 app.use('/api/audit', authLogRoutes);
 app.use('/api/customers', customersRouter);
+app.use('/api/chat', chatRouter);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 
