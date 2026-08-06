@@ -812,7 +812,7 @@ export default function CustomerStorefront({
             <MyOrders 
               customerName={customerSession?.user?.fullName} 
               customerEmail={customerSession?.user?.email}
-              userId={customerSession?.user?.id}
+              userId={customerSession?.user?.uid || customerSession?.user?.id}
               transactions={transactions} 
               onReorder={handleReorder}
               showToast={showToast}
@@ -833,10 +833,11 @@ export default function CustomerStorefront({
         customerSession={customerSession}
         transactions={transactions}
         addToCart={addToCart}
+        showToast={showToast}
         onClose={() => setSelectedPart(null)}
       />
 
-      <StorefrontChatbot onOpenPartDetail={setSelectedPart} />
+      {customerSession && <StorefrontChatbot onOpenPartDetail={setSelectedPart} />}
 
       {/* Global Footer */}
       <Footer
