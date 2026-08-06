@@ -9,6 +9,7 @@ import ChartRenderer from './analytics/ChartRenderer';
 import BestSellingPartsReport from './analytics/BestSellingPartsReport';
 import SlowMovingStockReport from './analytics/SlowMovingStockReport';
 import PeakSalesPeriodReport from './analytics/PeakSalesPeriodReport';
+import DailySalesSummary from './analytics/DailySalesSummary';
 import PartDetailDrawer from './PartDetailDrawer';
 import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, slowMovingParts } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
@@ -106,7 +107,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     setStatusDraft(normalizeStatus(selectedInvoice.status));
     setStatusMessage(null);
     setConfirmCancel(false);
-  }, [selectedInvoice?.id]);
+  }, [selectedInvoice]);
 
   // Fetch category hierarchy for category drill-down
   useEffect(() => {
@@ -225,16 +226,18 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   }, [movers, openOrderCount, slowMovingAttention.length]);
 
   // Filtered transactions for the log
-  const filteredTransactions = currentTx.filter(tx => 
-    tx.invoiceNumber.toLowerCase().includes(searchInvoice.toLowerCase()) ||
-    tx.customerName.toLowerCase().includes(searchInvoice.toLowerCase())
-  ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+  const filteredTransactions = useMemo(() => {
+    return currentTx.filter(tx => 
+      tx.invoiceNumber.toLowerCase().includes(searchInvoice.toLowerCase()) ||
+      tx.customerName.toLowerCase().includes(searchInvoice.toLowerCase())
+    ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+  }, [currentTx, searchInvoice]);
 
   return (
     <div className="space-y-5 animate-fadeIn">
       {/* Tab Navigation */}
       <div className="flex overflow-x-auto border-b border-border hide-scrollbar">
-        {['overview', 'best-selling', 'slow-moving', 'peak-sales'].map(tab => (
+        {['overview', 'daily-sales', 'best-selling', 'slow-moving', 'peak-sales'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -245,6 +248,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             }`}
           >
             {tab === 'overview' && 'Overview'}
+            {tab === 'daily-sales' && 'Daily Sales'}
             {tab === 'best-selling' && 'Best-Selling Parts'}
             {tab === 'slow-moving' && 'Slow-Moving Stock'}
             {tab === 'peak-sales' && 'Busy Periods'}
@@ -635,6 +639,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       </>
       )}
 
+      {activeTab === 'daily-sales' && <DailySalesSummary transactions={channelTx} />}
       {activeTab === 'best-selling' && <BestSellingPartsReport transactions={channelTx} parts={parts} />}
       {activeTab === 'slow-moving' && <SlowMovingStockReport transactions={channelTx} parts={parts} />}
       {activeTab === 'peak-sales' && <PeakSalesPeriodReport transactions={channelTx} />}
