@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSettings } from '../context/SettingsContext';
 import { Package, CheckCircle, Truck, Star, X, ClipboardText, ShieldCheck } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createReview, fetchMyReviewedParts } from '../authStore';
+import { createReview, updateReview, fetchMyReviewedParts } from '../authStore';
 import OrderCard from './OrderCard';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 
@@ -13,16 +13,23 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
   const [purchaseType, setPurchaseType] = useState('online'); // 'online' | 'ftf'
   
   // Review Modal State
-  const [reviewModal, setReviewModal] = useState({ isOpen: false, partId: null, partName: '', partImage: null });
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, mode: 'create', reviewId: null, partId: null, partName: '', partImage: null });
   const [newRating, setNewRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [newReviewBody, setNewReviewBody] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewedPartIds, setReviewedPartIds] = useState([]);
+  const [myReviews, setMyReviews] = useState([]);
+  
+  const closeReviewModal = () => {
+    setReviewModal({ isOpen: false, mode: 'create', reviewId: null, partId: null, partName: '', partImage: null });
+    setNewRating(0);
+    setHoverRating(0);
+    setNewReviewBody('');
+  };
   
   useEffect(() => {
     if (userId) {
-      fetchMyReviewedParts().then(ids => setReviewedPartIds(ids));
+      fetchMyReviewedParts().then(reviews => setMyReviews(reviews));
     }
   }, [userId]);
 
@@ -30,20 +37,30 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     e.preventDefault();
     if (!newRating || !reviewModal.partId) return;
     setSubmittingReview(true);
-    const res = await createReview({
-      partId: reviewModal.partId,
-      rating: newRating,
-      body: newReviewBody
-    });
+    
+    const res = reviewModal.mode === 'edit'
+      ? await updateReview(reviewModal.reviewId, { rating: newRating, body: newReviewBody })
+      : await createReview({
+          partId: reviewModal.partId,
+          rating: newRating,
+          body: newReviewBody
+        });
+        
     setSubmittingReview(false);
+    
     if (res.ok) {
-      if (showToast) showToast('Review submitted successfully!', 'success');
-      setReviewedPartIds(prev => [...new Set([...prev, reviewModal.partId])]);
-      setReviewModal({ isOpen: false, partId: null, partName: '', partImage: null });
-      setNewRating(0);
-      setNewReviewBody('');
+      if (showToast) showToast(`Review ${reviewModal.mode === 'edit' ? 'updated' : 'submitted'} successfully!`, 'success');
+      
+      setMyReviews(prev => {
+        if (reviewModal.mode === 'edit') {
+          return prev.map(r => r.id === reviewModal.reviewId ? res.review : r);
+        } else {
+          return [...prev, res.review];
+        }
+      });
+      closeReviewModal();
     } else {
-      if (showToast) showToast(res.error || 'Failed to submit review.', 'error');
+      if (showToast) showToast(res.error || `Failed to ${reviewModal.mode === 'edit' ? 'update' : 'submit'} review.`, 'error');
     }
   };
 
@@ -179,11 +196,24 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
             <OrderCard
               key={tx.id || tx.invoiceNumber}
               transaction={tx}
-              reviewedPartIds={reviewedPartIds}
+              reviewedPartIds={myReviews.map(r => r.partId)}
               formatCurrency={formatBaseCurrency}
               onDownloadPDF={(txn) => handleDownloadPDF(txn, null)}
-              onReview={(partId, partName, partImage) => {
-                setReviewModal({ isOpen: true, partId, partName, partImage });
+              onReview={(partId, partName, partImage, isEdit) => {
+                if (isEdit) {
+                  const existing = myReviews.find(r => r.partId === partId);
+                  if (existing) {
+                    setReviewModal({ isOpen: true, mode: 'edit', reviewId: existing.id, partId, partName, partImage });
+                    setNewRating(existing.rating);
+                    setNewReviewBody(existing.body || '');
+                    setHoverRating(0);
+                  }
+                } else {
+                  setReviewModal({ isOpen: true, mode: 'create', reviewId: null, partId, partName, partImage });
+                  setNewRating(0);
+                  setNewReviewBody('');
+                  setHoverRating(0);
+                }
               }}
               onReorder={(items) => {
                 if (onReorder) {
@@ -209,7 +239,7 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-background/80 backdrop-blur-sm cursor-pointer"
-              onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '', partImage: null })}
+              onClick={closeReviewModal}
             />
             <motion.div
               key="review-modal-content"
@@ -219,13 +249,13 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
               className="relative w-full max-w-md bg-secondary border border-border shadow-2xl rounded-3xl overflow-hidden p-6"
             >
               <button 
-                onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '', partImage: null })}
-                className="absolute top-4 right-4 p-2 bg-background hover:bg-muted text-muted-foreground hover:text-foreground rounded-full transition-colors"
+                onClick={closeReviewModal}
+                className="absolute top-4 right-4 p-2 bg-background hover:bg-muted text-muted-foreground hover:text-foreground rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <X weight="bold" className="w-4 h-4" />
               </button>
               
-              <h3 className="text-xl font-bold font-display text-foreground mb-4">Write a Review</h3>
+              <h3 className="text-xl font-bold font-display text-foreground mb-4">{reviewModal.mode === 'edit' ? 'Edit Review' : 'Write a Review'}</h3>
               
               <div className="flex items-center gap-4 p-3 bg-background rounded-2xl border border-border/50 mb-6">
                 <div className="w-16 h-16 rounded-xl bg-secondary flex items-center justify-center shrink-0 overflow-hidden border border-border">
@@ -273,9 +303,9 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                 <button
                   type="submit"
                   disabled={submittingReview || newRating === 0}
-                  className="w-full py-3 bg-accent text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors"
+                  className="w-full py-3 bg-accent text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
-                  {submittingReview ? 'Submitting...' : 'Post Review'}
+                  {submittingReview ? 'Submitting...' : reviewModal.mode === 'edit' ? 'Update Review' : 'Post Review'}
                 </button>
               </form>
             </motion.div>

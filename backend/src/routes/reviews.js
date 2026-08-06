@@ -10,9 +10,9 @@ router.get('/mine', requireAuth, async (req, res) => {
     const userId = req.auth.userId;
     const reviews = await prisma.review.findMany({
       where: { userId },
-      select: { partId: true }
+      select: { id: true, partId: true, rating: true, body: true }
     });
-    res.json({ reviewedPartIds: reviews.map(r => r.partId) });
+    res.json({ reviews });
   } catch (err) {
     console.error('[get my reviews]', err);
     res.status(500).json({ msg: 'Server error fetching my reviews' });
@@ -29,6 +29,19 @@ router.get('/:partId', async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
     
+    // Attach customer avatars + display names (best-effort)
+    const userIds = [...new Set(reviews.map(r => r.userId))];
+    const customers = await prisma.customer.findMany({
+      where: { authId: { in: userIds } },
+      select: { authId: true, photoURL: true, displayName: true }
+    });
+    const customerMap = Object.fromEntries(customers.map(c => [c.authId, c]));
+    const reviewsWithAvatar = reviews.map(r => ({
+      ...r,
+      userAvatar: customerMap[r.userId]?.photoURL || null,
+      userDisplayName: customerMap[r.userId]?.displayName || null
+    }));
+
     // Calculate aggregate score
     const totalReviews = reviews.length;
     const averageRating = totalReviews > 0 
@@ -36,7 +49,7 @@ router.get('/:partId', async (req, res) => {
       : 0;
 
     res.json({
-      reviews,
+      reviews: reviewsWithAvatar,
       stats: {
         totalReviews,
         averageRating: Number(averageRating)
@@ -109,6 +122,41 @@ router.post('/', requireAuth, async (req, res) => {
     }
     console.error('[create review]', err);
     res.status(500).json({ msg: 'Server error creating review' });
+  }
+});
+
+// ── PATCH a review ──────────────────────────────────────────────────────────
+router.patch('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, body } = req.body;
+    const userId = req.auth.userId;
+
+    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+      return res.status(400).json({ msg: 'Rating must be a number between 1 and 5' });
+    }
+
+    const review = await prisma.review.findUnique({ where: { id } });
+    if (!review) {
+      return res.status(404).json({ msg: 'Review not found' });
+    }
+
+    if (review.userId !== userId) {
+      return res.status(403).json({ msg: 'Unauthorized to edit this review' });
+    }
+
+    const updatedReview = await prisma.review.update({
+      where: { id },
+      data: {
+        rating,
+        body: body ? body.trim().substring(0, 1000) : ''
+      }
+    });
+
+    res.json(updatedReview);
+  } catch (err) {
+    console.error('[update review]', err);
+    res.status(500).json({ msg: 'Server error updating review' });
   }
 });
 

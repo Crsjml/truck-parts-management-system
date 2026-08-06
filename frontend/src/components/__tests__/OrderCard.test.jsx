@@ -44,7 +44,7 @@ describe('OrderCard', () => {
     
     // Body assertions
     expect(screen.getByText('Brake Pads')).toBeInTheDocument();
-    expect(screen.getByText(/× 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/Qty: 2/i)).toBeInTheDocument();
     
     // Footer assertions
     expect(screen.getByText(/₱ 1120/)).toBeInTheDocument(); // total (bold)
@@ -116,8 +116,8 @@ describe('OrderCard', () => {
       />
     );
     
-    fireEvent.click(screen.getByRole('button', { name: /review/i }));
-    expect(mockHandlers.onReview).toHaveBeenCalledWith('part-123', 'Brake Pads');
+    fireEvent.click(screen.getByRole('button', { name: /Review Brake Pads/i }));
+    expect(mockHandlers.onReview).toHaveBeenCalledWith('part-123', 'Brake Pads', undefined, false);
   });
 
   it('calls onReview with id fallback when partId is missing', () => {
@@ -132,7 +132,32 @@ describe('OrderCard', () => {
       />
     );
     
-    fireEvent.click(screen.getByRole('button', { name: /review/i }));
-    expect(mockHandlers.onReview).toHaveBeenCalledWith('1', 'Brake Pads');
+    fireEvent.click(screen.getByRole('button', { name: /Review Brake Pads/i }));
+    expect(mockHandlers.onReview).toHaveBeenCalledWith('1', 'Brake Pads', undefined, false);
+  });
+
+  it('renders Edit Review button and calls onReview with isEdit=true when already reviewed', () => {
+    const transactionWithPartId = {
+      ...mockTransaction,
+      items: [{ id: 'item-1', partId: 'part-123', name: 'Brake Pads', price: 500, quantity: 2 }]
+    };
+
+    render(
+      <OrderCard
+        transaction={transactionWithPartId}
+        displayCurrency="₱"
+        formatCurrency={(amt) => `₱ ${amt}`}
+        onDownloadPDF={mockHandlers.onDownloadPDF}
+        onReview={mockHandlers.onReview}
+        onReorder={mockHandlers.onReorder}
+        reviewedPartIds={['part-123']}
+      />
+    );
+    
+    const editBtn = screen.getByRole('button', { name: /Edit Review for Brake Pads/i });
+    expect(editBtn).toBeInTheDocument();
+    
+    fireEvent.click(editBtn);
+    expect(mockHandlers.onReview).toHaveBeenCalledWith('part-123', 'Brake Pads', undefined, true);
   });
 });

@@ -78,7 +78,7 @@ const panelVariants = {
   transition: { duration: EXIT_DURATION_MS / 1000, ease: [0.32, 0.72, 0, 1] },
 };
 
-export default function PartDetailDrawer({ part, nestedCategories, customerSession, transactions, addToCart, onClose }) {
+export default function PartDetailDrawer({ part, nestedCategories, customerSession, transactions, addToCart, onClose, showToast }) {
   const { formatCurrency } = useSettings();
   const [modalTab, setModalTab] = useState('specs');
   const [modalQuantity, setModalQuantity] = useState(1);
@@ -323,6 +323,7 @@ export default function PartDetailDrawer({ part, nestedCategories, customerSessi
                   (tx.items || []).some((item) => item.partId === displayPart.id)
                 )
               }
+              showToast={showToast}
             />
           </div>
         )}

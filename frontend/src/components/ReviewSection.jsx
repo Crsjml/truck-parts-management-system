@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShieldCheck, Trash, UserCircle, CaretDown, Check } from '@phosphor-icons/react';
-import { fetchReviews, deleteReview, createReview } from '../authStore';
+import { Star, ShieldCheck, Trash, UserCircle, CaretDown, Check, Pencil } from '@phosphor-icons/react';
+import { fetchReviews, deleteReview, createReview, updateReview } from '../authStore';
 
-export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
+export default function ReviewSection({ partId, currentUserId, hasPurchased, showToast }) {
   const [reviews, setReviews] = useState([]);
   const [stats, setStats] = useState({ totalReviews: 0, averageRating: 0 });
   const [loading, setLoading] = useState(true);
   
   const [sortOrder, setSortOrder] = useState('recent'); // 'recent', 'highest', 'lowest'
-  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [newRating, setNewRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [newReviewBody, setNewReviewBody] = useState('');
@@ -20,21 +21,41 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
     if (!newRating) return;
     
     setSubmitting(true);
-    const res = await createReview({
-      partId,
-      rating: newRating,
-      body: newReviewBody
-    });
+    let res;
+    if (editingReviewId) {
+      res = await updateReview(editingReviewId, { rating: newRating, body: newReviewBody });
+    } else {
+      res = await createReview({
+        partId,
+        rating: newRating,
+        body: newReviewBody
+      });
+    }
     
     setSubmitting(false);
     
     if (res.ok) {
       setNewRating(0);
       setNewReviewBody('');
+      setEditingReviewId(null);
       await loadData();
+      showToast?.(`Review ${editingReviewId ? 'updated' : 'posted'} successfully`, 'success');
     } else {
-      alert(res.error || 'Failed to submit review. You might have already reviewed this part.');
+      showToast?.(res.error || `Failed to ${editingReviewId ? 'update' : 'submit'} review.`, 'error');
     }
+  };
+
+  const handleEditClick = (review) => {
+    setEditingReviewId(review.id);
+    setNewRating(review.rating);
+    setNewReviewBody(review.body || '');
+    document.getElementById('review-form-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReviewId(null);
+    setNewRating(0);
+    setNewReviewBody('');
   };
 
   const loadData = async () => {
@@ -56,14 +77,14 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
   });
 
   const handleDelete = async (reviewId) => {
-    if (!confirm('Are you sure you want to delete your review?')) return;
-    
     const res = await deleteReview(reviewId);
     if (res.ok) {
       await loadData();
+      showToast?.('Review deleted successfully', 'success');
     } else {
-      alert(res.error || 'Failed to delete review');
+      showToast?.(res.error || 'Failed to delete review', 'error');
     }
+    setConfirmingDeleteId(null);
   };
 
   const renderStars = (count) => {
@@ -95,38 +116,31 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
         {/* Sort Dropdown */}
         {reviews.length > 0 && (
           <div className="relative">
-            <button 
-              onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary/50 border border-border text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="appearance-none flex items-center gap-2 pl-4 pr-10 py-2 rounded-xl bg-secondary/50 border border-border text-sm font-semibold text-foreground hover:bg-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              Sort by: {sortOrder === 'recent' ? 'Most Recent' : sortOrder === 'highest' ? 'Highest Rated' : 'Lowest Rated'}
-              <CaretDown weight="bold" className={`w-4 h-4 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {isSortDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setIsSortDropdownOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-border/50 bg-background/95 backdrop-blur-xl shadow-xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                  <button onClick={() => { setSortOrder('recent'); setIsSortDropdownOpen(false); }} className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-secondary transition-colors">
-                    Most Recent {sortOrder === 'recent' && <Check weight="bold" className="text-brandBlue-500" />}
-                  </button>
-                  <button onClick={() => { setSortOrder('highest'); setIsSortDropdownOpen(false); }} className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-secondary transition-colors border-t border-border/50">
-                    Highest Rated {sortOrder === 'highest' && <Check weight="bold" className="text-brandBlue-500" />}
-                  </button>
-                  <button onClick={() => { setSortOrder('lowest'); setIsSortDropdownOpen(false); }} className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-secondary transition-colors border-t border-border/50">
-                    Lowest Rated {sortOrder === 'lowest' && <Check weight="bold" className="text-brandBlue-500" />}
-                  </button>
-                </div>
-              </>
-            )}
+              <option value="recent">Sort by: Most Recent</option>
+              <option value="highest">Sort by: Highest Rated</option>
+              <option value="lowest">Sort by: Lowest Rated</option>
+            </select>
+            <CaretDown weight="bold" className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-foreground" />
           </div>
         )}
       </div>
 
-      {/* Add Review Form - Restricted to Verified Purchasers */}
-      {currentUserId && hasPurchased && (
-        <form onSubmit={handleSubmitReview} className="p-6 bg-secondary/30 backdrop-blur-sm rounded-3xl border border-border/50 shadow-sm mt-6">
-          <h4 className="text-sm font-bold mb-4">Write a Review</h4>
+      {/* Add / Edit Review Form - Restricted to Verified Purchasers */}
+      {currentUserId && hasPurchased && (!reviews.some(r => r.userId === currentUserId) || editingReviewId) && (
+        <form id="review-form-section" onSubmit={handleSubmitReview} className="p-6 bg-secondary/30 backdrop-blur-sm rounded-3xl border border-border/50 shadow-sm mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-sm font-bold">{editingReviewId ? 'Edit Your Review' : 'Write a Review'}</h4>
+            {editingReviewId && (
+              <button type="button" onClick={handleCancelEdit} className="text-xs text-muted-foreground hover:text-foreground font-semibold">
+                Cancel
+              </button>
+            )}
+          </div>
           <div className="flex gap-2 mb-4">
             {[1, 2, 3, 4, 5].map(i => (
               <button
@@ -135,7 +149,8 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
                 onClick={() => setNewRating(i)}
                 onMouseEnter={() => setHoverRating(i)}
                 onMouseLeave={() => setHoverRating(0)}
-                className="focus:outline-none"
+                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
+                aria-label={`Rate ${i} stars`}
               >
                 <Star
                   weight={(hoverRating || newRating) >= i ? "fill" : "regular"}
@@ -156,7 +171,7 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
               disabled={submitting || newRating === 0}
               className="px-6 py-2 bg-accent text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors"
             >
-              {submitting ? 'Submitting...' : 'Post Review'}
+              {submitting ? 'Submitting...' : editingReviewId ? 'Update Review' : 'Post Review'}
             </button>
           </div>
         </form>
@@ -169,19 +184,33 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
             No reviews yet. Be the first to review this product!
           </p>
         ) : (
-          sortedReviews.map(review => (
-            <div key={review.id} className="p-6 bg-secondary/30 backdrop-blur-sm rounded-3xl border border-border/50 relative group shadow-sm hover:shadow-md transition-all hover:bg-secondary/60 mt-6">
+          sortedReviews.map(review => {
+            const isOwn = review.userId === currentUserId;
+            return (
+            <div key={review.id} className={`p-6 bg-secondary/30 backdrop-blur-sm rounded-3xl border transition-all hover:bg-secondary/60 mt-6 relative group shadow-sm hover:shadow-md ${
+              isOwn 
+                ? 'border-accent/40 ring-2 ring-accent/20' 
+                : 'border-border/50'
+            }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
-                    <UserCircle weight="duotone" className="w-6 h-6" />
+                  <div className="w-10 h-10 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent overflow-hidden">
+                    {review.userAvatar ? (
+                      <img
+                        src={review.userAvatar}
+                        alt={review.userName}
+                        className="w-full h-full object-cover"
+                        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                      />
+                    ) : null}
+                    <UserCircle weight="duotone" className={`w-6 h-6 ${review.userAvatar ? 'hidden' : ''}`} />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-foreground flex items-center gap-2">
-                      {review.userName}
-                      {review.purchaseVerified && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-500 text-[9px] rounded-md uppercase tracking-wider font-bold" title="Verified Purchase">
-                          <ShieldCheck weight="fill" className="w-3 h-3" /> Verified
+                      {review.userDisplayName || review.userName}
+                      {isOwn && (
+                        <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/25">
+                          Your review
                         </span>
                       )}
                     </p>
@@ -192,14 +221,45 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
                   </div>
                 </div>
                 
-                {review.userId === currentUserId && (
-                  <button 
-                    onClick={() => handleDelete(review.id)}
-                    className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-500/20"
-                    title="Delete your review"
-                  >
-                    <Trash weight="duotone" className="w-4 h-4" />
-                  </button>
+                {isOwn && (
+                  <div className="flex items-center gap-1">
+                    {confirmingDeleteId === review.id ? (
+                      <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-xl border border-red-500/20">
+                        <span className="text-xs font-bold text-red-500">Delete?</span>
+                        <button 
+                          onClick={() => handleDelete(review.id)}
+                          className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded transition-colors"
+                        >
+                          Yes
+                        </button>
+                        <button 
+                          onClick={() => setConfirmingDeleteId(null)}
+                          className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => handleEditClick(review)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all border border-transparent hover:border-blue-500/20"
+                          aria-label="Edit review"
+                        >
+                          <Pencil weight="duotone" className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => setConfirmingDeleteId(review.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all border border-transparent hover:border-red-500/20"
+                          aria-label="Delete review"
+                        >
+                          <Trash weight="duotone" className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
               
@@ -209,7 +269,8 @@ export default function ReviewSection({ partId, currentUserId, hasPurchased }) {
                 </p>
               )}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
