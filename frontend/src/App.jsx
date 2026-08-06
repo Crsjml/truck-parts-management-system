@@ -1056,7 +1056,7 @@ export default function App() {
 
                 {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
                 {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
-                {page === 'account' && <MyAccount user={supabaseUser} onGoBack={() => setPage('dashboard')} />}
+                {page === 'account' && <MyAccount user={supabaseUser} transactions={transactions} variant="admin" backLabel="Back to Dashboard" onGoBack={() => setPage('dashboard')} />}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && page === 'staff' && <StaffManagement currentEmail={adminSession?.user?.staffData?.email} />}
                 {page === 'purchasing' && (
                   <PurchasingModule
