@@ -9,7 +9,7 @@
  */
 
 import { supabase } from './supabaseClient';
-import { apiGet, apiPost, apiPut, apiDelete, invalidateToken, setToken } from "./api/apiClient";
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, invalidateToken, setToken } from "./api/apiClient";
 import {
   validateEmail,
   validateLoginFields,
@@ -696,7 +696,7 @@ export const fetchReviews = async (partId) => {
 export const fetchMyReviewedParts = async () => {
   try {
     const { ok, data } = await apiGet('/api/reviews/mine', { supabase });
-    return ok ? (data.reviewedPartIds || []) : [];
+    return ok ? (data.reviews || []) : [];
   } catch (err) {
     console.error('Failed to fetch my reviews:', err);
     return [];
@@ -706,6 +706,11 @@ export const fetchMyReviewedParts = async () => {
 export const createReview = api(async (reviewData) => {
   const { ok, data } = await apiPost('/api/reviews', reviewData, { supabase });
   return ok ? { ok: true, review: data } : { ok: false, error: data.msg || 'Failed to submit review.' };
+});
+
+export const updateReview = api(async (id, reviewData) => {
+  const { ok, data } = await apiPatch(`/api/reviews/${id}`, reviewData, { supabase });
+  return ok ? { ok: true, review: data } : { ok: false, error: data.msg || 'Failed to update review.' };
 });
 
 export const deleteReview = api(async (id) => {

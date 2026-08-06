@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ArrowClockwise, Star, CheckCircle, Truck, ClipboardText, XCircle } from '@phosphor-icons/react';
+import { Download, ArrowClockwise, Star, CheckCircle, Truck, ClipboardText, XCircle, Pencil } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
 const getStatusColor = (status) => {
@@ -106,13 +106,17 @@ export default function OrderCard({
                         <div className="flex justify-end ml-2">
                           {transaction.status === 'COMPLETED' && (
                             reviewedPartIds.includes(pId) ? (
-                              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">
-                                <CheckCircle weight="fill" className="w-3.5 h-3.5" /> Reviewed
-                              </span>
+                              <button
+                                onClick={() => onReview && onReview(pId, item.name, item.part?.image, true)}
+                                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 hover:bg-amber-500 hover:text-white px-2.5 py-1 rounded-full border border-amber-500/20 transition-all duration-300 group relative before:absolute before:-inset-2 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                aria-label={`Edit Review for ${item.name}`}
+                              >
+                                <Pencil weight="fill" className="w-3 h-3 transition-transform duration-300 group-hover:scale-110" /> Edit Review
+                              </button>
                             ) : (
                               <button
-                                onClick={() => onReview && onReview(pId, item.name, item.part?.image)}
-                                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 hover:bg-amber-500 hover:text-white px-2.5 py-1 rounded-full border border-amber-500/20 transition-all duration-300 group relative before:absolute before:-inset-2 before:content-['']"
+                                onClick={() => onReview && onReview(pId, item.name, item.part?.image, false)}
+                                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 hover:bg-amber-500 hover:text-white px-2.5 py-1 rounded-full border border-amber-500/20 transition-all duration-300 group relative before:absolute before:-inset-2 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                 aria-label={`Review ${item.name}`}
                               >
                                 <Star weight="fill" className="w-3 h-3 transition-transform duration-300 group-hover:scale-110" /> Review

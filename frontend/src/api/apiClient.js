@@ -60,4 +60,5 @@ async function request(method, path, { body, timeoutMs = 8000, supabase } = {}) 
 export const apiGet = (path, opts) => request('GET', path, opts);
 export const apiPost = (path, body, opts) => request('POST', path, { ...opts, body });
 export const apiPut = (path, body, opts) => request('PUT', path, { ...opts, body });
+export const apiPatch = (path, body, opts) => request('PATCH', path, { ...opts, body });
 export const apiDelete = (path, opts) => request('DELETE', path, opts);
