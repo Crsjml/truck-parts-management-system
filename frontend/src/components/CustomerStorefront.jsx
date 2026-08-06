@@ -697,19 +697,32 @@ export default function CustomerStorefront({
               <section className="space-y-10">
                 {/* 3-Card Value Proposition Bento */}
                 <div className="relative z-10 w-full max-w-5xl mb-16 grid grid-cols-1 md:grid-cols-2 gap-4 text-left mx-auto">
-                  {VALUE_PROPS.map((item, i) => (
-                    <Reveal key={item.title} delay={i * 0.06} className={i === 0 ? "md:col-span-2" : "md:col-span-1"}>
-                      <div className="glass-panel glass-panel-hover p-8 flex flex-col justify-center items-start gap-4 h-full">
-                        <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent">
-                          <item.icon weight="duotone" className="w-6 h-6"/>
-                        </div>
-                        <div>
-                          <h4 className="font-display tracking-tight font-bold text-foreground text-xl">{item.title}</h4>
-                          <p className="text-sm text-muted-foreground mt-2 max-w-md">{item.description}</p>
-                        </div>
-                      </div>
-                    </Reveal>
-                  ))}
+                  {VALUE_PROPS.map((item, i) => {
+                    const isClickable = i === 0;
+                    const CardWrapper = isClickable ? 'button' : 'div';
+                    return (
+                      <Reveal key={item.title} delay={i * 0.06} className={i === 0 ? "md:col-span-2" : "md:col-span-1"}>
+                        <CardWrapper 
+                          onClick={isClickable ? goToCatalog : undefined} 
+                          className={`w-full text-left glass-panel ${isClickable ? 'glass-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent' : 'cursor-default'} p-8 flex flex-col justify-center items-start gap-4 h-full relative overflow-hidden group`}
+                        >
+                          {/* Background Watermark for Wide Card */}
+                          {isClickable && (
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 opacity-[0.03] group-hover:opacity-10 group-hover:-translate-x-4 transition-all duration-700 pointer-events-none">
+                              <item.icon weight="fill" className="w-64 h-64 text-foreground"/>
+                            </div>
+                          )}
+                          <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent relative z-10">
+                            <item.icon weight="duotone" className="w-6 h-6"/>
+                          </div>
+                          <div className="relative z-10">
+                            <h4 className="font-display tracking-tight font-bold text-foreground text-xl">{item.title}</h4>
+                            <p className="text-sm text-muted-foreground mt-2 max-w-md">{item.description}</p>
+                          </div>
+                        </CardWrapper>
+                      </Reveal>
+                    );
+                  })}
                 </div>
 
                 <ReorderRail
@@ -809,7 +822,7 @@ export default function CustomerStorefront({
           {storefrontTab === 'about' && <AboutPage />}
 
           {storefrontTab === 'profile' && (
-            <MyAccount user={customerSession?.user} transactions={transactions} variant="storefront" backLabel="Back to Store" onGoBack={() => setStorefrontTab('home')} />
+            <MyAccount user={customerSession?.user} transactions={transactions} variant="storefront" backLabel="Back to Store" onGoBack={() => setStorefrontTab('home')} onViewOrders={() => setStorefrontTab('orders')} />
           )}
         </main>
       </div>

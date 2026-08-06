@@ -7,7 +7,7 @@ import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
 // Shared input class
 const INPUT_CLS = 'w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium text-sm';
 
-export default function MyAccount({ user, transactions = [], onGoBack, variant = 'storefront', backLabel = 'Back' }) {
+export default function MyAccount({ user, transactions = [], onGoBack, onViewOrders, variant = 'storefront', backLabel = 'Back' }) {
   // Main State
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -35,7 +35,6 @@ export default function MyAccount({ user, transactions = [], onGoBack, variant =
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [savedPartsCount, setSavedPartsCount] = useState(0);
 
   const loadProfile = async () => {
     if (user) {
@@ -52,7 +51,6 @@ export default function MyAccount({ user, transactions = [], onGoBack, variant =
       setPhoneNumber(loadedPhoneNumber);
       setPhotoURL(loadedPhotoURL);
       setCompanyName(loadedCompanyName);
-      setSavedPartsCount(profile?.savedParts ? profile.savedParts.length : 0);
 
       setIsFetchingProfile(false);
     } else {
@@ -396,18 +394,21 @@ export default function MyAccount({ user, transactions = [], onGoBack, variant =
           </button>
           
           <div className="flex gap-4 w-full md:w-auto">
-            <div className="flex-1 md:flex-none flex items-center gap-3 bg-background/50 px-4 py-3 rounded-2xl border border-border/50">
-              <div className="text-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Orders</p>
-                <p className="text-xl font-black text-foreground">{isFetchingProfile ? '-' : userTransactionsCount}</p>
+            {onViewOrders ? (
+              <button onClick={onViewOrders} className="flex-1 md:flex-none flex items-center gap-3 bg-background/50 hover:bg-background/80 px-4 py-3 rounded-2xl border border-border/50 transition-all hover:border-accent/40 active:scale-95 cursor-pointer shadow-sm">
+                <div className="text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Orders</p>
+                  <p className="text-xl font-black text-foreground">{isFetchingProfile ? '-' : userTransactionsCount}</p>
+                </div>
+              </button>
+            ) : (
+              <div className="flex-1 md:flex-none flex items-center gap-3 bg-background/50 px-4 py-3 rounded-2xl border border-border/50">
+                <div className="text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Orders</p>
+                  <p className="text-xl font-black text-foreground">{isFetchingProfile ? '-' : userTransactionsCount}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 md:flex-none flex items-center gap-3 bg-background/50 px-4 py-3 rounded-2xl border border-border/50">
-              <div className="text-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Saved</p>
-                <p className="text-xl font-black text-foreground">{isFetchingProfile ? '-' : savedPartsCount}</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
