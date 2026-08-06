@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSettings } from '../context/SettingsContext';
-import { Package, CheckCircle, Truck, Star, X, ClipboardText } from '@phosphor-icons/react';
+import { Package, CheckCircle, Truck, Star, X, ClipboardText, ShieldCheck } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createReview } from '../authStore';
+import { createReview, fetchMyReviewedParts } from '../authStore';
 import OrderCard from './OrderCard';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 
@@ -12,11 +13,18 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
   const [purchaseType, setPurchaseType] = useState('online'); // 'online' | 'ftf'
   
   // Review Modal State
-  const [reviewModal, setReviewModal] = useState({ isOpen: false, partId: null, partName: '' });
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, partId: null, partName: '', partImage: null });
   const [newRating, setNewRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [newReviewBody, setNewReviewBody] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewedPartIds, setReviewedPartIds] = useState([]);
+  
+  useEffect(() => {
+    if (userId) {
+      fetchMyReviewedParts().then(ids => setReviewedPartIds(ids));
+    }
+  }, [userId]);
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
@@ -30,7 +38,8 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
     setSubmittingReview(false);
     if (res.ok) {
       if (showToast) showToast('Review submitted successfully!', 'success');
-      setReviewModal({ isOpen: false, partId: null, partName: '' });
+      setReviewedPartIds(prev => [...new Set([...prev, reviewModal.partId])]);
+      setReviewModal({ isOpen: false, partId: null, partName: '', partImage: null });
       setNewRating(0);
       setNewReviewBody('');
     } else {
@@ -92,37 +101,39 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
       </div>
 
       {/* Segmented Controls for Purchase Type Separation */}
-      <div className="flex bg-secondary/80 border border-border/50 rounded-2xl p-1 gap-1 max-w-md">
-        <button
-          onClick={() => { setPurchaseType('online'); setActiveTab('All'); }}
-          className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
-            purchaseType === 'online'
-              ? 'bg-foreground text-background shadow-md shadow-black/10'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Online Orders
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'online' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
-            {onlineTx.length}
-          </span>
-        </button>
-        <button
-          onClick={() => { setPurchaseType('ftf'); setActiveTab('All'); }}
-          className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
-            purchaseType === 'ftf'
-              ? 'bg-foreground text-background shadow-md shadow-black/10'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Walk-in Purchases
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'ftf' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
-            {ftfTx.length}
-          </span>
-        </button>
+      <div className="overflow-x-auto hide-scrollbar scroll-fade-edges pb-2 w-full">
+        <div className="flex bg-secondary/80 border border-border/50 rounded-2xl p-1 gap-1 max-w-md min-w-max">
+          <button
+            onClick={() => { setPurchaseType('online'); setActiveTab('All'); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+              purchaseType === 'online'
+                ? 'bg-foreground text-background shadow-md shadow-black/10'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Online Orders
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'online' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
+              {onlineTx.length}
+            </span>
+          </button>
+          <button
+            onClick={() => { setPurchaseType('ftf'); setActiveTab('All'); }}
+            className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+              purchaseType === 'ftf'
+                ? 'bg-foreground text-background shadow-md shadow-black/10'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Walk-in Purchases
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'ftf' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
+              {ftfTx.length}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Segmented Controls (Status Tabs) */}
-      <div className="flex overflow-x-auto pb-4 no-scrollbar gap-3">
+      <div className="flex overflow-x-auto pb-4 hide-scrollbar scroll-fade-edges gap-3">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -166,10 +177,11 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
             <OrderCard
               key={tx.id || tx.invoiceNumber}
               transaction={tx}
+              reviewedPartIds={reviewedPartIds}
               formatCurrency={formatBaseCurrency}
               onDownloadPDF={(txn) => handleDownloadPDF(txn, null)}
-              onReview={(partId, partName) => {
-                setReviewModal({ isOpen: true, partId, partName });
+              onReview={(partId, partName, partImage) => {
+                setReviewModal({ isOpen: true, partId, partName, partImage });
               }}
               onReorder={(items) => {
                 if (onReorder) {
@@ -182,31 +194,52 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
         </div>
       )}
       {/* Review Modal */}
-      <AnimatePresence>
-        {reviewModal.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {createPortal(
+        <AnimatePresence>
+          {reviewModal.isOpen && (
+          <motion.div 
+            key="review-modal-container"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          >
             <motion.div
+              key="review-modal-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-              onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '' })}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm cursor-pointer"
+              onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '', partImage: null })}
             />
             <motion.div
+              key="review-modal-content"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative w-full max-w-md bg-secondary border border-border shadow-2xl rounded-3xl overflow-hidden p-6"
             >
               <button 
-                onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '' })}
+                onClick={() => setReviewModal({ isOpen: false, partId: null, partName: '', partImage: null })}
                 className="absolute top-4 right-4 p-2 bg-background hover:bg-muted text-muted-foreground hover:text-foreground rounded-full transition-colors"
               >
                 <X weight="bold" className="w-4 h-4" />
               </button>
               
-              <h3 className="text-xl font-bold font-display text-foreground mb-1">Write a Review</h3>
-              <p className="text-sm text-muted-foreground mb-6 line-clamp-1">For: <span className="font-bold text-foreground">{reviewModal.partName}</span></p>
+              <h3 className="text-xl font-bold font-display text-foreground mb-4">Write a Review</h3>
+              
+              <div className="flex items-center gap-4 p-3 bg-background rounded-2xl border border-border/50 mb-6">
+                <div className="w-16 h-16 rounded-xl bg-secondary flex items-center justify-center shrink-0 overflow-hidden border border-border">
+                  {reviewModal.partImage ? (
+                    <img src={reviewModal.partImage} alt={reviewModal.partName} className="w-full h-full object-cover" />
+                  ) : (
+                    <Package weight="duotone" className="w-8 h-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground line-clamp-2 leading-tight">{reviewModal.partName}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1 mt-1">
+                    <ShieldCheck weight="fill" className="w-3.5 h-3.5" /> Verified Purchase
+                  </p>
+                </div>
+              </div>
 
               <form onSubmit={handleSubmitReview} className="space-y-4">
                 <div className="flex gap-2 justify-center mb-6">
@@ -244,9 +277,11 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
                 </button>
               </form>
             </motion.div>
-          </div>
+          </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
