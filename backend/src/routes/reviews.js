@@ -4,6 +4,21 @@ import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+// ── GET my reviews ──────────────────────────────────────────────────────────
+router.get('/mine', requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const reviews = await prisma.review.findMany({
+      where: { userId },
+      select: { partId: true }
+    });
+    res.json({ reviewedPartIds: reviews.map(r => r.partId) });
+  } catch (err) {
+    console.error('[get my reviews]', err);
+    res.status(500).json({ msg: 'Server error fetching my reviews' });
+  }
+});
+
 // ── GET all reviews for a part ──────────────────────────────────────────────
 router.get('/:partId', async (req, res) => {
   try {

@@ -136,6 +136,8 @@ class CheckoutService {
           subtotal: Math.round((totalAmount / (1 + VAT_RATE)) * 100) / 100,
           taxAmount: Math.round((totalAmount - totalAmount / (1 + VAT_RATE)) * 100) / 100,
           total: totalAmount,
+          pickupLocation: "Tarlac Truck Pitstop, 123 MacArthur Highway, Tarlac City",
+          pickupHours: "Mon-Sat: 8:00 AM - 5:00 PM",
           items: {
             create: cartItems.map(item => ({
               partId: item.id,

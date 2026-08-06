@@ -25,9 +25,6 @@ build:
 
 # Run cluster with clean logs (Web services attached)
 up:
-	@echo "\033[1;32m🛑 Stopping any currently running servers...\033[0m"
-	docker-compose down
-	@docker network rm isande_itisdev_default 2>/dev/null || true
 
 	@echo "\n\033[1;32m🚀 Web Application is spinning up!\033[0m"
 	@echo "\033[1;36m🔗 Frontend:\033[0m http://localhost:5173\n"

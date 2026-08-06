@@ -693,6 +693,16 @@ export const fetchReviews = async (partId) => {
   }
 };
 
+export const fetchMyReviewedParts = async () => {
+  try {
+    const { ok, data } = await apiGet('/api/reviews/mine', { supabase });
+    return ok ? (data.reviewedPartIds || []) : [];
+  } catch (err) {
+    console.error('Failed to fetch my reviews:', err);
+    return [];
+  }
+};
+
 export const createReview = api(async (reviewData) => {
   const { ok, data } = await apiPost('/api/reviews', reviewData, { supabase });
   return ok ? { ok: true, review: data } : { ok: false, error: data.msg || 'Failed to submit review.' };

@@ -100,58 +100,60 @@ export default function MyOrders({ customerName, customerEmail, userId, transact
         </p>
       </div>
 
-      {/* Segmented Controls for Purchase Type Separation */}
-      <div className="overflow-x-auto hide-scrollbar scroll-fade-edges pb-2 w-full">
-        <div className="flex bg-secondary/80 border border-border/50 rounded-2xl p-1 gap-1 max-w-md min-w-max">
+      {/* Unified Filter Section */}
+      <div className="flex flex-col gap-5 w-full bg-card/30 backdrop-blur-xl rounded-[2rem] border border-border/50 p-4 shadow-sm">
+        
+        {/* Top Row: Purchase Type Toggle */}
+        <div className="flex bg-secondary/80 border border-border/50 rounded-2xl p-1 gap-1 w-full sm:max-w-md">
           <button
             onClick={() => { setPurchaseType('online'); setActiveTab('All'); }}
-            className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-2.5 rounded-xl font-bold text-[11px] sm:text-xs transition-all ${
               purchaseType === 'online'
-                ? 'bg-foreground text-background shadow-md shadow-black/10'
+                ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Online Orders
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'online' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
+            <span className="truncate">Online Orders</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${purchaseType === 'online' ? 'bg-accent/10 text-accent' : 'bg-secondary/80 text-muted-foreground'}`}>
               {onlineTx.length}
             </span>
           </button>
           <button
             onClick={() => { setPurchaseType('ftf'); setActiveTab('All'); }}
-            className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-2.5 rounded-xl font-bold text-[11px] sm:text-xs transition-all ${
               purchaseType === 'ftf'
-                ? 'bg-foreground text-background shadow-md shadow-black/10'
+                ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Walk-in Purchases
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${purchaseType === 'ftf' ? 'bg-background/25 text-background' : 'bg-secondary text-muted-foreground'}`}>
+            <span className="truncate">Walk-in</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${purchaseType === 'ftf' ? 'bg-accent/10 text-accent' : 'bg-secondary/80 text-muted-foreground'}`}>
               {ftfTx.length}
             </span>
           </button>
         </div>
-      </div>
 
-      {/* Segmented Controls (Status Tabs) */}
-      <div className="flex overflow-x-auto pb-4 hide-scrollbar scroll-fade-edges gap-3">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap shadow-sm border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              activeTab === tab.id 
-                ? 'bg-foreground text-background border-foreground shadow-xl shadow-black/10 scale-[1.02]' 
-                : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-secondary hover:border-border/80'
-            }`}
-            aria-label={`View ${tab.label}`}
-          >
-            <tab.icon weight={activeTab === tab.id ? "fill" : "duotone"} className="w-5 h-5" />
-            {tab.label}
-            <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-background/20 text-background' : 'bg-secondary text-muted-foreground'}`}>
-              {tab.id === 'All' ? activeTxList.length : activeTxList.filter(tx => tx.status === tab.id).length}
-            </span>
-          </button>
-        ))}
+        {/* Bottom Row: Status Tabs */}
+        <div className="flex overflow-x-auto hide-scrollbar scroll-fade-edges gap-2.5 pb-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shrink-0 ${
+                activeTab === tab.id 
+                  ? 'bg-secondary/80 border-accent/40 text-foreground shadow-sm' 
+                  : 'bg-background border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/40'
+              }`}
+              aria-label={`View ${tab.label}`}
+            >
+              <tab.icon weight={activeTab === tab.id ? "fill" : "duotone"} className={`w-4.5 h-4.5 ${activeTab === tab.id ? 'text-accent' : ''}`} />
+              {tab.label}
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-background text-foreground shadow-sm' : 'bg-secondary text-muted-foreground'}`}>
+                {tab.id === 'All' ? activeTxList.length : activeTxList.filter(tx => tx.status === tab.id).length}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Dynamic Main View */}

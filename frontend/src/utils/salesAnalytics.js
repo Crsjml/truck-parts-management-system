@@ -318,18 +318,24 @@ export function slowMovingParts(parts, transactions, { start, end }, threshold =
     }
   }
   
+  // Precompute last sale dates from ALL transactions (O(T))
+  const lastSaleMap = new Map();
+  for (const t of transactions) {
+    const d = new Date(t.transactionDate);
+    for (const item of (t.items || [])) {
+      const existing = lastSaleMap.get(item.partId);
+      if (!existing || d > existing) {
+        lastSaleMap.set(item.partId, d);
+      }
+    }
+  }
+  
   const result = [];
   for (const p of parts) {
     if (p.stock > 0) {
       const sold = curCounts.get(p.id) || 0;
       if (sold <= threshold) {
-        let lastSale = null;
-        for (const t of transactions) {
-          if ((t.items || []).some(i => i.partId === p.id)) {
-            const d = new Date(t.transactionDate);
-            if (!lastSale || d > lastSale) lastSale = d;
-          }
-        }
+        const lastSale = lastSaleMap.get(p.id);
         let daysSinceLastSale = null;
         if (lastSale) {
            daysSinceLastSale = Math.floor((new Date() - lastSale) / 86400000);
