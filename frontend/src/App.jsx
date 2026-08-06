@@ -606,7 +606,7 @@ export default function App() {
           onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
           isLoggedIn={!!adminSession || !!customerSession}
         />
-        <StatusBar />
+        {!customerSession && <StatusBar />}
         <ToastNotification toasts={toasts} onDismiss={dismissToast} />
         {needsProfileCompletion && (
           <CompleteProfileModal onComplete={handleProfileComplete} />
