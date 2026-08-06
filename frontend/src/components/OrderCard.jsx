@@ -43,7 +43,7 @@ export default function OrderCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+      className="rounded-2xl border border-border/30 bg-card/80 backdrop-blur-xl overflow-hidden shadow-sm hover:shadow-xl hover:border-accent/30 transition-all duration-300 flex flex-col justify-between group/card"
     >
       {/* Header: Invoice number, Date, Status badge */}
       <div className="border-b border-border/30 p-4 flex items-start justify-between bg-card">
@@ -62,10 +62,10 @@ export default function OrderCard({
       </div>
 
       {/* Pickup Info Strip */}
-      {transaction.status === 'READY_FOR_PICKUP' && (
+      {transaction.status !== 'CANCELLED' && (
         <div className="px-4 py-3 bg-secondary/20 border-b border-border/30 flex flex-col gap-1 text-sm text-muted-foreground">
-          <p><span className="font-bold text-foreground">Pickup Location:</span> {transaction.pickupLocation || 'Tarlac Truck Pitstop Main Store'}</p>
-          <p><span className="font-bold text-foreground">Hours:</span> {transaction.pickupHours || 'Mon-Sat 8AM - 5PM'}</p>
+          <p><span className="font-bold text-foreground">Pickup Location:</span> Tarlac Truck Pitstop, 123 MacArthur Highway, Tarlac City</p>
+          <p><span className="font-bold text-foreground">Store Hours:</span> Mon-Sat: 8:00 AM - 5:00 PM</p>
           {transaction.readyForPickupAt && (
             <p><span className="font-bold text-foreground">Ready Since:</span> {formatDate(transaction.readyForPickupAt)}</p>
           )}
@@ -103,7 +103,7 @@ export default function OrderCard({
                       <div className="flex items-center gap-3 shrink-0">
                         <p className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(item.rowTotal)}</p>
                         
-                        <div className="w-[84px] flex justify-end">
+                        <div className="flex justify-end ml-2">
                           {transaction.status === 'COMPLETED' && (
                             reviewedPartIds.includes(pId) ? (
                               <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">
@@ -112,10 +112,10 @@ export default function OrderCard({
                             ) : (
                               <button
                                 onClick={() => onReview && onReview(pId, item.name, item.part?.image)}
-                                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-accent bg-accent/10 hover:bg-accent hover:text-white px-2.5 py-1 rounded-full border border-accent/20 transition-colors"
+                                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 hover:bg-amber-500 hover:text-white px-2.5 py-1 rounded-full border border-amber-500/20 transition-all duration-300 group relative before:absolute before:-inset-2 before:content-['']"
                                 aria-label={`Review ${item.name}`}
                               >
-                                <Star weight="bold" className="w-3.5 h-3.5" /> Review
+                                <Star weight="fill" className="w-3 h-3 transition-transform duration-300 group-hover:scale-110" /> Review
                               </button>
                             )
                           )}
@@ -144,18 +144,18 @@ export default function OrderCard({
         <div className="flex gap-2">
           <button
             onClick={() => onDownloadPDF && onDownloadPDF(transaction)}
-            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex-1 py-2.5 px-3 rounded-xl border border-border/50 bg-secondary/50 hover:bg-secondary hover:border-border text-xs sm:text-sm font-bold text-foreground transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent group"
             aria-label="Download PDF invoice"
           >
-            <Download weight="bold" className="w-4 h-4 shrink-0" />
+            <Download weight="bold" className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5" />
             <span>PDF</span>
           </button>
           <button
             onClick={() => onReorder && onReorder(transaction.items)}
-            className="flex-1 py-2 px-3 rounded-xl border border-border/60 bg-background hover:bg-secondary text-xs sm:text-sm font-bold text-foreground transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex-1 py-2.5 px-3 rounded-xl border border-border/50 bg-secondary/50 hover:bg-secondary hover:border-border text-xs sm:text-sm font-bold text-foreground transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent group"
             aria-label="Reorder items"
           >
-            <ArrowClockwise weight="bold" className="w-4 h-4 shrink-0" />
+            <ArrowClockwise weight="bold" className="w-4 h-4 shrink-0 transition-transform duration-500 group-hover:rotate-180" />
             <span>Reorder</span>
           </button>
         </div>

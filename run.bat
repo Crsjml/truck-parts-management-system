@@ -1,8 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo 🛑 Stopping any currently running servers...
-docker-compose down
-docker network rm isande_itisdev_default >nul 2>nul
+
 
 
 echo.

@@ -50,7 +50,6 @@ model Customer {
   updatedAt   DateTime @updatedAt
 
   savedParts Part[]            @relation("CustomerSavedParts")
-  addresses  CustomerAddress[]
 }
 
 model Part {
@@ -169,6 +168,8 @@ model Transaction {
   pickupHours     String?
   readyForPickupAt DateTime?
 
+
+
   items TransactionItem[]
 
   @@index([transactionDate])
@@ -256,16 +257,4 @@ model StockAdjustment {
   createdAt  DateTime @default(now())
 }
 
-model CustomerAddress {
-  id                String   @id @default(uuid()) @db.Uuid
-  customerId        String   @db.Uuid
-  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  label             String   @default("Office")
-  fullAddress       String
-  isDefaultShipping Boolean  @default(false)
-  isDefaultBilling  Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
-  @@index([customerId])
-}

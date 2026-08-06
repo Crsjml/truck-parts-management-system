@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine AS base
 
 # Set working directory
 WORKDIR /app
@@ -15,10 +15,18 @@ COPY prisma ./prisma
 # Generate Prisma client
 RUN npx prisma generate
 
+# Stage: Development image
+FROM base AS dev
+COPY src ./src
+EXPOSE 5000
+CMD ["npm", "run", "dev"]
+
+# Stage: Builder
+FROM base AS builder
 # Copy source code
 COPY src ./src
 
-# Stage 2: Production image
+# Stage: Production image
 FROM node:20-alpine AS runner
 
 WORKDIR /app
