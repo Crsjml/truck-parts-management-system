@@ -1,19 +1,19 @@
 import React from 'react';
-import { Download, ArrowClockwise, Star, CheckCircle, ClipboardText, Truck, XCircle } from '@phosphor-icons/react';
+import { Download, ArrowClockwise, Star, CheckCircle, Truck, ClipboardText, XCircle } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
 const getStatusColor = (status) => {
   switch(status) {
     case 'COMPLETED': 
-      return { badge: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20', label: 'Completed', icon: CheckCircle };
+      return { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20', label: 'Completed', icon: <CheckCircle weight="bold" className="w-3.5 h-3.5" /> };
     case 'READY_FOR_PICKUP': 
-      return { badge: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20', label: 'Ready for Pickup', icon: Truck };
+      return { badge: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20', label: 'Ready for Pickup', icon: <Truck weight="bold" className="w-3.5 h-3.5" /> };
     case 'ORDER_PLACED': 
-      return { badge: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20', label: 'Order Placed', icon: ClipboardText };
+      return { badge: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20', label: 'Order Placed', icon: <ClipboardText weight="bold" className="w-3.5 h-3.5" /> };
     case 'CANCELLED': 
-      return { badge: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20', label: 'Cancelled', icon: XCircle };
+      return { badge: 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20', label: 'Cancelled', icon: <XCircle weight="bold" className="w-3.5 h-3.5" /> };
     default: 
-      return { badge: 'bg-secondary text-muted-foreground border-border', label: status || 'Unknown', icon: ClipboardText };
+      return { badge: 'bg-secondary text-muted-foreground border-border', label: status || 'Unknown', icon: null };
   }
 };
 
@@ -48,34 +48,45 @@ export default function OrderCard({
       {/* Header: Invoice number, Date, Status badge */}
       <div className="border-b border-border/30 p-4 flex items-start justify-between bg-card">
         <div className="flex-1 min-w-0 pr-2">
-          <p className="text-sm font-display font-black uppercase tracking-wider text-foreground mb-1">
+          <p className="text-sm font-black font-display uppercase tracking-wider text-foreground mb-1">
             Order #{transaction.invoiceNumber || transaction.id}
           </p>
           <p className="text-sm text-muted-foreground">
             {formatDate(transaction.transactionDate)}
           </p>
         </div>
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold whitespace-nowrap ${statusInfo.badge}`}>
-          {statusInfo.icon && <statusInfo.icon weight="bold" className="w-3.5 h-3.5" />}
+        <span className={`px-3 py-1 rounded-full border text-xs font-bold whitespace-nowrap flex items-center gap-1.5 ${statusInfo.badge}`}>
+          {statusInfo.icon}
           {statusInfo.label}
         </span>
       </div>
+
+      {/* Pickup Info Strip */}
+      {transaction.status === 'READY_FOR_PICKUP' && (
+        <div className="px-4 py-3 bg-secondary/20 border-b border-border/30 flex flex-col gap-1 text-sm text-muted-foreground">
+          <p><span className="font-bold text-foreground">Pickup Location:</span> {transaction.pickupLocation || 'Tarlac Truck Pitstop Main Store'}</p>
+          <p><span className="font-bold text-foreground">Hours:</span> {transaction.pickupHours || 'Mon-Sat 8AM - 5PM'}</p>
+          {transaction.readyForPickupAt && (
+            <p><span className="font-bold text-foreground">Ready Since:</span> {formatDate(transaction.readyForPickupAt)}</p>
+          )}
+        </div>
+      )}
 
       {/* Body: Items list */}
       <div className="p-4 border-b border-border/30 space-y-0 flex-1">
         {transaction.items && transaction.items.length > 0 ? (
           (() => {
-            const mergedItemsMap = new Map();
-            transaction.items.forEach(item => {
+            const mergedItemsMap = transaction.items.reduce((acc, item) => {
               const pId = item.partId || item.id;
-              if (mergedItemsMap.has(pId)) {
-                const existing = mergedItemsMap.get(pId);
-                existing.quantity += item.quantity;
-                existing.rowTotal += (item.price * item.quantity);
-              } else {
-                mergedItemsMap.set(pId, { ...item, rowTotal: item.price * item.quantity });
+              if (!acc.has(pId)) {
+                acc.set(pId, { ...item, quantity: 0, rowTotal: 0 });
               }
-            });
+              const existing = acc.get(pId);
+              existing.quantity += item.quantity || 1;
+              existing.rowTotal += (item.price * (item.quantity || 1));
+              return acc;
+            }, new Map());
+            
             const mergedItems = Array.from(mergedItemsMap.values());
 
             return (
