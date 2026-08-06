@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CaretLeft, CaretRight, CurrencyDollar, FileText, ShoppingCart, TrendUp, CheckCircle, Truck, X, Clock } from '@phosphor-icons/react';
 import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
@@ -40,6 +40,16 @@ export default function DailySalesSummary({ transactions }) {
     const next = new Date(dayStart.getTime() + 864e5);
     setSelectedDate(next.toISOString().split('T')[0]);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft') handlePrevDay();
+      else if (e.key === 'ArrowRight' && !isToday) handleNextDay();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dayStart, isToday]);
 
   // Phase 2 - Analytics math
   const dayTx = useMemo(() => inRange(transactions, dayStart, dayEnd), [transactions, dayStart, dayEnd]);
@@ -169,10 +179,10 @@ export default function DailySalesSummary({ transactions }) {
                         <span className="font-semibold text-foreground">{mix.label}</span>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-foreground">{formatBaseCurrency(mix.amount)}</span>
-                          <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded border border-border">{mix.percentage.toFixed(1)}%</span>
+                          <span className="text-[10px] font-bold text-foreground bg-secondary/80 px-1.5 py-0.5 rounded border border-border/80">{mix.percentage.toFixed(1)}%</span>
                         </div>
                       </div>
-                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden flex border border-border/50">
+                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden flex border border-border/50" role="progressbar" aria-valuenow={mix.percentage} aria-valuemin="0" aria-valuemax="100" aria-label={`${mix.label} represents ${mix.percentage.toFixed(1)}% of total revenue`}>
                         <div 
                           className="bg-brandBlue-500 rounded-full" 
                           style={{ width: `${mix.percentage}%` }}
@@ -226,7 +236,7 @@ export default function DailySalesSummary({ transactions }) {
                     <tbody className="divide-y divide-border">
                       {topParts.map((part) => (
                         <tr key={part.name} className="group hover:bg-secondary/50 transition-colors">
-                          <td className="py-3 pr-2 font-medium text-foreground truncate max-w-[120px] sm:max-w-[180px]" title={part.name}>
+                          <td className="py-3 pr-2 font-medium text-foreground truncate max-w-[120px] sm:max-w-[200px] lg:max-w-[250px]" title={part.name}>
                             {part.name}
                           </td>
                           <td className="py-3 text-right font-bold text-brandBlue-600 dark:text-brandBlue-400">
