@@ -514,6 +514,22 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const updatePoStatus = async (id, status, poNumber) => {
     if (status === 'Received' && !confirm(`Confirming receipt for ${poNumber} will increment stock. Proceed?`)) return;
     if (status === 'Cancelled' && !confirm(`Cancel ${poNumber}?`)) return;
+
+    if (status === 'Confirmed' && viewingPo && ['Draft', 'RFQ Sent'].includes(viewingPo.status)) {
+      if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
+      const detailsRes = await updatePurchaseOrderDetails(id, {
+        expectedDeliveryDate: poForm.expectedDeliveryDate,
+        paymentDueDate: poForm.paymentDueDate,
+        notes: poForm.notes,
+        sourceRfq: poForm.sourceRfq
+      });
+      if (!detailsRes.ok) {
+        if (showToast) showToast(`Failed to save details: ${detailsRes.error}`, 'error');
+        else alert(`Failed to save details: ${detailsRes.error}`);
+        return;
+      }
+    }
+
     const res = await updatePurchaseOrderStatus(id, status);
     if (res.ok) {
       const updated = res.purchaseOrder;
@@ -1481,29 +1497,31 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                      <label htmlFor="po-payment-deadline" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Deadline</label>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <input
-                          id="po-payment-deadline"
-                          disabled={!!viewingPo && !canEditRfqDetails}
-                          type="date"
-                          value={poForm.paymentDueDate}
-                          onChange={e => setPoForm({ ...poForm, paymentDueDate: e.target.value })}
-                          className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
-                        />
-                        {(!viewingPo || canEditRfqDetails) && (
-                          <button
-                            type="button"
-                            onClick={() => document.getElementById('po-payment-deadline')?.showPicker?.()}
-                            className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
-                            title="Open payment deadline calendar"
-                          >
-                            <CalendarBlank weight="duotone" className="w-4 h-4" />
-                          </button>
-                        )}
+                    {viewingPo && (
+                      <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
+                        <label htmlFor="po-payment-deadline" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Deadline</label>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <input
+                            id="po-payment-deadline"
+                            disabled={!!viewingPo && !canEditRfqDetails}
+                            type="date"
+                            value={poForm.paymentDueDate}
+                            onChange={e => setPoForm({ ...poForm, paymentDueDate: e.target.value })}
+                            className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
+                          />
+                          {canEditRfqDetails && (
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById('po-payment-deadline')?.showPicker?.()}
+                              className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
+                              title="Open payment deadline calendar"
+                            >
+                              <CalendarBlank weight="duotone" className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     {viewingPo?.confirmationDate && (
                       <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Confirmed On</label>

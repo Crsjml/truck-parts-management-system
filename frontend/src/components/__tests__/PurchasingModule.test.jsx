@@ -6,7 +6,9 @@ import {
   fetchPurchaseOrders,
   fetchSuppliers,
   updatePoPayment,
-  updatePoItemPrices
+  updatePoItemPrices,
+  updatePurchaseOrderDetails,
+  updatePurchaseOrderStatus
 } from '../../authStore';
 
 vi.mock('../../authStore', () => ({
@@ -21,7 +23,8 @@ vi.mock('../../authStore', () => ({
   updatePoBillingStatus: vi.fn(),
   togglePartPublished: vi.fn(),
   updatePoPayment: vi.fn(),
-  updatePoItemPrices: vi.fn()
+  updatePoItemPrices: vi.fn(),
+  updatePurchaseOrderDetails: vi.fn()
 }));
 
 vi.mock('../../context/SettingsContext', () => ({
@@ -132,7 +135,7 @@ describe('PurchasingModule RFQ and PO behavior', () => {
     expect(modalQueries.getAllByText('₱90,000.00')).toHaveLength(2);
   });
 
-  it('shows a separate payment deadline date input when creating an RFQ draft', async () => {
+  it('does not show a payment deadline date input when creating a new PO draft', async () => {
     renderPurchasing();
 
     await waitFor(() => {
@@ -140,9 +143,58 @@ describe('PurchasingModule RFQ and PO behavior', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /New PO/i }));
 
+    expect(screen.queryByLabelText(/Payment Deadline/i)).toBeNull();
+  });
+
+  it('shows an editable payment deadline input when viewing a draft or RFQ Sent PO', async () => {
+    const rfqSentPo = {
+      ...confirmedPo,
+      id: 'po-2',
+      poNumber: 'PO-20260805-0002',
+      status: 'RFQ Sent',
+      paymentDueDate: '2026-09-20T00:00:00.000Z'
+    };
+    fetchPurchaseOrders.mockResolvedValueOnce([rfqSentPo]);
+
+    renderPurchasing();
+
+    fireEvent.click(await screen.findByText('PO-20260805-0002'));
+
     const deadlineInput = screen.getByLabelText(/Payment Deadline/i);
-    expect(deadlineInput).toHaveAttribute('type', 'date');
-    expect(screen.getByLabelText(/Expected Arrival/i)).not.toBe(deadlineInput);
+    expect(deadlineInput).toBeInTheDocument();
+    expect(deadlineInput).not.toBeDisabled();
+    expect(deadlineInput).toHaveValue('2026-09-20');
+  });
+
+  it('saves RFQ details automatically when confirming an RFQ Sent PO', async () => {
+    const rfqSentPo = {
+      ...confirmedPo,
+      id: 'po-2',
+      poNumber: 'PO-20260805-0002',
+      status: 'RFQ Sent',
+      paymentDueDate: '2026-09-20T00:00:00.000Z',
+      expectedDeliveryDate: '2026-09-15T00:00:00.000Z'
+    };
+    fetchPurchaseOrders.mockResolvedValueOnce([rfqSentPo]);
+    updatePurchaseOrderDetails.mockResolvedValueOnce({ ok: true, purchaseOrder: rfqSentPo });
+    updatePurchaseOrderStatus.mockResolvedValueOnce({ ok: true, purchaseOrder: { ...rfqSentPo, status: 'Confirmed' } });
+
+    renderPurchasing();
+
+    fireEvent.click(await screen.findByText('PO-20260805-0002'));
+
+    const deadlineInput = screen.getByLabelText(/Payment Deadline/i);
+    fireEvent.change(deadlineInput, { target: { value: '2026-09-25' } });
+
+    const confirmButton = screen.getByRole('button', { name: /Confirm Order/i });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(updatePurchaseOrderDetails).toHaveBeenCalledWith('po-2', expect.objectContaining({
+        paymentDueDate: '2026-09-25'
+      }));
+      expect(updatePurchaseOrderStatus).toHaveBeenCalledWith('po-2', 'Confirmed');
+    });
   });
 
   it('sends saved quoted prices through the existing explicit save action', async () => {
