@@ -809,7 +809,7 @@ export default function CustomerStorefront({
           {storefrontTab === 'about' && <AboutPage />}
 
           {storefrontTab === 'profile' && (
-            <MyAccount user={customerSession?.user} transactions={transactions} onGoBack={() => setStorefrontTab('home')} />
+            <MyAccount user={customerSession?.user} transactions={transactions} variant="storefront" backLabel="Back to Store" onGoBack={() => setStorefrontTab('home')} />
           )}
         </main>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, EnvelopeSimple, Phone, ShieldCheck, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut, Buildings, X, UserCircle, IdentificationCard, ShoppingBag, BookmarkSimple } from '@phosphor-icons/react';
+import { User, EnvelopeSimple, Phone, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut, Buildings, X, UserCircle, IdentificationCard, ShoppingBag, BookmarkSimple } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
@@ -7,7 +7,7 @@ import { fetchCustomerProfile, updateCustomerProfile } from '../authStore';
 // Shared input class
 const INPUT_CLS = 'w-full pl-12 pr-4 py-3.5 bg-background border border-border rounded-2xl text-foreground focus:outline-none focus:border-accent transition-all disabled:bg-background/50 disabled:text-muted-foreground font-medium text-sm';
 
-export default function MyAccount({ user, transactions = [], onGoBack }) {
+export default function MyAccount({ user, transactions = [], onGoBack, variant = 'storefront', backLabel = 'Back' }) {
   // Main State
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -276,9 +276,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
     }
   };
 
-  const userTransactionsCount = transactions.filter(tx =>
-    tx.customerName?.toLowerCase() === (user?.user_metadata?.full_name || user?.email || '').toLowerCase()
-  ).length;
+  const userTransactionsCount = transactions.filter(tx => tx.userId === user?.id).length;
 
   if (!user) {
     return (
@@ -306,7 +304,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
             onClick={onGoBack}
             className="px-4 py-2 bg-foreground text-background font-semibold rounded-xl transition-all hover:scale-[1.02] shadow-md"
           >
-            Back to Dashboard
+            {backLabel}
           </button>
         )}
       </div>
@@ -319,27 +317,27 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className={`fixed bottom-6 right-6 z-50 flex items-start gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-sm w-[calc(100vw-3rem)] ${
               success
-                ? 'bg-emerald-950/80 border-emerald-500/20 text-emerald-400 shadow-emerald-500/10'
-                : 'bg-red-950/80 border-red-500/20 text-red-400 shadow-red-500/10'
+                ? 'bg-chart-positive/10 border-chart-positive/20 text-chart-positive shadow-chart-positive/5'
+                : 'bg-alarm-red/10 border-alarm-red/20 text-alarm-red shadow-alarm-red/5'
             }`}
           >
             {success ? (
-              <CheckCircle weight="fill" className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
+              <CheckCircle weight="fill" className="w-5 h-5 shrink-0 mt-0.5 text-chart-positive" />
             ) : (
-              <WarningCircle weight="fill" className="w-5 h-5 shrink-0 mt-0.5 text-red-500" />
+              <WarningCircle weight="fill" className="w-5 h-5 shrink-0 mt-0.5 text-alarm-red" />
             )}
             <div className="flex-1 pr-2">
-              <h4 className={`text-sm font-bold ${success ? 'text-emerald-300' : 'text-red-300'}`}>
+              <h4 className={`text-sm font-bold ${success ? 'text-chart-positive' : 'text-alarm-red'}`}>
                 {success ? 'Success' : 'Error'}
               </h4>
-              <p className={`text-xs mt-0.5 ${success ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
+              <p className={`text-xs mt-0.5 ${success ? 'text-chart-positive/80' : 'text-alarm-red/80'}`}>
                 {success || error}
               </p>
             </div>
             <button
               onClick={() => { setSuccess(''); setError(''); }}
               className={`p-1.5 rounded-lg transition-colors ${
-                success ? 'hover:bg-emerald-500/20 text-emerald-500/60 hover:text-emerald-400' : 'hover:bg-red-500/20 text-red-500/60 hover:text-red-400'
+                success ? 'hover:bg-chart-positive/20 text-chart-positive/60 hover:text-chart-positive' : 'hover:bg-alarm-red/20 text-alarm-red/60 hover:text-alarm-red'
               }`}
             >
               <X weight="bold" className="w-4 h-4" />
@@ -349,8 +347,8 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
       </AnimatePresence>
 
       {/* ── Hero Card ── */}
-      <div className="relative w-full bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] p-8 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-8 transition-all duration-300 hover:shadow-xl hover:border-accent/30">
-        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent rounded-[2.5rem] opacity-0 hover:opacity-100 transition-opacity pointer-events-none" />
+      <div className={`relative w-full flex flex-col md:flex-row items-center md:items-start gap-8 p-8 transition-all duration-300 ${variant === 'admin' ? 'bg-card border border-border rounded-lg' : 'bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm hover:shadow-xl hover:border-accent/30'}`}>
+        {variant === 'storefront' && <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent rounded-[2.5rem] opacity-0 hover:opacity-100 transition-opacity pointer-events-none" />}
         
         {/* Avatar */}
         <div className="relative shrink-0 group">
@@ -385,13 +383,6 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
               <p>{phoneNumber || 'No phone number'}</p>
             </div>
           )}
-
-          <div className="flex items-center justify-center md:justify-start gap-4">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg text-xs font-bold tracking-wider uppercase border border-emerald-500/20">
-              <ShieldCheck weight="fill" className="w-4 h-4" />
-              Verified Fleet Partner
-            </div>
-          </div>
         </div>
 
         {/* Stats & Actions */}
@@ -425,7 +416,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Personal Card */}
-        <div className="lg:col-span-7 bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
+        <div className={`lg:col-span-7 flex flex-col overflow-hidden transition-all duration-300 ${variant === 'admin' ? 'bg-card border border-border rounded-lg' : 'bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm hover:shadow-xl hover:border-accent/30'}`}>
           <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-background/30">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-accent/10 text-accent dark:bg-accent/20">
@@ -509,7 +500,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
         </div>
 
         {/* Company Card */}
-        <div className="lg:col-span-5 bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
+        <div className={`lg:col-span-5 flex flex-col overflow-hidden transition-all duration-300 ${variant === 'admin' ? 'bg-card border border-border rounded-lg' : 'bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm hover:shadow-xl hover:border-accent/30'}`}>
           <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-background/30">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-accent/10 text-accent dark:bg-accent/20">
@@ -560,7 +551,7 @@ export default function MyAccount({ user, transactions = [], onGoBack }) {
       </div>
 
       {/* ── Security Card ── */}
-      <div className="w-full bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-accent/30">
+      <div className={`w-full flex flex-col overflow-hidden transition-all duration-300 ${variant === 'admin' ? 'bg-card border border-border rounded-lg' : 'bg-secondary/80 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-sm hover:shadow-xl hover:border-accent/30'}`}>
         <div className="px-6 py-4 border-b border-border/50 flex items-center justify-between bg-background/30">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-accent/10 text-accent dark:bg-accent/20">
