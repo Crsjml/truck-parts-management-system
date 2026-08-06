@@ -165,6 +165,10 @@ model Transaction {
   chequeDate       DateTime?
   gcashReference   String?
 
+  pickupLocation  String?
+  pickupHours     String?
+  readyForPickupAt DateTime?
+
   items TransactionItem[]
 
   @@index([transactionDate])
@@ -201,6 +205,7 @@ model Review {
   updatedAt        DateTime @updatedAt
 
   @@unique([partId, userId])
+  @@index([userId])
 }
 
 enum StaffRoleLevel {
@@ -228,7 +233,7 @@ model Setting {
 }
 
 model AuthLog {
-  id        String   @id @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
   authId    String   @db.Uuid
   email     String
   role      String   @default("customer")
