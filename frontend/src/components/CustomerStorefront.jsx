@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { SignIn, ShieldCheck, Tag, UserPlus, Moon, Sun, SquaresFour, Gear, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, UserCircle, CaretDown, House, User, CheckCircle, ClipboardText } from '@phosphor-icons/react';
+import { SignIn, ShieldCheck, Tag, UserPlus, Moon, Sun, SquaresFour, Gear, Faders, ShoppingCart, Trash, Star, MapPin, Phone, Envelope, UserCircle, CaretDown, House, User, CheckCircle, ClipboardText, Pulse, Truck } from '@phosphor-icons/react';
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
@@ -20,6 +20,7 @@ import ReorderRail from './ReorderRail';
 import Reveal from './ui/Reveal';
 import NavToggle from './ui/NavToggle';
 import HomeHero from './storefront/HomeHero';
+import StorefrontChatbot from './StorefrontChatbot';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 const STOREFRONT_NAV_ITEMS = [
@@ -34,6 +35,12 @@ const TRUSTED_BRANDS = [
   { label: 'MACK', className: 'text-xl font-black italic' },
   { label: 'HINO', className: 'text-xl font-bold tracking-widest' },
   { label: 'PACCAR', className: 'text-xl font-bold tracking-tighter' },
+];
+
+const VALUE_PROPS = [
+  { icon: Pulse, title: 'Live Inventory', description: 'Real-time stock levels directly from our Tarlac warehouse.' },
+  { icon: Truck, title: 'Heavy Logistics', description: 'Specialized freight handling for oversized engine blocks and chassis parts.' },
+  { icon: ClipboardText, title: 'B2B Wholesale', description: 'Exclusive volume discounts and priority allocation for registered fleets.' },
 ];
 
 export default function CustomerStorefront({
@@ -71,7 +78,7 @@ export default function CustomerStorefront({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [nestedCategories, setNestedCategories] = useState([]);
-  const [activeMainCat, setActiveMainCat] = useState('');
+
 
   const itemsPerPage = 10;
   const loading = parts.length === 0 && categories.length <= 1;
@@ -80,10 +87,6 @@ export default function CustomerStorefront({
     const fetchNested = async () => {
       const data = await fetchCategoriesList();
       setNestedCategories(data);
-      const mainCats = data.filter(c => !c.parentCategory);
-      if (mainCats.length > 0 && !activeMainCat) {
-        setActiveMainCat(mainCats[0].name);
-      }
     };
     fetchNested();
   }, []);
@@ -316,27 +319,56 @@ export default function CustomerStorefront({
   };
 
   const handleReorder = (transaction) => {
-    setCart(prev => {
-      let newCart = [...prev];
-      for (const item of transaction.items) {
-        const fullPart = parts.find(p => p.id === (item.partId || item.id));
-        if (fullPart) {
-          const availableStock = fullPart.stock - (fullPart.reservedStock || 0);
-          if (availableStock <= 0) continue;
-          const existingIndex = newCart.findIndex(c => c.id === fullPart.id);
-          if (existingIndex >= 0) {
-            newCart[existingIndex] = {
-              ...newCart[existingIndex],
-              quantity: Math.min(newCart[existingIndex].quantity + item.quantity, availableStock)
-            };
-          } else {
-            newCart.push({ ...fullPart, quantity: Math.min(item.quantity, availableStock) });
-          }
+    let outOfStockItems = [];
+    let partialItems = [];
+    let hasAddedAny = false;
+    
+    let newCart = [...cart];
+    for (const item of transaction.items) {
+      const fullPart = parts.find(p => p.id === (item.partId || item.id));
+      if (fullPart) {
+        const availableStock = fullPart.stock - (fullPart.reservedStock || 0);
+        if (availableStock <= 0) {
+          outOfStockItems.push(item.name);
+          continue;
         }
+        const existingIndex = newCart.findIndex(c => c.id === fullPart.id);
+        const currentQty = existingIndex >= 0 ? newCart[existingIndex].quantity : 0;
+        const desiredQty = currentQty + item.quantity;
+        const maxAddable = Math.max(0, availableStock - currentQty);
+        const addedQty = Math.min(item.quantity, maxAddable);
+        
+        if (addedQty === 0 && item.quantity > 0) {
+          outOfStockItems.push(item.name);
+          continue;
+        } else if (addedQty < item.quantity) {
+          partialItems.push(item.name);
+        }
+        
+        hasAddedAny = true;
+        if (existingIndex >= 0) {
+          newCart[existingIndex].quantity += addedQty;
+        } else {
+          newCart.push({ ...fullPart, quantity: addedQty });
+        }
+      } else {
+        outOfStockItems.push(item.name);
       }
-      return newCart;
-    });
-    setIsCartOpen(true);
+    }
+
+    if (outOfStockItems.length > 0 || partialItems.length > 0) {
+       let msg = "";
+       if (outOfStockItems.length > 0) msg += `${outOfStockItems.join(', ')} out of stock. `;
+       if (partialItems.length > 0) msg += `${partialItems.join(', ')} partially added (stock limited).`;
+       showToast(msg, 'warning');
+    } else {
+       showToast('Items added to cart', 'success');
+    }
+    
+    if (hasAddedAny) {
+      setCart(newCart);
+      setIsCartOpen(true);
+    }
   };
 
   const updateCartQuantity = (partId, delta, stock) => {
@@ -663,13 +695,21 @@ export default function CustomerStorefront({
               </div>
 
               <section className="space-y-10">
-                <div className="relative z-10 mb-12 flex w-full max-w-4xl flex-col items-center gap-4 mx-auto">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Fitment first. Browse by truck, then part.</p>
-                  <div className="flex flex-wrap items-center justify-center gap-3">
-                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">See what is in stock</span>
-                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Fleet and shop pricing</span>
-                    <span className="rounded-full border border-border/40 bg-background/70 px-4 py-2 text-xs font-semibold text-muted-foreground">Only show parts that fit</span>
-                  </div>
+                {/* 3-Card Value Proposition Bento */}
+                <div className="relative z-10 w-full max-w-5xl mb-16 grid grid-cols-1 md:grid-cols-2 gap-4 text-left mx-auto">
+                  {VALUE_PROPS.map((item, i) => (
+                    <Reveal key={item.title} delay={i * 0.06} className={i === 0 ? "md:col-span-2" : "md:col-span-1"}>
+                      <div className="glass-panel glass-panel-hover p-8 flex flex-col justify-center items-start gap-4 h-full">
+                        <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                          <item.icon weight="duotone" className="w-6 h-6"/>
+                        </div>
+                        <div>
+                          <h4 className="font-display tracking-tight font-bold text-foreground text-xl">{item.title}</h4>
+                          <p className="text-sm text-muted-foreground mt-2 max-w-md">{item.description}</p>
+                        </div>
+                      </div>
+                    </Reveal>
+                  ))}
                 </div>
 
                 <ReorderRail
@@ -682,65 +722,6 @@ export default function CustomerStorefront({
                   onSignIn={() => onOpenCustomerAuth('login')}
                 />
 
-                <Reveal className="relative z-10 w-full max-w-5xl px-4 mx-auto">
-                  <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-8 text-center">Shop by Category</h3>
-                  
-                  {/* Main Category Tabs (Horizontal Scroll) */}
-                  <div className="flex overflow-x-auto hide-scrollbar scroll-fade-edges gap-3 pb-6 w-full justify-start sm:justify-center snap-x scroll-pl-4">
-                    {nestedCategories.filter(c => !c.parentCategory).map(mainCat => {
-                      const { Icon: MainIcon } = getCategoryIconAndColor(mainCat.name, mainCat.iconName, mainCat.colorTheme);
-                      const isActive = activeMainCat === mainCat.name;
-                      
-                      return (
-                        <button 
-                          key={mainCat.id} 
-                          onClick={() => setActiveMainCat(mainCat.name)}
-                          className={`flex items-center gap-2 px-6 py-3 rounded-full border whitespace-nowrap snap-center transition-all duration-300 ${
-                            isActive 
-                              ? 'bg-foreground text-background border-foreground shadow-lg scale-105' 
-                              : 'bg-secondary/50 text-foreground border-border/40 hover:bg-secondary hover:border-border'
-                          }`}
-                        >
-                          {MainIcon ? <MainIcon weight={isActive ? "fill" : "duotone"} className="w-5 h-5" /> : <Tag weight="duotone" className="w-5 h-5" />}
-                          <span className="font-bold text-sm tracking-tight">{mainCat.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Sub Category Grid */}
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={activeMainCat}
-                      initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
-                      transition={{ duration: 0.18, ease: [0.19, 1, 0.22, 1] }}
-                      className="flex flex-wrap justify-center gap-4 mt-2"
-                    >
-                      {nestedCategories.filter(c => c.parentCategory?.name === activeMainCat).map(subCat => {
-                        const { Icon: SubIcon, color: subColor } = getCategoryIconAndColor(subCat.name, subCat.iconName, subCat.colorTheme);
-                        return (
-                          <button 
-                            key={subCat.id}
-                            onClick={() => {
-                              setSelectedCategory(subCat.name);
-                              setStorefrontTab('catalog');
-                            }}
-                            className="flex-1 min-w-[140px] max-w-[180px] sm:max-w-[220px] group flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/40 bg-background/40 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-background hover:shadow-xl hover:shadow-accent/5 hover:border-accent/20"
-                          >
-                            <div className={`flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 group-hover:scale-105 transition-transform duration-300 shadow-inner ${subColor}`}>
-                              {SubIcon ? <SubIcon weight="duotone" className="w-6 h-6" /> : <Tag weight="duotone" className="w-6 h-6" />}
-                            </div>
-                            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors text-center leading-tight">
-                              {subCat.name}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  </AnimatePresence>
-                </Reveal>
               </section>
             </>
           )}
@@ -841,6 +822,8 @@ export default function CustomerStorefront({
         addToCart={addToCart}
         onClose={() => setSelectedPart(null)}
       />
+
+      <StorefrontChatbot onOpenPartDetail={setSelectedPart} />
 
       {/* Global Footer */}
       <Footer
