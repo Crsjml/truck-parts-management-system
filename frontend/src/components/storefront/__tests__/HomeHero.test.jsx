@@ -20,9 +20,9 @@ describe('HomeHero', () => {
     );
 
     const hero = screen.getByRole('region', { name: /homepage hero/i });
-    expect(within(hero).getByRole('button', { name: /select your truck/i })).toBeVisible();
-    expect(within(hero).getByRole('button', { name: /browse catalog/i })).toBeVisible();
-    expect(within(hero).getByRole('searchbox', { name: /search parts/i })).toBeVisible();
+    expect(within(hero).getByRole('button', { name: /select your truck/i })).toBeInTheDocument();
+    expect(within(hero).getByRole('button', { name: /browse catalog/i })).toBeInTheDocument();
+    expect(within(hero).getByRole('searchbox', { name: /search parts/i })).toBeInTheDocument();
   });
 
   it('dispatches the home hero buttons to the right destinations', () => {

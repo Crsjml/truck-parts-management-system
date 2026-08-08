@@ -23,14 +23,14 @@ describe('CustomerManagement drawer stats', () => {
     fetchCustomerTransactions.mockReset();
   });
 
-  it('does not show the header Add Customer action', async () => {
+  it('shows the header Add Customer action', async () => {
     fetchCustomers.mockResolvedValue({ online: [], ftf: [] });
 
     render(<CustomerManagement />);
 
     await screen.findByText('Customer Management');
 
-    expect(screen.queryByRole('button', { name: /^Add Customer$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Add Customer$/i })).toBeInTheDocument();
   });
 
   it('uses loaded purchase history totals for drawer total spend and average order', async () => {

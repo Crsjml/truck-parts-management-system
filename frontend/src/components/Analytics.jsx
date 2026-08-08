@@ -92,6 +92,14 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     };
   }, [selectedInvoice, zoomedChart]);
 
+  useEffect(() => {
+    if (selectedInvoice) {
+      setStatusDraft(normalizeStatus(selectedInvoice.status));
+      setStatusMessage(null);
+      setConfirmCancel(false);
+    }
+  }, [selectedInvoice]);
+
   // Sync with props if transactions change from App.jsx
   useEffect(() => {
     setLocalTransactions(transactions);
