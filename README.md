@@ -1,90 +1,91 @@
-# Tarlac Truck Pitstop — Management System
+# Tarlac Truck Pitstop: Management System
 
-A full-stack enterprise-grade inventory, sales, and analytics platform built for **Tarlac Truck Pitstop (TTP)**. Includes a comprehensive admin dashboard for managing parts, purchasing, and logistics, plus a customer-facing storefront with Stripe-powered checkout.
+A full-stack inventory, sales, and analytics platform built for **Tarlac Truck Pitstop (TTP)**. Includes an admin dashboard for managing parts, purchasing, and logistics, plus a customer-facing storefront with Stripe-powered checkout.
 
 ---
 
-## ⚡ Tech Stack
+## Tech stack
 
 <details>
 <summary><strong>Frontend</strong></summary>
 
-- **React 18** + **Vite** — UI and build tooling
-- **Tailwind CSS** — Utility-first styling (custom HSL palette)
-- **Phosphor Icons** — Iconography
-- **Supabase JS** — Client-side auth session management
-- **Stripe.js** — Checkout redirect
+- **React 18** + **Vite**: UI and build tooling
+- **Tailwind CSS**: utility-first styling (custom HSL palette)
+- **Phosphor Icons**: iconography
+- **Supabase JS**: client-side auth session management
+- **Stripe.js**: checkout redirect
 
 </details>
 
 <details>
 <summary><strong>Backend</strong></summary>
 
-- **Node.js (v20)** + **Express.js** — HTTP server & routing
-- **Prisma ORM** — Type-safe database client
-- **PostgreSQL via Supabase** — Cloud-managed relational database
-- **Supabase Auth** — JWT-based authentication (Admin SDK on backend)
-- **Stripe** — Payment processing
+- **Node.js (v20)** + **Express.js**: HTTP server and routing
+- **Prisma ORM**: type-safe database client
+- **PostgreSQL via Supabase**: cloud-managed relational database
+- **Supabase Auth**: JWT-based authentication (Admin SDK on backend)
+- **Stripe**: payment processing
 
 </details>
 
 <details>
 <summary><strong>Infrastructure</strong></summary>
 
-- **Docker + Docker Compose** — Container orchestration
+- **Docker + Docker Compose**: container orchestration
 </details>
 
 ---
 
-## 🚀 Quick Start
+## Quick start
 
 ### Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and **running**
 - Git
 
-### Step 1 — Clone the repo
+### Step 1: clone the repo
 ```bash
-git clone <repo-url>
-cd ISANDE_ITISDEV
+git clone <repo-url> ttp
+cd ttp
 ```
 
-### Step 2 — Create your `.env` files
+### Step 2: create your `.env` files
 
-**`backend/.env`** — get these values from a teammate or the shared credentials vault:
+**`backend/.env`**: get these values from a teammate or the shared credentials vault.
 ```env
 DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
 DIRECT_URL="postgresql://postgres.<project-ref>:<password>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
 SUPABASE_URL="https://<project-ref>.supabase.co"
 SUPABASE_SERVICE_ROLE_KEY="sb_secret_..."
 STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
 ```
 
-**`frontend/.env`** — public keys, safe to share with the team:
+**`frontend/.env`**: public keys, safe to share with the team.
 ```env
 VITE_SUPABASE_URL="https://zzefrhwkiydjgvejnkmd.supabase.co"
 VITE_SUPABASE_ANON_KEY="sb_publishable_PDRqOyG3VNmWnL4pOdS8xg_UXh4TjIz"
 ```
 
-### Step 3 — Start the app
+### Step 3: start the app
 
-You can start the app using your platform's helper script, or by using Docker manually.
+Helper scripts run attached, so logs print to your terminal and `Ctrl+C` stops both containers.
 
-**Using Windows Helper:**
+**Windows:**
 ```powershell
 .\run.bat
 ```
 
-**Using Mac/Linux Helper:**
+**Mac/Linux:**
 ```bash
 make up
 ```
 
-**Using Docker Manually (Any Platform):**
+**Docker directly (any platform, runs detached):**
 ```bash
 docker-compose up -d --build
 ```
 
-### Step 4 — Open the app
+### Step 4: open the app
 | Service | URL |
 |---|---|
 | **Customer Storefront** | http://localhost:5173 |
@@ -93,7 +94,7 @@ docker-compose up -d --build
 
 ---
 
-## 🔄 Daily Workflow
+## Daily workflow
 
 ```powershell
 # Start everything
@@ -110,7 +111,7 @@ make down                     # Mac/Linux
 
 ---
 
-## 🗄️ Database
+## Database
 
 The app uses **Supabase (PostgreSQL)** managed via **Prisma ORM**.
 
@@ -132,21 +133,22 @@ The app uses **Supabase (PostgreSQL)** managed via **Prisma ORM**.
 
 ---
 
-## 🔑 Environment Variables Reference
+## Environment variables reference
 
 | Variable | File | Description |
 |---|---|---|
 | `DATABASE_URL` | `backend/.env` | Supabase pooled connection (PgBouncer) |
 | `DIRECT_URL` | `backend/.env` | Supabase direct connection (for migrations) |
 | `SUPABASE_URL` | `backend/.env` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | `backend/.env` | Backend admin key — **never expose to frontend** |
+| `SUPABASE_SERVICE_ROLE_KEY` | `backend/.env` | Backend admin key, **never expose to frontend** |
 | `STRIPE_SECRET_KEY` | `backend/.env` | Stripe server-side key |
+| `STRIPE_WEBHOOK_SECRET` | `backend/.env` | Verifies incoming Stripe webhook signatures |
 | `VITE_SUPABASE_URL` | `frontend/.env` | Supabase project URL (public) |
 | `VITE_SUPABASE_ANON_KEY` | `frontend/.env` | Supabase anon/public key |
 
 ---
 
-## 📝 Commit Convention
+## Commit convention
 
 We use **GitHub for Jira** integration. Every commit **must** include a Jira ticket ID:
 
@@ -158,5 +160,5 @@ fix(TTP-8): resolve docker port conflict
 ---
 
 <p align="center">
-  <i>Developed by Team THISGROUPATE — De La Salle University, BSIS.</i>
+  <i>Developed by Team THISGROUPATE, De La Salle University, BSIS.</i>
 </p>
