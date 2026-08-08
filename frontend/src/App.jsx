@@ -288,6 +288,7 @@ export default function App() {
   }, [adminSession?.user?.fullName]);
 
   useEffect(() => {
+    if (!isLoaded) return;
 
     const loadData = async () => {
       const isAdmin = Boolean(adminSession?.user?.staffData);
@@ -620,7 +621,7 @@ export default function App() {
 
 
   return (
-    <div className={`h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300 ${import.meta.env.DEV ? 'pb-8' : ''}`}>
+    <div className="h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300">
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
         <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 py-5 hide-scrollbar">
           <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} px-1 py-2`}>
@@ -989,6 +990,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 md:gap-4">
+            <StatusBar variant="nav" />
 
             <button
               ref={bellButtonRef}
@@ -1114,7 +1116,6 @@ export default function App() {
         onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
         isLoggedIn={!!adminSession || !!customerSession}
       />
-      <StatusBar />
       <ToastNotification toasts={toasts} onDismiss={dismissToast} />
       {needsProfileCompletion && (
         <CompleteProfileModal onComplete={handleProfileComplete} />
