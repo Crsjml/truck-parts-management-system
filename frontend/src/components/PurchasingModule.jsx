@@ -6,7 +6,7 @@ import {
   Star, Funnel, ArrowsDownUp, ChartBar, Receipt, EnvelopeSimple,
   Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf, Clock,
   TrendUp, ClockCounterClockwise, Truck, ListDashes, SquaresFour,
-  WarningCircle, CheckSquare, Timer, CalendarBlank
+  WarningCircle, CheckSquare, Timer, CalendarBlank, Copy
 } from '@phosphor-icons/react';
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
@@ -180,6 +180,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [poPartSel, setPoPartSel] = useState('');
   const [poQty, setPoQty] = useState('');
   const [productForm, setProductForm] = useState({ name: '', sku: '', oem: '', category: '', price: '', stock: '', minStock: '', image: '' });
+  const [validationErrors, setValidationErrors] = useState({});
+  const [productValidationErrors, setProductValidationErrors] = useState({});
+  const [savingProduct, setSavingProduct] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -245,6 +248,17 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     window.addEventListener('purchasingIntent', handlePurchasingIntent);
     return () => window.removeEventListener('purchasingIntent', handlePurchasingIntent);
   }, []);
+
+  // Keyboard Escape key dismissal for PO Modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isPoModalOpen) {
+        setIsPoModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPoModalOpen]);
 
 
 
@@ -498,14 +512,79 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     sourceRfq: po.sourceRfq || ''
   });
 
+  const notifyError = useCallback((msg) => {
+    if (showToast) showToast(msg, 'error');
+    else alert(msg);
+  }, [showToast]);
+
+  const notifySuccess = useCallback((msg) => {
+    if (showToast) showToast(msg, 'success');
+  }, [showToast]);
+
   const openPoModal = (po = null, prefillSupplierId = '') => {
     setViewingPo(po);
     setPoForm(po ? getPoFormFromOrder(po)
       : { supplier: prefillSupplierId, expectedDeliveryDate: '', paymentDueDate: '', notes: '', items: [], sourceRfq: '' });
-    // Reset checklist + quoted prices when opening a new PO
-    setDeliveredItems(new Set());
+    
+    // Restore persisted delivery checklist state if viewing an existing PO
+    if (po && po.id) {
+      try {
+        const saved = JSON.parse(localStorage.getItem(`delivered_po_${po.id}`) || '[]');
+        setDeliveredItems(new Set(saved));
+      } catch {
+        setDeliveredItems(new Set());
+      }
+    } else {
+      setDeliveredItems(new Set());
+    }
+
     setQuotedPrices(po ? Object.fromEntries((po.items || []).map(i => [i.id, String(i.unitPrice)])) : {});
     setIsPoModalOpen(true);
+  };
+
+  const toggleDeliveredItem = (itemId) => {
+    setDeliveredItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      if (viewingPo?.id) {
+        localStorage.setItem(`delivered_po_${viewingPo.id}`, JSON.stringify(Array.from(next)));
+      }
+      return next;
+    });
+  };
+
+  const toggleAllDelivered = () => {
+    const allIds = poForm.items.map(i => i.id);
+    const allChecked = allIds.length > 0 && allIds.every(id => deliveredItems.has(id));
+    const next = new Set(allChecked ? [] : allIds);
+    setDeliveredItems(next);
+    if (viewingPo?.id) {
+      localStorage.setItem(`delivered_po_${viewingPo.id}`, JSON.stringify(Array.from(next)));
+    }
+  };
+
+  const handleDuplicatePo = (po) => {
+    if (!po) return;
+    setViewingPo(null);
+    setPoForm({
+      supplier: po.supplierId || po.supplier?.id || '',
+      expectedDeliveryDate: '',
+      paymentDueDate: '',
+      notes: `Reorder prefilled from PO ${po.poNumber}`,
+      items: (po.items || []).map(i => ({
+        partId: i.partId || i.id,
+        name: i.name,
+        sku: i.sku || '',
+        quantity: i.quantity || 1,
+        unitPrice: i.unitPrice || 0,
+        subtotal: lineSubtotal(i.quantity || 1, i.unitPrice || 0)
+      })),
+      sourceRfq: po.poNumber
+    });
+    setDeliveredItems(new Set());
+    setQuotedPrices({});
+    notifySuccess(`Draft reorder pre-filled from PO ${po.poNumber}.`);
   };
 
   const addPoItem = () => {
@@ -520,10 +599,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const removePoItem = (idx) => setPoForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
 
   const savePo = async () => {
-    if (!poForm.supplier) return alert('Select a supplier.');
-    if (poForm.items.length === 0) return alert('Add at least one item.');
-    if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
-    if (poForm.paymentDueDate && Number.isNaN(new Date(poForm.paymentDueDate).getTime())) return alert('Payment deadline is invalid.');
+    const errs = {};
+    if (!poForm.supplier) errs.supplier = true;
+    if (poForm.items.length === 0) errs.items = true;
+    if (!poForm.expectedDeliveryDate) errs.expectedDeliveryDate = true;
+    
+    if (Object.keys(errs).length > 0) {
+      setValidationErrors(errs);
+      if (!poForm.supplier) return notifyError('Please select a supplier.');
+      if (poForm.items.length === 0) return notifyError('Please add at least one line item.');
+      if (!poForm.expectedDeliveryDate) return notifyError('Expected delivery date is required.');
+    }
+    setValidationErrors({});
+    if (poForm.paymentDueDate && Number.isNaN(new Date(poForm.paymentDueDate).getTime())) return notifyError('Payment deadline is invalid.');
 
     // Inject the current user's display name as the Buyer/Handler
     const { data: { user } } = await supabase.auth.getUser();
@@ -539,8 +627,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       const supplierName = res.purchaseOrder.supplier?.name || suppliers.find(s => s.id === poForm.supplier)?.name;
       const itemCount = res.purchaseOrder.items?.length || poForm.items?.length || 0;
       onAddLog('purchasing', `PO ${res.purchaseOrder.poNumber} created${supplierName ? ' — ' + supplierName : ''}${itemCount ? `, ${itemCount} items` : ''}`); 
+      notifySuccess(`Draft PO ${res.purchaseOrder.poNumber} created successfully.`);
     }
-    else alert(res.error);
+    else notifyError(res.error);
   };
 
   const updatePoStatus = async (id, status, poNumber) => {
@@ -548,7 +637,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (status === 'Cancelled' && !confirm(`Cancel ${poNumber}?`)) return;
 
     if (status === 'Confirmed' && viewingPo && ['Draft', 'RFQ Sent'].includes(viewingPo.status)) {
-      if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
+      if (!poForm.expectedDeliveryDate) return notifyError('Expected delivery date is required.');
       const detailsRes = await updatePurchaseOrderDetails(id, {
         expectedDeliveryDate: poForm.expectedDeliveryDate,
         paymentDueDate: poForm.paymentDueDate,
@@ -556,8 +645,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         sourceRfq: poForm.sourceRfq
       });
       if (!detailsRes.ok) {
-        if (showToast) showToast(`Failed to save details: ${detailsRes.error}`, 'error');
-        else alert(`Failed to save details: ${detailsRes.error}`);
+        notifyError(`Failed to save details: ${detailsRes.error}`);
         return;
       }
     }
@@ -572,11 +660,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       if (status === 'Received') {
         if (onPartsUpdated) onPartsUpdated();
         const itemCount = updated?.items?.length || 0;
-        if (showToast) showToast(`📦 Stock received: ${itemCount} item${itemCount !== 1 ? 's' : ''} updated from ${poNumber}.`, 'success');
+        notifySuccess(`📦 Stock received: ${itemCount} item${itemCount !== 1 ? 's' : ''} updated from ${poNumber}.`);
+      } else {
+        notifySuccess(`PO ${poNumber} updated to ${status}.`);
       }
     } else {
-      if (showToast) showToast(`Error: ${res.error}`, 'error');
-      else alert(res.error);
+      notifyError(`Error: ${res.error}`);
     }
   };
 
@@ -586,12 +675,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       setPurchaseOrders(prev => prev.map(p => p.id === id ? res.purchaseOrder : p));
       setViewingPo(res.purchaseOrder);
       setPoForm(getPoFormFromOrder(res.purchaseOrder));
-    } else alert(res.error);
+      notifySuccess(`Billing status updated to ${billingStatus}.`);
+    } else notifyError(res.error);
   };
 
   const saveRfqDetails = async () => {
     if (!viewingPo) return;
-    if (!poForm.expectedDeliveryDate) return alert('Expected delivery date is required.');
+    if (!poForm.expectedDeliveryDate) return notifyError('Expected delivery date is required.');
     const res = await updatePurchaseOrderDetails(viewingPo.id, {
       expectedDeliveryDate: poForm.expectedDeliveryDate,
       paymentDueDate: poForm.paymentDueDate,
@@ -717,33 +807,60 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const openProductModal = (part = null) => {
     setViewingPart(part);
     setProductActiveTab('general');
+    setProductValidationErrors({});
     setProductForm(part ? { ...part } : { name: '', sku: '', oem: '', category: categories?.[1] || '', price: '', stock: '', minStock: '' });
     setIsProductModalOpen(true);
   };
 
   const saveProduct = async () => {
-    if (!productForm.name || !productForm.sku) return alert('Name and SKU required.');
+    const errs = {};
+    if (!productForm.name?.trim()) errs.name = true;
+    if (!productForm.sku?.trim()) errs.sku = true;
+    if (productForm.price === '' || Number(productForm.price) < 0) errs.price = true;
+    if (productForm.stock === '' || Number(productForm.stock) < 0) errs.stock = true;
 
     if (viewingPart && Number(productForm.stock) !== Number(viewingPart.stock)) {
       if (!productForm.adjustmentReason?.trim()) {
-        if (showToast) showToast('Reason for stock adjustment is mandatory.', 'error');
-        else alert('Reason for stock adjustment is mandatory.');
-        return;
+        errs.adjustmentReason = true;
       }
     }
 
-    let result;
-    if (viewingPart) {
-      result = await onEditPart(viewingPart.id, { ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
-    } else {
-      result = await onAddPart({ ...productForm, price: Number(productForm.price), stock: Number(productForm.stock), minStock: Number(productForm.minStock) });
+    if (Object.keys(errs).length > 0) {
+      setProductValidationErrors(errs);
+      if (errs.name || errs.sku) return notifyError('Product Name and SKU are required.');
+      if (errs.price || errs.stock) return notifyError('Price and Stock must be non-negative numbers.');
+      if (errs.adjustmentReason) return notifyError('Reason for stock adjustment is mandatory.');
     }
-    // Only close if the parent reported success (or if it returned nothing — legacy)
-    if (!result || result.ok) {
-      setIsProductModalOpen(false);
-    } else if (result.error) {
-      if (showToast) showToast(`Error: ${result.error}`, 'error');
-      else alert(result.error);
+
+    setProductValidationErrors({});
+    setSavingProduct(true);
+    let result;
+    try {
+      if (viewingPart) {
+        result = await onEditPart(viewingPart.id, {
+          ...productForm,
+          price: Math.max(0, Number(productForm.price) || 0),
+          stock: Math.max(0, Number(productForm.stock) || 0),
+          minStock: Math.max(0, Number(productForm.minStock) || 0)
+        });
+      } else {
+        result = await onAddPart({
+          ...productForm,
+          price: Math.max(0, Number(productForm.price) || 0),
+          stock: Math.max(0, Number(productForm.stock) || 0),
+          minStock: Math.max(0, Number(productForm.minStock) || 0)
+        });
+      }
+      if (!result || result.ok) {
+        setIsProductModalOpen(false);
+        notifySuccess(viewingPart ? `Product "${productForm.name}" updated.` : `New product "${productForm.name}" created.`);
+      } else if (result.error) {
+        notifyError(`Error: ${result.error}`);
+      }
+    } catch (err) {
+      notifyError(`Failed to save product: ${err.message || err}`);
+    } finally {
+      setSavingProduct(false);
     }
   };
 
@@ -1211,11 +1328,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3 shadow-inner" style={{ color: color || '#888' }}>
                             <Icon weight="duotone" className="w-6 h-6" />
                           </div>
-                          <span className="text-2xs uppercase font-bold text-muted-foreground font-mono tracking-wider">{part.sku}</span>
+                          <div className="flex items-center justify-between gap-1 text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                            <span>{part.sku}</span>
+                            {part.oem && <span className="text-3xs text-muted-foreground/80 font-mono truncate max-w-[100px]" title={`OEM / MPN: ${part.oem}`}>OEM: {part.oem}</span>}
+                          </div>
                           <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                             <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price)}</span>
-                            <span className={`text-11px font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`}>{part.stock} pcs</span>
+                            <span className={`text-11px font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`} title={`Current stock: ${part.stock} / Safety threshold: ${part.minStock || 0}`}>
+                              {part.stock} <span className="text-muted-foreground/70 font-normal text-3xs">/ {part.minStock || 0} min</span>
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5 mt-2">
                             {part.published ? <Eye weight="duotone" className="w-3 h-3 text-emerald-500" /> : <EyeSlash weight="duotone" className="w-3 h-3 text-muted-foreground" />}
@@ -1231,10 +1353,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <GroupedTable
                     columns={[
                       { key: 'name', label: 'Product', className: 'font-bold text-foreground group-hover:text-accent transition-colors' },
-                      { key: 'sku', label: 'SKU', render: v => <span className="font-mono text-xs">{v}</span> },
+                      { key: 'sku', label: 'SKU / OEM', render: (v, r) => (
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs font-semibold">{v}</span>
+                          {r.oem && <span className="font-mono text-3xs text-muted-foreground">OEM: {r.oem}</span>}
+                        </div>
+                      ) },
                       { key: 'category', label: 'Category' },
                       { key: 'price', label: 'Price', align: 'right', render: v => formatCurrency(v) },
-                      { key: 'stock', label: 'Stock', align: 'right', render: (v, r) => <span className={`font-bold ${v <= r.minStock ? 'text-accent' : 'text-emerald-500'}`}>{v}</span> },
+                      { key: 'stock', label: 'Stock / Min', align: 'right', render: (v, r) => (
+                        <span className={`font-bold ${v <= (r.minStock || 0) ? 'text-accent' : 'text-emerald-500'}`}>
+                          {v} <span className="text-muted-foreground/70 font-normal text-3xs">/ {r.minStock || 0} min</span>
+                        </span>
+                      ) },
                       { key: 'published', label: 'Published', align: 'right', render: v => v ? <Eye weight="duotone" className="w-4 h-4 text-emerald-500 ml-auto" /> : <EyeSlash weight="duotone" className="w-4 h-4 text-muted-foreground ml-auto" /> },
                     ]}
                     rows={prodRows} groupBy={prodGroup}
@@ -1617,13 +1748,21 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
       {/* ── PO MODAL ── */}
       {isPoModalOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-8 pb-8 px-4 bg-foreground/30 overflow-y-auto animate-fadeIn custom-scrollbar">
-          <div className="w-full max-w-6xl bg-background border border-border shadow-none rounded-xl overflow-hidden flex flex-col relative my-auto">
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setIsPoModalOpen(false); }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn custom-scrollbar"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="po-modal-title"
+            className="w-full max-w-5xl max-h-[92vh] bg-card text-card-foreground border border-border shadow-2xl rounded-2xl overflow-hidden flex flex-col relative my-auto"
+          >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background sticky top-0 z-20">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card sticky top-0 z-20">
               <div>
-                <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Purchasing document</p>
-                <h3 className="text-xl font-bold text-foreground leading-tight">
+                <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground font-mono">Purchasing Document</p>
+                <h3 id="po-modal-title" className="text-xl font-display font-bold text-foreground tracking-tight leading-tight">
                   {viewingPo ? viewingPo.poNumber : 'New Purchase Order'}
                 </h3>
               </div>
@@ -1631,31 +1770,44 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 <div className="hidden md:block">
                   <PipelineChevron currentStatus={viewingPo?.status || 'Draft'} />
                 </div>
-                <button onClick={() => setIsPoModalOpen(false)} className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded" title="Close"><X weight="bold" className="w-5 h-5" /></button>
+                <button
+                  onClick={() => setIsPoModalOpen(false)}
+                  className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <X weight="bold" className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
             {/* Body */}
-            <div className="p-5 md:p-6 bg-background">
-              <div className="mb-6 flex flex-col gap-3 rounded-xl border border-border bg-secondary/25 p-4 md:flex-row md:items-start md:justify-between">
+            <div className="p-6 overflow-y-auto bg-background space-y-6">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center md:justify-between shadow-sm">
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">{viewingPo ? viewingPo.poNumber : 'New Purchase Order'}</h1>
-                  <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{getPoModalSubtitle()}</p>
+                  <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">{viewingPo ? viewingPo.poNumber : 'New Purchase Order'}</h1>
+                  <p className="mt-1 max-w-2xl text-sm text-muted-foreground font-sans">{getPoModalSubtitle()}</p>
                 </div>
-                {viewingPo && <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <StatusBadge status={viewingPo.status} />
-                  <StatusBadge status={viewingPo.billingStatus || 'Waiting Bills'} />
-                </div>}
+                {viewingPo && (
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <StatusBadge status={viewingPo.status} />
+                    <StatusBadge status={viewingPo.billingStatus || 'Waiting Bills'} />
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 mb-6">
+
+              {/* Form Metadata Grid */}
+              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 p-4 rounded-xl border border-border bg-card shadow-sm">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Supplier</label>
-                    <div className="min-w-0">
+                  <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
+                    <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Supplier</label>
+                    <div className={`min-w-0 rounded-lg transition-colors ${validationErrors.supplier ? 'ring-2 ring-red-500/80 p-0.5' : ''}`}>
                       <Select
                         isDisabled={!!viewingPo}
                         value={poForm.supplier ? { value: poForm.supplier, label: suppliers.find(s => s.id === poForm.supplier)?.name || poForm.supplier } : null}
-                        onChange={(option) => setPoForm({ ...poForm, supplier: option ? option.value : '' })}
+                        onChange={(option) => {
+                          setPoForm({ ...poForm, supplier: option ? option.value : '' });
+                          if (validationErrors.supplier) setValidationErrors(prev => ({ ...prev, supplier: false }));
+                        }}
                         options={suppliers.filter(s => !s.archived).map(s => ({ value: s.id, label: s.name }))}
                         placeholder="Select Supplier..."
                         styles={customSelectStyles}
@@ -1666,101 +1818,131 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Source RFQ</label>
-                      <input type="text" disabled={!!viewingPo && !canEditRfqDetails} value={poForm.sourceRfq} onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })} placeholder="RFQ reference..." className="min-w-0 bg-transparent focus:outline-none text-foreground font-mono text-sm" />
+                  <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
+                    <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Source RFQ</label>
+                    <input
+                      type="text"
+                      disabled={!!viewingPo && !canEditRfqDetails}
+                      value={poForm.sourceRfq}
+                      onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })}
+                      placeholder="RFQ reference..."
+                      className="min-w-0 bg-transparent focus:outline-none text-foreground font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
+                    <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Order Date</label>
+                    <span className="text-foreground font-mono font-medium">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
+                  </div>
+                  <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
+                    <label htmlFor="po-expected-date" className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Expected Arrival</label>
+                    <div className={`flex min-w-0 items-center gap-2 rounded-lg transition-colors ${validationErrors.expectedDeliveryDate ? 'ring-2 ring-red-500/80 px-2 py-0.5' : ''}`}>
+                      <input
+                        id="po-expected-date"
+                        disabled={!!viewingPo && !canEditRfqDetails}
+                        type="date"
+                        value={poForm.expectedDeliveryDate}
+                        onChange={e => {
+                          setPoForm({ ...poForm, expectedDeliveryDate: e.target.value });
+                          if (validationErrors.expectedDeliveryDate) setValidationErrors(prev => ({ ...prev, expectedDeliveryDate: false }));
+                        }}
+                        className="flex-1 bg-transparent focus:outline-none text-foreground font-mono text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
+                      />
+                      {(!viewingPo || canEditRfqDetails) && (
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('po-expected-date')?.showPicker?.()}
+                          className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
+                          title="Open calendar"
+                        >
+                          <CalendarBlank weight="duotone" className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Order Date</label>
-                      <span className="text-foreground">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                      <label htmlFor="po-expected-date" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Expected Arrival</label>
+                  {viewingPo && (
+                    <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
+                      <label htmlFor="po-payment-deadline" className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Payment Deadline</label>
                       <div className="flex min-w-0 items-center gap-2">
                         <input
-                          id="po-expected-date"
+                          id="po-payment-deadline"
                           disabled={!!viewingPo && !canEditRfqDetails}
                           type="date"
-                          value={poForm.expectedDeliveryDate}
-                          onChange={e => setPoForm({ ...poForm, expectedDeliveryDate: e.target.value })}
-                          className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
+                          value={poForm.paymentDueDate}
+                          onChange={e => setPoForm({ ...poForm, paymentDueDate: e.target.value })}
+                          className="flex-1 bg-transparent focus:outline-none text-foreground font-mono text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
                         />
-                        {(!viewingPo || canEditRfqDetails) && (
+                        {canEditRfqDetails && (
                           <button
                             type="button"
-                            onClick={() => document.getElementById('po-expected-date')?.showPicker?.()}
+                            onClick={() => document.getElementById('po-payment-deadline')?.showPicker?.()}
                             className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
-                            title="Open calendar"
+                            title="Open payment deadline calendar"
                           >
                             <CalendarBlank weight="duotone" className="w-4 h-4" />
                           </button>
                         )}
                       </div>
                     </div>
-                    {viewingPo && (
-                      <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                        <label htmlFor="po-payment-deadline" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Deadline</label>
-                        <div className="flex min-w-0 items-center gap-2">
-                          <input
-                            id="po-payment-deadline"
-                            disabled={!!viewingPo && !canEditRfqDetails}
-                            type="date"
-                            value={poForm.paymentDueDate}
-                            onChange={e => setPoForm({ ...poForm, paymentDueDate: e.target.value })}
-                            className="flex-1 bg-transparent focus:outline-none text-foreground [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
-                          />
-                          {canEditRfqDetails && (
-                            <button
-                              type="button"
-                              onClick={() => document.getElementById('po-payment-deadline')?.showPicker?.()}
-                              className="p-1.5 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
-                              title="Open payment deadline calendar"
-                            >
-                              <CalendarBlank weight="duotone" className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {viewingPo?.confirmationDate && (
-                      <div className="grid grid-cols-[120px_1fr] items-center gap-3 border-b border-border pb-3">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Confirmed On</label>
-                        <span className="text-foreground">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                  </div>
+                  )}
+                  {viewingPo?.confirmationDate && (
+                    <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
+                      <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Confirmed On</label>
+                      <span className="text-foreground font-mono font-medium">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                {/* Items table */}
-                <div className="mb-3 flex items-end justify-between border-b border-border">
-                  <button className="border-b-2 border-accent text-accent font-bold pb-2 text-sm">Products</button>
-                  <span className="pb-2 text-xs font-semibold text-muted-foreground">{poForm.items.length} line{poForm.items.length === 1 ? '' : 's'}</span>
+              {/* Items Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <h4 className="font-display font-bold text-foreground text-base tracking-tight">Products</h4>
+                  <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">{poForm.items.length} line{poForm.items.length === 1 ? '' : 's'}</span>
                 </div>
-                <div className="min-h-[200px] overflow-hidden rounded-xl border border-border bg-background">
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                   <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead><tr className="border-b border-border bg-secondary/60 text-muted-foreground">
-                      <th className="py-2.5 px-3 font-bold w-1/2">Product</th>
-                      <th className="py-2.5 px-3 font-bold text-right w-1/8">Qty</th>
-                      {viewingPo && viewingPo.status === 'Confirmed' ? (
-                        <th className="py-2.5 px-3 font-bold text-right w-1/6">Quoted Price</th>
-                      ) : (
-                        <th className="py-2.5 px-3 font-bold text-right w-1/6">Unit Price</th>
-                      )}
-                      <th className="py-2.5 px-3 font-bold text-right w-1/6">Subtotal</th>
-                      {viewingPo?.status === 'Confirmed' && <th className="py-2.5 px-3 font-bold text-center w-20">Received</th>}
-                      {!viewingPo && <th className="w-8" />}
-                    </tr></thead>
+                    <thead>
+                      <tr className="border-b border-border bg-muted/60 text-muted-foreground text-xs uppercase tracking-wider font-bold">
+                        <th className="py-3 px-4 font-bold w-1/2">Product</th>
+                        <th className="py-3 px-4 font-bold text-right w-1/8">Qty</th>
+                        {viewingPo && viewingPo.status === 'Confirmed' ? (
+                          <th className="py-3 px-4 font-bold text-right w-1/6">Quoted Price</th>
+                        ) : (
+                          <th className="py-3 px-4 font-bold text-right w-1/6">Unit Price</th>
+                        )}
+                        <th className="py-3 px-4 font-bold text-right w-1/6">Subtotal</th>
+                        {viewingPo?.status === 'Confirmed' && (
+                          <th className="py-3 px-4 font-bold text-center w-28">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span>Received</span>
+                              <button
+                                type="button"
+                                onClick={toggleAllDelivered}
+                                className="px-1.5 py-0.5 bg-card hover:bg-muted border border-border rounded text-3xs font-black uppercase text-accent transition-colors shadow-2xs"
+                                title={poForm.items.length > 0 && poForm.items.every(i => deliveredItems.has(i.id)) ? "Uncheck all items" : "Check all items as received"}
+                              >
+                                {poForm.items.length > 0 && poForm.items.every(i => deliveredItems.has(i.id)) ? 'Clear' : 'All'}
+                              </button>
+                            </div>
+                          </th>
+                        )}
+                        {!viewingPo && <th className="w-8" />}
+                      </tr>
+                    </thead>
                     <tbody className="divide-y divide-border">
                       {poForm.items.map((item, idx) => {
                         const isDelivered = deliveredItems.has(item.id);
                         const isConfirmed = viewingPo?.status === 'Confirmed';
                         return (
-                          <tr key={idx} className={`hover:bg-secondary/50 transition-colors ${isConfirmed && isDelivered ? 'bg-emerald-500/5' : ''}`}>
-                            <td className="py-3 px-3 font-medium">[{item.sku}] {item.name}</td>
-                            <td className="py-3 px-3 text-right">{item.quantity}</td>
-                            <td className="py-3 px-3 text-right">
+                          <tr key={idx} className={`hover:bg-muted/50 transition-colors ${isConfirmed && isDelivered ? 'bg-emerald-500/10 dark:bg-emerald-500/15' : ''}`}>
+                            <td className="py-3.5 px-4 font-medium text-foreground">
+                              <span className="font-mono text-xs text-muted-foreground mr-1.5">[{item.sku}]</span> {item.name}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-medium">{item.quantity}</td>
+                            <td className="py-3.5 px-4 text-right font-mono">
                               {isConfirmed ? (
                                 <input
                                   type="number"
@@ -1768,29 +1950,27 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                   step="0.01"
                                   value={quotedPrices[item.id] ?? item.unitPrice}
                                   onChange={e => setQuotedPrices(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                  className="w-24 text-right bg-amber-500/10 border border-amber-400/30 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className="w-28 text-right bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 rounded-lg px-2.5 py-1 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-amber-900 dark:text-amber-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                               ) : (
                                 formatCurrency(item.unitPrice)
                               )}
                             </td>
-                            <td className="py-3 px-3 text-right font-bold">
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground">
                               {isConfirmed
                                 ? formatCurrency(lineSubtotal(item.quantity, getQuotedUnitPrice(item)))
                                 : formatCurrency(item.subtotal)}
                             </td>
                             {isConfirmed && (
-                              <td className="py-3 px-3 text-center">
+                              <td className="py-3.5 px-4 text-center">
                                 <button
                                   type="button"
-                                  onClick={() => setDeliveredItems(prev => {
-                                    const next = new Set(prev);
-                                    next.has(item.id) ? next.delete(item.id) : next.add(item.id);
-                                    return next;
-                                  })}
-                                  className={`w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all ${
+                                  onClick={() => toggleDeliveredItem(item.id)}
+                                  aria-pressed={isDelivered}
+                                  aria-label={isDelivered ? `Mark ${item.name} as not received` : `Mark ${item.name} as received`}
+                                  className={`w-6 h-6 rounded-md border-2 flex items-center justify-center mx-auto transition-all ${
                                     isDelivered
-                                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
                                       : 'border-border hover:border-emerald-500 text-transparent'
                                   }`}
                                   title={isDelivered ? 'Mark as not received' : 'Mark as received'}
@@ -1799,193 +1979,237 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 </button>
                               </td>
                             )}
-                            {!viewingPo && <td className="py-3 px-3 text-right"><button onClick={() => removePoItem(idx)} className="text-muted-foreground hover:text-accent"><X className="w-4 h-4" /></button></td>}
+                            {!viewingPo && (
+                              <td className="py-3.5 px-4 text-right">
+                                <button onClick={() => removePoItem(idx)} className="p-1 text-muted-foreground hover:text-accent rounded transition-colors">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
                       {!viewingPo && (
-                        <tr><td colSpan="5" className="bg-secondary/25 p-3">
-                          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                            <div className="min-w-[240px] flex-1">
-                              <Select
-                                styles={customSelectStyles}
-                                menuPortalTarget={document.body}
-                                placeholder="Type to search product..."
-                                value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel) || {}).sku}] ${(parts.find(p => p.id === poPartSel) || {}).name}` } : null}
-                                onChange={(option) => setPoPartSel(option ? option.value : '')}
-                                options={(parts || []).filter(p => !p.archived).map(p => ({
-                                  value: p.id,
-                                  label: `[${p.sku}] ${p.name}`
-                                }))}
-                                isClearable
-                                isSearchable
-                              />
-                            </div>
-                            <div className="flex items-center bg-secondary border border-border rounded-lg overflow-hidden">
+                        <tr>
+                          <td colSpan="5" className="bg-muted/40 p-4">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                              <div className="min-w-[260px] flex-1">
+                                <Select
+                                  styles={customSelectStyles}
+                                  menuPortalTarget={document.body}
+                                  placeholder="Type to search product..."
+                                  value={poPartSel ? { value: poPartSel, label: `[${(parts.find(p => p.id === poPartSel) || {}).sku}] ${(parts.find(p => p.id === poPartSel) || {}).name}` } : null}
+                                  onChange={(option) => setPoPartSel(option ? option.value : '')}
+                                  options={(parts || []).filter(p => !p.archived).map(p => ({
+                                    value: p.id,
+                                    label: `[${p.sku}] ${p.name}`
+                                  }))}
+                                  isClearable
+                                  isSearchable
+                                />
+                              </div>
+                              <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => setPoQty(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
+                                  className="px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                  title="Decrease quantity"
+                                >
+                                  <Minus weight="bold" className="w-3.5 h-3.5" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="Qty"
+                                  value={poQty}
+                                  onChange={e => setPoQty(e.target.value)}
+                                  className="w-16 bg-transparent px-1 py-2 text-sm font-mono font-medium focus:outline-none text-center text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPoQty(prev => String((parseInt(prev) || 0) + 1))}
+                                  className="px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                  title="Increase quantity"
+                                >
+                                  <Plus weight="bold" className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                               <button
                                 type="button"
-                                onClick={() => setPoQty(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
-                                className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
-                                title="Decrease quantity"
+                                onClick={addPoItem}
+                                className="px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent font-bold rounded-lg text-sm transition-colors"
                               >
-                                <Minus weight="bold" className="w-3.5 h-3.5" />
-                              </button>
-                              <input type="number" min="1" placeholder="Qty" value={poQty} onChange={e => setPoQty(e.target.value)} className="w-14 bg-transparent px-1 py-2 text-sm focus:outline-none text-center text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                              <button
-                                type="button"
-                                onClick={() => setPoQty(prev => String((parseInt(prev) || 0) + 1))}
-                                className="px-2 py-2 text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
-                                title="Increase quantity"
-                              >
-                                <Plus weight="bold" className="w-3.5 h-3.5" />
+                                Add Line
                               </button>
                             </div>
-                            <button onClick={addPoItem} className="px-3 py-2 text-accent font-bold hover:bg-accent/10 rounded text-sm">Add Line</button>
-                          </div>
-                        </td></tr>
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
-                  <div className="grid gap-4 mt-4 pt-4 border-t border-border md:grid-cols-[1fr_320px] md:items-start">
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground mb-1">Notes</label>
-                      <textarea disabled={!!viewingPo && !canEditRfqDetails} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} className="w-full bg-transparent border border-border rounded-lg p-2 focus:ring-1 focus:ring-accent text-sm resize-none h-16 focus:outline-none" />
-                    </div>
-                    <div className="flex flex-col items-end gap-4">
-                      <div className="w-full flex justify-between rounded-lg border border-border bg-secondary/25 px-3 py-2 font-bold text-lg text-foreground">
-                        <span>Total</span>
-                        <span>{formatCurrency(visiblePoTotal)}</span>
-                      </div>
-                      {!viewingPo ? (
-                          <div className="flex gap-2 justify-end w-full">
-                            <button
-                              type="button"
-                              onClick={() => setIsPoModalOpen(false)}
-                              className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
-                            >
-                              Discard
-                            </button>
-                            <button
-                              type="button"
-                              onClick={savePo}
-                              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors"
-                            >
-                              Save Draft
-                            </button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2 justify-end w-full">
-                            <button
-                              type="button"
-                              onClick={() => generateRfqPDF(viewingPo)}
-                              className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg flex items-center gap-1.5"
-                              title="Download RFQ PDF (for supplier)"
-                            >
-                              <FilePdf weight="duotone" className="w-4 h-4 text-primary" /> RFQ PDF
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => generatePDF(viewingPo)}
-                              className="px-3 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg flex items-center gap-1.5"
-                              title="Download PO PDF"
-                            >
-                              <FilePdf weight="duotone" className="w-4 h-4 text-accent" /> PO PDF
-                            </button>
+              </div>
 
+              {/* Notes & Bottom Action Bar */}
+              <div className="grid gap-6 pt-4 border-t border-border md:grid-cols-[1fr_auto] md:items-start">
+                <div>
+                  <label className="block text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Notes & Instructions</label>
+                  <textarea
+                    disabled={!!viewingPo && !canEditRfqDetails}
+                    value={poForm.notes}
+                    onChange={e => setPoForm({ ...poForm, notes: e.target.value })}
+                    placeholder="Enter any additional order instructions..."
+                    className="w-full bg-card border border-border text-foreground rounded-xl p-3 focus:ring-2 focus:ring-accent focus:border-accent text-sm resize-none h-20 focus:outline-none font-sans"
+                  />
+                </div>
+
+                <div className="flex flex-col items-end gap-4 min-w-[320px]">
+                  <div className="w-full flex justify-between rounded-xl border border-border bg-card px-4 py-3 font-bold shadow-sm">
+                    <span className="text-sm uppercase tracking-wider text-muted-foreground">Total Amount</span>
+                    <span className="text-xl font-display font-extrabold text-foreground">{formatCurrency(visiblePoTotal)}</span>
+                  </div>
+
+                  {/* Structured Action Bar */}
+                  <div className="w-full flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
+                    {/* Left: PDF / Utility Actions */}
+                    <div className="flex items-center gap-2">
+                      {viewingPo && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => generateRfqPDF(viewingPo)}
+                            className="px-3.5 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-sm"
+                            title="Download RFQ PDF (for supplier)"
+                          >
+                            <FilePdf weight="duotone" className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> RFQ PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => generatePDF(viewingPo)}
+                            className="px-3.5 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-sm"
+                            title="Download PO PDF"
+                          >
+                            <FilePdf weight="duotone" className="w-4 h-4 text-accent" /> PO PDF
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Right: Stage Advancement & Actions */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {!viewingPo ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsPoModalOpen(false)}
+                            className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
+                          >
+                            Discard
+                          </button>
+                          <button
+                            type="button"
+                            onClick={savePo}
+                            className="px-5 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95"
+                          >
+                            Save Draft
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {/* Draft Stage Buttons */}
                           {viewingPo.status === 'Draft' && (
                             <>
-                                <button
-                                  type="button"
-                                  onClick={saveRfqDetails}
-                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Save RFQ Details
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
-                                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Cancel
-                                </button>
                               <button
-                                  type="button"
-                                  onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
-                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Confirm Order
-                                </button>
+                                type="button"
+                                onClick={saveRfqDetails}
+                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
+                              >
+                                Save RFQ Details
+                              </button>
                               <button
-                                  type="button"
-                                  onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
-                                  className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Send RFQ
-                                </button>
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 hover:bg-red-500/20 text-red-700 dark:text-red-400 text-sm font-bold rounded-xl transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'RFQ Sent', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95"
+                              >
+                                Send RFQ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95"
+                              >
+                                Confirm Order
+                              </button>
                             </>
                           )}
 
+                          {/* RFQ Sent Stage Buttons */}
                           {viewingPo.status === 'RFQ Sent' && (
                             <>
-                                <button
-                                  type="button"
-                                  onClick={saveRfqDetails}
-                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Save RFQ Details
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
-                                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Cancel
-                                </button>
                               <button
-                                  type="button"
-                                  onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
-                                  className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors"
-                                >
-                                  Confirm Order
-                                </button>
+                                type="button"
+                                onClick={saveRfqDetails}
+                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
+                              >
+                                Save RFQ Details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Cancelled', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 hover:bg-red-500/20 text-red-700 dark:text-red-400 text-sm font-bold rounded-xl transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePoStatus(viewingPo.id, 'Confirmed', viewingPo.poNumber)}
+                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95"
+                              >
+                                Confirm Order
+                              </button>
                             </>
                           )}
 
+                          {/* Confirmed Stage Buttons */}
                           {viewingPo.status === 'Confirmed' && (
                             <>
-                              {/* Quoted prices save */}
                               <button
-                                  type="button"
-                                  onClick={saveQuotedPrices}
-                                  disabled={savingPrices}
-                                  className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-500 text-sm font-bold rounded-lg flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-                                >
-                                {savingPrices ? <span className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" /> : <CurrencyDollar weight="bold" className="w-4 h-4" />}
+                                type="button"
+                                onClick={saveQuotedPrices}
+                                disabled={savingPrices}
+                                className="px-4 py-2 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-sm font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                              >
+                                {savingPrices ? <span className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" /> : <CurrencyDollar weight="bold" className="w-4 h-4" />}
                                 Save Quoted Prices
                               </button>
                               {viewingPo.billingStatus === 'Waiting Bills' && (
                                 <button
-                                    type="button"
-                                    onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
-                                    className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
-                                  >
+                                  type="button"
+                                  onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
+                                >
                                   Mark Bills Received
                                 </button>
                               )}
-                              {/* Receive Products — gated by checklist */}
                               {(() => {
                                 const allDelivered = poForm.items.length > 0 && poForm.items.every(i => deliveredItems.has(i.id));
                                 return (
                                   <button
                                     type="button"
-                                      disabled={!allDelivered}
-                                      onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
-                                      className={`px-4 py-2 text-white text-sm font-bold rounded-lg transition-colors ${
-                                        allDelivered
-                                          ? 'bg-accent hover:bg-accent/90'
-                                          : 'bg-accent/30 cursor-not-allowed'
-                                      }`}
+                                    disabled={!allDelivered}
+                                    onClick={() => updatePoStatus(viewingPo.id, 'Received', viewingPo.poNumber)}
+                                    className={`px-4 py-2 text-white text-sm font-bold rounded-xl transition-all shadow-sm ${
+                                      allDelivered
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'
+                                        : 'bg-emerald-600/30 cursor-not-allowed text-white/60'
+                                    }`}
                                     title={allDelivered ? 'Confirm receipt' : `Check all ${poForm.items.length} items first`}
                                   >
                                     <span className="flex items-center gap-1.5">
@@ -1998,28 +2222,52 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             </>
                           )}
 
-                          {viewingPo.status === 'Received' && viewingPo.billingStatus === 'Waiting Bills' && (
-                            <button
+                          {/* Received Stage Buttons */}
+                          {viewingPo.status === 'Received' && (
+                            <>
+                              {viewingPo.billingStatus === 'Waiting Bills' && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
+                                  className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
+                                >
+                                  Mark Bills Received
+                                </button>
+                              )}
+                              <button
                                 type="button"
-                                onClick={() => updateBillingStatus(viewingPo.id, 'Bills Received')}
-                                className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-lg transition-colors"
+                                onClick={() => handleDuplicatePo(viewingPo)}
+                                className="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                title="Create a new draft PO with the same supplier and line items"
                               >
-                              Mark Bills Received
-                            </button>
+                                <Copy weight="bold" className="w-4 h-4" />
+                                Reorder / Duplicate PO
+                              </button>
+                            </>
                           )}
-                        </div>
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
               </div>
-            </div>, document.body
+            </div>
+          </div>
+        </div>, document.body
       )}
 
           {/* ── PRODUCT PROFILE MODAL ── */}
           {isProductModalOpen && createPortal(
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-              <div className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col">
+            <div
+              onClick={(e) => { if (e.target === e.currentTarget) setIsProductModalOpen(false); }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="product-modal-title"
+                className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col"
+              >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
                   <div className="flex items-center gap-3">
@@ -2027,13 +2275,18 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       <Package weight="duotone" className="w-6 h-6 text-accent" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-foreground leading-tight">{viewingPart ? viewingPart.name : 'New Product'}</h3>
+                      <h3 id="product-modal-title" className="text-xl font-bold text-foreground leading-tight">{viewingPart ? viewingPart.name : 'New Product'}</h3>
                       {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider">SKU: {viewingPart.sku}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={saveProduct} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg shadow flex items-center gap-1.5 transition-all active:scale-95">
-                      <CheckCircle weight="bold" className="w-4 h-4" /> Save
+                    <button
+                      onClick={saveProduct}
+                      disabled={savingProduct}
+                      className="px-4 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow flex items-center gap-1.5 transition-all active:scale-95"
+                    >
+                      {savingProduct ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
+                      {savingProduct ? 'Saving...' : 'Save'}
                     </button>
                     {viewingPart && (
                       <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); setIsProductModalOpen(false); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
@@ -2045,14 +2298,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         <Archive weight="bold" className="w-4 h-4" /> Archive
                       </button>
                     )}
-                    <button onClick={() => setIsProductModalOpen(false)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg ml-1"><X weight="bold" className="w-5 h-5" /></button>
+                    <button onClick={() => setIsProductModalOpen(false)} aria-label="Close product modal" className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg ml-1"><X weight="bold" className="w-5 h-5" /></button>
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-background p-6 md:p-8">
                   {/* Stats row */}
                   {viewingPart && (
-                    <div className="grid grid-cols-4 gap-4 mb-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
                       {[
                         { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground' },
                         { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
@@ -2095,40 +2348,72 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
                         <div className="space-y-5">
                           {[
-                            { label: 'Product Name', key: 'name', type: 'text', bold: true },
-                            { label: 'SKU', key: 'sku', type: 'text', mono: true },
+                            { label: 'Product Name *', key: 'name', type: 'text', bold: true },
+                            { label: 'SKU *', key: 'sku', type: 'text', mono: true },
                             { label: 'OEM / MPN', key: 'oem', type: 'text' },
                           ].map(f => (
-                            <div key={f.key} className="flex flex-col border-b border-border pb-1">
-                              <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
-                              <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
-                                className={`bg-transparent focus:outline-none text-foreground ${f.bold ? 'font-semibold text-lg' : ''} ${f.mono ? 'font-mono' : ''}`} />
+                            <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
+                              <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-red-400' : 'text-muted-foreground'}`}>{f.label}</label>
+                              <input
+                                id={`prod-field-${f.key}`}
+                                type={f.type}
+                                value={productForm[f.key] || ''}
+                                onChange={e => {
+                                  setProductForm({ ...productForm, [f.key]: e.target.value });
+                                  if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
+                                }}
+                                className={`bg-transparent focus:outline-none text-foreground ${f.bold ? 'font-semibold text-lg' : ''} ${f.mono ? 'font-mono' : ''}`}
+                              />
                             </div>
                           ))}
                           <div className="flex flex-col border-b border-border pb-1">
-                            <label className="text-xs font-bold text-muted-foreground mb-1">Category</label>
-                            <select value={productForm.category || ''} onChange={e => setProductForm({ ...productForm, category: e.target.value })} className="bg-transparent focus:outline-none text-foreground">
+                            <label htmlFor="prod-field-category" className="text-xs font-bold text-muted-foreground mb-1">Category</label>
+                            <select
+                              id="prod-field-category"
+                              value={productForm.category || ''}
+                              onChange={e => setProductForm({ ...productForm, category: e.target.value })}
+                              className="bg-transparent focus:outline-none text-foreground"
+                            >
                               {(categories || []).filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                           </div>
                         </div>
                         <div className="space-y-5">
                           {[
-                            { label: 'Unit Price (PHP)', key: 'price', type: 'number' },
-                            { label: 'Current Stock', key: 'stock', type: 'number' },
+                            { label: 'Unit Price (PHP) *', key: 'price', type: 'number' },
+                            { label: 'Current Stock *', key: 'stock', type: 'number' },
                             { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
                           ].map(f => (
-                            <div key={f.key} className="flex flex-col border-b border-border pb-1">
-                              <label className="text-xs font-bold text-muted-foreground mb-1">{f.label}</label>
-                              <input type={f.type} value={productForm[f.key] || ''} onChange={e => setProductForm({ ...productForm, [f.key]: e.target.value })}
-                                className="bg-transparent focus:outline-none text-foreground font-bold text-lg" />
+                            <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
+                              <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-red-400' : 'text-muted-foreground'}`}>{f.label}</label>
+                              <input
+                                id={`prod-field-${f.key}`}
+                                type={f.type}
+                                min="0"
+                                value={productForm[f.key] || ''}
+                                onChange={e => {
+                                  setProductForm({ ...productForm, [f.key]: e.target.value });
+                                  if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
+                                }}
+                                className="bg-transparent focus:outline-none text-foreground font-bold text-lg"
+                              />
                             </div>
                           ))}
                           {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
-                            <div className="flex flex-col border-b border-border pb-1">
-                              <label className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
-                              <input type="text" value={productForm.adjustmentReason || ''} onChange={e => setProductForm({ ...productForm, adjustmentReason: e.target.value })}
-                                className="bg-transparent focus:outline-none text-foreground font-bold" placeholder="e.g. damaged goods, return" required />
+                            <div className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors.adjustmentReason ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
+                              <label htmlFor="prod-field-adjustmentReason" className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
+                              <input
+                                id="prod-field-adjustmentReason"
+                                type="text"
+                                value={productForm.adjustmentReason || ''}
+                                onChange={e => {
+                                  setProductForm({ ...productForm, adjustmentReason: e.target.value });
+                                  if (productValidationErrors.adjustmentReason) setProductValidationErrors(p => ({ ...p, adjustmentReason: false }));
+                                }}
+                                className="bg-transparent focus:outline-none text-foreground font-bold"
+                                placeholder="e.g. damaged goods, return"
+                                required
+                              />
                             </div>
                           )}
                           {viewingPart && (
