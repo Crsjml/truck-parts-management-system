@@ -9,6 +9,10 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
+const filterAlpha = (v) => v.replace(/[^a-zA-Z\s]/g, '');
+const filterDigits = (v) => v.replace(/[^0-9]/g, '');
+const filterEmailChars = (v) => v.replace(/[^a-zA-Z0-9@._+-]/g, '');
+
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   contactNumber: z.string().min(10, 'Valid contact number is required'),
@@ -81,11 +85,57 @@ export default function AuthPortal({
     setTimeout(() => setShake(false), 500);
   };
 
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const params = new URLSearchParams(window.location.hash.replace('#', '?'));
+      const errorDesc = params.get('error_description');
+      if (errorDesc) {
+        setNotice(errorDesc.replace(/\+/g, ' '));
+      }
+    }
+  }, []);
+
+  const handleResendVerification = async (targetEmail) => {
+    const emailToUse = targetEmail || unverifiedEmail;
+    if (!emailToUse) return;
+    setResendingVerification(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: emailToUse,
+        options: {
+          emailRedirectTo: window.location.origin,
+        }
+      });
+      if (error) {
+        if (isRateLimitError(error)) {
+          setNotice('Email verification rate limit reached. Please wait a few minutes before resending.');
+        } else {
+          setNotice(error.message || 'Failed to resend verification email.');
+        }
+      } else {
+        setNotice(`Verification email resent to ${emailToUse}! Please check your inbox and spam folder.`);
+      }
+    } catch (err) {
+      setNotice(err.message || 'Failed to resend verification email.');
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
   const renderNoticeBanner = () => {
     if (!notice) return null;
 
-    const isError = /fail|incorrect|locked|invalid|error|cannot|wrong/i.test(notice);
-    const isSuccess = /success|verified|successfully|sent|created/i.test(notice);
+    const isUnverifiedNotice = notice === 'UNVERIFIED_EMAIL' || /verify your email/i.test(notice);
+    const displayNoticeText = notice === 'UNVERIFIED_EMAIL'
+      ? `Please verify your email address (${unverifiedEmail || 'your email'}) before logging in. Check your inbox.`
+      : notice;
+
+    const isError = /fail|incorrect|locked|invalid|error|cannot|wrong/i.test(displayNoticeText) || isUnverifiedNotice;
+    const isSuccess = /success|verified|successfully|sent|created/i.test(displayNoticeText);
 
     let cardClasses = "mb-5 rounded-2xl border p-4 text-sm flex gap-3 items-start animate-scaleUp ";
     let Icon = Bell;
@@ -108,7 +158,20 @@ export default function AuthPortal({
     return (
       <div className={cardClasses}>
         <Icon className={iconClass} weight="duotone" />
-        <div className="leading-snug">{notice}</div>
+        <div className="leading-snug flex-1">
+          <div>{displayNoticeText}</div>
+          {isUnverifiedNotice && (unverifiedEmail || loginEmailField.value) && (
+            <button
+              type="button"
+              disabled={resendingVerification}
+              onClick={() => handleResendVerification(unverifiedEmail || loginEmailField.value)}
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
+            >
+              {resendingVerification ? <CircleNotch weight="duotone" className="h-3.5 w-3.5 animate-spin" /> : <EnvelopeOpen weight="duotone" className="h-3.5 w-3.5" />}
+              Resend verification email
+            </button>
+          )}
+        </div>
       </div>
     );
   };
@@ -155,6 +218,10 @@ export default function AuthPortal({
   const fieldIconClass = 'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground';
   const passwordToggleClass = 'absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground';
   const registerPasswordField = registerRegister('password');
+  const registerFullNameField = registerRegister('fullName');
+  const registerContactField = registerRegister('contactNumber');
+  const registerEmailField = registerRegister('email');
+  const loginEmailField = registerLogin('email');
   const passwordStrength = getPasswordStrength(registerPasswordValue);
 
   // ponytail: shared rate-limit detector for Supabase email errors
@@ -174,6 +241,7 @@ export default function AuthPortal({
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: window.location.origin,
           data: {
             full_name: data.fullName,
             contact_number: data.contactNumber,
@@ -200,6 +268,15 @@ export default function AuthPortal({
         throw error;
       }
 
+      // Check if user already exists (Supabase identity obfuscation returns user with empty identities)
+      if (signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
+        setNotice('An account with this email already exists. If you signed up with Google, use the Google button to sign in — otherwise, log in with your password.');
+        setActiveTab('login');
+        setLoading(false);
+        return;
+      }
+
+      setUnverifiedEmail(data.email);
       setNotice('Account created! Please check your email for a verification link, then log in.');
       setActiveTab('login');
       onRegisterSuccess?.({ email: data.email });
@@ -240,7 +317,8 @@ export default function AuthPortal({
       // Enforce email verification on login
       if (!user.email_confirmed_at && !data.email.includes('admin') && !data.email.includes('lakers.com') && !data.email.includes('warriors.com') && !data.email.includes('suns.com') && !data.email.includes('bucks.com') && !data.email.includes('mavericks.com') && !data.email.includes('example.com')) {
         await supabase.auth.signOut();
-        setNotice('Please verify your email address before logging in. Check your inbox.');
+        setUnverifiedEmail(data.email);
+        setNotice('UNVERIFIED_EMAIL');
         triggerShake();
         setLoading(false);
         return;
@@ -463,7 +541,8 @@ export default function AuthPortal({
                       <User weight="bold" className={fieldIconClass} />
                       <input
                         className={`${inputClass} ${registerErrors.fullName ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerRegister('fullName')}
+                        {...registerFullNameField}
+                        onChange={(e) => { e.target.value = filterAlpha(e.target.value); registerFullNameField.onChange(e); }}
                         placeholder="Juan Dela Cruz"
                       />
                     </div>
@@ -476,8 +555,9 @@ export default function AuthPortal({
                       <Phone weight="bold" className={fieldIconClass} />
                       <input
                         className={`${inputClass} ${registerErrors.contactNumber ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerRegister('contactNumber')}
-                        placeholder="+63 917 123 4567"
+                        {...registerContactField}
+                        onChange={(e) => { e.target.value = filterDigits(e.target.value); registerContactField.onChange(e); }}
+                        placeholder="09171234567"
                       />
                     </div>
                     {registerErrors.contactNumber && <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>}
@@ -492,7 +572,8 @@ export default function AuthPortal({
                       <input
                         type="email"
                         className={`${inputClass} ${registerErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                        {...registerRegister('email')}
+                        {...registerEmailField}
+                        onChange={(e) => { e.target.value = filterEmailChars(e.target.value); registerEmailField.onChange(e); }}
                         placeholder="customer@domain.com"
                       />
                     </div>
@@ -590,7 +671,8 @@ export default function AuthPortal({
                         <input
                           type="email"
                           className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                          {...registerLogin('email')}
+                          {...loginEmailField}
+                          onChange={(e) => { e.target.value = filterEmailChars(e.target.value); loginEmailField.onChange(e); }}
                           placeholder="customer@domain.com"
                         />
                       </div>
@@ -663,7 +745,7 @@ export default function AuthPortal({
                         type="email"
                         className={`${inputClass} ${errors.forgotEmail ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
                         value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
+                        onChange={(e) => setForgotEmail(filterEmailChars(e.target.value))}
                         placeholder="customer@domain.com"
                       />
                     </div>
@@ -709,7 +791,8 @@ export default function AuthPortal({
                         <input
                           type="email"
                           className={`${inputClass} ${loginErrors.email ? 'border-red-500 ring-2 ring-red-500/20 focus:border-red-500' : ''}`}
-                          {...registerLogin('email')}
+                          {...loginEmailField}
+                          onChange={(e) => { e.target.value = filterEmailChars(e.target.value); loginEmailField.onChange(e); }}
                           placeholder="admin@tarlactruckparts.local"
                         />
                       </div>

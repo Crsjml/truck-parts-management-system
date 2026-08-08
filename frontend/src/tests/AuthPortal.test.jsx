@@ -35,3 +35,12 @@ describe('AuthPortal register password strength', () => {
     expect(label).toHaveTextContent('Strong');
   });
 });
+
+describe('AuthPortal Email Verification & Existing User flows', () => {
+  it('renders Resend Verification Email button when notice is unverified', () => {
+    render(<AuthPortal mode="customer" initialTab="login" initialNotice="UNVERIFIED_EMAIL" />);
+    expect(screen.getByText(/Please verify your email address/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Resend verification email/i })).toBeInTheDocument();
+  });
+});
+
