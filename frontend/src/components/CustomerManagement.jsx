@@ -956,21 +956,35 @@ export default function CustomerManagement({ showToast }) {
                   <div className="flex bg-secondary border border-border rounded-xl p-1 gap-1 mb-4 w-fit">
                     <button
                       onClick={() => setDashTab('online')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${dashTab === 'online' ? 'bg-accent text-white shadow-sm shadow-accent/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        dashTab === 'online'
+                          ? 'bg-background text-foreground shadow-sm border border-border font-bold'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }`}
                     >
-                      <Globe weight="duotone" className="w-3.5 h-3.5" />
+                      <span className="w-2 h-2 rounded-full bg-accent" />
+                      <Globe weight="duotone" className="w-3.5 h-3.5 text-accent" />
                       Online Orders
-                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-2xs font-black ${dashTab === 'online' ? 'bg-white/20' : 'bg-secondary-foreground/10'}`}>
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                        dashTab === 'online' ? 'bg-accent/10 text-accent' : 'bg-secondary-foreground/10'
+                      }`}>
                         {dashTxOnline.length}
                       </span>
                     </button>
                     <button
                       onClick={() => setDashTab('ftf')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${dashTab === 'ftf' ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        dashTab === 'ftf'
+                          ? 'bg-background text-foreground shadow-sm border border-border font-bold'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }`}
                     >
-                      <ShoppingBag weight="duotone" className="w-3.5 h-3.5" />
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <ShoppingBag weight="duotone" className="w-3.5 h-3.5 text-amber-500" />
                       Walk-in / FTF
-                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-2xs font-black ${dashTab === 'ftf' ? 'bg-white/20' : 'bg-secondary-foreground/10'}`}>
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                        dashTab === 'ftf' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-secondary-foreground/10'
+                      }`}>
                         {dashTxFtf.length}
                       </span>
                     </button>
