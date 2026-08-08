@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker, Truck, CheckCircle } from '@phosphor-icons/react';
+import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, CaretLeft, CaretRight, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker, Truck, CheckCircle } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions, updateTransactionStatus } from '../authStore';
 
@@ -31,6 +31,9 @@ export default function CustomerManagement({ showToast }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('totalSpend');
   const [sortDir, setSortDir] = useState('desc');
+  const [onlinePage, setOnlinePage] = useState(1);
+  const [ftfPage, setFtfPage] = useState(1);
+  const itemsPerPage = 10;
 
   // CRUD & Modals state
   const [isCrudModalOpen, setIsCrudModalOpen] = useState(false);
@@ -69,6 +72,10 @@ export default function CustomerManagement({ showToast }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset to page 1 when search/sort/tab changes
+  useEffect(() => { setOnlinePage(1); setFtfPage(1); }, [search, sortKey, sortDir]);
+  useEffect(() => { setOnlinePage(1); setFtfPage(1); }, [tab]);
 
   const openDashboard = async (customer, type) => {
     setDashboardCustomer({ ...customer, type });
@@ -233,6 +240,11 @@ export default function CustomerManagement({ showToast }) {
       if (sortKey === 'lastOrderDate') return (new Date(a.lastOrderDate || 0) - new Date(b.lastOrderDate || 0)) * m;
       return 0;
     });
+  const totalOnlinePages = Math.ceil(filteredOnline.length / itemsPerPage);
+  const paginatedOnline = filteredOnline.slice((onlinePage - 1) * itemsPerPage, onlinePage * itemsPerPage);
+  const totalFtfPages = Math.ceil(filteredFtf.length / itemsPerPage);
+  const paginatedFtf = filteredFtf.slice((ftfPage - 1) * itemsPerPage, ftfPage * itemsPerPage);
+
   const dashboardTransactions = [...dashTxOnline, ...dashTxFtf];
   const dashboardOrderCount = dashboardTransactions.length || dashboardCustomer?.orderCount || 0;
   const dashboardTotalSpend = dashboardTransactions.length > 0
@@ -350,27 +362,83 @@ export default function CustomerManagement({ showToast }) {
             transition={{ duration: 0.2 }}
           >
             {tab === 'online' ? (
-              <OnlineTable
-                data={filteredOnline}
-                sortKey={sortKey}
-                toggleSort={toggleSort}
-                SortIcon={SortIcon}
-                onEdit={(c) => openEditModal(c, false)}
-                onDelete={(c) => setDeleteTarget(c)}
-                onView={(c) => openDashboard(c, 'online')}
-              />
+              <>
+                <OnlineTable
+                  data={paginatedOnline}
+                  sortKey={sortKey}
+                  toggleSort={toggleSort}
+                  SortIcon={SortIcon}
+                  onEdit={(c) => openEditModal(c, false)}
+                  onDelete={(c) => setDeleteTarget(c)}
+                  onView={(c) => openDashboard(c, 'online')}
+                />
+                {filteredOnline.length > 0 && totalOnlinePages > 1 && (
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-xs text-muted-foreground font-medium pl-1">
+                      Showing {(onlinePage - 1) * itemsPerPage + 1} to {Math.min(onlinePage * itemsPerPage, filteredOnline.length)} of {filteredOnline.length} clients
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setOnlinePage(p => Math.max(1, p - 1))}
+                        disabled={onlinePage === 1}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        aria-label="Previous page"
+                      >
+                        <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-xs font-semibold text-foreground px-2">{onlinePage} / {totalOnlinePages}</span>
+                      <button
+                        onClick={() => setOnlinePage(p => Math.min(totalOnlinePages, p + 1))}
+                        disabled={onlinePage === totalOnlinePages}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        aria-label="Next page"
+                      >
+                        <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
-              <FtfTable
-                data={filteredFtf}
-                sortKey={sortKey}
-                toggleSort={toggleSort}
-                SortIcon={SortIcon}
-                onEdit={(c) => openEditModal(c, true)}
-                onDelete={(c) => setDeleteTarget(c)}
-                onMerge={(c) => setMergeTarget(c)}
-                onView={(c) => openDashboard(c, 'ftf')}
-                merging={merging}
-              />
+              <>
+                <FtfTable
+                  data={paginatedFtf}
+                  sortKey={sortKey}
+                  toggleSort={toggleSort}
+                  SortIcon={SortIcon}
+                  onEdit={(c) => openEditModal(c, true)}
+                  onDelete={(c) => setDeleteTarget(c)}
+                  onMerge={(c) => setMergeTarget(c)}
+                  onView={(c) => openDashboard(c, 'ftf')}
+                  merging={merging}
+                />
+                {filteredFtf.length > 0 && totalFtfPages > 1 && (
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-xs text-muted-foreground font-medium pl-1">
+                      Showing {(ftfPage - 1) * itemsPerPage + 1} to {Math.min(ftfPage * itemsPerPage, filteredFtf.length)} of {filteredFtf.length} clients
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setFtfPage(p => Math.max(1, p - 1))}
+                        disabled={ftfPage === 1}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        aria-label="Previous page"
+                      >
+                        <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-xs font-semibold text-foreground px-2">{ftfPage} / {totalFtfPages}</span>
+                      <button
+                        onClick={() => setFtfPage(p => Math.min(totalFtfPages, p + 1))}
+                        disabled={ftfPage === totalFtfPages}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        aria-label="Next page"
+                      >
+                        <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         </AnimatePresence>
