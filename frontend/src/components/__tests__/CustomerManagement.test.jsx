@@ -95,4 +95,73 @@ describe('CustomerManagement drawer stats', () => {
       expect(fetchCustomerTransactions).toHaveBeenCalledWith('julia_palomo@dlsu.edu.ph');
     });
   });
+
+  it('renders selection bar when customer checkboxes are selected', async () => {
+    fetchCustomers.mockResolvedValue({
+      online: [
+        {
+          id: 'user-1',
+          authId: 'auth-1',
+          email: 'user1@example.com',
+          displayName: 'User One',
+          orderCount: 2,
+          totalSpend: 5000,
+          createdAt: '2026-08-01T00:00:00.000Z'
+        }
+      ],
+      ftf: []
+    });
+
+    render(<CustomerManagement />);
+
+    await screen.findByText('User One');
+
+    const selectCheckbox = screen.getByLabelText('Select User One');
+    fireEvent.click(selectCheckbox);
+
+    expect(await screen.findByText('1 customer profile(s) selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Export Selected \(CSV\)/i })).toBeInTheDocument();
+  });
+
+  it('displays migration preview card when online account is selected in merge modal', async () => {
+    fetchCustomers.mockResolvedValue({
+      online: [
+        {
+          id: 'user-1',
+          authId: 'auth-online-1',
+          email: 'online@example.com',
+          displayName: 'Online Fleet Account',
+          orderCount: 5,
+          totalSpend: 25000,
+          createdAt: '2026-08-01T00:00:00.000Z'
+        }
+      ],
+      ftf: [
+        {
+          id: 'ftf-1',
+          authId: 'temp-ftf-1',
+          displayName: 'Walkin Customer',
+          email: 'walkin@example.com',
+          orderCount: 3,
+          totalSpend: 12000,
+          lastOrderDate: '2026-08-05T00:00:00.000Z'
+        }
+      ]
+    });
+
+    render(<CustomerManagement />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Face-to-Face Clients/i }));
+
+    const linkButton = await screen.findByRole('button', { name: /Link customer Walkin Customer to an online account/i });
+    fireEvent.click(linkButton);
+
+    expect(await screen.findByText('Link to Online Account')).toBeInTheDocument();
+
+    const accountSelect = screen.getByRole('combobox');
+    fireEvent.change(accountSelect, { target: { value: 'auth-online-1' } });
+
+    expect(await screen.findByText(/Migration Preview/i)).toBeInTheDocument();
+    expect(screen.getByText('Online Fleet Account')).toBeInTheDocument();
+  });
 });
