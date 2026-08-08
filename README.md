@@ -124,7 +124,10 @@ The app uses **Supabase (PostgreSQL)** managed via **Prisma ORM**.
   npx prisma db seed                   # Seeds the database tables
   ```
 
-### Test Accounts (local dev only)
+### Test accounts (local dev only)
+
+Throwaway credentials for the local/dev Supabase project only, not shared with production.
+
 | Role | Email | Password |
 |---|---|---|
 | Customer | `lionel.messi@example.com` | `Password123!` |
@@ -159,6 +162,10 @@ fix(TTP-8): resolve docker port conflict
 
 ---
 
-<p align="center">
-  <i>Developed by Team THISGROUPATE, De La Salle University, BSIS.</i>
-</p>
+## License
+
+Coursework project for BSIS at De La Salle University. All rights reserved.
+
+---
+
+_Developed by Team THISGROUPATE, De La Salle University, BSIS._
