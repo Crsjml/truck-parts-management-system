@@ -259,6 +259,13 @@ export default function CustomerManagement({ showToast }) {
           <h1 className="text-2xl font-black text-foreground tracking-tight font-display">Customer Management</h1>
           <p className="text-sm text-muted-foreground mt-1">View and manage online accounts and face-to-face clients</p>
         </div>
+        <button
+          onClick={() => openCreateModal(tab === 'ftf')}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-white font-bold text-sm shadow-md shadow-accent/20 hover:bg-accent/90 active:scale-[0.98] transition-all cursor-pointer shrink-0 self-start sm:self-auto"
+        >
+          <UserPlus weight="bold" className="w-4 h-4" />
+          Add Customer
+        </button>
       </div>
 
       {/* Overview Counters */}
@@ -339,7 +346,8 @@ export default function CustomerManagement({ showToast }) {
             onClick={load}
             disabled={loading}
             className="p-2 bg-secondary border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-            title="Refresh"
+            title="Refresh customer list"
+            aria-label="Refresh customer list"
           >
             <ArrowsClockwise weight="bold" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -903,22 +911,35 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
           </thead>
           <tbody className="divide-y divide-border/50">
             {data.map(c => (
-              <tr key={c.id} className="hover:bg-secondary/25 transition-colors cursor-pointer group" onClick={() => onView(c)}>
+              <tr
+                key={c.id}
+                tabIndex={0}
+                role="button"
+                aria-label={`View details for ${c.displayName}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onView(c);
+                  }
+                }}
+                className="hover:bg-secondary/25 transition-colors cursor-pointer group focus:outline-none focus:bg-secondary/40"
+                onClick={() => onView(c)}
+              >
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-sm shrink-0">
                       {(c.displayName || '?')[0].toUpperCase()}
                     </div>
-                    <div>
-                      <div className="font-bold text-foreground group-hover:text-accent transition-colors">{c.displayName}</div>
-                      {c.companyName && <div className="text-xs text-muted-foreground">{c.companyName}</div>}
+                    <div className="min-w-0">
+                      <div className="font-bold text-foreground group-hover:text-accent transition-colors truncate max-w-[180px] md:max-w-[240px]" title={c.displayName}>{c.displayName}</div>
+                      {c.companyName && <div className="text-xs text-muted-foreground truncate max-w-[180px] md:max-w-[240px]" title={c.companyName}>{c.companyName}</div>}
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-3.5">
-                  <div className="space-y-0.5">
-                    {c.email && <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Envelope weight="duotone" className="w-3.5 h-3.5" /> {c.email}</div>}
-                    {c.phoneNumber && <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Phone weight="duotone" className="w-3.5 h-3.5" /> {c.phoneNumber}</div>}
+                  <div className="space-y-0.5 min-w-0">
+                    {c.email && <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate max-w-[180px] md:max-w-[220px]" title={c.email}><Envelope weight="duotone" className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{c.email}</span></div>}
+                    {c.phoneNumber && <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Phone weight="duotone" className="w-3.5 h-3.5 shrink-0" /> {c.phoneNumber}</div>}
                   </div>
                 </td>
                 <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -934,6 +955,7 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
                       onClick={() => onEdit(c)}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                       title="Edit Profile"
+                      aria-label={`Edit profile for ${c.displayName}`}
                     >
                       <PencilSimple weight="bold" className="w-4 h-4" />
                     </button>
@@ -941,6 +963,7 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
                       onClick={() => onDelete(c)}
                       className="p-1.5 rounded-lg text-red-500 hover:text-white hover:bg-red-500 transition-colors"
                       title="Delete Customer"
+                      aria-label={`Delete customer ${c.displayName}`}
                     >
                       <TrashSimple weight="bold" className="w-4 h-4" />
                     </button>
@@ -975,24 +998,37 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
           </thead>
           <tbody className="divide-y divide-border/50">
             {data.map(c => (
-              <tr key={c.id} className="hover:bg-secondary/25 transition-colors cursor-pointer group" onClick={() => onView(c)}>
+              <tr
+                key={c.id}
+                tabIndex={0}
+                role="button"
+                aria-label={`View details for ${c.displayName}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onView(c);
+                  }
+                }}
+                className="hover:bg-secondary/25 transition-colors cursor-pointer group focus:outline-none focus:bg-secondary/40"
+                onClick={() => onView(c)}
+              >
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-sm shrink-0">
                       {(c.displayName || '?')[0].toUpperCase()}
                     </div>
-                    <div>
-                      <div className="font-bold text-foreground group-hover:text-amber-500 transition-colors">{c.displayName}</div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-foreground group-hover:text-amber-500 transition-colors truncate max-w-[180px] md:max-w-[240px]" title={c.displayName}>{c.displayName}</div>
                       <div className="text-2xs text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider flex items-center gap-1">
-                        <Storefront weight="fill" className="w-2.5 h-2.5" /> Walk-in
+                        <Storefront weight="fill" className="w-2.5 h-2.5 shrink-0" /> Walk-in
                       </div>
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-3.5">
-                  <div className="space-y-0.5">
-                    {c.email && <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Envelope weight="duotone" className="w-3.5 h-3.5" /> {c.email}</div>}
-                    {c.phoneNumber && <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Phone weight="duotone" className="w-3.5 h-3.5" /> {c.phoneNumber}</div>}
+                  <div className="space-y-0.5 min-w-0">
+                    {c.email && <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate max-w-[180px] md:max-w-[220px]" title={c.email}><Envelope weight="duotone" className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{c.email}</span></div>}
+                    {c.phoneNumber && <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Phone weight="duotone" className="w-3.5 h-3.5 shrink-0" /> {c.phoneNumber}</div>}
                   </div>
                 </td>
                 <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -1009,6 +1045,7 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
                       disabled={merging === c.authId}
                       className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-accent/10 text-accent hover:bg-accent hover:text-white border border-accent/20 hover:border-accent transition-colors disabled:opacity-50"
                       title="Link to online account"
+                      aria-label={`Link customer ${c.displayName} to an online account`}
                     >
                       {merging === c.authId ? <CircleNotch weight="bold" className="w-3 animate-spin" /> : <LinkSimple weight="bold" className="w-3" />}
                       Link
@@ -1017,6 +1054,7 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
                       onClick={() => onEdit(c)}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                       title="Edit Customer"
+                      aria-label={`Edit profile for ${c.displayName}`}
                     >
                       <PencilSimple weight="bold" className="w-4 h-4" />
                     </button>
@@ -1024,6 +1062,7 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
                       onClick={() => onDelete(c)}
                       className="p-1.5 rounded-lg text-red-500 hover:text-white hover:bg-red-500 transition-colors"
                       title="Delete Customer"
+                      aria-label={`Delete customer ${c.displayName}`}
                     >
                       <TrashSimple weight="bold" className="w-4 h-4" />
                     </button>
