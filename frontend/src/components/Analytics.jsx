@@ -113,9 +113,13 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   useEffect(() => {
     if (!selectedInvoice) return;
     setStatusDraft(normalizeStatus(selectedInvoice.status));
-    setStatusMessage(null);
     setConfirmCancel(false);
-  }, [selectedInvoice]);
+  }, [selectedInvoice?.status]);
+
+  useEffect(() => {
+    if (!selectedInvoice) return;
+    setStatusMessage(null);
+  }, [selectedInvoice?.id]);
 
   // Fetch category hierarchy for category drill-down
   useEffect(() => {

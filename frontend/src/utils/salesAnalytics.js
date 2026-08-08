@@ -84,9 +84,76 @@ export function computeKpis(current, previous) {
   return { revenue, invoices, avgInvoice, unitsPerInvoice, deltas };
 }
 
+function buildCalendarMonthBuckets(current, previous, range, createRow, aggregateCurrent, aggregatePrevious) {
+  let { start, end, comparable, spanMs } = range;
+  
+  if ((!spanMs || spanMs === 0 || !start || start.getTime() === 0) && current.length > 0) {
+    let minD = new Date(current[0].transactionDate).getTime();
+    let maxD = new Date(current[0].transactionDate).getTime();
+    for (const t of current) {
+      const ms = new Date(t.transactionDate).getTime();
+      if (ms < minD) minD = ms;
+      if (ms > maxD) maxD = ms;
+    }
+    start = new Date(minD);
+    end = new Date(maxD);
+  }
+
+  if (!start || !end) {
+    start = new Date();
+    end = new Date();
+  }
+
+  const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+
+  const series = [];
+  const curr = new Date(startMonth);
+
+  while (curr <= endMonth) {
+    const label = curr.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    series.push(createRow(label, new Date(curr)));
+    curr.setMonth(curr.getMonth() + 1);
+  }
+
+  const findBucketIndex = (date) => {
+    const d = new Date(date);
+    return (d.getFullYear() - startMonth.getFullYear()) * 12 + (d.getMonth() - startMonth.getMonth());
+  };
+
+  for (const t of current) {
+    const i = findBucketIndex(t.transactionDate);
+    if (i >= 0 && i < series.length) {
+      aggregateCurrent(series[i], t);
+    }
+  }
+
+  if (comparable && previous && aggregatePrevious) {
+    for (const t of previous) {
+      const i = findBucketIndex(t.transactionDate);
+      if (i >= 0 && i < series.length) {
+        aggregatePrevious(series[i], t);
+      }
+    }
+  }
+
+  return series;
+}
+
 export function trendSeries(current, previous, range) {
   let { start, bucket, comparable, spanMs } = range;
   
+  if (bucket === 'month') {
+    return buildCalendarMonthBuckets(
+      current,
+      previous,
+      range,
+      (label, date) => ({ label, date, revenue: 0, prior: comparable ? 0 : null }),
+      (row, t) => { row.revenue += (t.total || 0); },
+      (row, t) => { if (row.prior !== null) row.prior += (t.total || 0); }
+    );
+  }
+
   if (spanMs === 0 && current.length > 0) {
     let minD = new Date(current[0].transactionDate).getTime();
     let maxD = minD;
@@ -240,6 +307,24 @@ export function topMovers(current, previous, limit) {
 export function paymentMix(transactions, range) {
   let { start, spanMs, bucket } = range;
   
+  if (bucket === 'month') {
+    return buildCalendarMonthBuckets(
+      transactions,
+      null,
+      range,
+      (label, date) => {
+        const row = { label, date };
+        PAYMENT_METHODS.forEach(m => row[m] = 0);
+        return row;
+      },
+      (row, t) => {
+        let m = t.paymentMethod;
+        if (!PAYMENT_METHODS.includes(m)) m = 'CASH';
+        row[m] += (t.total || 0);
+      }
+    );
+  }
+  
   if (spanMs === 0 && transactions.length > 0) {
     let minD = new Date(transactions[0].transactionDate).getTime();
     let maxD = minD;
@@ -349,6 +434,33 @@ export function slowMovingParts(parts, transactions, { start, end }, threshold =
 
 export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
   const current = inRange(transactions, start, end);
+
+  if (bucketBy === 'month') {
+    const series = buildCalendarMonthBuckets(
+      current,
+      null,
+      { start, end, spanMs: (end && start) ? (end - start) : 0 },
+      (label, date) => ({ label, date, revenue: 0, invoices: 0, isPeak: false }),
+      (row, t) => {
+        row.revenue += (t.total || 0);
+        row.invoices += 1;
+      }
+    );
+
+    let maxRev = -1;
+    let peakIndex = -1;
+    for (let i = 0; i < series.length; i++) {
+      if (series[i].revenue > maxRev) {
+        maxRev = series[i].revenue;
+        peakIndex = i;
+      }
+    }
+    if (peakIndex >= 0) {
+      series[peakIndex].isPeak = true;
+    }
+    return series;
+  }
+
   const spanMs = end - start;
   
   const numBuckets = bucketBy === 'day' ? Math.round(spanMs / 864e5) : bucketBy === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
