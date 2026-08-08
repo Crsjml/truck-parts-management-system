@@ -549,7 +549,7 @@ export default function App() {
         <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
           Loading storefront...
         </div>
-        <StatusBar />
+        <StatusBar isLoggedIn={!!adminSession || !!customerSession} />
       </>
     );
   }
@@ -568,7 +568,7 @@ export default function App() {
           onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
           isLoggedIn={!!adminSession || !!customerSession}
         />
-        <StatusBar />
+        <StatusBar isLoggedIn={!!adminSession || !!customerSession} />
       </>
     );
   }
@@ -607,7 +607,7 @@ export default function App() {
           onLogout={() => handleLogout(adminSession ? 'admin' : 'customer')}
           isLoggedIn={!!adminSession || !!customerSession}
         />
-        {!customerSession && <StatusBar />}
+        <StatusBar isLoggedIn={!!adminSession || !!customerSession} />
         <ToastNotification toasts={toasts} onDismiss={dismissToast} />
         {needsProfileCompletion && (
           <CompleteProfileModal onComplete={handleProfileComplete} />
