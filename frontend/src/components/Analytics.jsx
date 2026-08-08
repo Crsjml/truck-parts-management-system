@@ -93,12 +93,12 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   }, [selectedInvoice, zoomedChart]);
 
   useEffect(() => {
-    if (selectedInvoice) {
+    if (selectedInvoice?.id) {
       setStatusDraft(normalizeStatus(selectedInvoice.status));
       setStatusMessage(null);
       setConfirmCancel(false);
     }
-  }, [selectedInvoice]);
+  }, [selectedInvoice?.id]);
 
   // Sync with props if transactions change from App.jsx
   useEffect(() => {
