@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import DateRangePicker from './DateRangePicker';
 import { rankPartsBySales, getRankDeltaBadge } from '../../utils/salesAnalytics';
 import { useSettings } from '../../context/SettingsContext';
@@ -33,6 +33,10 @@ export default function BestSellingPartsReport({ transactions, parts }) {
     }));
   }, [transactions, parts, dateRange]);
 
+  const [page, setPage] = useState(1);
+
+  useEffect(() => setPage(1), [dateRange]);
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-border">
@@ -61,7 +65,7 @@ export default function BestSellingPartsReport({ transactions, parts }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {ranked.map((item) => {
+              {ranked.slice((page - 1) * 10, page * 10).map((item) => {
                 const { text, style } = getRankDeltaBadge(item.rankDelta);
                 return (
                   <tr key={item.name} className="hover:bg-secondary transition-colors">
@@ -86,6 +90,23 @@ export default function BestSellingPartsReport({ transactions, parts }) {
               })}
             </tbody>
           </table>
+        )}
+        {ranked.length > 10 && (
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">
+              Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, ranked.length)} of {ranked.length} parts
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground">
+                Previous
+              </button>
+              <button onClick={() => setPage(p => Math.min(Math.ceil(ranked.length / 10), p + 1))} disabled={page === Math.ceil(ranked.length / 10)}
+                className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground">
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
