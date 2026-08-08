@@ -61,7 +61,7 @@ describe('Analytics Channel Filter', () => {
     fetchCategoriesList.mockResolvedValue([]);
     getSession.mockReset();
     getSession.mockResolvedValue({ data: { session: { access_token: 'test-token' } } });
-    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
   });
 
   it('filters KPIs and degrades Payment Mix card when Online is selected', () => {
