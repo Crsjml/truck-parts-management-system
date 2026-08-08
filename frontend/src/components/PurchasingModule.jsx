@@ -171,6 +171,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [posPage, setPosPage] = useState(1);
   const [payablePage, setPayablePage] = useState(1);
   const [supplierPage, setSupplierPage] = useState(1);
+  const [prodPage, setProdPage] = useState(1);
 
   // Forms
   const [supplierForm, setSupplierForm] = useState({ name: '', type: 'Company', contactPerson: '', email: '', phone: '', address: '', country: '', paymentTerms: 'Net 30', notes: '' });
@@ -192,6 +193,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   useEffect(() => { setPosPage(1); }, [posSearch, posFilters, posGroup, posFavsOnly]);
   useEffect(() => { setPayablePage(1); }, [payableSearch, payableFilters, payableGroup, payableFavsOnly]);
   useEffect(() => { setSupplierPage(1); }, [supplierSearch, supplierFilters, supplierGroup, supplierFavsOnly]);
+  useEffect(() => { setProdPage(1); }, [prodSearch, prodFilters, prodGroup, prodFavsOnly]);
 
   useEffect(() => {
     const handlePurchasingIntent = (e) => {
@@ -1175,53 +1177,87 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             </div>
           </div>
 
-          {prodView === 'grid' ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-              {filteredParts.map(part => {
-                const { Icon, color } = getCategoryIconAndColor(part.category);
-                const isLow = part.stock <= part.minStock;
-                const isFav = prodFavs.includes(part.id);
-                return (
-                  <div key={part.id} onClick={() => openProductModal(part)} className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
-                    {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
-                    <button onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
-                    </button>
-                    <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3 shadow-inner" style={{ color: color || '#888' }}>
-                      <Icon weight="duotone" className="w-6 h-6" />
-                    </div>
-                    <span className="text-2xs uppercase font-bold text-muted-foreground font-mono tracking-wider">{part.sku}</span>
-                    <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                      <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price)}</span>
-                      <span className={`text-11px font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`}>{part.stock} pcs</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-2">
-                      {part.published ? <Eye weight="duotone" className="w-3 h-3 text-emerald-500" /> : <EyeSlash weight="duotone" className="w-3 h-3 text-muted-foreground" />}
-                      <span className={`text-2xs font-semibold ${part.published ? 'text-emerald-500' : 'text-muted-foreground'}`}>{part.published ? 'Published' : 'Unpublished'}</span>
-                      {part.archived && <span className="ml-auto text-2xs font-bold text-amber-400 flex items-center gap-0.5"><Archive className="w-3 h-3" /> Archived</span>}
+          {(() => {
+            const prodTotalPages = prodGroup ? 1 : Math.ceil(filteredParts.length / ORDERS_PAGE_SIZE);
+            const prodRows = prodGroup ? filteredParts : filteredParts.slice((prodPage - 1) * ORDERS_PAGE_SIZE, prodPage * ORDERS_PAGE_SIZE);
+            return (
+              <>
+                {prodView === 'grid' ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                    {prodRows.map(part => {
+                      const { Icon, color } = getCategoryIconAndColor(part.category);
+                      const isLow = part.stock <= part.minStock;
+                      const isFav = prodFavs.includes(part.id);
+                      return (
+                        <div key={part.id} onClick={() => openProductModal(part)} className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
+                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
+                          <button onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
+                          </button>
+                          <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3 shadow-inner" style={{ color: color || '#888' }}>
+                            <Icon weight="duotone" className="w-6 h-6" />
+                          </div>
+                          <span className="text-2xs uppercase font-bold text-muted-foreground font-mono tracking-wider">{part.sku}</span>
+                          <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                            <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price)}</span>
+                            <span className={`text-11px font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`}>{part.stock} pcs</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-2">
+                            {part.published ? <Eye weight="duotone" className="w-3 h-3 text-emerald-500" /> : <EyeSlash weight="duotone" className="w-3 h-3 text-muted-foreground" />}
+                            <span className={`text-2xs font-semibold ${part.published ? 'text-emerald-500' : 'text-muted-foreground'}`}>{part.published ? 'Published' : 'Unpublished'}</span>
+                            {part.archived && <span className="ml-auto text-2xs font-bold text-amber-400 flex items-center gap-0.5"><Archive className="w-3 h-3" /> Archived</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {filteredParts.length === 0 && <div className="col-span-full py-16 text-center text-muted-foreground">No products found.</div>}
+                  </div>
+                ) : (
+                  <GroupedTable
+                    columns={[
+                      { key: 'name', label: 'Product', className: 'font-bold text-foreground group-hover:text-accent transition-colors' },
+                      { key: 'sku', label: 'SKU', render: v => <span className="font-mono text-xs">{v}</span> },
+                      { key: 'category', label: 'Category' },
+                      { key: 'price', label: 'Price', align: 'right', render: v => formatCurrency(v) },
+                      { key: 'stock', label: 'Stock', align: 'right', render: (v, r) => <span className={`font-bold ${v <= r.minStock ? 'text-accent' : 'text-emerald-500'}`}>{v}</span> },
+                      { key: 'published', label: 'Published', align: 'right', render: v => v ? <Eye weight="duotone" className="w-4 h-4 text-emerald-500 ml-auto" /> : <EyeSlash weight="duotone" className="w-4 h-4 text-muted-foreground ml-auto" /> },
+                    ]}
+                    rows={prodRows} groupBy={prodGroup}
+                    onRowClick={openProductModal}
+                    favKey="prod" favorites={prodFavs}
+                    onToggleFav={id => setProdFavs(toggleFavorite('prod', id))}
+                  />
+                )}
+                {prodTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-1 border-t border-border">
+                    <span className="text-xs text-muted-foreground font-medium pl-1">
+                      Showing {(prodPage - 1) * ORDERS_PAGE_SIZE + 1} to {Math.min(prodPage * ORDERS_PAGE_SIZE, filteredParts.length)} of {filteredParts.length} items
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setProdPage(p => Math.max(1, p - 1))}
+                        disabled={prodPage === 1}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        aria-label="Previous page"
+                      >
+                        <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-xs font-semibold text-foreground px-2">{prodPage} / {prodTotalPages}</span>
+                      <button
+                        onClick={() => setProdPage(p => Math.min(prodTotalPages, p + 1))}
+                        disabled={prodPage === prodTotalPages}
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        aria-label="Next page"
+                      >
+                        <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-              {filteredParts.length === 0 && <div className="col-span-full py-16 text-center text-muted-foreground">No products found.</div>}
-            </div>
-          ) : (
-            <GroupedTable
-              columns={[
-                { key: 'name', label: 'Product', className: 'font-bold text-foreground group-hover:text-accent transition-colors' },
-                { key: 'sku', label: 'SKU', render: v => <span className="font-mono text-xs">{v}</span> },
-                { key: 'category', label: 'Category' },
-                { key: 'price', label: 'Price', align: 'right', render: v => formatCurrency(v) },
-                { key: 'stock', label: 'Stock', align: 'right', render: (v, r) => <span className={`font-bold ${v <= r.minStock ? 'text-accent' : 'text-emerald-500'}`}>{v}</span> },
-                { key: 'published', label: 'Published', align: 'right', render: v => v ? <Eye weight="duotone" className="w-4 h-4 text-emerald-500 ml-auto" /> : <EyeSlash weight="duotone" className="w-4 h-4 text-muted-foreground ml-auto" /> },
-              ]}
-              rows={filteredParts} groupBy={prodGroup}
-              onRowClick={openProductModal}
-              favKey="prod" favorites={prodFavs}
-              onToggleFav={id => setProdFavs(toggleFavorite('prod', id))}
-            />
-          )}
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
