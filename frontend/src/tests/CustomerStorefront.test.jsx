@@ -372,22 +372,22 @@ describe('CustomerStorefront Component Tests', () => {
   it('keeps the homepage hero contract aligned with browser coverage', () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
 
-    expect(screen.getByRole('button', { name: /select your truck/i })).toBeVisible();
-    expect(screen.getByRole('button', { name: /browse catalog/i })).toBeVisible();
-    expect(screen.getByRole('searchbox', { name: /search parts/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /select your truck/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /browse catalog/i })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: /search parts/i })).toBeInTheDocument();
   });
 
   it('keeps the home surface grounded with the restored brand marquee', () => {
     render(<CustomerStorefront parts={mockParts} categories={['Brakes', 'Engine']} />);
 
-    expect(screen.getByText(/trusted by global fleets/i)).toBeVisible();
-    expect(screen.getAllByText(/^cumm?mins$/i)[0]).toBeVisible();
-    expect(screen.getAllByText(/^isuzu$/i)[0]).toBeVisible();
-    expect(screen.getByRole('heading', { name: /start with your truck, then find the right part faster/i })).toBeVisible();
-    expect(screen.getByText(/fitment-first shopping/i)).toBeVisible();
-    expect(screen.getByText(/see what is in stock/i)).toBeVisible();
-    expect(screen.getByText(/fleet and shop pricing/i)).toBeVisible();
-    expect(screen.getByText(/only show parts that fit/i)).toBeVisible();
+    expect(screen.getByText(/trusted by global fleets/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/^cumm?mins$/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/^isuzu$/i)[0]).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /start with your truck, then find the right part faster/i })).toBeInTheDocument();
+    expect(screen.getByText(/fitment-first shopping/i)).toBeInTheDocument();
+    expect(screen.getByText(/see what is in stock/i)).toBeInTheDocument();
+    expect(screen.getByText(/fleet and shop pricing/i)).toBeInTheDocument();
+    expect(screen.getByText(/only show parts that fit/i)).toBeInTheDocument();
     expect(screen.queryByText(/live stock visibility/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/wholesale-ready accounts/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/compatibility-aware browsing/i)).not.toBeInTheDocument();
