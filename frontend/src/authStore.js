@@ -123,6 +123,7 @@ export const fetchParts = async (search = '', category = 'All', filters = {}, fo
     if (filters.brand) params.append('brand', filters.brand);
     if (filters.series) params.append('series', filters.series);
     if (filters.engineCode) params.append('engineCode', filters.engineCode);
+    if (filters.archived) params.append('archived', 'true');
     if (forceRefresh) params.append('_t', Date.now());
     
     // Always fetch a large limit so the dashboard and catalog have all parts
