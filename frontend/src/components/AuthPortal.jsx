@@ -177,7 +177,7 @@ export default function AuthPortal({
           <div className="font-medium">{displayNoticeText}</div>
           
           {/* Recovery Actions */}
-          {isUnverifiedNotice && (unverifiedEmail || loginEmailField.value) && (
+          {isUnverifiedNotice && (
             <button
               type="button"
               disabled={resendingVerification}
