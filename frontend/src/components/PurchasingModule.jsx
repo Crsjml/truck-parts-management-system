@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import {
   Buildings, User, Plus, Minus, Trash, X, CheckCircle, MagnifyingGlass,
-  CaretRight, Package, CurrencyDollar, ShoppingCart, PencilSimple,
+  CaretLeft, CaretRight, Package, CurrencyDollar, ShoppingCart, PencilSimple,
   Star, Funnel, ArrowsDownUp, ChartBar, Receipt, EnvelopeSimple,
   Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf, Clock,
   TrendUp, ClockCounterClockwise, Truck, ListDashes, SquaresFour,
@@ -43,6 +43,7 @@ import {
 const NOT_ACKNOWLEDGED_DAYS = 7;
 const PAYMENT_DUE_SOON_DAYS = 7;
 const CHART_COLORS = ['#e63946', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+const ORDERS_PAGE_SIZE = 15;
 
 const toMoney = (value) => {
   const amount = Number(value);
@@ -165,6 +166,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [prodFavs, setProdFavs] = useState(getFavorites('prod'));
   const [prodView, setProdView] = useState('grid'); // 'grid' | 'list'
 
+  // ── Pagination state per orders sub-tab ──────────────────────────────────────
+  const [rfqPage, setRfqPage] = useState(1);
+  const [posPage, setPosPage] = useState(1);
+  const [payablePage, setPayablePage] = useState(1);
+  const [supplierPage, setSupplierPage] = useState(1);
+
   // Forms
   const [supplierForm, setSupplierForm] = useState({ name: '', type: 'Company', contactPerson: '', email: '', phone: '', address: '', country: '', paymentTerms: 'Net 30', notes: '' });
   const [poForm, setPoForm] = useState({ supplier: '', expectedDeliveryDate: '', paymentDueDate: '', notes: '', items: [], sourceRfq: '' });
@@ -176,6 +183,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   useEffect(() => {
     loadData();
   }, []);
+
+  // ── Pagination resets ────────────────────────────────────────────────────────
+  // Reset all pages when switching the active order tab
+  useEffect(() => { setRfqPage(1); setPosPage(1); setPayablePage(1); setSupplierPage(1); }, [activeOrderTab]);
+  // Reset per-tab page on any filter/search/groupBy/favorites change
+  useEffect(() => { setRfqPage(1); }, [rfqSearch, rfqFilters, rfqGroup, rfqFavsOnly, rfqStatFilter]);
+  useEffect(() => { setPosPage(1); }, [posSearch, posFilters, posGroup, posFavsOnly]);
+  useEffect(() => { setPayablePage(1); }, [payableSearch, payableFilters, payableGroup, payableFavsOnly]);
+  useEffect(() => { setSupplierPage(1); }, [supplierSearch, supplierFilters, supplierGroup, supplierFavsOnly]);
 
   useEffect(() => {
     const handlePurchasingIntent = (e) => {
@@ -932,12 +948,46 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   groupByOptions={['Supplier', 'Buyer', 'Status']} activeGroup={rfqGroup} onGroupBy={setRfqGroup}
                   favoritesCount={rfqFavs.length} onFavoritesFilter={() => setRfqFavsOnly(p => !p)} showFavoritesOnly={rfqFavsOnly}
                 />
-                <GroupedTable
-                  columns={rfqColumns} rows={filteredRfqs} groupBy={rfqGroup}
-                  onRowClick={openPoModal}
-                  favKey="rfq" favorites={rfqFavs}
-                  onToggleFav={id => setRfqFavs(toggleFavorite('rfq', id))}
-                />
+                {(() => {
+                  const rfqTotalPages = rfqGroup ? 1 : Math.ceil(filteredRfqs.length / ORDERS_PAGE_SIZE);
+                  const rfqRows = rfqGroup ? filteredRfqs : filteredRfqs.slice((rfqPage - 1) * ORDERS_PAGE_SIZE, rfqPage * ORDERS_PAGE_SIZE);
+                  return (
+                    <>
+                      <GroupedTable
+                        columns={rfqColumns} rows={rfqRows} groupBy={rfqGroup}
+                        onRowClick={openPoModal}
+                        favKey="rfq" favorites={rfqFavs}
+                        onToggleFav={id => setRfqFavs(toggleFavorite('rfq', id))}
+                      />
+                      {rfqTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-1 border-t border-border">
+                          <span className="text-xs text-muted-foreground font-medium pl-1">
+                            Showing {(rfqPage - 1) * ORDERS_PAGE_SIZE + 1} to {Math.min(rfqPage * ORDERS_PAGE_SIZE, filteredRfqs.length)} of {filteredRfqs.length} items
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setRfqPage(p => Math.max(1, p - 1))}
+                              disabled={rfqPage === 1}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Previous page"
+                            >
+                              <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-semibold text-foreground px-2">{rfqPage} / {rfqTotalPages}</span>
+                            <button
+                              onClick={() => setRfqPage(p => Math.min(rfqTotalPages, p + 1))}
+                              disabled={rfqPage === rfqTotalPages}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Next page"
+                            >
+                              <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
 
@@ -951,12 +1001,46 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   groupByOptions={['Supplier', 'Buyer', 'Status']} activeGroup={posGroup} onGroupBy={setPosGroup}
                   favoritesCount={posFavs.length} onFavoritesFilter={() => setPosFavsOnly(p => !p)} showFavoritesOnly={posFavsOnly}
                 />
-                <GroupedTable
-                  columns={posColumns} rows={filteredPos} groupBy={posGroup}
-                  onRowClick={openPoModal}
-                  favKey="pos" favorites={posFavs}
-                  onToggleFav={id => setPosFavs(toggleFavorite('pos', id))}
-                />
+                {(() => {
+                  const posTotalPages = posGroup ? 1 : Math.ceil(filteredPos.length / ORDERS_PAGE_SIZE);
+                  const posRows = posGroup ? filteredPos : filteredPos.slice((posPage - 1) * ORDERS_PAGE_SIZE, posPage * ORDERS_PAGE_SIZE);
+                  return (
+                    <>
+                      <GroupedTable
+                        columns={posColumns} rows={posRows} groupBy={posGroup}
+                        onRowClick={openPoModal}
+                        favKey="pos" favorites={posFavs}
+                        onToggleFav={id => setPosFavs(toggleFavorite('pos', id))}
+                      />
+                      {posTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-1 border-t border-border">
+                          <span className="text-xs text-muted-foreground font-medium pl-1">
+                            Showing {(posPage - 1) * ORDERS_PAGE_SIZE + 1} to {Math.min(posPage * ORDERS_PAGE_SIZE, filteredPos.length)} of {filteredPos.length} items
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setPosPage(p => Math.max(1, p - 1))}
+                              disabled={posPage === 1}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Previous page"
+                            >
+                              <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-semibold text-foreground px-2">{posPage} / {posTotalPages}</span>
+                            <button
+                              onClick={() => setPosPage(p => Math.min(posTotalPages, p + 1))}
+                              disabled={posPage === posTotalPages}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Next page"
+                            >
+                              <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
 
@@ -975,12 +1059,46 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   groupByOptions={['supplierName', 'paymentStatus']} activeGroup={payableGroup} onGroupBy={setPayableGroup}
                   favoritesCount={payableFavs.length} onFavoritesFilter={() => setPayableFavsOnly(p => !p)} showFavoritesOnly={payableFavsOnly}
                 />
-                <GroupedTable
-                  columns={payableColumns} rows={filteredPayables} groupBy={payableGroup}
-                  onRowClick={openPoModal}
-                  favKey="payables" favorites={payableFavs}
-                  onToggleFav={id => setPayableFavs(toggleFavorite('payables', id))}
-                />
+                {(() => {
+                  const payableTotalPages = payableGroup ? 1 : Math.ceil(filteredPayables.length / ORDERS_PAGE_SIZE);
+                  const payablePageRows = payableGroup ? filteredPayables : filteredPayables.slice((payablePage - 1) * ORDERS_PAGE_SIZE, payablePage * ORDERS_PAGE_SIZE);
+                  return (
+                    <>
+                      <GroupedTable
+                        columns={payableColumns} rows={payablePageRows} groupBy={payableGroup}
+                        onRowClick={openPoModal}
+                        favKey="payables" favorites={payableFavs}
+                        onToggleFav={id => setPayableFavs(toggleFavorite('payables', id))}
+                      />
+                      {payableTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-1 border-t border-border">
+                          <span className="text-xs text-muted-foreground font-medium pl-1">
+                            Showing {(payablePage - 1) * ORDERS_PAGE_SIZE + 1} to {Math.min(payablePage * ORDERS_PAGE_SIZE, filteredPayables.length)} of {filteredPayables.length} items
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setPayablePage(p => Math.max(1, p - 1))}
+                              disabled={payablePage === 1}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Previous page"
+                            >
+                              <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-semibold text-foreground px-2">{payablePage} / {payableTotalPages}</span>
+                            <button
+                              onClick={() => setPayablePage(p => Math.min(payableTotalPages, p + 1))}
+                              disabled={payablePage === payableTotalPages}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Next page"
+                            >
+                              <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
 
@@ -994,12 +1112,46 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   groupByOptions={['Country', 'Type']} activeGroup={supplierGroup} onGroupBy={setSupplierGroup}
                   favoritesCount={supplierFavs.length} onFavoritesFilter={() => setSupplierFavsOnly(p => !p)} showFavoritesOnly={supplierFavsOnly}
                 />
-                <GroupedTable
-                  columns={supplierColumns} rows={filteredSuppliers} groupBy={supplierGroup}
-                  onRowClick={openSupplierModal}
-                  favKey="supplier" favorites={supplierFavs}
-                  onToggleFav={id => setSupplierFavs(toggleFavorite('supplier', id))}
-                />
+                {(() => {
+                  const supplierTotalPages = supplierGroup ? 1 : Math.ceil(filteredSuppliers.length / ORDERS_PAGE_SIZE);
+                  const supplierPageRows = supplierGroup ? filteredSuppliers : filteredSuppliers.slice((supplierPage - 1) * ORDERS_PAGE_SIZE, supplierPage * ORDERS_PAGE_SIZE);
+                  return (
+                    <>
+                      <GroupedTable
+                        columns={supplierColumns} rows={supplierPageRows} groupBy={supplierGroup}
+                        onRowClick={openSupplierModal}
+                        favKey="supplier" favorites={supplierFavs}
+                        onToggleFav={id => setSupplierFavs(toggleFavorite('supplier', id))}
+                      />
+                      {supplierTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-1 border-t border-border">
+                          <span className="text-xs text-muted-foreground font-medium pl-1">
+                            Showing {(supplierPage - 1) * ORDERS_PAGE_SIZE + 1} to {Math.min(supplierPage * ORDERS_PAGE_SIZE, filteredSuppliers.length)} of {filteredSuppliers.length} items
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSupplierPage(p => Math.max(1, p - 1))}
+                              disabled={supplierPage === 1}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Previous page"
+                            >
+                              <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-semibold text-foreground px-2">{supplierPage} / {supplierTotalPages}</span>
+                            <button
+                              onClick={() => setSupplierPage(p => Math.min(supplierTotalPages, p + 1))}
+                              disabled={supplierPage === supplierTotalPages}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              aria-label="Next page"
+                            >
+                              <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>

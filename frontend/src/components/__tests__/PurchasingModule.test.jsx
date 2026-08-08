@@ -238,3 +238,90 @@ describe('PurchasingModule RFQ and PO behavior', () => {
     });
   });
 });
+
+// ─── Pagination tests ─────────────────────────────────────────────────────────
+
+/** Build N minimal RFQ (Draft) PO objects for pagination tests. */
+const makeDraftPos = (count) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `draft-${i}`,
+    poNumber: `RFQ-${String(i).padStart(4, '0')}`,
+    status: 'Draft',
+    billingStatus: null,
+    totalAmount: 1000 * (i + 1),
+    expectedDeliveryDate: '2027-01-01T00:00:00.000Z',
+    paymentDueDate: null,
+    confirmationDate: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    createdBy: 'Admin',
+    sourceRfq: '',
+    notes: '',
+    supplier,
+    items: [{ id: `item-${i}`, partId: 'part-1', sku: 'AC-001', name: 'Air Compressor', quantity: 1, unitPrice: 1000, subtotal: 1000 }],
+  }));
+
+describe('PurchasingModule pagination', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchSuppliers.mockResolvedValue([supplier]);
+  });
+
+  it('does NOT render pagination footer when ≤15 RFQ rows exist', async () => {
+    fetchPurchaseOrders.mockResolvedValue(makeDraftPos(15));
+    renderPurchasing();
+
+    await screen.findByText('RFQ-0000');
+
+    expect(screen.queryByText(/Showing 1 to/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Previous page/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Next page/i })).toBeNull();
+  });
+
+  it('renders pagination footer and disables Prev on page 1 when >15 RFQ rows exist', async () => {
+    fetchPurchaseOrders.mockResolvedValue(makeDraftPos(16));
+    renderPurchasing();
+
+    await screen.findByText('RFQ-0000');
+
+    expect(screen.getByText(/Showing 1 to 15 of 16 items/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Previous page/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Next page/i })).not.toBeDisabled();
+  });
+
+  it('navigates to page 2 via Next and then back to page 1 via Prev', async () => {
+    fetchPurchaseOrders.mockResolvedValue(makeDraftPos(16));
+    renderPurchasing();
+
+    await screen.findByText('RFQ-0000');
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Next page/i }));
+    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+    expect(screen.getByText(/Showing 16 to 16 of 16 items/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Next page/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Previous page/i })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Previous page/i }));
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Previous page/i })).toBeDisabled();
+  });
+
+  it('resets RFQ page to 1 when switching tabs', async () => {
+    fetchPurchaseOrders.mockResolvedValue(makeDraftPos(16));
+    renderPurchasing();
+
+    await screen.findByText('RFQ-0000');
+
+    fireEvent.click(screen.getByRole('button', { name: /Next page/i }));
+    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Suppliers$/i }));
+    // The RFQ tab button contains a badge span, so its accessible name includes the count
+    fireEvent.click(screen.getByRole('button', { name: /Requests for Quotation/i }));
+
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Previous page/i })).toBeDisabled();
+  });
+});
+
