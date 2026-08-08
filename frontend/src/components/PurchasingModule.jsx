@@ -11,7 +11,7 @@ import {
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrderDetails,
-  updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment
+  updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment, fetchParts
 } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
@@ -95,6 +95,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [suppliers, setSuppliers] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [archivedParts, setArchivedParts] = useState([]);
 
   // Helper for country data
   const countryOptions = useMemo(() => getCountries().map(c => ({ value: en[c], label: en[c], code: c })), []);
@@ -180,9 +181,29 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [poQty, setPoQty] = useState('');
   const [productForm, setProductForm] = useState({ name: '', sku: '', oem: '', category: '', price: '', stock: '', minStock: '', image: '' });
 
+  const loadData = async () => {
+    setLoading(true);
+    const [sups, pos] = await Promise.all([fetchSuppliers(), fetchPurchaseOrders()]);
+    setSuppliers(sups);
+    setPurchaseOrders(pos);
+    setLoading(false);
+  };
+
+  const loadArchivedParts = async () => {
+    if (typeof fetchParts === 'function') {
+      try {
+        const archived = await fetchParts('', 'All', { archived: true }, true);
+        if (Array.isArray(archived)) setArchivedParts(archived);
+      } catch (err) {
+        console.warn('Failed to load archived parts', err);
+      }
+    }
+  };
+
   // ── Load data ────────────────────────────────────────────────────────────────
   useEffect(() => {
     loadData();
+    loadArchivedParts();
   }, []);
 
   // ── Pagination resets ────────────────────────────────────────────────────────
@@ -225,13 +246,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     return () => window.removeEventListener('purchasingIntent', handlePurchasingIntent);
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    const [sups, pos] = await Promise.all([fetchSuppliers(), fetchPurchaseOrders()]);
-    setSuppliers(sups);
-    setPurchaseOrders(pos);
-    setLoading(false);
-  };
+
 
 
 
@@ -333,11 +348,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   }, [suppliers, supplierSearch, supplierFilters, supplierFavsOnly, supplierFavs]);
 
   const filteredParts = useMemo(() => {
-    let rows = parts || [];
+    const showArchived = prodFilters.includes('archived');
+    let rows = showArchived ? archivedParts : (parts || []);
     if (prodFilters.includes('published')) rows = rows.filter(p => p.published);
     if (prodFilters.includes('unpublished')) rows = rows.filter(p => !p.published);
-    if (prodFilters.includes('archived')) rows = rows.filter(p => p.archived);
-    else rows = rows.filter(p => !p.archived);
     if (prodFilters.includes('lowStock')) rows = rows.filter(p => p.stock <= p.minStock);
     const search = prodSearch;
     if (search) {
@@ -346,7 +360,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     }
     if (prodFavsOnly) rows = rows.filter(p => prodFavs.includes(p.id));
     return rows;
-  }, [parts, prodSearch, prodFilters, prodFavsOnly, prodFavs]);
+  }, [parts, archivedParts, prodSearch, prodFilters, prodFavsOnly, prodFavs]);
 
   // ── Reports data ─────────────────────────────────────────────────────────────
   const reportData = useMemo(() => {
@@ -430,7 +444,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (!viewingPart) return [];
     return (transactions || []).flatMap(tx => {
       const item = tx.items?.find(i => i.partId === viewingPart.id);
-      return item ? [{ date: tx.date, invoice: tx.invoiceNumber, customer: tx.customerName, qty: item.quantity, revenue: item.subtotal }] : [];
+      return item ? [{ date: tx.transactionDate, invoice: tx.invoiceNumber, customer: tx.customerName, qty: item.quantity, revenue: item.quantity * item.price }] : [];
     });
   }, [viewingPart, transactions]);
 
@@ -2027,7 +2041,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       </button>
                     )}
                     {viewingPart && (
-                      <button onClick={() => { if (confirm('Archive this product? It will be hidden but preserved.')) { onDeletePart(viewingPart.id); setIsProductModalOpen(false); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
+                      <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); setIsProductModalOpen(false); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
                         <Archive weight="bold" className="w-4 h-4" /> Archive
                       </button>
                     )}
