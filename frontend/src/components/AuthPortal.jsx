@@ -126,15 +126,30 @@ export default function AuthPortal({
     }
   };
 
+  const renderFieldError = (errorObj) => {
+    if (!errorObj) return null;
+    return (
+      <p role="alert" className="text-xs font-semibold text-red-500 dark:text-red-400 flex items-center gap-1.5 mt-1.5 animate-scaleUp">
+        <Warning weight="bold" className="h-3.5 w-3.5 shrink-0 text-red-500" />
+        <span>{errorObj.message}</span>
+      </p>
+    );
+  };
+
   const renderNoticeBanner = () => {
     if (!notice) return null;
 
     const isUnverifiedNotice = notice === 'UNVERIFIED_EMAIL' || /verify your email/i.test(notice);
-    const displayNoticeText = notice === 'UNVERIFIED_EMAIL'
-      ? `Please verify your email address (${unverifiedEmail || 'your email'}) before logging in. Check your inbox.`
-      : notice;
+    const isAccountExistsNotice = notice === 'ACCOUNT_EXISTS' || /already exists|already registered/i.test(notice);
+    
+    let displayNoticeText = notice;
+    if (notice === 'UNVERIFIED_EMAIL') {
+      displayNoticeText = `Please verify your email address (${unverifiedEmail || 'your email'}) before logging in. Check your inbox for the confirmation link.`;
+    } else if (notice === 'ACCOUNT_EXISTS') {
+      displayNoticeText = `An account with this email already exists. Log in with your password or use Google sign-in below.`;
+    }
 
-    const isError = /fail|incorrect|locked|invalid|error|cannot|wrong/i.test(displayNoticeText) || isUnverifiedNotice;
+    const isError = /fail|incorrect|locked|invalid|error|cannot|wrong/i.test(displayNoticeText) || isUnverifiedNotice || isAccountExistsNotice;
     const isSuccess = /success|verified|successfully|sent|created/i.test(displayNoticeText);
 
     let cardClasses = "mb-5 rounded-2xl border p-4 text-sm flex gap-3 items-start animate-scaleUp ";
@@ -156,20 +171,41 @@ export default function AuthPortal({
     }
 
     return (
-      <div className={cardClasses}>
+      <div className={cardClasses} role="alert">
         <Icon className={iconClass} weight="duotone" />
-        <div className="leading-snug flex-1">
-          <div>{displayNoticeText}</div>
+        <div className="leading-snug flex-1 space-y-2">
+          <div className="font-medium">{displayNoticeText}</div>
+          
+          {/* Recovery Actions */}
           {isUnverifiedNotice && (unverifiedEmail || loginEmailField.value) && (
             <button
               type="button"
               disabled={resendingVerification}
               onClick={() => handleResendVerification(unverifiedEmail || loginEmailField.value)}
-              className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
             >
               {resendingVerification ? <CircleNotch weight="duotone" className="h-3.5 w-3.5 animate-spin" /> : <EnvelopeOpen weight="duotone" className="h-3.5 w-3.5" />}
               Resend verification email
             </button>
+          )}
+
+          {isAccountExistsNotice && activeTab === 'register' && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('login'); resetFeedback(); }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-accent/90"
+              >
+                Switch to Login
+              </button>
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground shadow-sm transition hover:bg-secondary"
+              >
+                Sign in with Google
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -255,8 +291,8 @@ export default function AuthPortal({
           error.message?.includes('user_already_exists') ||
           error.code === 'user_already_exists'
         ) {
-          setNotice('An account with this email already exists. If you signed up with Google, use the Google button to sign in — otherwise, log in with your password.');
-          setActiveTab('login');
+          setNotice('ACCOUNT_EXISTS');
+          setActiveTab('register');
           setLoading(false);
           return;
         }
@@ -270,8 +306,8 @@ export default function AuthPortal({
 
       // Check if user already exists (Supabase identity obfuscation returns user with empty identities)
       if (signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
-        setNotice('An account with this email already exists. If you signed up with Google, use the Google button to sign in — otherwise, log in with your password.');
-        setActiveTab('login');
+        setNotice('ACCOUNT_EXISTS');
+        setActiveTab('register');
         setLoading(false);
         return;
       }
@@ -546,7 +582,7 @@ export default function AuthPortal({
                         placeholder="Juan Dela Cruz"
                       />
                     </div>
-                    {registerErrors.fullName && <p className="text-xs text-red-400 font-semibold">{registerErrors.fullName.message}</p>}
+                    {renderFieldError(registerErrors.fullName)}
                   </div>
 
                   <div className="space-y-2">
@@ -560,7 +596,7 @@ export default function AuthPortal({
                         placeholder="09171234567"
                       />
                     </div>
-                    {registerErrors.contactNumber && <p className="text-xs text-red-400 font-semibold">{registerErrors.contactNumber.message}</p>}
+                    {renderFieldError(registerErrors.contactNumber)}
                   </div>
                 </div>
 
@@ -577,7 +613,7 @@ export default function AuthPortal({
                         placeholder="customer@domain.com"
                       />
                     </div>
-                    {registerErrors.email && <p className="text-xs text-red-400 font-semibold">{registerErrors.email.message}</p>}
+                    {renderFieldError(registerErrors.email)}
                   </div>
 
                   <div className="space-y-2">
@@ -600,7 +636,7 @@ export default function AuthPortal({
                         {showRegisterPassword ? <EyeSlash weight="bold" className="h-4 w-4" /> : <Eye weight="bold" className="h-4 w-4" />}
                       </button>
                     </div>
-                    {registerErrors.password && <p className="text-xs text-red-400 font-semibold">{registerErrors.password.message}</p>}
+                    {renderFieldError(registerErrors.password)}
 
                     {/* ponytail: the non-breaking space is load-bearing. An empty span is a
                         zero-height flex item, so the row collapses to the 6px bar and jumps
@@ -676,7 +712,7 @@ export default function AuthPortal({
                           placeholder="customer@domain.com"
                         />
                       </div>
-                      {loginErrors.email && <p className="text-xs text-red-400 font-semibold">{loginErrors.email.message}</p>}
+                      {renderFieldError(loginErrors.email)}
                     </div>
 
                     <div className="space-y-2">
@@ -697,7 +733,7 @@ export default function AuthPortal({
                           {showLoginPassword ? <EyeSlash weight="bold" className="h-4 w-4" /> : <Eye weight="bold" className="h-4 w-4" />}
                         </button>
                       </div>
-                      {loginErrors.password && <p className="text-xs text-red-400 font-semibold">{loginErrors.password.message}</p>}
+                      {renderFieldError(loginErrors.password)}
                     </div>
 
                     <div className="flex justify-end pt-1">
