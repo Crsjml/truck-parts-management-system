@@ -19,3 +19,10 @@ firebase-service-account.json
 .agents/
 .claude/
 .impeccable/
+.opencode/
+.zed/
+.superpowers/
+docs/superpowers/
+docs/agent-session.md
+docs/claude-md-audit.md
+docs/memory/
