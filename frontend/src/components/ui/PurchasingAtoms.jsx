@@ -58,16 +58,16 @@ export const customSelectStyles = {
 export const StatusBadge = ({ status }) => {
   const map = {
     'Draft': 'bg-secondary text-muted-foreground border-border',
-    'RFQ Sent': 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-    'Confirmed': 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    'Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    'Cancelled': 'bg-red-500/15 text-red-400 border-red-500/30',
-    'Waiting Bills': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    'Bills Received': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'RFQ Sent': 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/30',
+    'Confirmed': 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
+    'Received': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+    'Cancelled': 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30',
+    'Waiting Bills': 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+    'Bills Received': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
     'Pending': 'bg-secondary text-muted-foreground border-border',
-    'Due Soon': 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    'Overdue': 'bg-red-500/15 text-red-400 border-red-500/30',
-    'Paid': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    'Due Soon': 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+    'Overdue': 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30',
+    'Paid': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
   };
   return (
     <span className={`px-2.5 py-0.5 text-11px font-bold rounded-full border ${map[status] || map['Draft']}`}>
@@ -95,7 +95,7 @@ export const PipelineChevron = ({ currentStatus }) => {
   let idx = stages.indexOf(currentStatus);
   if (idx === -1) idx = 0;
   if (currentStatus === 'Cancelled')
-    return <div className="flex border border-red-500/50 rounded-lg overflow-hidden bg-red-950/20 text-red-400 font-bold px-4 py-1.5 text-xs">CANCELLED</div>;
+    return <div className="flex border border-red-500/30 rounded-lg overflow-hidden bg-red-500/10 text-red-700 dark:text-red-400 font-bold px-4 py-1.5 text-xs">CANCELLED</div>;
   return (
     <div className="flex bg-secondary/50 rounded-lg border border-border overflow-hidden text-2xs font-bold uppercase tracking-wider">
       {stages.map((s, i) => (
@@ -135,9 +135,16 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
     }
   };
 
+  const [uploadError, setUploadError] = useState(null);
+
   const handleFile = (file) => {
+    setUploadError(null);
     if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file.');
+      setUploadError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError('Image size exceeds 2MB limit. Please select a smaller file.');
       return;
     }
     const reader = new FileReader();
@@ -152,10 +159,10 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
       <label className="text-xs font-bold text-muted-foreground">Product Image</label>
       <div
         onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-        className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden ${isDragging ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:bg-secondary/80'
+        className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden focus-within:ring-2 focus-within:ring-accent ${isDragging ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:bg-secondary/80'
           }`}
       >
-        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" aria-label="Upload product image" />
 
         {image ? (
           <div className="relative w-full h-32 flex items-center justify-center">
@@ -176,8 +183,9 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
           </div>
         )}
       </div>
+      {uploadError && <p className="text-xs font-bold text-accent mt-0.5 animate-fadeIn">{uploadError}</p>}
       {image && (
-        <button onClick={() => onImageUpload('')} className="text-xs text-red-400 hover:text-red-300 self-start font-semibold">
+        <button onClick={() => { setUploadError(null); onImageUpload(''); }} className="text-xs text-red-400 hover:text-red-300 self-start font-semibold">
           Remove Image
         </button>
       )}
