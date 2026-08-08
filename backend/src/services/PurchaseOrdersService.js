@@ -113,21 +113,31 @@ class PurchaseOrdersService {
     }
 
     const calculated = calculatePurchaseItems(items);
-    const poNumber = await this.generatePONumber();
 
-    return await purchaseOrdersRepository.create({
-      poNumber,
-      supplierId: supplier,
-      totalAmount: calculated.totalAmount,
-      expectedDeliveryDate: parseOptionalDate(expectedDeliveryDate, 'Expected delivery date'),
-      paymentDueDate: parseOptionalDate(paymentDueDate, 'Payment deadline'),
-      notes: notes?.trim() || '',
-      sourceRfq: sourceRfq?.trim() || '',
-      createdBy: createdBy?.trim() || 'Admin',
-      items: {
-        create: calculated.items
+    const MAX_PO_NUMBER_ATTEMPTS = 5;
+    for (let attempt = 1; attempt <= MAX_PO_NUMBER_ATTEMPTS; attempt++) {
+      const poNumber = await this.generatePONumber();
+      try {
+        return await purchaseOrdersRepository.create({
+          poNumber,
+          supplierId: supplier,
+          totalAmount: calculated.totalAmount,
+          expectedDeliveryDate: parseOptionalDate(expectedDeliveryDate, 'Expected delivery date'),
+          paymentDueDate: parseOptionalDate(paymentDueDate, 'Payment deadline'),
+          notes: notes?.trim() || '',
+          sourceRfq: sourceRfq?.trim() || '',
+          createdBy: createdBy?.trim() || 'Admin',
+          items: {
+            create: calculated.items
+          }
+        });
+      } catch (error) {
+        const isPoNumberCollision = error.code === 'P2002' && error.meta?.target?.includes('poNumber');
+        if (!isPoNumberCollision || attempt === MAX_PO_NUMBER_ATTEMPTS) {
+          throw error;
+        }
       }
-    });
+    }
   }
 
   async updatePOStatus(id, status) {

@@ -49,6 +49,59 @@ describe('PurchaseOrdersService calculations', () => {
     });
   });
 
+  it('retries with a new PO number when a concurrent create collides on poNumber', async () => {
+    const collision = Object.assign(new Error('Unique constraint failed on the fields: (`poNumber`)'), {
+      code: 'P2002',
+      meta: { target: ['poNumber'] }
+    });
+
+    purchaseOrdersRepository.findLatestByDate
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ poNumber: 'PO-20260806-0001' });
+    purchaseOrdersRepository.create
+      .mockRejectedValueOnce(collision)
+      .mockImplementationOnce(async (data) => data);
+
+    const result = await purchaseOrdersService.createPurchaseOrder({
+      supplier: '11111111-1111-4111-8111-111111111111',
+      expectedDeliveryDate: '2026-09-15',
+      items: [
+        {
+          partId: '22222222-2222-4222-8222-222222222222',
+          name: 'Air Compressor',
+          quantity: 1,
+          unitPrice: 30000
+        }
+      ]
+    });
+
+    expect(purchaseOrdersRepository.create).toHaveBeenCalledTimes(2);
+    expect(result.poNumber).not.toBe(purchaseOrdersRepository.create.mock.calls[0][0].poNumber);
+  });
+
+  it('gives up and rethrows after exhausting PO number collision retries', async () => {
+    const collision = Object.assign(new Error('Unique constraint failed on the fields: (`poNumber`)'), {
+      code: 'P2002',
+      meta: { target: ['poNumber'] }
+    });
+    purchaseOrdersRepository.create.mockRejectedValue(collision);
+
+    await expect(purchaseOrdersService.createPurchaseOrder({
+      supplier: '11111111-1111-4111-8111-111111111111',
+      expectedDeliveryDate: '2026-09-15',
+      items: [
+        {
+          partId: '22222222-2222-4222-8222-222222222222',
+          name: 'Air Compressor',
+          quantity: 1,
+          unitPrice: 30000
+        }
+      ]
+    })).rejects.toThrow(/poNumber/);
+
+    expect(purchaseOrdersRepository.create).toHaveBeenCalledTimes(5);
+  });
+
   it('rejects invalid PO quantities and prices before saving', async () => {
     await expect(purchaseOrdersService.createPurchaseOrder({
       supplier: '11111111-1111-4111-8111-111111111111',
