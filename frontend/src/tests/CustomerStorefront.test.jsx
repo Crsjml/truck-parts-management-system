@@ -385,9 +385,9 @@ describe('CustomerStorefront Component Tests', () => {
     expect(screen.getAllByText(/^isuzu$/i)[0]).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /start with your truck, then find the right part faster/i })).toBeInTheDocument();
     expect(screen.getByText(/fitment-first shopping/i)).toBeInTheDocument();
-    expect(screen.getByText(/see what is in stock/i)).toBeInTheDocument();
-    expect(screen.getByText(/fleet and shop pricing/i)).toBeInTheDocument();
-    expect(screen.getByText(/only show parts that fit/i)).toBeInTheDocument();
+    expect(screen.getByText(/live inventory/i)).toBeInTheDocument();
+    expect(screen.getByText(/heavy logistics/i)).toBeInTheDocument();
+    expect(screen.getByText(/b2b wholesale/i)).toBeInTheDocument();
     expect(screen.queryByText(/live stock visibility/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/wholesale-ready accounts/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/compatibility-aware browsing/i)).not.toBeInTheDocument();
