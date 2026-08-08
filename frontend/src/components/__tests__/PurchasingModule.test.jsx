@@ -24,7 +24,8 @@ vi.mock('../../authStore', () => ({
   togglePartPublished: vi.fn(),
   updatePoPayment: vi.fn(),
   updatePoItemPrices: vi.fn(),
-  updatePurchaseOrderDetails: vi.fn()
+  updatePurchaseOrderDetails: vi.fn(),
+  fetchParts: vi.fn().mockResolvedValue([])
 }));
 
 vi.mock('../../context/SettingsContext', () => ({
