@@ -4,6 +4,41 @@ A full-stack inventory, sales, and analytics platform built for **Tarlac Truck P
 
 ---
 
+## Project structure
+
+```
+.
+├── backend/                # Node/Express API
+│   ├── src/
+│   │   ├── controllers/    # Request handlers
+│   │   ├── services/       # Business logic
+│   │   ├── repositories/   # Data access
+│   │   ├── routes/         # Express route definitions
+│   │   ├── middleware/
+│   │   ├── validators/
+│   │   ├── config/
+│   │   └── index.js        # Entry point
+│   ├── prisma/              # Schema, migrations, seed script
+│   ├── scripts/             # Standalone admin/seed/test scripts
+│   └── Dockerfile
+├── frontend/                # React/Vite app
+│   ├── src/
+│   │   ├── components/      # UI, incl. components/ui/ primitives
+│   │   ├── api/
+│   │   ├── context/
+│   │   ├── hooks/
+│   │   ├── utils/
+│   │   └── App.jsx
+│   ├── tests/                # Playwright E2E
+│   └── Dockerfile
+├── docs/                     # Jira exports, setup notes, product backlog
+├── docker-compose.yml
+├── run.bat                   # Windows start script
+└── Makefile                  # Mac/Linux start commands
+```
+
+---
+
 ## Tech stack
 
 <details>
