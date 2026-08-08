@@ -35,6 +35,9 @@ export default function CustomerManagement({ showToast }) {
   const [ftfPage, setFtfPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Row Selection state
+  const [selectedIds, setSelectedIds] = useState([]);
+
   // CRUD & Modals state
   const [isCrudModalOpen, setIsCrudModalOpen] = useState(false);
   const [crudMode, setCrudMode] = useState('create'); // 'create' | 'edit'
@@ -73,9 +76,52 @@ export default function CustomerManagement({ showToast }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Reset to page 1 when search/sort/tab changes
-  useEffect(() => { setOnlinePage(1); setFtfPage(1); }, [search, sortKey, sortDir]);
-  useEffect(() => { setOnlinePage(1); setFtfPage(1); }, [tab]);
+  // Reset to page 1 and clear selections when search/sort/tab changes
+  useEffect(() => { setOnlinePage(1); setFtfPage(1); setSelectedIds([]); }, [search, sortKey, sortDir]);
+  useEffect(() => { setOnlinePage(1); setFtfPage(1); setSelectedIds([]); }, [tab]);
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = (data) => {
+    const pageIds = data.map(c => c.id);
+    const allSelected = pageIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const exportSelectedToCsv = () => {
+    const allData = [...online, ...ftf];
+    const targets = allData.filter(c => selectedIds.includes(c.id));
+    if (targets.length === 0) return;
+
+    const headers = ['ID', 'Type', 'Display Name', 'Company Name', 'Email', 'Phone', 'Orders Count', 'Total Spend (PHP)', 'Created Date'];
+    const rows = targets.map(c => [
+      `"${c.id}"`,
+      `"${c.authId?.startsWith('temp-ftf') ? 'Face-to-Face' : 'Online'}"`,
+      `"${(c.displayName || '').replace(/"/g, '""')}"`,
+      `"${(c.companyName || '').replace(/"/g, '""')}"`,
+      `"${c.email || ''}"`,
+      `"${c.phoneNumber || ''}"`,
+      c.orderCount || 0,
+      c.totalSpend || 0,
+      `"${c.createdAt || c.lastOrderDate || ''}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `customer_roster_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast?.(`Exported ${targets.length} customer profile(s) to CSV`, 'success');
+  };
 
   const openDashboard = async (customer, type) => {
     setDashboardCustomer({ ...customer, type });
@@ -270,41 +316,41 @@ export default function CustomerManagement({ showToast }) {
 
       {/* Overview Counters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-secondary/35 border border-border rounded-2xl flex items-center gap-4">
+        <div className="p-4 bg-secondary/50 border border-border rounded-2xl flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
             <Users weight="duotone" className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xs text-muted-foreground font-bold uppercase tracking-wider">Online Clients</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Online Clients</div>
             <div className="text-xl font-black text-foreground mt-0.5">{online.length}</div>
           </div>
         </div>
-        <div className="p-4 bg-secondary/35 border border-border rounded-2xl flex items-center gap-4">
+        <div className="p-4 bg-secondary/50 border border-border rounded-2xl flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
             <Storefront weight="duotone" className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xs text-muted-foreground font-bold uppercase tracking-wider">FTF Clients</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">FTF Clients</div>
             <div className="text-xl font-black text-foreground mt-0.5">{ftf.length}</div>
           </div>
         </div>
-        <div className="p-4 bg-secondary/35 border border-border rounded-2xl flex items-center gap-4">
+        <div className="p-4 bg-secondary/50 border border-border rounded-2xl flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
             <Package weight="duotone" className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xs text-muted-foreground font-bold uppercase tracking-wider">Total Sales count</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Sales Count</div>
             <div className="text-xl font-black text-foreground mt-0.5 font-semibold">
               {[...online, ...ftf].reduce((sum, c) => sum + (c.orderCount || 0), 0)}
             </div>
           </div>
         </div>
-        <div className="p-4 bg-secondary/35 border border-border rounded-2xl flex items-center gap-4">
+        <div className="p-4 bg-secondary/50 border border-border rounded-2xl flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
             <CurrencyDollar weight="duotone" className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xs text-muted-foreground font-bold uppercase tracking-wider">Total Spend</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Spend</div>
             <div className="text-xl font-black text-foreground mt-0.5 font-mono">
               {fmt([...online, ...ftf].reduce((sum, c) => sum + (c.totalSpend || 0), 0))}
             </div>
@@ -317,22 +363,32 @@ export default function CustomerManagement({ showToast }) {
         <div className="flex bg-secondary border border-border rounded-xl p-1 gap-1 shrink-0">
           <button
             onClick={() => setTab('online')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'online' ? 'bg-accent text-white shadow-md shadow-accent/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              tab === 'online'
+                ? 'bg-background text-foreground shadow-sm border border-border font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
           >
-            <UserPlus weight="duotone" className="w-4 h-4" />
+            <span className="w-2 h-2 rounded-full bg-accent" />
+            <UserPlus weight="duotone" className="w-4 h-4 text-accent" />
             Online Clients
           </button>
           <button
             onClick={() => setTab('ftf')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'ftf' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              tab === 'ftf'
+                ? 'bg-background text-foreground shadow-sm border border-border font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
           >
-            <Storefront weight="duotone" className="w-4 h-4" />
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <Storefront weight="duotone" className="w-4 h-4 text-amber-500" />
             Face-to-Face Clients
           </button>
         </div>
 
         <div className="flex-1 flex items-center gap-2">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 max-w-md">
             <MagnifyingGlass weight="duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
@@ -345,7 +401,7 @@ export default function CustomerManagement({ showToast }) {
           <button
             onClick={load}
             disabled={loading}
-            className="p-2 bg-secondary border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            className="p-2 bg-secondary border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title="Refresh customer list"
             aria-label="Refresh customer list"
           >
@@ -353,6 +409,29 @@ export default function CustomerManagement({ showToast }) {
           </button>
         </div>
       </div>
+
+      {/* Bulk Selection Bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between p-3 bg-secondary/80 border border-border rounded-xl text-xs">
+          <span className="font-semibold text-foreground">
+            {selectedIds.length} customer profile(s) selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportSelectedToCsv}
+              className="px-3 py-1.5 bg-accent text-white font-bold rounded-lg hover:bg-accent/90 transition-colors shadow-sm"
+            >
+              Export Selected (CSV)
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -379,6 +458,9 @@ export default function CustomerManagement({ showToast }) {
                   onEdit={(c) => openEditModal(c, false)}
                   onDelete={(c) => setDeleteTarget(c)}
                   onView={(c) => openDashboard(c, 'online')}
+                  selectedIds={selectedIds}
+                  toggleSelectRow={toggleSelectRow}
+                  toggleSelectAll={toggleSelectAll}
                 />
                 {filteredOnline.length > 0 && totalOnlinePages > 1 && (
                   <div className="flex items-center justify-between pt-2 border-t border-border">
@@ -419,6 +501,9 @@ export default function CustomerManagement({ showToast }) {
                   onMerge={(c) => setMergeTarget(c)}
                   onView={(c) => openDashboard(c, 'ftf')}
                   merging={merging}
+                  selectedIds={selectedIds}
+                  toggleSelectRow={toggleSelectRow}
+                  toggleSelectAll={toggleSelectAll}
                 />
                 {filteredFtf.length > 0 && totalFtfPages > 1 && (
                   <div className="flex items-center justify-between pt-2 border-t border-border">
@@ -510,7 +595,11 @@ export default function CustomerManagement({ showToast }) {
                     onChange={(e) => setFormName(e.target.value)}
                     required
                     placeholder="e.g. Juan dela Cruz"
-                    className="w-full px-4.5 py-2.5 bg-secondary border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    className={`w-full px-4.5 py-2.5 bg-secondary border rounded-xl text-sm text-foreground focus:outline-none transition-colors ${
+                      formError && !formName.trim()
+                        ? 'border-red-500 ring-2 ring-red-500/20'
+                        : 'border-border focus:ring-2 focus:ring-accent/30'
+                    }`}
                   />
                 </div>
 
@@ -524,7 +613,11 @@ export default function CustomerManagement({ showToast }) {
                     onChange={(e) => setFormEmail(e.target.value)}
                     required={!formIsFtf}
                     placeholder="e.g. juan@example.com"
-                    className="w-full px-4.5 py-2.5 bg-secondary border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    className={`w-full px-4.5 py-2.5 bg-secondary border rounded-xl text-sm text-foreground focus:outline-none transition-colors ${
+                      formError && !formIsFtf && !formEmail.trim()
+                        ? 'border-red-500 ring-2 ring-red-500/20'
+                        : 'border-border focus:ring-2 focus:ring-accent/30'
+                    }`}
                   />
                 </div>
 
@@ -678,16 +771,40 @@ export default function CustomerManagement({ showToast }) {
                 </select>
               </div>
 
-              {selectedOnline && (
-                <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                  <div className="flex items-start gap-2">
-                    <Warning weight="duotone" className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      This will permanently link all of <strong>{mergeTarget.displayName}</strong>'s walk-in transactions to the selected online account. The walk-in customer profile will be merged.
-                    </p>
+              {selectedOnline && (() => {
+                const targetAccount = online.find(c => c.authId === selectedOnline);
+                if (!targetAccount) return null;
+                return (
+                  <div className="p-3.5 bg-accent/5 border border-accent/20 rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-accent flex items-center gap-1">
+                        <CheckCircle weight="fill" className="w-3.5 h-3.5" /> Migration Preview
+                      </span>
+                      <span className="text-xs font-mono font-bold text-muted-foreground">
+                        {mergeTarget.orderCount} transaction(s)
+                      </span>
+                    </div>
+                    <div className="text-xs text-foreground font-medium">
+                      Linking <strong className="font-bold text-accent">{fmt(mergeTarget.totalSpend)}</strong> of walk-in sales history to:
+                    </div>
+                    <div className="flex items-center gap-2.5 p-2 bg-background border border-border/80 rounded-lg">
+                      <div className="w-7 h-7 rounded-full bg-accent/10 text-accent font-bold text-xs flex items-center justify-center shrink-0">
+                        {(targetAccount.displayName || '?')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1 text-xs">
+                        <div className="font-bold text-foreground truncate">{targetAccount.displayName}</div>
+                        <div className="text-muted-foreground truncate">{targetAccount.email}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-1.5 pt-1 border-t border-accent/10">
+                      <Warning weight="duotone" className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        This action permanently links all of <strong>{mergeTarget.displayName}</strong>'s walk-in transactions to {targetAccount.displayName}. The walk-in customer profile will be merged.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -892,8 +1009,10 @@ export default function CustomerManagement({ showToast }) {
 }
 
 /* ── Online Clients Table ──────────────────────────────────────────────────── */
-function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onView }) {
+function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onView, selectedIds = [], toggleSelectRow, toggleSelectAll }) {
   if (data.length === 0) return <EmptyState icon={UserPlus} message="No online customers found" />;
+
+  const allSelected = data.length > 0 && data.every(c => selectedIds.includes(c.id));
 
   return (
     <div className="bg-secondary/30 border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -901,6 +1020,15 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-secondary/50">
+              <th className="w-10 px-4 py-3 text-center">
+                <input
+                  type="checkbox"
+                  aria-label="Select all customers on page"
+                  checked={allSelected}
+                  onChange={() => toggleSelectAll?.(data)}
+                  className="rounded border-border text-accent focus:ring-accent/30 cursor-pointer"
+                />
+              </th>
               <SortTh label="Customer" k="displayName" sortKey={sortKey} toggleSort={toggleSort} SortIcon={SortIcon} />
               <th className="px-4 py-3 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact</th>
               <SortTh label="Orders" k="orderCount" sortKey={sortKey} toggleSort={toggleSort} SortIcon={SortIcon} align="center" />
@@ -922,9 +1050,20 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
                     onView(c);
                   }
                 }}
-                className="hover:bg-secondary/25 transition-colors cursor-pointer group focus:outline-none focus:bg-secondary/40"
+                className={`hover:bg-secondary/25 transition-colors cursor-pointer group focus:outline-none focus:bg-secondary/40 ${
+                  selectedIds.includes(c.id) ? 'bg-accent/5' : ''
+                }`}
                 onClick={() => onView(c)}
               >
+                <td className="w-10 px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${c.displayName}`}
+                    checked={selectedIds.includes(c.id)}
+                    onChange={() => toggleSelectRow?.(c.id)}
+                    className="rounded border-border text-accent focus:ring-accent/30 cursor-pointer"
+                  />
+                </td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-sm shrink-0">
@@ -979,8 +1118,10 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
 }
 
 /* ── FTF Clients Table ─────────────────────────────────────────────────────── */
-function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMerge, onView, merging }) {
+function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMerge, onView, merging, selectedIds = [], toggleSelectRow, toggleSelectAll }) {
   if (data.length === 0) return <EmptyState icon={Storefront} message="No face-to-face clients found" />;
+
+  const allSelected = data.length > 0 && data.every(c => selectedIds.includes(c.id));
 
   return (
     <div className="bg-secondary/30 border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -988,6 +1129,15 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-secondary/50">
+              <th className="w-10 px-4 py-3 text-center">
+                <input
+                  type="checkbox"
+                  aria-label="Select all customers on page"
+                  checked={allSelected}
+                  onChange={() => toggleSelectAll?.(data)}
+                  className="rounded border-border text-amber-500 focus:ring-amber-500/30 cursor-pointer"
+                />
+              </th>
               <SortTh label="Customer" k="displayName" sortKey={sortKey} toggleSort={toggleSort} SortIcon={SortIcon} />
               <th className="px-4 py-3 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact</th>
               <SortTh label="Orders" k="orderCount" sortKey={sortKey} toggleSort={toggleSort} SortIcon={SortIcon} align="center" />
@@ -1009,9 +1159,20 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
                     onView(c);
                   }
                 }}
-                className="hover:bg-secondary/25 transition-colors cursor-pointer group focus:outline-none focus:bg-secondary/40"
+                className={`hover:bg-secondary/25 transition-colors cursor-pointer group focus:outline-none focus:bg-secondary/40 ${
+                  selectedIds.includes(c.id) ? 'bg-amber-500/5' : ''
+                }`}
                 onClick={() => onView(c)}
               >
+                <td className="w-10 px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${c.displayName}`}
+                    checked={selectedIds.includes(c.id)}
+                    onChange={() => toggleSelectRow?.(c.id)}
+                    className="rounded border-border text-amber-500 focus:ring-amber-500/30 cursor-pointer"
+                  />
+                </td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-sm shrink-0">
@@ -1190,13 +1351,20 @@ function TransactionList({ transactions, type, onStatusUpdate }) {
 }
 
 /* ── Shared Components ─────────────────────────────────────────────────────── */
+const ALIGN_MAP = {
+  left: { th: 'text-left', flex: 'justify-start' },
+  center: { th: 'text-center', flex: 'justify-center' },
+  right: { th: 'text-right', flex: 'justify-end' },
+};
+
 function SortTh({ label, k, sortKey, toggleSort, SortIcon, align = 'left' }) {
+  const alignConfig = ALIGN_MAP[align] || ALIGN_MAP.left;
   return (
     <th
       onClick={() => toggleSort(k)}
-      className={`px-4 py-3 text-${align} text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors select-none`}
+      className={`px-4 py-3 ${alignConfig.th} text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors select-none`}
     >
-      <span className="inline-flex items-center gap-1">
+      <span className={`inline-flex items-center gap-1 ${alignConfig.flex}`}>
         {label} <SortIcon k={k} />
       </span>
     </th>
