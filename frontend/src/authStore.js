@@ -555,8 +555,11 @@ export const createTransaction = api(async (txData) => {
   return ok ? { ok: true, transaction: data.transaction } : { ok: false, error: data.msg || 'Failed to create transaction.' };
 });
 
+// Admin transactions power full-history analytics ("All Time" period) with a
+// deep items->part->category include and no row cap — can legitimately take
+// longer than the default 8s timeout as transaction volume grows.
 export const fetchTransactions = apiCatch(async () => {
-  return await apiGet('/api/transactions', { supabase });
+  return await apiGet('/api/transactions', { supabase, timeoutMs: 30000 });
 });
 
 export const fetchMyTransactions = apiCatch(async () => {
