@@ -2,10 +2,9 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { apiGet } from '../api/apiClient';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
-import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, DownloadSimple, ShoppingCart, WarningCircle, WarningOctagon, CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { Package, TrendUp, TrendDown, Warning, CurrencyDollar, Clock, ArrowRight, PlusCircle, FileText, CheckCircle, ShoppingCart, WarningCircle, WarningOctagon, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { resolvePeriod, inRange, computeKpis } from '../utils/salesAnalytics';
 import ToggleChip from './ui/ToggleChip';
-import { buildLowStockReportPdf } from '../utils/lowStockReportPdf';
 
 export default function Dashboard({ parts, transactions, logs, setPage, setSelectedCategory }) {
   const { formatCurrency, formatCompactCurrency, displayCurrency, formatBaseCurrency, formatCompactBaseCurrency } = useSettings();
@@ -292,13 +291,6 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                   >
                     <ShoppingCart weight="bold" className="w-3.5 h-3.5" /> Restock {selectedWatchlistItems.size} Selected
-                  </button>
-                  <button
-                    onClick={() => buildLowStockReportPdf(filteredLowStockItems, { formatCurrency })}
-                    disabled={filteredLowStockItems.length === 0}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                  >
-                    <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export
                   </button>
                 </div>
               )}

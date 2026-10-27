@@ -510,6 +510,33 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
   return series;
 }
 
+// Payment-method breakdown for a single range (not bucketed into a time
+// series like paymentMix() above) — shared by DailySalesSummary.jsx and
+// salesSummaryPdf.js so the on-screen and exported figures never drift.
+export function dayPaymentMix(transactions, { start, end }) {
+  const dayTx = inRange(transactions, start, end);
+  const mix = {};
+  let totalRevenue = 0;
+  PAYMENT_METHODS.forEach(m => mix[m] = 0);
+
+  dayTx.forEach(t => {
+    let m = t.paymentMethod;
+    if (!PAYMENT_METHODS.includes(m)) m = 'CASH';
+    mix[m] += (t.total || 0);
+    totalRevenue += (t.total || 0);
+  });
+
+  return Object.entries(mix)
+    .map(([method, amount]) => ({
+      method,
+      label: PAYMENT_LABELS[method] || method,
+      amount,
+      percentage: totalRevenue > 0 ? (amount / totalRevenue) * 100 : 0
+    }))
+    .filter(m => m.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
 export function orderStatusBreakdown(transactions, { start, end }) {
   const current = inRange(transactions, start, end);
   const statusCounts = new Map();

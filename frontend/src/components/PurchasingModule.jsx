@@ -15,8 +15,10 @@ import {
 } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import {
+  jsPDF, autoTable, BRAND, INK, safe, masthead, paginate, sectionLabel,
+  formatMoney, formatDate, numCol, headStyle, alternateRowStyles
+} from '../utils/pdf/reportPdfKit';
 import ReactCountryFlag from 'react-country-flag';
 import { getCategoryIconAndColor } from '../utils/categoryIcons';
 import {
@@ -732,45 +734,136 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const generatePDF = (po) => {
     const doc = new jsPDF();
     const sup = po.supplier;
-    doc.setFontSize(22); doc.text('Purchase Order', 105, 20, { align: 'center' });
-    doc.setFontSize(10); doc.text(`Reference: ${po.poNumber}`, 14, 35); doc.text(`Date: ${new Date(po.createdAt).toLocaleDateString()}`, 14, 40);
-    doc.text(`Supplier: ${sup?.name || 'N/A'}`, 14, 55);
-    const tableData = po.items.map(i => [`[${i.sku || 'N/A'}] ${i.name}`, i.quantity.toString(), `PHP ${i.unitPrice.toFixed(2)}`, `PHP ${i.subtotal.toFixed(2)}`]);
-    autoTable(doc, { startY: 70, head: [['Description', 'Qty', 'Unit Price', 'Amount']], body: tableData, theme: 'grid', headStyles: { fillColor: [44, 62, 80] } });
-    const fy = doc.lastAutoTable.finalY + 10;
-    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.text(`Total: PHP ${po.totalAmount.toFixed(2)}`, 14, fy);
-    doc.save(`${po.poNumber}.pdf`);
+
+    masthead(doc, {
+      title: 'PURCHASE ORDER',
+      color: BRAND,
+      meta: [
+        `PO No : ${safe(po.poNumber, 20)}`,
+        `Date : ${formatDate(po.createdAt)}`,
+        `Status : ${safe(po.status, 14)}`
+      ]
+    });
+
+    sectionLabel(doc, 'Supplier (Vendor)', 14, 45, BRAND);
+    sectionLabel(doc, 'Deliver To', 120, 45, BRAND);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...INK);
+    doc.text(safe(sup?.name, 40) || 'N/A', 14, 51);
+    doc.text(`Attn: ${safe(sup?.contactPerson, 30)}`, 14, 56);
+    doc.text(safe(sup?.address, 40), 14, 61);
+    doc.text(`Tel: ${safe(sup?.phone, 20)}   Email: ${safe(sup?.email, 30)}`, 14, 66);
+    doc.text(`Payment Terms: ${safe(sup?.paymentTerms, 14)}`, 14, 71);
+
+    doc.text('Tarlac Truck Parts', 120, 51);
+    doc.text('Tarlac City, Philippines', 120, 56);
+    doc.text(`Expected Delivery : ${formatDate(po.expectedDeliveryDate)}`, 120, 66);
+    doc.text(`Source RFQ : ${safe(po.sourceRfq, 20)}`, 120, 71);
+
+    autoTable(doc, {
+      startY: 78,
+      head: [['#', 'SKU', 'OEM / MPN', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'AMOUNT']],
+      body: po.items.map((i, idx) => [
+        idx + 1,
+        safe(i.sku, 14) || 'N/A',
+        safe(i.part?.oem, 14) || 'N/A',
+        safe(i.name, 28),
+        i.quantity,
+        formatMoney(i.unitPrice),
+        formatMoney(i.subtotal)
+      ]),
+      theme: 'grid',
+      headStyles: headStyle(BRAND),
+      bodyStyles: { fontSize: 9, textColor: INK },
+      alternateRowStyles,
+      columnStyles: {
+        0: { cellWidth: 10, ...numCol('center') },
+        1: numCol('left'),
+        2: numCol('left'),
+        4: numCol('center'),
+        5: numCol('right'),
+        6: numCol('right')
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    let y = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(11);
+    doc.setTextColor(...INK);
+    const gv = formatMoney(po.totalAmount);
+    doc.setFont('Courier', 'bold');
+    const gvw = doc.getTextWidth(gv);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('GRAND TOTAL:', 196 - gvw - 3, y, { align: 'right' });
+    doc.setFont('Courier', 'bold');
+    doc.text(gv, 196, y, { align: 'right' });
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Notes: ${safe(po.notes, 60)}`, 14, y + 10);
+    doc.text(`Prepared by: ${safe(po.createdBy, 20)}`, 14, y + 20);
+    doc.text('Authorized Signature: ____________________', 120, y + 20);
+
+    paginate(doc, { notes: 'This purchase order is subject to our standard terms and conditions.' });
+    doc.save(`${safe(po.poNumber, 50)}.pdf`);
   };
 
   // RFQ PDF — no prices, just items to quote
   const generateRfqPDF = (po) => {
     const doc = new jsPDF();
     const sup = po.supplier;
-    doc.setFontSize(22); doc.text('Request for Quotation', 105, 20, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`RFQ No: ${po.poNumber}`, 14, 35);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 40);
-    doc.text(`To: ${sup?.name || 'N/A'}`, 14, 48);
-    if (sup?.email) doc.text(`Email: ${sup.email}`, 14, 54);
-    doc.text('Please provide your best quotation for the following items:', 14, 65);
-    const tableData = po.items.map(i => [
-      `[${i.sku || 'N/A'}] ${i.name}`,
-      i.quantity.toString(),
-      '', // Unit Price — to be filled by supplier
-      ''  // Total — to be filled by supplier
-    ]);
-    autoTable(doc, {
-      startY: 72,
-      head: [['Description / SKU', 'Qty Required', 'Your Unit Price', 'Total']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [44, 62, 80] },
-      columnStyles: { 2: { minCellWidth: 35 }, 3: { minCellWidth: 35 } }
+
+    masthead(doc, {
+      title: 'REQUEST FOR QUOTATION',
+      color: BRAND,
+      meta: [
+        `RFQ No : ${safe(po.poNumber, 20)}`,
+        `Date : ${formatDate(new Date())}`
+      ]
     });
-    const fy = doc.lastAutoTable.finalY + 8;
+
+    sectionLabel(doc, 'To (Supplier)', 14, 45, BRAND);
+    doc.setFont('Helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('Please reply to this RFQ at your earliest convenience. Prices should be in PHP.', 14, fy);
-    doc.save(`RFQ_${po.poNumber}.pdf`);
+    doc.setTextColor(...INK);
+    doc.text(safe(sup?.name, 40) || 'N/A', 14, 51);
+    if (sup?.email) doc.text(`Email: ${safe(sup.email, 30)}`, 14, 56);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Please provide your best quotation for the following items (prices in PHP):', 14, 64);
+    doc.setFont('Helvetica', 'normal');
+
+    autoTable(doc, {
+      startY: 70,
+      head: [['#', 'SKU / DESCRIPTION', 'QTY REQ', 'YOUR UNIT PRICE', 'TOTAL']],
+      body: po.items.map((i, idx) => [
+        idx + 1,
+        `[${safe(i.sku, 14) || 'N/A'}] ${safe(i.name, 24)}`,
+        i.quantity,
+        '',
+        ''
+      ]),
+      theme: 'grid',
+      headStyles: headStyle(BRAND),
+      bodyStyles: { fontSize: 9, minCellHeight: 10 },
+      alternateRowStyles,
+      columnStyles: {
+        0: { cellWidth: 10, ...numCol('center') },
+        2: numCol('center'),
+        3: { cellWidth: 45, halign: 'center' },
+        4: { cellWidth: 35, halign: 'center' }
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    let y = doc.lastAutoTable.finalY + 12;
+    doc.setFontSize(9);
+    doc.text('Quotation Valid Until : ____________________', 14, y);
+    doc.text('Supplier Name / Signature : ____________________', 14, y + 10);
+
+    paginate(doc, { notes: 'Please reply to this RFQ at your earliest convenience. Prices should be in PHP.' });
+    doc.save(`RFQ_${safe(po.poNumber, 50)}.pdf`);
   };
 
   // Save quoted prices entered by admin

@@ -34,10 +34,6 @@ vi.mock('../ui/ToggleChip', () => ({
   )
 }));
 
-vi.mock('../../utils/lowStockReportPdf', () => ({
-  buildLowStockReportPdf: vi.fn()
-}));
-
 const Dashboard = (await import('../Dashboard')).default;
 
 const sixLowStockParts = [
