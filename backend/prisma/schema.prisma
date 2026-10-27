@@ -23,6 +23,11 @@ enum PaymentMethod {
   GCASH
 }
 
+enum SalesChannel {
+  POS
+  WEB
+}
+
 model Category {
   id               String     @id @default(uuid()) @db.Uuid
   name             String     @unique
@@ -57,6 +62,7 @@ model Part {
   name            String
   sku             String    @unique
   oem             String?   @default("")
+  oemNumbers      String[]  @default([])
   categoryId      String    @db.Uuid
   category        Category  @relation(fields: [categoryId], references: [id])
   supplierId      String?   @db.Uuid
@@ -168,7 +174,7 @@ model Transaction {
   pickupHours     String?
   readyForPickupAt DateTime?
 
-
+  salesChannel SalesChannel @default(POS)
 
   items TransactionItem[]
 
@@ -187,6 +193,7 @@ model TransactionItem {
   name          String
   quantity      Int
   price         Float
+  sku           String      @default("")
 
   @@index([transactionId])
   @@index([partId])
@@ -255,6 +262,7 @@ model StockAdjustment {
   difference Int
   reason     String
   createdAt  DateTime @default(now())
+  adjustmentNumber String @unique
 }
 
 

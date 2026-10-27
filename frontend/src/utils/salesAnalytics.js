@@ -39,13 +39,12 @@ export function inRange(transactions, start, end) {
   });
 }
 
-// ponytail: stripeSessionId presence indicates online channel vs in-store POS
 export function byChannel(transactions, channel) {
   if (channel === 'online') {
-    return transactions.filter(t => t.stripeSessionId != null);
+    return transactions.filter(t => t.salesChannel === 'WEB');
   }
   if (channel === 'store') {
-    return transactions.filter(t => t.stripeSessionId == null);
+    return transactions.filter(t => t.salesChannel !== 'WEB');
   }
   return transactions;
 }

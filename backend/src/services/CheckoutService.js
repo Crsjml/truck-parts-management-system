@@ -123,8 +123,12 @@ class CheckoutService {
 
     const cartItems = JSON.parse(session.metadata.cartItems);
     const totalAmount = session.amount_total / 100;
-    
+
     await transactionsRepository.executeTransaction(async (tx) => {
+      // Snapshot each line item's SKU at sale time, same as the POS path.
+      const parts = await tx.part.findMany({ where: { id: { in: cartItems.map(item => item.id) } } });
+      const skuById = new Map(parts.map(p => [p.id, p.sku]));
+
       // 1. Create a transaction
       await tx.transaction.create({
         data: {
@@ -133,6 +137,7 @@ class CheckoutService {
           customerContact: session.metadata.userId,
           userId: session.metadata.userId !== 'N/A' ? session.metadata.userId : null,
           stripeSessionId: sessionId,
+          salesChannel: 'WEB',
           subtotal: Math.round((totalAmount / (1 + VAT_RATE)) * 100) / 100,
           taxAmount: Math.round((totalAmount - totalAmount / (1 + VAT_RATE)) * 100) / 100,
           total: totalAmount,
@@ -142,6 +147,7 @@ class CheckoutService {
             create: cartItems.map(item => ({
               partId: item.id,
               name: item.name,
+              sku: skuById.get(item.id) || '',
               quantity: item.quantity,
               price: item.price
             }))

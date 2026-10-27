@@ -42,6 +42,7 @@ export default function AddPartDrawer({
   const [formName, setFormName] = useState('');
   const [formSku, setFormSku] = useState('');
   const [formOem, setFormOem] = useState('');
+  const [formOemNumbers, setFormOemNumbers] = useState('');
   const [formCategory, setFormCategory] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
@@ -60,6 +61,7 @@ export default function AddPartDrawer({
       setFormName('');
       setFormSku('');
       setFormOem('');
+      setFormOemNumbers('');
       setFormCategory('');
       setFormPrice('');
       setFormStock('');
@@ -122,6 +124,7 @@ export default function AddPartDrawer({
       name: formName.trim(),
       sku: formSku.trim(),
       oem: formOem.trim(),
+      oemNumbers: formOemNumbers.split(',').map(v => v.trim()).filter(Boolean),
       category_id: formCategory,
       price: parseFloat(formPrice),
       stock: parseInt(formStock),
@@ -264,6 +267,7 @@ export default function AddPartDrawer({
                             if (p) {
                               setFormName(p.name + ' (Copy)');
                               setFormOem(p.oem || '');
+                              setFormOemNumbers((p.oemNumbers || []).join(', '));
                               setFormCategory(p.categoryId || p.category?.id || p.category || '');
                               setFormPrice(p.price || '');
                               setFormMinStock(p.min_stock || p.minStock || 0);
@@ -354,6 +358,21 @@ export default function AddPartDrawer({
                         />
                         {formErrors.oem && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.oem}</p>}
                       </div>
+                    </div>
+
+                    <div className="space-y-1.5 group">
+                      <label htmlFor="add-part-oem-numbers" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        Alternate OEM / MPN Numbers (optional)
+                      </label>
+                      <input
+                        id="add-part-oem-numbers"
+                        type="text"
+                        placeholder="Comma-separated, e.g. 1-81100-341-1, ME999901"
+                        value={formOemNumbers}
+                        onChange={(e) => setFormOemNumbers(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
+                        className="w-full bg-background border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                      />
                     </div>
 
                     <div className="space-y-1.5">

@@ -133,6 +133,7 @@ class TransactionsService {
         if (existingTransaction) return existingTransaction;
       }
 
+      const partById = new Map();
       for (const item of items) {
         const part = await tx.part.findUnique({ where: { id: item.partId } });
         if (!part) {
@@ -150,6 +151,7 @@ class TransactionsService {
             ? { stock: { decrement: item.quantity } }
             : { reservedStock: { increment: item.quantity } }
         });
+        partById.set(item.partId, part);
       }
 
       // 2. Look up or create Customer record for FTF sale
@@ -233,6 +235,7 @@ class TransactionsService {
             create: items.map(i => ({
               partId: i.partId,
               name: i.name,
+              sku: partById.get(i.partId)?.sku || '',
               quantity: Number(i.quantity),
               price: Number(i.price)
             }))
