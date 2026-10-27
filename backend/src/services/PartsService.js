@@ -3,6 +3,20 @@ import { supabaseStorageService } from './SupabaseStorageService.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
 
 export class PartsService {
+  async generateAdjustmentNumber() {
+    const date = new Date();
+    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+
+    const lastAdjustment = await partsRepository.findLatestAdjustmentByDate(dateStr);
+
+    let sequence = 1;
+    if (lastAdjustment) {
+      const parts = lastAdjustment.adjustmentNumber.split('-');
+      sequence = parseInt(parts[2], 10) + 1;
+    }
+    return `SA-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+  }
+
   async getParts(query) {
     const { search, category, archived, published, brand, series, engineCode, page, limit } = query;
     const pageNum = Number(page) || 1;
@@ -96,6 +110,7 @@ export class PartsService {
         name: part.name,
         sku: part.sku,
         oem: part.oem || '',
+        oemNumbers: part.oemNumbers || [],
         category: part.category ? part.category.name : 'Uncategorized',
         category_id: part.categoryId,
         price: part.price,
@@ -119,7 +134,10 @@ export class PartsService {
   }
 
   async createPart(data) {
-    const { name, sku, oem, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = data;
+    const { name, sku, oem, oemNumbers, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = data;
+    const normalizedOemNumbers = Array.isArray(oemNumbers)
+      ? oemNumbers.map(v => String(v).trim()).filter(Boolean)
+      : [];
 
     const existing = await partsRepository.findPartBySku(sku.trim());
     if (existing) {
@@ -146,6 +164,7 @@ export class PartsService {
       name: name.trim(),
       sku: sku.trim(),
       oem: oem ? oem.trim() : '',
+      oemNumbers: normalizedOemNumbers,
       categoryId: categoryDoc.id,
       price: Number(price),
       stock: Number(stock),
@@ -161,6 +180,7 @@ export class PartsService {
       name: part.name,
       sku: part.sku,
       oem: part.oem,
+      oemNumbers: part.oemNumbers || [],
       category: part.category.name,
       category_id: part.categoryId,
       price: part.price,
@@ -175,7 +195,7 @@ export class PartsService {
   }
 
   async updatePart(id, data, user = null) {
-    const { name, sku, oem, category_id, price, stock, minStock, compatibility, description, image, published, compatibleWith, adjustmentReason } = data;
+    const { name, sku, oem, oemNumbers, category_id, price, stock, minStock, compatibility, description, image, published, compatibleWith, adjustmentReason } = data;
 
     const part = await partsRepository.findPartById(id);
     if (!part) {
@@ -234,6 +254,9 @@ export class PartsService {
       ...(name !== undefined && { name: name.trim() }),
       ...(sku !== undefined && { sku: sku.trim() }),
       ...(oem !== undefined && { oem: oem.trim() }),
+      ...(oemNumbers !== undefined && {
+        oemNumbers: Array.isArray(oemNumbers) ? oemNumbers.map(v => String(v).trim()).filter(Boolean) : []
+      }),
       ...(category_id !== undefined && { categoryId: category_id }),
       ...(price !== undefined && { price: Number(price) }),
       ...(stock !== undefined && { stock: Number(stock) }),
@@ -246,13 +269,26 @@ export class PartsService {
     });
 
     if (isStockAdjustment) {
-      await partsRepository.createStockAdjustment({
-        partId: updatedPart.id,
-        oldStock,
-        newStock,
-        difference,
-        reason: adjustmentReason.trim()
-      });
+      const MAX_ADJUSTMENT_NUMBER_ATTEMPTS = 5;
+      for (let attempt = 1; attempt <= MAX_ADJUSTMENT_NUMBER_ATTEMPTS; attempt++) {
+        const adjustmentNumber = await this.generateAdjustmentNumber();
+        try {
+          await partsRepository.createStockAdjustment({
+            partId: updatedPart.id,
+            adjustmentNumber,
+            oldStock,
+            newStock,
+            difference,
+            reason: adjustmentReason.trim()
+          });
+          break;
+        } catch (error) {
+          const isCollision = error.code === 'P2002' && error.meta?.target?.includes('adjustmentNumber');
+          if (!isCollision || attempt === MAX_ADJUSTMENT_NUMBER_ATTEMPTS) {
+            throw error;
+          }
+        }
+      }
     }
 
     return {
@@ -260,6 +296,7 @@ export class PartsService {
       name: updatedPart.name,
       sku: updatedPart.sku,
       oem: updatedPart.oem,
+      oemNumbers: updatedPart.oemNumbers || [],
       category: updatedPart.category.name,
       category_id: updatedPart.categoryId,
       price: updatedPart.price,

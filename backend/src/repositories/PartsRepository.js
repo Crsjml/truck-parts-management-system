@@ -51,6 +51,13 @@ export class PartsRepository {
     });
   }
 
+  async findLatestAdjustmentByDate(dateStr) {
+    return prisma.stockAdjustment.findFirst({
+      where: { adjustmentNumber: { startsWith: `SA-${dateStr}-` } },
+      orderBy: { adjustmentNumber: 'desc' }
+    });
+  }
+
   async createStockAdjustment(data) {
     return prisma.stockAdjustment.create({ data });
   }

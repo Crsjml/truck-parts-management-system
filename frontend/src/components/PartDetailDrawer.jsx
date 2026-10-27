@@ -257,6 +257,12 @@ export default function PartDetailDrawer({ part, nestedCategories, customerSessi
                     <span className="text-muted-foreground text-2xs uppercase tracking-wider block mb-1">OEM Part No.</span>
                     <span className="font-mono text-sm font-semibold text-foreground break-all">{displayPart.oem}</span>
                   </div>
+                  {displayPart.oemNumbers?.length > 0 && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground text-2xs uppercase tracking-wider block mb-1">Alternate OEM / MPN Numbers</span>
+                      <span className="font-mono text-sm font-semibold text-foreground break-all">{displayPart.oemNumbers.join(', ')}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

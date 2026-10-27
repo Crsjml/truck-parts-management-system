@@ -41,7 +41,7 @@ describe('Analytics Channel Filter', () => {
       invoiceNumber: 'INV-1',
       customerName: 'Cust A',
       transactionDate: new Date().toISOString(),
-      stripeSessionId: 'sess_123',
+      salesChannel: 'WEB',
       total: 100,
       items: [{ quantity: 1, price: 100 }]
     },
@@ -50,7 +50,7 @@ describe('Analytics Channel Filter', () => {
       invoiceNumber: 'INV-2',
       customerName: 'Cust B',
       transactionDate: new Date().toISOString(),
-      stripeSessionId: null,
+      salesChannel: 'POS',
       total: 50,
       items: [{ quantity: 1, price: 50 }]
     }

@@ -3,9 +3,9 @@ import { byChannel } from '../salesAnalytics';
 
 describe('byChannel', () => {
   const transactions = [
-    { id: '1', stripeSessionId: 'sess_123' },
-    { id: '2', stripeSessionId: null },
-    { id: '3', stripeSessionId: 'sess_456' },
+    { id: '1', salesChannel: 'WEB' },
+    { id: '2', salesChannel: 'POS' },
+    { id: '3', salesChannel: 'WEB' },
   ];
 
   it('returns all transactions when channel is "all"', () => {
