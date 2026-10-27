@@ -1,11 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
-import { CaretLeft, CaretRight, CurrencyDollar, FileText, ShoppingCart, TrendUp, CheckCircle, Truck, X, Clock } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, CurrencyDollar, FileText, ShoppingCart, TrendUp, CheckCircle, Truck, X, Clock, DownloadSimple } from '@phosphor-icons/react';
 import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
-import { inRange, computeKpis, rankPartsBySales, orderStatusBreakdown } from '../../utils/salesAnalytics';
-
-const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GCASH'];
-const PAYMENT_LABELS = { CASH: 'Cash', CARD: 'Card', CHEQUE: 'Cheque', BANK_TRANSFER: 'Transfer', GCASH: 'GCash' };
+import { inRange, computeKpis, rankPartsBySales, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
+import { buildSalesSummaryPdf } from '../../utils/salesSummaryPdf';
 
 export default function DailySalesSummary({ transactions }) {
   const { formatBaseCurrency } = useSettings();
@@ -65,28 +63,7 @@ export default function DailySalesSummary({ transactions }) {
     return { curUnits: cur, unitsDelta: delta };
   }, [dayTx, prevDayTx]);
 
-  const paymentMix = useMemo(() => {
-    const mix = {};
-    let totalRevenue = 0;
-    PAYMENT_METHODS.forEach(m => mix[m] = 0);
-    
-    dayTx.forEach(t => {
-      let m = t.paymentMethod;
-      if (!PAYMENT_METHODS.includes(m)) m = 'CASH';
-      mix[m] += (t.total || 0);
-      totalRevenue += (t.total || 0);
-    });
-    
-    return Object.entries(mix)
-      .map(([method, amount]) => ({
-        method,
-        label: PAYMENT_LABELS[method] || method,
-        amount,
-        percentage: totalRevenue > 0 ? (amount / totalRevenue) * 100 : 0
-      }))
-      .filter(m => m.amount > 0)
-      .sort((a, b) => b.amount - a.amount);
-  }, [dayTx]);
+  const paymentMix = useMemo(() => dayPaymentMix(transactions, { start: dayStart, end: dayEnd }), [transactions, dayStart, dayEnd]);
 
   const orderStatuses = useMemo(() => orderStatusBreakdown(transactions, { start: dayStart, end: dayEnd }), [transactions, dayStart, dayEnd]);
   
@@ -136,13 +113,21 @@ export default function DailySalesSummary({ transactions }) {
             className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-colors text-foreground min-w-[130px]"
           />
           
-          <button 
+          <button
             onClick={handleNextDay}
             disabled={isToday}
             className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Next Day"
           >
             <CaretRight weight="bold" className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => buildSalesSummaryPdf(transactions, { selectedDate })}
+            disabled={dayTx.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          >
+            <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export PDF
           </button>
         </div>
       </div>

@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, DownloadSimple } from '@phosphor-icons/react';
 import DateRangePicker from './DateRangePicker';
 import { slowMovingParts } from '../../utils/salesAnalytics';
+import { buildSlowMovingStockPdf } from '../../utils/slowMovingStockPdf';
 
 export default function SlowMovingStockReport({ transactions, parts }) {
   const today = new Date();
@@ -45,7 +46,16 @@ export default function SlowMovingStockReport({ transactions, parts }) {
           <h3 className="text-base font-bold text-foreground font-display">Slow-Moving Stock</h3>
           <p className="text-xs text-muted-foreground">Parts with zero sales in period despite having stock.</p>
         </div>
-        <DateRangePicker start={dateRange.start} end={dateRange.end} onChange={setDateRange} />
+        <div className="flex items-center gap-2">
+          <DateRangePicker start={dateRange.start} end={dateRange.end} onChange={setDateRange} />
+          <button
+            onClick={() => buildSlowMovingStockPdf(slowMoving, { dateRange })}
+            disabled={slowMoving.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          >
+            <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export PDF
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">

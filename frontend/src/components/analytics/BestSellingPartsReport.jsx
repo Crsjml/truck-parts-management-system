@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { DownloadSimple } from '@phosphor-icons/react';
 import DateRangePicker from './DateRangePicker';
 import { rankPartsBySales, getRankDeltaBadge } from '../../utils/salesAnalytics';
+import { buildBestSellingPartsPdf } from '../../utils/bestSellingPartsPdf';
 import { useSettings } from '../../context/SettingsContext';
 
 export default function BestSellingPartsReport({ transactions, parts }) {
@@ -28,6 +30,7 @@ export default function BestSellingPartsReport({ transactions, parts }) {
     return rankedData.map(r => ({
       ...r,
       sku: partMap.get(r.name)?.sku || 'N/A',
+      oem: partMap.get(r.name)?.oem || 'N/A',
       stock: partMap.get(r.name)?.stock ?? 'N/A',
       category: partMap.get(r.name)?.category || partMap.get(r.name)?.categoryName || 'Uncategorized'
     }));
@@ -44,7 +47,16 @@ export default function BestSellingPartsReport({ transactions, parts }) {
           <h3 className="text-base font-bold text-foreground font-display">Best-Selling Parts</h3>
           <p className="text-xs text-muted-foreground">Ranked by units sold in selected period.</p>
         </div>
-        <DateRangePicker start={dateRange.start} end={dateRange.end} onChange={setDateRange} />
+        <div className="flex items-center gap-2">
+          <DateRangePicker start={dateRange.start} end={dateRange.end} onChange={setDateRange} />
+          <button
+            onClick={() => buildBestSellingPartsPdf(ranked, { dateRange })}
+            disabled={ranked.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          >
+            <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export PDF
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
