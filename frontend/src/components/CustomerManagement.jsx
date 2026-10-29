@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNotch, LinkSimple, Warning, CaretUp, CaretDown, CaretLeft, CaretRight, Envelope, Phone, CurrencyDollar, CalendarBlank, Package, User, PencilSimple, TrashSimple, X, Buildings, Receipt, ArrowLeft, Globe, ShoppingBag, Clock, CreditCard, Money, Bank, DeviceMobileSpeaker, Truck, CheckCircle } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions, updateTransactionStatus } from '../authStore';
+import { useSettings } from '../context/SettingsContext';
 
-const fmt = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
@@ -24,6 +24,7 @@ const STATUS_LABEL = {
 const PAYMENT_ICON = { CASH: Money, CARD: CreditCard, CHEQUE: Bank, ONLINE: Globe, GCASH: DeviceMobileSpeaker };
 
 export default function CustomerManagement({ showToast }) {
+  const { formatCurrency } = useSettings();
   const [tab, setTab] = useState('online');
   const [online, setOnline] = useState([]);
   const [ftf, setFtf] = useState([]);
@@ -352,7 +353,7 @@ export default function CustomerManagement({ showToast }) {
           <div>
             <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Spend</div>
             <div className="text-xl font-black text-foreground mt-0.5 font-mono">
-              {fmt([...online, ...ftf].reduce((sum, c) => sum + (c.totalSpend || 0), 0))}
+              {formatCurrency([...online, ...ftf].reduce((sum, c) => sum + (c.totalSpend || 0), 0))}
             </div>
           </div>
         </div>
@@ -751,7 +752,7 @@ export default function CustomerManagement({ showToast }) {
                   </div>
                 )}
                 <div className="text-xs text-muted-foreground font-medium">
-                  {mergeTarget.orderCount} order(s) · {fmt(mergeTarget.totalSpend)}
+                  {mergeTarget.orderCount} order(s) · {formatCurrency(mergeTarget.totalSpend)}
                 </div>
               </div>
 
@@ -785,7 +786,7 @@ export default function CustomerManagement({ showToast }) {
                       </span>
                     </div>
                     <div className="text-xs text-foreground font-medium">
-                      Linking <strong className="font-bold text-accent">{fmt(mergeTarget.totalSpend)}</strong> of walk-in sales history to:
+                      Linking <strong className="font-bold text-accent">{formatCurrency(mergeTarget.totalSpend)}</strong> of walk-in sales history to:
                     </div>
                     <div className="flex items-center gap-2.5 p-2 bg-background border border-border/80 rounded-lg">
                       <div className="w-7 h-7 rounded-full bg-accent/10 text-accent font-bold text-xs flex items-center justify-center shrink-0">
@@ -927,14 +928,14 @@ export default function CustomerManagement({ showToast }) {
                     </div>
                     <div className="p-3 bg-secondary/50 rounded-xl text-center">
                       <div className="text-lg font-black text-accent font-mono">
-                        {fmt(dashboardTotalSpend)}
+                        {formatCurrency(dashboardTotalSpend)}
                       </div>
                       <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Total Spend</div>
                     </div>
                     <div className="p-3 bg-secondary/50 rounded-xl text-center">
                       <div className="text-lg font-black text-foreground">
                         {dashboardTransactions.length > 0
-                          ? fmt(dashboardTotalSpend / dashboardTransactions.length)
+                          ? formatCurrency(dashboardTotalSpend / dashboardTransactions.length)
                           : '—'}
                       </div>
                       <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Avg. Order</div>
@@ -1024,6 +1025,7 @@ export default function CustomerManagement({ showToast }) {
 
 /* ── Online Clients Table ──────────────────────────────────────────────────── */
 function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onView, selectedIds = [], toggleSelectRow, toggleSelectAll }) {
+  const { formatCurrency } = useSettings();
   if (data.length === 0) return <EmptyState icon={UserPlus} message="No online customers found" />;
 
   const allSelected = data.length > 0 && data.every(c => selectedIds.includes(c.id));
@@ -1100,7 +1102,7 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
                     <Package weight="duotone" className="w-3.5 h-3.5" /> {c.orderCount}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 text-right font-mono font-bold text-foreground">{fmt(c.totalSpend)}</td>
+                <td className="px-4 py-3.5 text-right font-mono font-bold text-foreground">{formatCurrency(c.totalSpend)}</td>
                 <td className="px-4 py-3.5 text-right text-xs text-muted-foreground">{fmtDate(c.createdAt)}</td>
                 <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
@@ -1133,6 +1135,7 @@ function OnlineTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, on
 
 /* ── FTF Clients Table ─────────────────────────────────────────────────────── */
 function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMerge, onView, merging, selectedIds = [], toggleSelectRow, toggleSelectAll }) {
+  const { formatCurrency } = useSettings();
   if (data.length === 0) return <EmptyState icon={Storefront} message="No face-to-face clients found" />;
 
   const allSelected = data.length > 0 && data.every(c => selectedIds.includes(c.id));
@@ -1211,7 +1214,7 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
                     <Package weight="duotone" className="w-3.5 h-3.5" /> {c.orderCount}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 text-right font-mono font-bold text-foreground">{fmt(c.totalSpend)}</td>
+                <td className="px-4 py-3.5 text-right font-mono font-bold text-foreground">{formatCurrency(c.totalSpend)}</td>
                 <td className="px-4 py-3.5 text-right text-xs text-muted-foreground">{fmtDate(c.lastOrderDate)}</td>
                 <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
@@ -1254,6 +1257,7 @@ function FtfTable({ data, sortKey, toggleSort, SortIcon, onEdit, onDelete, onMer
 
 /* ── Transaction List ──────────────────────────────────────────────────────── */
 function TransactionList({ transactions, type, onStatusUpdate }) {
+  const { formatCurrency } = useSettings();
   const [updatingId, setUpdatingId] = useState(null);
 
   const handleStatusChange = async (txId, newStatus) => {
@@ -1313,7 +1317,7 @@ function TransactionList({ transactions, type, onStatusUpdate }) {
                     <span className="font-semibold text-foreground">{item.name}</span>
                     <span className="text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-bold">×{item.quantity}</span>
                   </div>
-                  <span className="font-mono font-bold text-foreground">{fmt(item.price * item.quantity)}</span>
+                  <span className="font-mono font-bold text-foreground">{formatCurrency(item.price * item.quantity)}</span>
                 </div>
               ))}
             </div>
@@ -1325,7 +1329,7 @@ function TransactionList({ transactions, type, onStatusUpdate }) {
                 <span>Tax: {tx.tax}%</span>
                 {tx.processedBy && <span>By: {tx.processedBy}</span>}
               </div>
-              <div className="font-mono font-black text-foreground text-sm">{fmt(tx.total)}</div>
+              <div className="font-mono font-black text-foreground text-sm">{formatCurrency(tx.total)}</div>
             </div>
 
             {/* Admin pickup actions — only for actionable online orders */}

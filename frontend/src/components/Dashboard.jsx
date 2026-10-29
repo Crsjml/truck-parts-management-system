@@ -198,18 +198,18 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
               setTimeout(() => window.dispatchEvent(new CustomEvent('catalogFilter', { detail: 'low-stock' })), 50);
             }
           }}
-          className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${lowStockItems.length > 0 ? (hasCriticalStock ? 'border-t-destructive/50' : 'border-t-accent/50') : 'border-t-border'}`}
+          className={`glass-panel p-5 rounded-2xl flex items-center justify-between border-t transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${lowStockItems.length > 0 ? (hasCriticalStock ? 'border-t-destructive/50' : 'border-t-amber-500/50') : 'border-t-border'}`}
         >
           <div className="space-y-2 min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block truncate">Stock Warnings</span>
-            <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? (hasCriticalStock ? 'text-destructive' : 'text-accent') : 'text-muted-foreground'}`}>
+            <h3 className={`text-3xl font-bold font-display truncate ${lowStockItems.length > 0 ? (hasCriticalStock ? 'text-destructive' : 'text-amber-500') : 'text-muted-foreground'}`}>
               {lowStockItems.length}
             </h3>
             <p className="text-xs text-muted-foreground truncate">
               {lowStockItems.length > 0 ? 'Requires action' : 'All well-stocked'}
             </p>
           </div>
-          <div className={`shrink-0 ml-3 p-3 rounded-xl border ${lowStockItems.length > 0 ? (hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/25' : 'bg-accent/10 text-accent border-accent/25') : 'bg-secondary text-muted-foreground border-border'}`}>
+          <div className={`shrink-0 ml-3 p-3 rounded-xl border ${lowStockItems.length > 0 ? (hasCriticalStock ? 'bg-destructive/10 text-destructive border-destructive/25' : 'bg-amber-500/10 text-amber-500 border-amber-500/25') : 'bg-secondary text-muted-foreground border-border'}`}>
             <Warning weight="duotone" className="w-6 h-6" />
           </div>
         </div>
@@ -261,7 +261,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                 <div className="flex items-center gap-2">
                   <ToggleChip variant="primary"     active={severityFilter === 'all'}      onClick={() => { setSeverityFilter('all');      setWatchlistPage(1); }}>All</ToggleChip>
                   <ToggleChip variant="destructive" active={severityFilter === 'critical'} onClick={() => { setSeverityFilter('critical'); setWatchlistPage(1); }}>Critical</ToggleChip>
-                  <ToggleChip variant="accent"      active={severityFilter === 'warning'}  onClick={() => { setSeverityFilter('warning');  setWatchlistPage(1); }}>Warning</ToggleChip>
+                  <ToggleChip variant="amber"       active={severityFilter === 'warning'}  onClick={() => { setSeverityFilter('warning');  setWatchlistPage(1); }}>Warning</ToggleChip>
                   <select 
                     value={categoryFilter} 
                     onChange={e => { setCategoryFilter(e.target.value); setWatchlistPage(1); }}
@@ -380,7 +380,7 @@ export default function Dashboard({ parts, transactions, logs, setPage, setSelec
                 <tbody className="divide-y divide-border">
                   {paginatedWatchlistItems.map((part) => {
                     const isCritical = part.severity === 'critical';
-                    const deficitColor = isCritical ? 'text-destructive' : 'text-accent';
+                    const deficitColor = isCritical ? 'text-destructive' : 'text-amber-500';
                     
                     return (
                       <tr 
