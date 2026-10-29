@@ -88,6 +88,17 @@ class PurchaseOrdersController extends BaseController {
     }
   };
 
+  resolveItemProblem = async (req, res) => {
+    try {
+      const { id, itemId } = req.params;
+      const po = await purchaseOrdersService.resolveItemProblem(id, itemId);
+      res.json(po);
+    } catch (err) {
+      console.error('[resolve item problem]', err);
+      res.status(err.status || 400).json({ msg: err.message || 'Server error resolving inspection problem.' });
+    }
+  };
+
   returnToSupplier = async (req, res) => {
     try {
       const { id } = req.params;

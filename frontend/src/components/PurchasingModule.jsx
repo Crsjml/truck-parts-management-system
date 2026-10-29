@@ -12,7 +12,7 @@ import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrderDetails,
   updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment, fetchParts,
-  reportPoItemProblem, returnPoToSupplier
+  reportPoItemProblem, resolvePoItemProblem, returnPoToSupplier
 } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
@@ -29,6 +29,7 @@ import {
 } from 'recharts';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
+import CreatableSelect from 'react-select/creatable';
 import PhoneInput from 'react-phone-number-input';
 import { getCountries } from 'react-phone-number-input';
 import en from 'react-phone-number-input/locale/en.json';
@@ -90,6 +91,15 @@ const toggleFavorite = (key, id) => {
 
 
 // ─── Main Module ──────────────────────────────────────────────────────────────
+const DEFECT_REASONS = [
+  { value: 'Broken / Physically Damaged', label: 'Broken / Damaged (cracked, dented, crushed, broken casing/pins)' },
+  { value: 'Wrong Item / Model Mismatch', label: 'Wrong Item / Model (incorrect OEM, wrong specification or fitment)' },
+  { value: 'Defective / Non-Functional', label: 'Defective / Non-Functional (fails bench test, electrical short, leak)' },
+  { value: 'Missing Parts / Incomplete', label: 'Missing Parts / Incomplete (missing hardware, gaskets, harness)' },
+  { value: 'Substandard / Refurbished', label: 'Substandard Quality (severe corrosion, used/refurbished sent as new)' },
+  { value: 'Other Problem', label: 'Other Problem (specify in remarks below)' },
+];
+
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
@@ -189,6 +199,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [productValidationErrors, setProductValidationErrors] = useState({});
   const [savingProduct, setSavingProduct] = useState(false);
 
+  // Defect Inspection Modal State
+  const [defectModalItem, setDefectModalItem] = useState(null);
+  const [defectReason, setDefectReason] = useState('Broken / Physically Damaged');
+  const [defectNote, setDefectNote] = useState('');
+  const [defectSubmitting, setDefectSubmitting] = useState(false);
+
   const loadData = async () => {
     setLoading(true);
     const [sups, pos] = await Promise.all([fetchSuppliers(), fetchPurchaseOrders()]);
@@ -257,13 +273,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   // Keyboard Escape key dismissal for PO Modal
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isPoModalOpen) {
-        setIsPoModalOpen(false);
+      if (e.key === 'Escape') {
+        if (defectModalItem) {
+          setDefectModalItem(null);
+          return;
+        }
+        if (isPoModalOpen) {
+          setIsPoModalOpen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPoModalOpen]);
+  }, [isPoModalOpen, defectModalItem]);
 
 
 
@@ -901,21 +923,72 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   // Inspection: flag a defective delivered item and send the PO back to the
   // supplier. Blocks the order from moving to Received until resolved.
-  const reportProblem = useCallback(async (item) => {
-    const note = window.prompt(`Describe the problem found with "${item.name}":`);
-    if (note == null) return; // cancelled
-    if (!note.trim()) return notifyError('A description of the problem is required.');
-
-    const res = await reportPoItemProblem(viewingPo.id, item.id, note.trim());
-    if (res.ok) {
-      setPurchaseOrders(prev => prev.map(p => p.id === res.purchaseOrder.id ? res.purchaseOrder : p));
-      setViewingPo(res.purchaseOrder);
-      setPoForm(getPoFormFromOrder(res.purchaseOrder));
-      notifySuccess('Inspection problem reported.');
+  const openDefectModal = (item) => {
+    setDefectModalItem(item);
+    if (item.inspectionStatus === 'Problem' && item.issueNote) {
+      const matched = DEFECT_REASONS.find(r => item.issueNote.startsWith(r.value));
+      if (matched) {
+        setDefectReason(matched.value);
+        const remainder = item.issueNote.slice(matched.value.length).replace(/^:\s*/, '');
+        setDefectNote(remainder);
+      } else {
+        setDefectReason('Other Problem');
+        setDefectNote(item.issueNote);
+      }
     } else {
-      notifyError(res.error);
+      setDefectReason('Broken / Physically Damaged');
+      setDefectNote('');
     }
-  }, [viewingPo, notifyError, notifySuccess]);
+  };
+
+  const reportProblem = openDefectModal;
+
+  const handleDefectSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!defectModalItem || !viewingPo) return;
+    setDefectSubmitting(true);
+    try {
+      const fullNote = defectNote.trim()
+        ? `${defectReason}: ${defectNote.trim()}`
+        : defectReason;
+
+      const res = await reportPoItemProblem(viewingPo.id, defectModalItem.id, fullNote);
+      if (res.ok) {
+        setPurchaseOrders(prev => prev.map(p => p.id === res.purchaseOrder.id ? res.purchaseOrder : p));
+        setViewingPo(res.purchaseOrder);
+        setPoForm(getPoFormFromOrder(res.purchaseOrder));
+        notifySuccess(`Defect recorded: ${defectReason}`);
+        setDefectModalItem(null);
+      } else {
+        notifyError(res.error);
+      }
+    } catch (err) {
+      notifyError(err.message || 'Failed to submit defect report');
+    } finally {
+      setDefectSubmitting(false);
+    }
+  };
+
+  const handleResolveDefect = async () => {
+    if (!defectModalItem || !viewingPo) return;
+    setDefectSubmitting(true);
+    try {
+      const res = await resolvePoItemProblem(viewingPo.id, defectModalItem.id);
+      if (res.ok) {
+        setPurchaseOrders(prev => prev.map(p => p.id === res.purchaseOrder.id ? res.purchaseOrder : p));
+        setViewingPo(res.purchaseOrder);
+        setPoForm(getPoFormFromOrder(res.purchaseOrder));
+        notifySuccess(`Inspection problem cleared for "${defectModalItem.name}".`);
+        setDefectModalItem(null);
+      } else {
+        notifyError(res.error);
+      }
+    } catch (err) {
+      notifyError(err.message || 'Failed to resolve defect');
+    } finally {
+      setDefectSubmitting(false);
+    }
+  };
 
   const handleReturnToSupplier = useCallback(async () => {
     if (!viewingPo) return;
@@ -1136,6 +1209,71 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   };
 
   const canEditRfqDetails = !!viewingPo && ['Draft', 'RFQ Sent'].includes(viewingPo.status);
+
+  const sourceRfqOptions = useMemo(() => {
+    const candidates = purchaseOrders.filter(p => !viewingPo || p.id !== viewingPo.id);
+    const filtered = poForm.supplier
+      ? candidates.filter(p => (p.supplierId === poForm.supplier || p.supplier?.id === poForm.supplier))
+      : candidates;
+
+    return filtered.map(r => {
+      const supplierName = r.supplier?.name || suppliers.find(s => s.id === (r.supplierId || r.supplier?.id))?.name || '—';
+      const itemCount = r.items?.length || 0;
+      const totalStr = formatCurrency(r.totalAmount || 0);
+      const statusLabel = r.status || 'Draft';
+      return {
+        value: r.poNumber,
+        label: `${r.poNumber} — ${supplierName} (${itemCount} item${itemCount === 1 ? '' : 's'}, ${totalStr}, ${statusLabel})`,
+        rfq: r
+      };
+    });
+  }, [purchaseOrders, poForm.supplier, viewingPo, suppliers]);
+
+  const currentSourceRfqValue = useMemo(() => {
+    if (!poForm.sourceRfq) return null;
+    return sourceRfqOptions.find(o => o.value === poForm.sourceRfq) || { value: poForm.sourceRfq, label: poForm.sourceRfq };
+  }, [poForm.sourceRfq, sourceRfqOptions]);
+
+  const handleSourceRfqChange = (option) => {
+    if (!option) {
+      setPoForm(prev => ({ ...prev, sourceRfq: '' }));
+      return;
+    }
+
+    const selectedValue = option.value;
+    const targetRfq = option.rfq || purchaseOrders.find(p => p.poNumber === selectedValue);
+
+    if (targetRfq) {
+      setPoForm(prev => {
+        const nextSupplier = prev.supplier || targetRfq.supplierId || targetRfq.supplier?.id || '';
+        const nextItems = (prev.items && prev.items.length > 0)
+          ? prev.items
+          : (targetRfq.items || []).map(i => ({
+              partId: i.partId || i.id,
+              name: i.name,
+              sku: i.sku || '',
+              quantity: i.quantity || 1,
+              unitPrice: i.unitPrice || 0,
+              subtotal: lineSubtotal(i.quantity || 1, i.unitPrice || 0)
+            }));
+        
+        const nextExpectedDate = prev.expectedDeliveryDate || (targetRfq.expectedDeliveryDate ? targetRfq.expectedDeliveryDate.substring(0, 10) : '');
+        const nextNotes = prev.notes || (targetRfq.notes ? `Referenced from ${targetRfq.poNumber}: ${targetRfq.notes}` : '');
+
+        return {
+          ...prev,
+          sourceRfq: selectedValue,
+          supplier: nextSupplier,
+          items: nextItems,
+          expectedDeliveryDate: nextExpectedDate,
+          notes: nextNotes
+        };
+      });
+      if (validationErrors.supplier) setValidationErrors(prev => ({ ...prev, supplier: false }));
+    } else {
+      setPoForm(prev => ({ ...prev, sourceRfq: selectedValue }));
+    }
+  };
 
   const visiblePoTotal = poForm.items.reduce((sum, item) => {
     if (viewingPo?.status === 'Confirmed') {
@@ -1955,7 +2093,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         isDisabled={!!viewingPo}
                         value={poForm.supplier ? { value: poForm.supplier, label: suppliers.find(s => s.id === poForm.supplier)?.name || poForm.supplier } : null}
                         onChange={(option) => {
-                          setPoForm({ ...poForm, supplier: option ? option.value : '' });
+                          const newSupplierId = option ? option.value : '';
+                          setPoForm(prev => {
+                            const matchedRfq = purchaseOrders.find(p => p.poNumber === prev.sourceRfq);
+                            const shouldClearRfq = matchedRfq && newSupplierId && matchedRfq.supplierId !== newSupplierId && matchedRfq.supplier?.id !== newSupplierId;
+                            return {
+                              ...prev,
+                              supplier: newSupplierId,
+                              sourceRfq: shouldClearRfq ? '' : prev.sourceRfq
+                            };
+                          });
                           if (validationErrors.supplier) setValidationErrors(prev => ({ ...prev, supplier: false }));
                         }}
                         options={suppliers.filter(s => !s.archived).map(s => ({ value: s.id, label: s.name }))}
@@ -1970,14 +2117,22 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   </div>
                   <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
                     <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Source RFQ</label>
-                    <input
-                      type="text"
-                      disabled={!!viewingPo && !canEditRfqDetails}
-                      value={poForm.sourceRfq}
-                      onChange={e => setPoForm({ ...poForm, sourceRfq: e.target.value })}
-                      placeholder="RFQ reference..."
-                      className="min-w-0 bg-transparent focus:outline-none text-foreground font-mono text-sm"
-                    />
+                    <div className="min-w-0">
+                      <CreatableSelect
+                        isDisabled={!!viewingPo && !canEditRfqDetails}
+                        value={currentSourceRfqValue}
+                        onChange={handleSourceRfqChange}
+                        options={sourceRfqOptions}
+                        placeholder="Select RFQ or type reference..."
+                        styles={customSelectStyles}
+                        menuPortalTarget={document.body}
+                        isClearable
+                        isSearchable
+                        classNamePrefix="react-select"
+                        formatCreateLabel={(inputValue) => `Use custom reference "${inputValue}"`}
+                        noOptionsMessage={() => (poForm.supplier ? "No RFQs found for this supplier (type to add custom)" : "No RFQs found (type to add custom)")}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -2138,10 +2293,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => reportProblem(item)}
+                                    onClick={() => openDefectModal(item)}
                                     aria-label={`Report inspection problem for ${item.name}`}
-                                    className="w-6 h-6 rounded-md border-2 border-border hover:border-brandRed-500 hover:text-brandRed-500 text-muted-foreground flex items-center justify-center transition-all"
-                                    title="Report inspection problem"
+                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                                      item.inspectionStatus === 'Problem'
+                                        ? 'border-brandRed-500 bg-brandRed-500/10 text-brandRed-500 shadow-sm'
+                                        : 'border-border hover:border-brandRed-500 hover:text-brandRed-500 text-muted-foreground'
+                                    }`}
+                                    title={item.inspectionStatus === 'Problem' ? `Problem: ${item.issueNote || 'Reported'} (click to view/resolve)` : 'Report inspection problem'}
                                   >
                                     <WarningCircle weight="bold" className="w-4 h-4" />
                                   </button>
@@ -2293,7 +2452,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 onClick={saveRfqDetails}
                                 className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
                               >
-                                Save RFQ Details
+                                Save Draft
                               </button>
                               <button
                                 type="button"
@@ -2327,7 +2486,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 onClick={saveRfqDetails}
                                 className="px-4 py-2 bg-secondary border border-border hover:bg-secondary/80 text-foreground text-sm font-bold rounded-xl transition-colors"
                               >
-                                Save RFQ Details
+                                Save Draft
                               </button>
                               <button
                                 type="button"
@@ -2686,6 +2845,104 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               </div>
             </div>, document.body
           )}
+
+      {/* ── DEFECT REPORT MODAL ── */}
+      {defectModalItem && createPortal(
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget && !defectSubmitting) setDefectModalItem(null); }}
+          className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn font-sans"
+        >
+          <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 space-y-5 animate-scaleUp">
+            <div className="flex items-start justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brandRed-500/10 border border-brandRed-500/20 flex items-center justify-center text-brandRed-500 shrink-0">
+                  <WarningCircle weight="duotone" className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Report Part Defect</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {defectModalItem.sku && <span className="font-mono font-semibold mr-1">[{defectModalItem.sku}]</span>}
+                    {defectModalItem.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={defectSubmitting}
+                onClick={() => setDefectModalItem(null)}
+                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors disabled:opacity-50"
+                title="Close"
+              >
+                <X weight="bold" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDefectSubmit} className="space-y-4">
+              <div>
+                <label className="block text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                  Defect Reason <span className="text-brandRed-500">*</span>
+                </label>
+                <Select
+                  value={DEFECT_REASONS.find(r => r.value === defectReason) || { value: defectReason, label: defectReason }}
+                  onChange={(opt) => setDefectReason(opt?.value || 'Broken / Physically Damaged')}
+                  options={DEFECT_REASONS}
+                  styles={customSelectStyles}
+                  menuPortalTarget={document.body}
+                  classNamePrefix="react-select"
+                  isSearchable={false}
+                />
+              </div>
+
+              <div>
+                <label className="block text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                  Remarks / Description <span className="text-muted-foreground font-normal lowercase">(optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={defectNote}
+                  onChange={(e) => setDefectNote(e.target.value)}
+                  placeholder="e.g. Broken packaging, cracked bracket, shorted coil, wrong fitment..."
+                  className="w-full bg-background border border-border text-foreground rounded-xl p-3 focus:ring-2 focus:ring-accent focus:border-accent text-sm resize-none focus:outline-none font-sans"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                {defectModalItem.inspectionStatus === 'Problem' ? (
+                  <button
+                    type="button"
+                    disabled={defectSubmitting}
+                    onClick={handleResolveDefect}
+                    className="px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    Clear / Resolve Problem
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={defectSubmitting}
+                    onClick={() => setDefectModalItem(null)}
+                    className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={defectSubmitting}
+                    className="px-4 py-2 text-sm font-bold text-white bg-brandRed-600 hover:bg-brandRed-700 active:scale-95 rounded-xl transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {defectSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <WarningCircle weight="bold" className="w-4 h-4" />}
+                    Confirm Defect
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
         </div>
       );
 }

@@ -218,6 +218,31 @@ class PurchaseOrdersService {
     });
   }
 
+  // Clears a reported problem on an item, returning PO status to Confirmed if no other problems remain
+  async resolveItemProblem(poId, itemId) {
+    return await purchaseOrdersRepository.executeTransaction(async (tx) => {
+      const po = await tx.purchaseOrder.findUnique({ where: { id: poId }, include: { items: true } });
+      if (!po) throw new Error('Purchase Order not found.');
+
+      const item = po.items.find(i => i.id === itemId);
+      if (!item) throw new Error('Purchase order item not found.');
+
+      await tx.purchaseOrderItem.update({
+        where: { id: itemId },
+        data: { inspectionStatus: 'Pending', issueNote: null }
+      });
+
+      const remainingProblems = po.items.some(i => i.id !== itemId && i.inspectionStatus === 'Problem');
+      const newStatus = remainingProblems ? 'Problem Reported' : 'Confirmed';
+
+      return await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: newStatus },
+        include: { supplier: true, items: { include: { part: true } } }
+      });
+    });
+  }
+
   // Sends a PO with an open inspection problem back to the supplier.
   async returnToSupplier(poId) {
     const po = await purchaseOrdersRepository.findById(poId);
