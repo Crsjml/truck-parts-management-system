@@ -156,6 +156,9 @@ class PurchaseOrdersService {
 
       // Stock increment and base price (procurement cost) update on Received
       if (status === 'Received' && po.status !== 'Received') {
+        if (po.items.some(item => item.inspectionStatus === 'Problem')) {
+          throw new Error('Cannot mark this order Received while an inspection problem is still open. Resolve or return the flagged item(s) first.');
+        }
         for (const item of po.items) {
           await tx.part.update({
             where: { id: item.partId },
@@ -183,6 +186,51 @@ class PurchaseOrdersService {
         }
       });
     });
+  }
+
+  // Inspection found a defect on one delivered item: flag it and move the
+  // whole PO to 'Problem Reported' so Received is blocked until resolved.
+  async reportItemProblem(poId, itemId, note) {
+    if (!note || !note.trim()) {
+      throw new Error('A description of the problem is required.');
+    }
+
+    return await purchaseOrdersRepository.executeTransaction(async (tx) => {
+      const po = await tx.purchaseOrder.findUnique({ where: { id: poId }, include: { items: true } });
+      if (!po) throw new Error('Purchase Order not found.');
+      if (po.status === 'Received' || po.status === 'Cancelled') {
+        throw new Error(`Cannot report an inspection problem on a ${po.status} order.`);
+      }
+
+      const item = po.items.find(i => i.id === itemId);
+      if (!item) throw new Error('Purchase order item not found.');
+
+      await tx.purchaseOrderItem.update({
+        where: { id: itemId },
+        data: { inspectionStatus: 'Problem', issueNote: note.trim() }
+      });
+
+      return await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: 'Problem Reported' },
+        include: { supplier: true, items: { include: { part: true } } }
+      });
+    });
+  }
+
+  // Sends a PO with an open inspection problem back to the supplier.
+  async returnToSupplier(poId) {
+    const po = await purchaseOrdersRepository.findById(poId);
+    if (!po) {
+      const err = new Error('Purchase Order not found.');
+      err.status = 404;
+      throw err;
+    }
+    if (po.status !== 'Problem Reported') {
+      throw new Error('Only orders with a reported inspection problem can be returned to the supplier.');
+    }
+
+    return await purchaseOrdersRepository.update(poId, { status: 'Returned to Supplier' });
   }
 
   async updateBillingStatus(id, billingStatus) {

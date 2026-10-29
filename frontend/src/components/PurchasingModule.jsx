@@ -11,7 +11,8 @@ import {
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrderDetails,
-  updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment, fetchParts
+  updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment, fetchParts,
+  reportPoItemProblem, returnPoToSupplier
 } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
@@ -40,6 +41,7 @@ import {
   ControlPanel,
   GroupedTable
 } from './ui/PurchasingAtoms';
+import PaymentsCalendar from './purchasing/PaymentsCalendar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const NOT_ACKNOWLEDGED_DAYS = 7;
@@ -153,6 +155,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [payableSearch, setPayableSearch] = useState('');
   const [payableFilters, setPayableFilters] = useState([]);
   const [payableGroup, setPayableGroup] = useState(null);
+  const [payableView, setPayableView] = useState('table'); // 'table' | 'calendar'
   const [payableFavsOnly, setPayableFavsOnly] = useState(false);
   const [payableFavs, setPayableFavs] = useState(getFavorites('payables'));
 
@@ -896,6 +899,39 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     }
   };
 
+  // Inspection: flag a defective delivered item and send the PO back to the
+  // supplier. Blocks the order from moving to Received until resolved.
+  const reportProblem = useCallback(async (item) => {
+    const note = window.prompt(`Describe the problem found with "${item.name}":`);
+    if (note == null) return; // cancelled
+    if (!note.trim()) return notifyError('A description of the problem is required.');
+
+    const res = await reportPoItemProblem(viewingPo.id, item.id, note.trim());
+    if (res.ok) {
+      setPurchaseOrders(prev => prev.map(p => p.id === res.purchaseOrder.id ? res.purchaseOrder : p));
+      setViewingPo(res.purchaseOrder);
+      setPoForm(getPoFormFromOrder(res.purchaseOrder));
+      notifySuccess('Inspection problem reported.');
+    } else {
+      notifyError(res.error);
+    }
+  }, [viewingPo, notifyError, notifySuccess]);
+
+  const handleReturnToSupplier = useCallback(async () => {
+    if (!viewingPo) return;
+    if (!confirm('Return this order to the supplier? It will stay blocked from Received until a replacement is confirmed.')) return;
+
+    const res = await returnPoToSupplier(viewingPo.id);
+    if (res.ok) {
+      setPurchaseOrders(prev => prev.map(p => p.id === res.purchaseOrder.id ? res.purchaseOrder : p));
+      setViewingPo(res.purchaseOrder);
+      setPoForm(getPoFormFromOrder(res.purchaseOrder));
+      notifySuccess('Order returned to supplier.');
+    } else {
+      notifyError(res.error);
+    }
+  }, [viewingPo, notifyError, notifySuccess]);
+
   // ── Product CRUD ──────────────────────────────────────────────────────────────
   const openProductModal = (part = null) => {
     setViewingPart(part);
@@ -933,6 +969,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         result = await onEditPart(viewingPart.id, {
           ...productForm,
           price: Math.max(0, Number(productForm.price) || 0),
+          markupOverride: (productForm.markupOverride === '' || productForm.markupOverride == null) ? null : Number(productForm.markupOverride),
           stock: Math.max(0, Number(productForm.stock) || 0),
           minStock: Math.max(0, Number(productForm.minStock) || 0)
         });
@@ -940,6 +977,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         result = await onAddPart({
           ...productForm,
           price: Math.max(0, Number(productForm.price) || 0),
+          markupOverride: (productForm.markupOverride === '' || productForm.markupOverride == null) ? null : Number(productForm.markupOverride),
           stock: Math.max(0, Number(productForm.stock) || 0),
           minStock: Math.max(0, Number(productForm.minStock) || 0)
         });
@@ -994,19 +1032,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'poNumber', label: 'Reference', className: 'font-bold text-foreground group-hover:text-accent transition-colors', render: (v) => v },
     { key: 'supplierName', label: 'Supplier', render: (_, r) => r.supplier?.name || '—' },
     { key: 'createdBy', label: 'Buyer' },
-    { key: 'expectedDeliveryDate', label: 'Order Deadline', render: v => v ? new Date(v).toLocaleDateString() : '—' },
+    { key: 'expectedDeliveryDate', label: 'Order Deadline', render: v => v ? new Date(v).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—' },
     { key: 'totalAmount', label: 'Total', align: 'right', render: v => <span className="font-bold">{formatCurrency(v)}</span> },
     { key: 'status', label: 'Status', align: 'right', render: v => <StatusBadge status={v} /> },
   ];
   const posColumns = [
     { key: 'poNumber', label: 'Reference', className: 'font-bold text-foreground group-hover:text-accent transition-colors' },
-    { key: 'confirmationDate', label: 'Confirmation Date', render: v => v ? new Date(v).toLocaleDateString() : '—' },
+    { key: 'confirmationDate', label: 'Confirmation Date', render: v => v ? new Date(v).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—' },
     { key: 'supplierName', label: 'Supplier', render: (_, r) => r.supplier?.name || '—' },
     { key: 'createdBy', label: 'Buyer' },
     { key: 'sourceRfq', label: 'Source', render: v => v ? <span className="font-mono text-xs text-muted-foreground">{v}</span> : '—' },
     { key: 'totalAmount', label: 'Total', align: 'right', render: v => <span className="font-bold">{formatCurrency(v)}</span> },
     { key: 'billingStatus', label: 'Billing', align: 'right', render: v => <StatusBadge status={v || 'Waiting Bills'} /> },
-    { key: 'expectedDeliveryDate', label: 'Expected Arrival', render: v => v ? new Date(v).toLocaleDateString() : '—' },
+    { key: 'expectedDeliveryDate', label: 'Expected Arrival', render: v => v ? new Date(v).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—' },
     { key: 'status', label: 'Status', align: 'right', render: v => <StatusBadge status={v} /> },
   ];
   const payableColumns = [
@@ -1014,9 +1052,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     { key: 'purchaseOrderNumber', label: 'PO No.', render: v => v ? <span className="font-mono text-xs">{v}</span> : '—' },
     { key: 'supplierName', label: 'Supplier' },
     { key: 'amountDue', label: 'Amount Due', align: 'right', render: v => <span className="font-bold">{formatCurrency(v)}</span> },
-    { key: 'paymentDueDate', label: 'Payment Deadline', render: v => v ? new Date(v).toLocaleDateString() : '—' },
+    { key: 'paymentDueDate', label: 'Payment Deadline', render: v => v ? new Date(v).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—' },
     { key: 'paymentStatus', label: 'Payment', align: 'right', render: v => <StatusBadge status={v} /> },
-    { key: 'paidAt', label: 'Date Paid', render: v => v ? new Date(v).toLocaleDateString() : '—' },
+    { key: 'paidAt', label: 'Date Paid', render: v => v ? new Date(v).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—' },
     { key: 'paymentReference', label: 'Reference', render: v => v ? <span className="font-mono text-xs">{v}</span> : '—' },
     { key: 'paymentNotes', label: 'Notes', render: v => v || '—' },
     {
@@ -1273,19 +1311,38 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             {/* Payables Tab */}
             {activeOrderTab === 'payables' && (
               <>
-                <ControlPanel
-                  search={payableSearch} onSearch={setPayableSearch}
-                  filters={[
-                    { value: 'Pending', label: 'Pending' },
-                    { value: 'Due Soon', label: 'Due Soon' },
-                    { value: 'Overdue', label: 'Overdue' },
-                    { value: 'Paid', label: 'Paid' }
-                  ]}
-                  activeFilters={payableFilters} onFilter={v => setPayableFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
-                  groupByOptions={['supplierName', 'paymentStatus']} activeGroup={payableGroup} onGroupBy={setPayableGroup}
-                  favoritesCount={payableFavs.length} onFavoritesFilter={() => setPayableFavsOnly(p => !p)} showFavoritesOnly={payableFavsOnly}
-                />
-                {(() => {
+                <div className="flex items-center justify-between gap-3">
+                  <ControlPanel
+                    search={payableSearch} onSearch={setPayableSearch}
+                    filters={[
+                      { value: 'Pending', label: 'Pending' },
+                      { value: 'Due Soon', label: 'Due Soon' },
+                      { value: 'Overdue', label: 'Overdue' },
+                      { value: 'Paid', label: 'Paid' }
+                    ]}
+                    activeFilters={payableFilters} onFilter={v => setPayableFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
+                    groupByOptions={['supplierName', 'paymentStatus']} activeGroup={payableGroup} onGroupBy={setPayableGroup}
+                    favoritesCount={payableFavs.length} onFavoritesFilter={() => setPayableFavsOnly(p => !p)} showFavoritesOnly={payableFavsOnly}
+                  />
+                  <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 shrink-0">
+                    <button
+                      onClick={() => setPayableView('table')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${payableView === 'table' ? 'bg-accent text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+                    >
+                      Table
+                    </button>
+                    <button
+                      onClick={() => setPayableView('calendar')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${payableView === 'calendar' ? 'bg-accent text-white' : 'text-muted-foreground hover:bg-secondary'}`}
+                    >
+                      Calendar
+                    </button>
+                  </div>
+                </div>
+                {payableView === 'calendar' && (
+                  <PaymentsCalendar payableRows={filteredPayables} formatCurrency={formatCurrency} onSelectPo={openPoModal} />
+                )}
+                {payableView === 'table' && (() => {
                   const payableTotalPages = payableGroup ? 1 : Math.ceil(filteredPayables.length / ORDERS_PAGE_SIZE);
                   const payablePageRows = payableGroup ? filteredPayables : filteredPayables.slice((payablePage - 1) * ORDERS_PAGE_SIZE, payablePage * ORDERS_PAGE_SIZE);
                   return (
@@ -1414,7 +1471,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       const isFav = prodFavs.includes(part.id);
                       return (
                         <div key={part.id} onClick={() => openProductModal(part)} className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
-                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
+                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
                           <button onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
                           </button>
@@ -1427,8 +1484,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           </div>
                           <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                            <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price)}</span>
-                            <span className={`text-11px font-bold ${isLow ? 'text-accent' : 'text-emerald-500'}`} title={`Current stock: ${part.stock} / Safety threshold: ${part.minStock || 0}`}>
+                            <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price, part)}</span>
+                            <span className={`text-11px font-bold ${isLow ? 'text-red-500' : 'text-emerald-500'}`} title={`Current stock: ${part.stock} / Safety threshold: ${part.minStock || 0}`}>
                               {part.stock} <span className="text-muted-foreground/70 font-normal text-3xs">/ {part.minStock || 0} min</span>
                             </span>
                           </div>
@@ -1817,7 +1874,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         <div key={po.id} className="flex items-center justify-between p-3 border border-border rounded-xl bg-background hover:bg-secondary transition-colors">
                           <div>
                             <span className="font-bold text-sm text-foreground block">{po.poNumber}</span>
-                            <span className="text-xs text-muted-foreground font-semibold">{po.status} • {po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'No Date'}</span>
+                            <span className="text-xs text-muted-foreground font-semibold">{po.status} • {po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : 'No Date'}</span>
                           </div>
                           <button
                             onClick={() => {
@@ -1927,7 +1984,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                 <div className="space-y-4">
                   <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
                     <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Order Date</label>
-                    <span className="text-foreground font-mono font-medium">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
+                    <span className="text-foreground font-mono font-medium">{viewingPo ? new Date(viewingPo.createdAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                   </div>
                   <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
                     <label htmlFor="po-expected-date" className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Expected Arrival</label>
@@ -1983,7 +2040,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   {viewingPo?.confirmationDate && (
                     <div className="grid grid-cols-[130px_1fr] items-center gap-3 border-b border-border/60 pb-3">
                       <label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Confirmed On</label>
-                      <span className="text-foreground font-mono font-medium">{new Date(viewingPo.confirmationDate).toLocaleDateString()}</span>
+                      <span className="text-foreground font-mono font-medium">{new Date(viewingPo.confirmationDate).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                     </div>
                   )}
                 </div>
@@ -2033,6 +2090,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           <tr key={idx} className={`hover:bg-muted/50 transition-colors ${isConfirmed && isDelivered ? 'bg-emerald-500/10 dark:bg-emerald-500/15' : ''}`}>
                             <td className="py-3.5 px-4 font-medium text-foreground">
                               <span className="font-mono text-xs text-muted-foreground mr-1.5">[{item.sku}]</span> {item.name}
+                              {item.inspectionStatus === 'Problem' && (
+                                <span
+                                  className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-black uppercase bg-brandRed-500/10 text-brandRed-700 dark:text-brandRed-300 border border-brandRed-500/30"
+                                  title={item.issueNote || 'Inspection problem reported'}
+                                >
+                                  <WarningCircle weight="bold" className="w-3 h-3" /> Problem
+                                </span>
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-right font-mono font-medium">{item.quantity}</td>
                             <td className="py-3.5 px-4 text-right font-mono">
@@ -2056,20 +2121,31 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             </td>
                             {isConfirmed && (
                               <td className="py-3.5 px-4 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleDeliveredItem(item.id)}
-                                  aria-pressed={isDelivered}
-                                  aria-label={isDelivered ? `Mark ${item.name} as not received` : `Mark ${item.name} as received`}
-                                  className={`w-6 h-6 rounded-md border-2 flex items-center justify-center mx-auto transition-all ${
-                                    isDelivered
-                                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                      : 'border-border hover:border-emerald-500 text-transparent'
-                                  }`}
-                                  title={isDelivered ? 'Mark as not received' : 'Mark as received'}
-                                >
-                                  <CheckCircle weight="bold" className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDeliveredItem(item.id)}
+                                    aria-pressed={isDelivered}
+                                    aria-label={isDelivered ? `Mark ${item.name} as not received` : `Mark ${item.name} as received`}
+                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                                      isDelivered
+                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                        : 'border-border hover:border-emerald-500 text-transparent'
+                                    }`}
+                                    title={isDelivered ? 'Mark as not received' : 'Mark as received'}
+                                  >
+                                    <CheckCircle weight="bold" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => reportProblem(item)}
+                                    aria-label={`Report inspection problem for ${item.name}`}
+                                    className="w-6 h-6 rounded-md border-2 border-border hover:border-brandRed-500 hover:text-brandRed-500 text-muted-foreground flex items-center justify-center transition-all"
+                                    title="Report inspection problem"
+                                  >
+                                    <WarningCircle weight="bold" className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             )}
                             {!viewingPo && (
@@ -2315,6 +2391,20 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             </>
                           )}
 
+                          {/* Problem Reported Stage Button */}
+                          {viewingPo.status === 'Problem Reported' && (
+                            <button
+                              type="button"
+                              onClick={handleReturnToSupplier}
+                              className="px-4 py-2 bg-brandRed-600 hover:bg-brandRed-700 text-white text-sm font-bold rounded-xl transition-colors shadow-sm active:scale-95"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <WarningCircle weight="duotone" className="w-4 h-4" />
+                                Send Back to Supplier
+                              </span>
+                            </button>
+                          )}
+
                           {/* Received Stage Buttons */}
                           {viewingPo.status === 'Received' && (
                             <>
@@ -2474,22 +2564,30 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         <div className="space-y-5">
                           {[
                             { label: 'Unit Price (PHP) *', key: 'price', type: 'number' },
+                            { label: 'Markup Override % (optional)', key: 'markupOverride', type: 'number', min: '-100', max: '1000', step: '0.5', suffix: '%', placeholder: 'Global rate', showSpinner: true },
                             { label: 'Current Stock *', key: 'stock', type: 'number' },
                             { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
                           ].map(f => (
                             <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
                               <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-red-400' : 'text-muted-foreground'}`}>{f.label}</label>
-                              <input
-                                id={`prod-field-${f.key}`}
-                                type={f.type}
-                                min="0"
-                                value={productForm[f.key] || ''}
-                                onChange={e => {
-                                  setProductForm({ ...productForm, [f.key]: e.target.value });
-                                  if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
-                                }}
-                                className="bg-transparent focus:outline-none text-foreground font-bold text-lg"
-                              />
+                              <div className="relative">
+                                <input
+                                  id={`prod-field-${f.key}`}
+                                  type={f.type}
+                                  inputMode={f.suffix === '%' ? 'decimal' : undefined}
+                                  min={f.min ?? '0'}
+                                  max={f.max}
+                                  step={f.step}
+                                  placeholder={f.placeholder}
+                                  value={productForm[f.key] || ''}
+                                  onChange={e => {
+                                    setProductForm({ ...productForm, [f.key]: e.target.value });
+                                    if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
+                                  }}
+                                  className={`w-full bg-transparent focus:outline-none text-foreground font-bold text-lg ${f.suffix ? 'pr-6' : ''} ${f.showSpinner ? 'show-number-spinner' : ''}`}
+                                />
+                                {f.suffix && <span className="absolute right-0 top-1/2 -translate-y-1/2 text-sm font-normal text-muted-foreground pointer-events-none">{f.suffix}</span>}
+                              </div>
                             </div>
                           ))}
                           {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
@@ -2538,7 +2636,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         <tbody className="divide-y divide-border">
                           {productSales.map((s, i) => (
                             <tr key={i} className="hover:bg-background/50">
-                              <td className="p-3 text-muted-foreground">{new Date(s.date).toLocaleDateString()}</td>
+                              <td className="p-3 text-muted-foreground">{new Date(s.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                               <td className="p-3 font-bold text-foreground">{s.invoice}</td>
                               <td className="p-3">{s.customer}</td>
                               <td className="p-3 text-right font-bold">{s.qty}</td>
@@ -2572,7 +2670,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         <tbody className="divide-y divide-border">
                           {productPurchases.map((p, i) => (
                             <tr key={i} className="hover:bg-background/50">
-                              <td className="p-3 text-muted-foreground">{new Date(p.date).toLocaleDateString()}</td>
+                              <td className="p-3 text-muted-foreground">{new Date(p.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                               <td className="p-3 font-bold text-foreground font-mono">{p.poNumber}</td>
                               <td className="p-3">{p.supplier}</td>
                               <td className="p-3 text-right font-bold">{p.qty}</td>
