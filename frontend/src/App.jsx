@@ -960,7 +960,7 @@ export default function App() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 shrink-0 glass-panel border-b border-border px-6 flex items-center justify-between relative">
+        <header className="h-16 shrink-0 glass-panel border-b border-border px-6 flex items-center justify-between relative z-40">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}

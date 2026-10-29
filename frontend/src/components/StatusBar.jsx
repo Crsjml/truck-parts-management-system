@@ -105,7 +105,7 @@ export default function StatusBar({ variant = 'bar', isLoggedIn = true }) {
     const isUnreachable = status.backend === 'unreachable' || status.database === 'unreachable';
 
     return (
-      <div className="relative" ref={popoverRef}>
+      <div className="relative z-50" ref={popoverRef}>
         <button
           type="button"
           onClick={() => setIsPopoverOpen((v) => !v)}

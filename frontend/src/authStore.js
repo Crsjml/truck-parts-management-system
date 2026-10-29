@@ -673,6 +673,11 @@ export const updatePoItemPrices = api(async (id, items) => {
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update quoted prices.' };
 });
 
+export const resolvePoItemProblem = api(async (id, itemId) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/items/${itemId}/resolve`, {}, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to resolve inspection problem.' };
+});
+
 export const reportPoItemProblem = api(async (id, itemId, note) => {
   const { ok, data } = await apiPut(`/api/purchase-orders/${id}/items/${itemId}/problem`, { note }, { supabase });
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to report inspection problem.' };
