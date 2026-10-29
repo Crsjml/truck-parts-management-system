@@ -240,7 +240,7 @@ export default function PartDetailDrawer({ part, nestedCategories, customerSessi
               <div className="space-y-6 min-w-0">
                 <div className="min-w-0">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Unit Price</span>
-                  <span className="text-xl sm:text-2xl font-black text-foreground tabular-nums break-words">{formatCurrency(displayPart.price)}</span>
+                  <span className="text-xl sm:text-2xl font-black text-foreground tabular-nums break-words">{formatCurrency(displayPart.price, displayPart)}</span>
                 </div>
 
                 <div role="status" className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${stockPill.classes}`}>

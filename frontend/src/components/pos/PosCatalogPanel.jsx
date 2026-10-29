@@ -287,7 +287,7 @@ export default function PosCatalogPanel({ parts, cart, onAddToCart, formatCurren
                             : `${remaining} left`}
                       </span>
                       <span className="text-xs font-bold font-mono text-foreground">
-                        {formatCurrency(part.price)}
+                        {formatCurrency(part.price, part)}
                       </span>
                     </div>
                   </button>

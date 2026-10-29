@@ -68,6 +68,7 @@ model Part {
   supplierId      String?   @db.Uuid
   primarySupplier Supplier? @relation("SupplierPrimaryParts", fields: [supplierId], references: [id])
   price           Float
+  markupOverride  Float?
   stock           Int       @default(0)
   reservedStock   Int       @default(0)
   min_stock       Int       @default(0)
@@ -122,6 +123,8 @@ model PurchaseOrderItem {
   quantity        Int
   unitPrice       Float
   subtotal        Float
+  inspectionStatus String @default("Pending") // Pending | OK | Problem
+  issueNote        String?
 }
 
 model Supplier {

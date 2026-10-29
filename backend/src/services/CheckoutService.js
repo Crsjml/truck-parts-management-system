@@ -5,7 +5,8 @@ import transactionsRepository from '../repositories/TransactionsRepository.js';
 
 /**
  * Part.price is the wholesale base price; the customer-facing selling price is
- * that value plus the global Setting.active_markup percentage.
+ * that value plus a markup percentage. Part.markupOverride, when set, takes
+ * precedence over the global Setting.active_markup for that part.
  */
 export function computeSellingPrice(basePrice, markupPercent) {
   const markup = Number(markupPercent) || 0;
@@ -60,7 +61,7 @@ class CheckoutService {
         sku: part.sku,
         imageUrl: part.imageUrl,
         quantity,
-        price: computeSellingPrice(part.price, markup),
+        price: computeSellingPrice(part.price, part.markupOverride ?? markup),
       };
     });
 

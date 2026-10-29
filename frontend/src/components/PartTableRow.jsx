@@ -43,7 +43,7 @@ const PartTableRow = memo(({
         <div className="flex flex-col items-end">
           <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Unit Price</span>
           <span className="mt-1 text-base font-semibold text-foreground tabular-nums">
-            {formatCurrency(part.price)}
+            {formatCurrency(part.price, part)}
           </span>
         </div>
       </td>

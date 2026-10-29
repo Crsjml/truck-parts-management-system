@@ -147,6 +147,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
   const [formOem, setFormOem] = useState('');
   const [formCategory, setFormCategory] = useState('Engine');
   const [formPrice, setFormPrice] = useState('');
+  const [formMarkupOverride, setFormMarkupOverride] = useState('');
   const [formStock, setFormStock] = useState('');
   const [formMinStock, setFormMinStock] = useState('');
   const [formDescription, setFormDescription] = useState('');
@@ -213,6 +214,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
     setFormOem(part.oem);
     setFormCategory(part.category_id || '');
     setFormPrice(part.price.toString());
+    setFormMarkupOverride(part.markupOverride != null ? String(part.markupOverride) : '');
     setFormStock(part.stock.toString());
     setOriginalStock(part.stock);
     setFormMinStock(part.minStock.toString());
@@ -281,6 +283,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
       oem: formOem.trim(),
       category_id: formCategory,
       price: parseFloat(formPrice),
+      markupOverride: formMarkupOverride.trim() === '' ? null : parseFloat(formMarkupOverride),
       stock: parseInt(formStock),
       minStock: parseInt(formMinStock),
       compatibility: compatibilityRowsToSummary(formCompatibleWith),
@@ -820,7 +823,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                       
                       <div className="mt-2 min-w-0">
                         <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><CurrencyDollar weight="fill" className="text-amber-500" /> Unit Retail Price</span>
-                        <p className="font-extrabold text-xl sm:text-lg lg:text-xl text-foreground mt-1 break-words" title={formatCurrency(selectedPart?.price || 0)}>{formatCurrency(selectedPart?.price || 0)}</p>
+                        <p className="font-extrabold text-xl sm:text-lg lg:text-xl text-foreground mt-1 break-words" title={formatCurrency(selectedPart?.price || 0, selectedPart)}>{formatCurrency(selectedPart?.price || 0, selectedPart)}</p>
                       </div>
                       <div className="mt-2 min-w-0">
                         <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><Package weight="fill" className="text-indigo-400" /> Inventory Qty</span>
@@ -1150,6 +1153,25 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                             />
                             {formErrors.minStock && <p className="text-2xs font-semibold text-destructive">{formErrors.minStock}</p>}
                           </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="edit-part-markup-override" className="text-[11px] font-semibold text-muted-foreground">Markup override % (optional)</label>
+                          <div className="relative">
+                            <input
+                              id="edit-part-markup-override"
+                              type="number"
+                              inputMode="decimal"
+                              step="0.5"
+                              min="-100"
+                              max="1000"
+                              placeholder="Leave blank to use the global markup"
+                              value={formMarkupOverride}
+                              onChange={(e) => setFormMarkupOverride(e.target.value)}
+                              className="show-number-spinner h-10 w-full rounded-lg border border-border bg-background pl-3 pr-8 text-sm text-foreground transition-all focus:outline-none focus:border-foreground/40"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                          </div>
+                          <p className="text-2xs text-muted-foreground">Overrides the store-wide markup for this part only. Blank = inherit the global rate.</p>
                         </div>
                       </section>
 
