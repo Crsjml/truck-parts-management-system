@@ -673,6 +673,16 @@ export const updatePoItemPrices = api(async (id, items) => {
   return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to update quoted prices.' };
 });
 
+export const reportPoItemProblem = api(async (id, itemId, note) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/items/${itemId}/problem`, { note }, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to report inspection problem.' };
+});
+
+export const returnPoToSupplier = api(async (id) => {
+  const { ok, data } = await apiPut(`/api/purchase-orders/${id}/return-to-supplier`, {}, { supabase });
+  return ok ? { ok: true, purchaseOrder: data } : { ok: false, error: data.msg || 'Failed to return order to supplier.' };
+});
+
 // ── Parts (extended) ─────────────────────────────────────────────────────────
 
 export const togglePartPublished = api(async (id, published) => {

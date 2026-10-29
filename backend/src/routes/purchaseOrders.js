@@ -25,5 +25,7 @@ router.put('/:id/payment', requireAuth, requireRole('ADMIN'), purchaseOrdersCont
 
 // Update quoted prices on PO items (admin only)
 router.put('/:id/items/prices', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updateItemPrices);
+router.put('/:id/items/:itemId/problem', requireAuth, requireRole('ADMIN'), purchaseOrdersController.reportItemProblem);
+router.put('/:id/return-to-supplier', requireAuth, requireRole('ADMIN'), purchaseOrdersController.returnToSupplier);
 
 export default router;

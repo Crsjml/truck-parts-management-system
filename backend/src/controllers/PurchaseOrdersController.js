@@ -76,6 +76,29 @@ class PurchaseOrdersController extends BaseController {
     }
   };
 
+  reportItemProblem = async (req, res) => {
+    try {
+      const { id, itemId } = req.params;
+      const { note } = req.body;
+      const po = await purchaseOrdersService.reportItemProblem(id, itemId, note);
+      res.json(po);
+    } catch (err) {
+      console.error('[report item problem]', err);
+      res.status(err.status || 400).json({ msg: err.message || 'Server error reporting inspection problem.' });
+    }
+  };
+
+  returnToSupplier = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const po = await purchaseOrdersService.returnToSupplier(id);
+      res.json(po);
+    } catch (err) {
+      console.error('[return to supplier]', err);
+      res.status(err.status || 400).json({ msg: err.message || 'Server error returning order to supplier.' });
+    }
+  };
+
   updateItemPrices = async (req, res) => {
     try {
       const { id } = req.params;

@@ -235,7 +235,7 @@ describe('PurchasingModule RFQ and PO behavior', () => {
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: /Mark PO-20260805-0001 as unpaid/i })).toHaveAttribute('aria-checked', 'true');
       expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
-      expect(screen.getByText('8/5/2026')).toBeInTheDocument();
+      expect(screen.getByText('Aug 5, 2026')).toBeInTheDocument();
     });
   });
 });
