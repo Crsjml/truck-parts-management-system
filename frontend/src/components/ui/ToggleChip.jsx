@@ -5,6 +5,7 @@ const variants = {
   primary:     { active: 'bg-primary        text-primary-foreground   border-primary        hover:bg-primary/90',         inactive: 'bg-secondary text-muted-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/40' },
   destructive: { active: 'bg-destructive    text-destructive-foreground border-destructive  hover:bg-destructive/90',     inactive: 'bg-secondary text-muted-foreground border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40' },
   accent:      { active: 'bg-accent         text-accent-foreground    border-accent         hover:bg-accent/90',          inactive: 'bg-secondary text-muted-foreground border-border hover:bg-accent/10 hover:text-accent hover:border-accent/40' },
+  amber:       { active: 'bg-amber-500      text-white                border-amber-500      hover:bg-amber-500/90',       inactive: 'bg-secondary text-muted-foreground border-border hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/40' },
 };
 
 export default function ToggleChip({ active, onClick, children, className, variant = 'default' }) {
