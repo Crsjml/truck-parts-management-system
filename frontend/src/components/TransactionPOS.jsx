@@ -10,7 +10,7 @@ import { buildInvoicePdf } from '../utils/invoicePdf';
 import { toSellingPrice, computePosTotals, VAT_RATE } from '../utils/posMoney';
 
 export default function TransactionPOS({ parts, onCheckout }) {
-  const { formatBaseCurrency, formatCurrency, displayCurrency, markupFactor = 1 } = useSettings();
+  const { formatBaseCurrency, formatCurrency, displayCurrency, getMarkupFactor } = useSettings();
 
   const [cart, setCart] = useState([]);
   const [warning, setWarning] = useState(null);
@@ -76,7 +76,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
       setCart((prev) => {
         const existing = prev.find((i) => i.id === part.id);
         if (!existing) {
-          return [...prev, { ...part, price: toSellingPrice(part.price, markupFactor), quantity: 1 }];
+          return [...prev, { ...part, price: toSellingPrice(part.price, getMarkupFactor(part)), quantity: 1 }];
         }
 
         if (existing.quantity >= available) {
@@ -86,7 +86,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
         return prev.map((i) => (i.id === part.id ? { ...i, quantity: i.quantity + 1 } : i));
       });
     },
-    [markupFactor, resetSaleAttempt]
+    [getMarkupFactor, resetSaleAttempt]
   );
 
   const updateQuantity = useCallback(

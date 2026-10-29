@@ -45,6 +45,7 @@ export default function AddPartDrawer({
   const [formOemNumbers, setFormOemNumbers] = useState('');
   const [formCategory, setFormCategory] = useState('');
   const [formPrice, setFormPrice] = useState('');
+  const [formMarkupOverride, setFormMarkupOverride] = useState('');
   const [formStock, setFormStock] = useState('');
   const [formMinStock, setFormMinStock] = useState('');
 
@@ -64,6 +65,7 @@ export default function AddPartDrawer({
       setFormOemNumbers('');
       setFormCategory('');
       setFormPrice('');
+      setFormMarkupOverride('');
       setFormStock('');
       setFormMinStock('');
       setFormCompatibleWith(normalizeCompatibilityRows(''));
@@ -127,6 +129,7 @@ export default function AddPartDrawer({
       oemNumbers: formOemNumbers.split(',').map(v => v.trim()).filter(Boolean),
       category_id: formCategory,
       price: parseFloat(formPrice),
+      markupOverride: formMarkupOverride.trim() === '' ? null : parseFloat(formMarkupOverride),
       stock: parseInt(formStock),
       minStock: parseInt(formMinStock),
       compatibility: compatibilityRowsToSummary(formCompatibleWith),
@@ -270,6 +273,7 @@ export default function AddPartDrawer({
                               setFormOemNumbers((p.oemNumbers || []).join(', '));
                               setFormCategory(p.categoryId || p.category?.id || p.category || '');
                               setFormPrice(p.price || '');
+                              setFormMarkupOverride(p.markupOverride != null ? String(p.markupOverride) : '');
                               setFormMinStock(p.min_stock || p.minStock || 0);
                               setFormStock(0);
                               setFormSku('');
@@ -544,6 +548,29 @@ export default function AddPartDrawer({
                         className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       {formErrors.price && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.price}</p>}
+                    </div>
+
+                    <div className="space-y-1.5 group">
+                      <label htmlFor="add-part-markup-override" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        Markup Override % (optional)
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="add-part-markup-override"
+                          type="number"
+                          inputMode="decimal"
+                          step="0.5"
+                          min="-100"
+                          max="1000"
+                          placeholder="Leave blank to use the global markup"
+                          value={formMarkupOverride}
+                          onChange={(e) => setFormMarkupOverride(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
+                          className="show-number-spinner w-full bg-background border border-border rounded-2xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                      </div>
+                      <p className="text-2xs text-muted-foreground">Overrides the store-wide markup for this part only. Blank = inherit the global rate.</p>
                     </div>
 
                     <div className="rounded-3xl border border-border bg-secondary/30 p-4 sm:p-5 space-y-3">

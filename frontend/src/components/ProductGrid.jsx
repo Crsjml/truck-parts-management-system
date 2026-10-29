@@ -247,7 +247,7 @@ export default function ProductGrid({
 
                     <div className={`absolute bottom-3 left-3 rounded-2xl border border-white/10 bg-black/45 text-white shadow-xl backdrop-blur-md ${isCompact ? 'px-2.5 py-1.5' : 'px-3.5 py-2'}`}>
                       <p className={`${isCompact ? 'text-[8px]' : 'text-[9px]'} mb-0.5 font-bold uppercase tracking-[0.2em] opacity-70`}>Unit Price</p>
-                      <p className={`${isCompact ? 'text-sm' : 'text-base'} font-black leading-none`}>{formatCurrency(part.price)}</p>
+                      <p className={`${isCompact ? 'text-sm' : 'text-base'} font-black leading-none`}>{formatCurrency(part.price, part)}</p>
                     </div>
                   </div>
 
@@ -342,7 +342,7 @@ export default function ProductGrid({
                         </p>
                       </td>
                       <td className="px-4 py-2.5 text-right text-sm font-black text-foreground">
-                        {formatCurrency(part.price)}
+                        {formatCurrency(part.price, part)}
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         <div className="flex items-center justify-center gap-2" title={`${availableStock} available`}>

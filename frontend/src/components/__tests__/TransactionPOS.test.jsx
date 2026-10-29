@@ -119,7 +119,7 @@ describe('TransactionPOS Integration Tests', () => {
       expect(onCheckoutMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Complete sale/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Complete sale$/i }));
 
     await waitFor(() => {
       expect(onCheckoutMock).toHaveBeenCalledTimes(2);

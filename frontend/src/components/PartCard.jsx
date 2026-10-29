@@ -122,8 +122,8 @@ const PartCard = memo(({
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/70 bg-card p-3">
           <div className="min-w-0">
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground block">Unit Price</span>
-            <span className="mt-1 block whitespace-nowrap text-[1.18rem] font-semibold leading-none text-foreground tabular-nums" title={formatCurrency(part.price)}>
-              {formatCurrency(part.price)}
+            <span className="mt-1 block whitespace-nowrap text-[1.18rem] font-semibold leading-none text-foreground tabular-nums" title={formatCurrency(part.price, part)}>
+              {formatCurrency(part.price, part)}
             </span>
           </div>
           <div className="shrink-0 text-right" aria-label={isReadOnly ? 'Stock status' : `Quantity ${part.stock} / ${part.minStock}`}>

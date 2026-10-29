@@ -114,6 +114,7 @@ export class PartsService {
         category: part.category ? part.category.name : 'Uncategorized',
         category_id: part.categoryId,
         price: part.price,
+        markupOverride: part.markupOverride ?? null,
         stock: part.stock,
         reservedStock: part.reservedStock || 0,
         minStock: part.min_stock,
@@ -134,10 +135,13 @@ export class PartsService {
   }
 
   async createPart(data) {
-    const { name, sku, oem, oemNumbers, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = data;
+    const { name, sku, oem, oemNumbers, markupOverride, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = data;
     const normalizedOemNumbers = Array.isArray(oemNumbers)
       ? oemNumbers.map(v => String(v).trim()).filter(Boolean)
       : [];
+    const normalizedMarkupOverride = (markupOverride === undefined || markupOverride === null || markupOverride === '')
+      ? null
+      : Number(markupOverride);
 
     const existing = await partsRepository.findPartBySku(sku.trim());
     if (existing) {
@@ -167,6 +171,7 @@ export class PartsService {
       oemNumbers: normalizedOemNumbers,
       categoryId: categoryDoc.id,
       price: Number(price),
+      markupOverride: normalizedMarkupOverride,
       stock: Number(stock),
       min_stock: Number(minStock),
       compatibility: compatibility ? compatibility.trim() : '',
@@ -184,6 +189,7 @@ export class PartsService {
       category: part.category.name,
       category_id: part.categoryId,
       price: part.price,
+      markupOverride: part.markupOverride ?? null,
       stock: part.stock,
       reservedStock: part.reservedStock || 0,
       minStock: part.min_stock,
@@ -195,7 +201,7 @@ export class PartsService {
   }
 
   async updatePart(id, data, user = null) {
-    const { name, sku, oem, oemNumbers, category_id, price, stock, minStock, compatibility, description, image, published, compatibleWith, adjustmentReason } = data;
+    const { name, sku, oem, oemNumbers, markupOverride, category_id, price, stock, minStock, compatibility, description, image, published, compatibleWith, adjustmentReason } = data;
 
     const part = await partsRepository.findPartById(id);
     if (!part) {
@@ -257,6 +263,9 @@ export class PartsService {
       ...(oemNumbers !== undefined && {
         oemNumbers: Array.isArray(oemNumbers) ? oemNumbers.map(v => String(v).trim()).filter(Boolean) : []
       }),
+      ...(markupOverride !== undefined && {
+        markupOverride: (markupOverride === null || markupOverride === '') ? null : Number(markupOverride)
+      }),
       ...(category_id !== undefined && { categoryId: category_id }),
       ...(price !== undefined && { price: Number(price) }),
       ...(stock !== undefined && { stock: Number(stock) }),
@@ -300,6 +309,7 @@ export class PartsService {
       category: updatedPart.category.name,
       category_id: updatedPart.categoryId,
       price: updatedPart.price,
+      markupOverride: updatedPart.markupOverride ?? null,
       stock: updatedPart.stock,
       reservedStock: updatedPart.reservedStock || 0,
       minStock: updatedPart.min_stock,
