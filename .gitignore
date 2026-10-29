@@ -28,3 +28,17 @@ docs/claude-md-audit.md
 docs/memory/
 CLAUDE.md
 GEMINI.md
+
+# Scratch scripts & temporary artifacts
+*.pdf
+frontend/*.pdf
+test-*.js
+frontend/test-*.js
+frontend/.test-script.js
+patch_app.py
+*.png
+*.jpeg
+*.jpg
+.playwright-mcp/
+.DS_Store
+docs/.DS_Store
