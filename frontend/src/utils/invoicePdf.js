@@ -1,90 +1,72 @@
 // frontend/src/utils/invoicePdf.js
+// Report 01 — Sales Invoice (docs/reports/01-sales-invoice.md), open style.
 import {
-  jsPDF, autoTable, INK, INK_2, safe, masthead, paginate, sectionLabel, formatDateTime,
-  headStyle, bodyStyle, alternateRowStyles, tableLines, totalBox
+  jsPDF, safe, masthead, paginate, sectionLabel, formatDateTime, openTable, totalRow, qty, MARGIN
 } from './pdf/reportPdfKit';
+
+function paymentLines(tx, formatCurrency) {
+  const lines = [];
+  if (tx.paymentMethod) lines.push(`Payment Method : ${safe(String(tx.paymentMethod).replace('_', ' '), 20)}`);
+  if (tx.paymentMethod === 'CASH' && tx.amountTendered != null) {
+    lines.push(`Tendered : ${formatCurrency(tx.amountTendered)}   Change : ${formatCurrency(tx.changeGiven || 0)}`);
+  }
+  if (tx.paymentMethod === 'CHEQUE' && tx.chequeNumber) {
+    lines.push(`Cheque No : ${safe(tx.chequeNumber, 20)} — ${safe(tx.chequeBank, 30)}`);
+  }
+  if (tx.paymentMethod === 'GCASH' && tx.gcashReference) lines.push(`GCash Ref : ${safe(tx.gcashReference, 20)}`);
+  return lines;
+}
 
 export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
   const doc = new jsPDF();
+  const title = duplicate ? 'SALES INVOICE (DUPLICATE)' : 'SALES INVOICE';
+  const dateLine = `Date : ${formatDateTime(tx.transactionDate)}`;
 
   masthead(doc, {
-    title: duplicate ? 'SALES INVOICE (DUPLICATE)' : 'SALES INVOICE',
-    meta: [
-      // Never invent a number: the server assigns every invoice number.
-      `Invoice No : ${safe(tx.invoiceNumber, 24) || '—'}`,
-      `Date : ${formatDateTime(tx.transactionDate)}`
+    title,
+    // Never invent a number: the server assigns every invoice number.
+    meta: [`Invoice No : ${safe(tx.invoiceNumber, 24) || '—'}`, dateLine]
+  });
+
+  sectionLabel(doc, 'Bill To', MARGIN, 44);
+  doc.text(`Customer Name : ${safe(tx.customerName, 40)}`, MARGIN, 50);
+  doc.text(`Contact Phone : ${safe(tx.customerContact, 20)}`, MARGIN, 55);
+
+  const finalY = openTable(doc, {
+    startY: 61,
+    columns: [
+      { head: '#', align: 'right', mono: true, width: 9 },
+      { head: 'SKU', mono: true, width: 32 },
+      { head: 'PART DESCRIPTION' },
+      { head: 'UNIT\nPRICE', align: 'right', mono: true, width: 30 },
+      { head: 'QTY', align: 'right', mono: true, width: 13 },
+      { head: 'AMOUNT', align: 'right', mono: true, width: 32 }
+    ],
+    body: (tx.items || []).map((item, i) => [
+      i + 1,
+      safe(item.sku, 13) || '—',
+      safe(item.name, 32),
+      formatCurrency(item.price),
+      qty(item.quantity),
+      formatCurrency(item.price * item.quantity)
+    ]),
+    foot: [
+      totalRow(5, 'Subtotal (VATable)', formatCurrency(tx.subtotal), 'single'),
+      totalRow(5, 'Less: Discount', `-${formatCurrency(tx.discount || 0)}`),
+      totalRow(5, 'VAT (12%)', formatCurrency(tx.taxAmount)),
+      totalRow(5, 'NET TOTAL', formatCurrency(tx.total), 'double', true)
     ]
   });
 
-  sectionLabel(doc, 'Bill To / Customer Info', 14, 45);
-  doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(9.5);
-  doc.setTextColor(INK);
-  doc.text(`Customer Name : ${safe(tx.customerName, 40)}`, 14, 51);
-  doc.text(`Contact Phone : ${safe(tx.customerContact, 20)}`, 14, 56);
+  const lines = paymentLines(tx, formatCurrency);
+  if (lines.length) {
+    sectionLabel(doc, 'Payment', MARGIN, finalY + 10);
+    lines.forEach((line, i) => doc.text(line, MARGIN, finalY + 16 + i * 5));
+  }
 
-  autoTable(doc, {
-    startY: 62,
-    head: [['#', 'PART DESCRIPTION', 'UNIT PRICE', 'QTY', 'AMOUNT']],
-    body: tx.items.map((item, i) => [
-      i + 1,
-      safe(item.name, 32),
-      formatCurrency(item.price),
-      item.quantity,
-      formatCurrency(item.price * item.quantity)
-    ]),
-    ...tableLines,
-    headStyles: { ...headStyle(), halign: 'left' },
-    bodyStyles: bodyStyle(),
-    alternateRowStyles,
-    columnStyles: {
-      0: { cellWidth: 10, halign: 'center', font: 'courier' },
-      2: { halign: 'right', font: 'courier' },
-      3: { halign: 'center', font: 'courier' },
-      4: { halign: 'right', font: 'courier' }
-    },
-    margin: { left: 14, right: 14 }
+  paginate(doc, {
+    title, dateLine, abbrev: ['QTY'],
+    notes: 'Thank you for your business! Exchange is only valid within 7 days with this sales invoice.'
   });
-
-  let y = doc.lastAutoTable.finalY + 8;
-  doc.setFontSize(9.5);
-  const right = (label, value, yy) => {
-    doc.setFont('Helvetica', 'normal');
-    doc.setTextColor(INK_2);
-    doc.text(label, 128, yy);
-    doc.setFont('Courier', 'normal');
-    doc.setTextColor(INK);
-    doc.text(value, 196, yy, { align: 'right' });
-  };
-  right('Subtotal (VATable):', formatCurrency(tx.subtotal), y);
-  right('Discount Deductions:', `-${formatCurrency(tx.discount)}`, y + 5.5);
-  right('VAT (12%):', formatCurrency(tx.taxAmount), y + 11);
-
-  totalBox(doc, { x: 118, y: y + 15, w: 78, h: 7.5, label: 'NET TOTAL:', value: formatCurrency(tx.total) });
-
-  // Payment details — conditional by method, sits below the totals box so
-  // long cash/cheque/gcash lines never cross into the totals column.
-  y += 30;
-  doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(9);
-  if (tx.paymentMethod) {
-    doc.text(`Payment Method : ${safe(String(tx.paymentMethod).replace('_', ' '), 20)}`, 14, y);
-    y += 5;
-  }
-  if (tx.paymentMethod === 'CASH' && tx.amountTendered != null) {
-    doc.text(`Tendered: ${formatCurrency(tx.amountTendered)}   Change: ${formatCurrency(tx.changeGiven || 0)}`, 14, y);
-    y += 5;
-  }
-  if (tx.paymentMethod === 'CHEQUE' && tx.chequeNumber) {
-    doc.text(`Cheque No: ${safe(tx.chequeNumber, 20)} — ${safe(tx.chequeBank, 30)}`, 14, y);
-    y += 5;
-  }
-  if (tx.paymentMethod === 'GCASH' && tx.gcashReference) {
-    doc.text(`GCash Ref: ${safe(tx.gcashReference, 20)}`, 14, y);
-    y += 5;
-  }
-
-  paginate(doc, { notes: 'Thank you for your business! Exchange is only valid within 7 days with this sales invoice.' });
-
   doc.save(`Invoice_${safe(tx.invoiceNumber, 50)}.pdf`);
 }
