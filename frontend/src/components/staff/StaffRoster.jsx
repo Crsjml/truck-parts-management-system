@@ -185,7 +185,7 @@ export default function StaffRoster({
 
               <div className="min-w-0 flex-1">
                 <p className="text-base font-bold text-foreground truncate">{person.email}</p>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-xs text-foreground/70 truncate">
                   <span className="font-semibold">{style.label}</span>
                   {state !== 'pending' && <>{' · '}{relativeTime(person.lastSeenAt)}</>}
                   {' · added by '}

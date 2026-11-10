@@ -138,7 +138,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="system-settings-title"
-        className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-secondary border border-border rounded-xl overflow-hidden motion-safe:animate-scaleUp"
+        className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-background border border-border rounded-xl overflow-hidden motion-safe:animate-scaleUp"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
@@ -249,7 +249,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               </p>
 
               {markupStatus === 'confirming' || isMarkupSaving ? (
-                <div className="rounded-xl border border-border bg-background p-3 space-y-3">
+                <div className="rounded-xl border border-border bg-secondary p-3 space-y-3">
                   <p className="text-sm text-foreground leading-relaxed">
                     <span className="font-bold">Change markup from {savedMarkup}% to {draftValue}%?</span>{' '}
                     All shelf prices update immediately.
@@ -296,9 +296,9 @@ export default function AdminSettings({ onClose, onAddLog }) {
             <div>
               <h3 id="pin-heading" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
                 <Lock weight="duotone" aria-hidden="true" className="w-3.5 h-3.5 text-accent" />
-                <label htmlFor="override-pin">Discount Override PIN</label>
+                Discount Override PIN
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p id="pin-help" className="text-sm text-muted-foreground leading-relaxed">
                 Staff must enter this PIN at the POS before any discount is applied.{' '}
                 {pinConfigured
                   ? 'A PIN is currently set.'
@@ -309,6 +309,8 @@ export default function AdminSettings({ onClose, onAddLog }) {
             <div className="space-y-3">
               <input
                 id="override-pin"
+                aria-labelledby="pin-heading"
+                aria-describedby="pin-help"
                 type="password"
                 inputMode="numeric"
                 autoComplete="new-password"
