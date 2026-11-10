@@ -69,7 +69,7 @@ is the same data on narrow thermal paper (see Section C).
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
+ │    WHITE MASTHEAD (no fill) - color logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                             SALES INVOICE           │
  │  Quality Truck Accessories & Spare Parts        Invoice No: INV-000123  │
  │  Tarlac City, Philippines                       Date: 10/02/2026 14:35  │

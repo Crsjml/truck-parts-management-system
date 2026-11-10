@@ -24,7 +24,7 @@ const OUT_DIR = path.join(__dirname, 'report-layout-pdfs');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 // Company logo (rasterized from frontend/src/components/Logo.jsx via make-logo-png.cjs).
-const LOGO_PATH = path.join(__dirname, 'assets', 'logo-mark-print.png');
+const LOGO_PATH = path.join(__dirname, 'assets', 'logo-mark.png');
 const LOGO_B64 = fs.existsSync(LOGO_PATH) ? fs.readFileSync(LOGO_PATH).toString('base64') : null;
 
 // Ink-efficient PRINT palette — mirrors frontend/src/utils/pdf/reportPdfKit.js.
@@ -69,7 +69,7 @@ function save(doc, filename) {
 
 function masthead(doc, { title, meta = [] }) {
   const w = doc.internal.pageSize.getWidth();
-  // White masthead: light-gray DeviceGray logo, black company block, one crisp rule.
+  // White masthead: full-color logo, black company block, one crisp rule.
   if (LOGO_B64) {
     doc.addImage('data:image/png;base64,' + LOGO_B64, 'PNG', 14, 7, 18, 18);
   }

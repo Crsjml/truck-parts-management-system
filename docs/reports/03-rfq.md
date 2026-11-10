@@ -52,7 +52,7 @@ sends the quote back. Once priced and confirmed, the record becomes a Purchase O
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
+ │    WHITE MASTHEAD (no fill) - color logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                           REQUEST FOR QUOTATION      │
  │  Tarlac City, Philippines                     RFQ No : RFQ-000045        │
  │  Contact: 0917-XXX-XXXX                       Date   : 10/02/2026        │

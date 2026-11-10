@@ -46,7 +46,7 @@ selected period — candidates for promotion, markdown, or de-listing.
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
+ │    WHITE MASTHEAD (no fill) - color logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                        SLOW-MOVING STOCK REPORT      │
  │  Period: 09/02/2026 – 10/02/2026           Generated: 10/02/2026 14:35  │
  │  Criteria: has stock on hand AND 0 units sold in the period             │  <- criteria subline

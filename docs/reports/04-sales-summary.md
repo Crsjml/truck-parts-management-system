@@ -59,7 +59,7 @@ A period roll-up of sales. On screen it is a single day; the PDF supports a date
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
+ │    WHITE MASTHEAD (no fill) - color logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                           SALES SUMMARY              │
  │  Tarlac City, Philippines      Period: 10/01/2026 – 10/02/2026          │
  │                                Generated: 10/02/2026 14:35              │
