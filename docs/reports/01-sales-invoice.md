@@ -69,27 +69,27 @@ is the same data on narrow thermal paper (see Section C).
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │################ BLUE HEADER BAND (brand #2563EB) #######################│
+ │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                             SALES INVOICE           │
  │  Quality Truck Accessories & Spare Parts        Invoice No: INV-000123  │
  │  Tarlac City, Philippines                       Date: 10/02/2026 14:35  │
  │  Contact: 0917-XXX-XXXX                                                 │
- │~~~~~~~~~~~~~~~~ red accent rule (#DC2626) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~│
+ │             (accent rule removed - single black masthead rule)            │
  ├────────────────────────────────────────────────────────────────────────┤
  │  BILL TO / CUSTOMER INFO                                                │
  │  Customer Name: Juan Dela Cruz        Contact Phone: 0917-123-4567      │
  ├────────────────────────────────────────────────────────────────────────┤
  │  +--+---------------------------+------------+-----+---------------+     │
- │  | #| PART DESCRIPTION          | UNIT PRICE | QTY |     AMOUNT    |     │  <- blue header row
+ │  | #| PART DESCRIPTION          | UNIT PRICE | QTY |     AMOUNT    |     │  <- pale-tint header, bold black text
  │  +--+---------------------------+------------+-----+---------------+     │
  │  | 1| Brake Pad Set - Isuzu ELF |  PHP 850.00|   2 |  PHP 1,700.00 |     │
- │  | 2| Oil Filter FH-120         |  PHP 220.00|   4 |    PHP 880.00 |     │  <- zebra striping
+ │  | 2| Oil Filter FH-120         |  PHP 220.00|   4 |    PHP 880.00 |     │  <- hairline row rules, no striping
  │  +--+---------------------------+------------+-----+---------------+     │
  │                                   Subtotal (VATable):    PHP 2,580.00   │
  │                                   Discount         :     -PHP 100.00    │
  │                                   VAT (12%)        :      PHP 297.60    │
  │                                 +-------------------------------------+  │
- │                                 | NET TOTAL        :     PHP 2,777.60|  │  <- filled blue box, white bold
+ │                                 | NET TOTAL        :     PHP 2,777.60|  │  <- outlined box, pale tint, black bold
  │                                 +-------------------------------------+  │
  │  Payment: CASH    Tendered: PHP 3,000.00   Change: PHP 222.40           │
  ├────────────────────────────────────────────────────────────────────────┤
@@ -99,8 +99,8 @@ is the same data on narrow thermal paper (see Section C).
 ```
 
 **Styling notes**
-- Header band `#2563EB`, thin accent rule `#DC2626`, zebra rows `#F7F9FC`.
-- Money right-aligned; NET TOTAL in a filled blue box, white bold.
+- Ink-efficient print styling: white masthead with a black rule, pale-tint header row, hairline row rules (no zebra). See README "Print styling" — white page, single-channel black/gray text, pale-tint table headers, no solid fills.
+- Money right-aligned; NET TOTAL in an outlined box with a pale tint, bold black text.
 - Payment block switches by method (cash / cheque / gcash lines are conditional).
 - "(DUPLICATE)" watermark variant when reprinting.
 

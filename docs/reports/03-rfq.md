@@ -52,7 +52,7 @@ sends the quote back. Once priced and confirmed, the record becomes a Purchase O
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │############## NAVY HEADER BAND (#1B365D) ###############################│
+ │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                           REQUEST FOR QUOTATION      │
  │  Tarlac City, Philippines                     RFQ No : RFQ-000045        │
  │  Contact: 0917-XXX-XXXX                       Date   : 10/02/2026        │
@@ -63,7 +63,7 @@ sends the quote back. Once priced and confirmed, the record becomes a Purchase O
  │                                                                         │
  │  Please provide your best quotation for the following items (in PHP):   │  <- instruction line
  │  +--+-----------------------------+----------+------------------+------+ │
- │  | #| SKU / DESCRIPTION           | QTY REQ  | YOUR UNIT PRICE  | TOTAL| │  <- navy header row
+ │  | #| SKU / DESCRIPTION           | QTY REQ  | YOUR UNIT PRICE  | TOTAL| │  <- pale-tint header, bold black text
  │  +--+-----------------------------+----------+------------------+------+ │
  │  | 1| [BP-ELF] Brake Pad Set ELF  |    20    | _______________  |______| │  <- blank fill-in cells
  │  | 2| [OF-120] Oil Filter FH-120  |    50    | _______________  |______| │
@@ -77,7 +77,7 @@ sends the quote back. Once priced and confirmed, the record becomes a Purchase O
 ```
 
 **Styling notes**
-- Same navy masthead as the PO so the two read as one document family.
+- Same white masthead as the PO so the two read as one document family. See README "Print styling" — white page, single-channel black/gray text, pale-tint table headers, no solid fills.
 - Price + Total columns are intentionally **empty ruled cells** for handwriting/typing.
 - Emphasize the instruction line ("provide your best quotation…").
 - Bottom: supplier signature + validity date fields.

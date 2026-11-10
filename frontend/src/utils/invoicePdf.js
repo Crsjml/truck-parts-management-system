@@ -1,12 +1,14 @@
 // frontend/src/utils/invoicePdf.js
-import { jsPDF, autoTable, BRAND, DIVIDER, INK, MUTED, ZEBRA, safe, masthead, paginate, sectionLabel, formatDateTime } from './pdf/reportPdfKit';
+import {
+  jsPDF, autoTable, INK, INK_2, safe, masthead, paginate, sectionLabel, formatDateTime,
+  headStyle, bodyStyle, alternateRowStyles, tableLines, totalBox
+} from './pdf/reportPdfKit';
 
 export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
   const doc = new jsPDF();
 
   masthead(doc, {
     title: duplicate ? 'SALES INVOICE (DUPLICATE)' : 'SALES INVOICE',
-    color: BRAND,
     meta: [
       // Never invent a number: the server assigns every invoice number.
       `Invoice No : ${safe(tx.invoiceNumber, 24) || '—'}`,
@@ -14,10 +16,10 @@ export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
     ]
   });
 
-  sectionLabel(doc, 'Bill To / Customer Info', 14, 45, BRAND);
+  sectionLabel(doc, 'Bill To / Customer Info', 14, 45);
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.setTextColor(...INK);
+  doc.setTextColor(INK);
   doc.text(`Customer Name : ${safe(tx.customerName, 40)}`, 14, 51);
   doc.text(`Contact Phone : ${safe(tx.customerContact, 20)}`, 14, 56);
 
@@ -31,10 +33,10 @@ export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
       item.quantity,
       formatCurrency(item.price * item.quantity)
     ]),
-    theme: 'grid',
-    headStyles: { fillColor: BRAND, textColor: 255, fontSize: 9, halign: 'left' },
-    bodyStyles: { fontSize: 9, textColor: INK },
-    alternateRowStyles: { fillColor: ZEBRA },
+    ...tableLines,
+    headStyles: { ...headStyle(), halign: 'left' },
+    bodyStyles: bodyStyle(),
+    alternateRowStyles,
     columnStyles: {
       0: { cellWidth: 10, halign: 'center', font: 'courier' },
       2: { halign: 'right', font: 'courier' },
@@ -48,24 +50,17 @@ export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
   doc.setFontSize(9.5);
   const right = (label, value, yy) => {
     doc.setFont('Helvetica', 'normal');
-    doc.setTextColor(...MUTED);
+    doc.setTextColor(INK_2);
     doc.text(label, 128, yy);
     doc.setFont('Courier', 'normal');
-    doc.setTextColor(...INK);
+    doc.setTextColor(INK);
     doc.text(value, 196, yy, { align: 'right' });
   };
   right('Subtotal (VATable):', formatCurrency(tx.subtotal), y);
   right('Discount Deductions:', `-${formatCurrency(tx.discount)}`, y + 5.5);
   right('VAT (12%):', formatCurrency(tx.taxAmount), y + 11);
 
-  doc.setFillColor(...BRAND);
-  doc.rect(118, y + 15, 78, 7.5, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('Helvetica', 'bold');
-  doc.text('NET TOTAL:', 121, y + 20);
-  doc.setFont('Courier', 'bold');
-  doc.text(formatCurrency(tx.total), 193, y + 20, { align: 'right' });
-  doc.setTextColor(...INK);
+  totalBox(doc, { x: 118, y: y + 15, w: 78, h: 7.5, label: 'NET TOTAL:', value: formatCurrency(tx.total) });
 
   // Payment details — conditional by method, sits below the totals box so
   // long cash/cheque/gcash lines never cross into the totals column.
@@ -88,8 +83,6 @@ export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
     doc.text(`GCash Ref: ${safe(tx.gcashReference, 20)}`, 14, y);
     y += 5;
   }
-
-  doc.setDrawColor(...DIVIDER);
 
   paginate(doc, { notes: 'Thank you for your business! Exchange is only valid within 7 days with this sales invoice.' });
 

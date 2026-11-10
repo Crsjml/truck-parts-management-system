@@ -63,7 +63,7 @@ skeleton with the RFQ (Report 3); the difference is that prices are **filled in*
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │############## NAVY HEADER BAND (#1B365D) ###############################│
+ │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                              PURCHASE ORDER          │
  │  Tarlac City, Philippines                       PO No : PO-000045        │
  │  Contact: 0917-XXX-XXXX                         Date  : 10/02/2026       │
@@ -77,7 +77,7 @@ skeleton with the RFQ (Report 3); the difference is that prices are **filled in*
  │  Payment Terms: Net 30          │  Source RFQ        : RFQ-000045       │
  ├─────────────────────────────────┴──────────────────────────────────────┤
  │  +--+-------+-----------------------+-----+-------------+--------------+ │
- │  | #| SKU   | DESCRIPTION           | QTY |  UNIT PRICE |    AMOUNT    | │  <- navy header row
+ │  | #| SKU   | DESCRIPTION           | QTY |  UNIT PRICE |    AMOUNT    | │  <- pale-tint header, bold black text
  │  +--+-------+-----------------------+-----+-------------+--------------+ │
  │  | 1|BP-ELF | Brake Pad Set - ELF   |  20 | PHP 650.00  | PHP 13,000.00| │
  │  | 2|OF-120 | Oil Filter FH-120     |  50 | PHP 160.00  |  PHP 8,000.00| │
@@ -91,7 +91,7 @@ skeleton with the RFQ (Report 3); the difference is that prices are **filled in*
 ```
 
 **Styling notes**
-- Navy header band `#1B365D` (distinct from the invoice blue — internal vs customer doc).
+- Ink-efficient print styling shared by all six reports (no colored band). See README "Print styling" — white page, single-channel black/gray text, pale-tint table headers, no solid fills.
 - Two-column party block: Supplier (left) vs Deliver To (right).
 - Status rendered as a pill (Draft / RFQ Sent / Confirmed / Received).
 - Signature line bottom-right for manual authorization.

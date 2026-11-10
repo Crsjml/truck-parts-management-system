@@ -4,8 +4,8 @@
 // uses on screen (computeKpis, dayPaymentMix, orderStatusBreakdown) so the
 // exported figures can never drift from what's displayed for the selected day.
 import {
-  jsPDF, autoTable, BRAND, INK, MUTED, safe, masthead, paginate, headStyle,
-  alternateRowStyles, numCol, formatMoney, formatDate, formatDateTime
+  jsPDF, autoTable, INK, INK_2, RULE, safe, masthead, paginate, headStyle, bodyStyle,
+  tableLines, alternateRowStyles, numCol, formatMoney, formatDate, formatDateTime
 } from './pdf/reportPdfKit';
 import { inRange, computeKpis, orderStatusBreakdown, dayPaymentMix } from './salesAnalytics';
 
@@ -49,7 +49,6 @@ export function buildSalesSummaryPdf(transactions, { selectedDate }) {
   const doc = new jsPDF();
   masthead(doc, {
     title: 'SALES SUMMARY',
-    color: BRAND,
     meta: [`Date : ${formatDate(start)}`, `Generated : ${formatDateTime(new Date())}`]
   });
 
@@ -63,27 +62,28 @@ export function buildSalesSummaryPdf(transactions, { selectedDate }) {
   const tw = 59.3, gap = 3;
   let tx = 14;
   tiles.forEach(([label, value, delta]) => {
-    doc.setDrawColor(210);
-    doc.setFillColor(247, 248, 250);
-    doc.roundedRect(tx, 42, tw, 21, 2, 2, 'FD');
+    // Outline-only KPI tile — no background fill.
+    doc.setDrawColor(RULE);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(tx, 42, tw, 21, 2, 2, 'S');
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(6.8);
-    doc.setTextColor(...MUTED);
+    doc.setTextColor(INK_2);
     doc.text(label, tx + 3, 48);
     doc.setFont('Courier', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(...INK);
+    doc.setTextColor(INK);
     doc.text(value, tx + 3, 55);
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(7);
-    doc.setTextColor(...MUTED);
+    doc.setTextColor(INK_2);
     doc.text(`${delta} vs prev`, tx + 3, 60.5);
     tx += tw + gap;
   });
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.setTextColor(...INK);
+  doc.setTextColor(INK);
   doc.text(`Gross Sales: ${formatMoney(kpis.revenue)}      Discounts: -${formatMoney(discounts)}      Net Sales: ${formatMoney(netSales)}`, 14, 71);
   doc.text(`VATable (net of VAT): ${formatMoney(vatableSales)}      Output VAT (12%): ${formatMoney(vatAmount)}`, 14, 76);
 
@@ -100,9 +100,9 @@ export function buildSalesSummaryPdf(transactions, { selectedDate }) {
           ]
         ]
       : [['No payment data', '', '']],
-    theme: 'grid',
-    headStyles: headStyle(BRAND),
-    bodyStyles: { fontSize: 9, textColor: INK },
+    ...tableLines,
+    headStyles: headStyle(),
+    bodyStyles: bodyStyle(),
     alternateRowStyles,
     columnStyles: { 1: numCol('right'), 2: numCol('center') },
     margin: { left: 14, right: 110 }
@@ -112,9 +112,9 @@ export function buildSalesSummaryPdf(transactions, { selectedDate }) {
     startY: 81,
     head: [['ORDER STATUS', 'COUNT']],
     body: orderStatuses.length ? orderStatuses.map(s => [safe(s.name, 18), s.count]) : [['No orders', '']],
-    theme: 'grid',
-    headStyles: headStyle(BRAND),
-    bodyStyles: { fontSize: 9, textColor: INK },
+    ...tableLines,
+    headStyles: headStyle(),
+    bodyStyles: bodyStyle(),
     alternateRowStyles,
     columnStyles: { 1: numCol('center') },
     margin: { left: 110, right: 14 }
