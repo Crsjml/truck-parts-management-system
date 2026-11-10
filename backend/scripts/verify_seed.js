@@ -7,7 +7,7 @@ async function main() {
   
   // 1. Archetype Checks
   const customers = await prisma.customer.findMany({
-    include: { addresses: false }
+    select: { id: true, authId: true }
   });
   
   const txs = await prisma.transaction.findMany({
