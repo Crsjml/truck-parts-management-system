@@ -326,3 +326,93 @@ describe('PurchasingModule pagination', () => {
   });
 });
 
+
+describe('PurchasingModule defect visibility', () => {
+  const problemPo = {
+    ...confirmedPo,
+    id: 'po-2',
+    poNumber: 'PO-20261027-0002',
+    status: 'Problem Reported',
+    expectedDeliveryDate: '2099-01-01T00:00:00.000Z',
+    items: [{
+      ...confirmedPo.items[0],
+      id: 'item-2',
+      inspectionStatus: 'Problem',
+      issueNote: 'Broken / Physically Damaged: cracked compressor housing'
+    }]
+  };
+  const returnedPo = {
+    ...confirmedPo,
+    id: 'po-3',
+    poNumber: 'PO-20261029-0001',
+    status: 'Returned to Supplier',
+    expectedDeliveryDate: '2099-01-01T00:00:00.000Z',
+    items: [{ ...confirmedPo.items[0], id: 'item-3', inspectionStatus: 'Problem', issueNote: 'Wrong Item / Model Mismatch' }]
+  };
+  const chip = (label) => screen.getByRole('button', { name: new RegExp(`^${label}\\s*\\d+$`, 'i') });
+  const openPoTab = async () => {
+    renderPurchasing();
+    fireEvent.click(await screen.findByRole('button', { name: /^Purchase Orders$/i }));
+    await screen.findByText('PO-20261027-0002');
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchSuppliers.mockResolvedValue([supplier]);
+    // confirmedPo's expected delivery (2026-09-15) is past, so it counts as a late receipt
+    fetchPurchaseOrders.mockResolvedValue([confirmedPo, problemPo, returnedPo]);
+  });
+
+  it('lists Problem Reported and Returned to Supplier POs on the Purchase Orders tab', async () => {
+    await openPoTab();
+
+    expect(screen.getByText('PO-20261029-0001')).toBeInTheDocument();
+    expect(screen.getByText('Problem Reported')).toBeInTheDocument();
+    expect(screen.getByText('Returned to Supplier')).toBeInTheDocument();
+  });
+
+  it('shows counts on the Late Receipt, Problems, Returned and Defects chips', async () => {
+    await openPoTab();
+
+    expect(chip('Late Receipt')).toHaveTextContent('1');
+    expect(chip('Problems')).toHaveTextContent('1');
+    expect(chip('Returned')).toHaveTextContent('1');
+    expect(chip('Defects')).toHaveTextContent('2'); // flagged items across both POs
+  });
+
+  it('filters the PO list to reported problems when the Problems chip is clicked', async () => {
+    await openPoTab();
+
+    fireEvent.click(chip('Problems'));
+
+    expect(chip('Problems')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('PO-20261027-0002')).toBeInTheDocument();
+    expect(screen.queryByText('PO-20261029-0001')).not.toBeInTheDocument();
+    expect(screen.queryByText('PO-20260805-0001')).not.toBeInTheDocument();
+  });
+
+  it('shows a defect log of flagged items with supplier, reason and remarks', async () => {
+    await openPoTab();
+
+    fireEvent.click(chip('Defects'));
+
+    const log = screen.getByRole('table', { name: /defect log/i });
+    const rows = within(log).getAllByRole('row').slice(1); // skip header
+    expect(rows).toHaveLength(2);
+    expect(within(log).getByText('Broken / Physically Damaged')).toBeInTheDocument();
+    expect(within(log).getByText('cracked compressor housing')).toBeInTheDocument();
+    expect(within(log).getByText('Wrong Item / Model Mismatch')).toBeInTheDocument();
+    expect(within(log).getAllByText('Isuzu Supplier')).toHaveLength(2);
+  });
+
+  it('opens the purchase order when a defect log row is clicked', async () => {
+    await openPoTab();
+    fireEvent.click(chip('Defects'));
+
+    const log = screen.getByRole('table', { name: /defect log/i });
+    fireEvent.click(within(log).getByText('cracked compressor housing'));
+
+    // The Problem Reported PO's own modal action proves the right PO opened
+    expect(await screen.findByRole('button', { name: /send back to supplier/i })).toBeInTheDocument();
+  });
+});
