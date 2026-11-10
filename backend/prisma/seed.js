@@ -3,6 +3,10 @@ import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import { fetchPartImage } from './fetch_images.js';
 import { deriveCompatibility } from '../scripts/migrate_compatibility.js';
+import {
+  STORE_PICKUP, skuPrefixFor, formatSku, formatDocNumber, dateKey,
+  roundMoney, roundUpTender, mpnFromSeed
+} from '../src/utils/recordFormats.js';
 
 const prisma = new PrismaClient();
 
@@ -274,6 +278,8 @@ async function main() {
         allParts.push(`${faker.helpers.arrayElement(['Volvo', 'Scania', 'Mack', 'Peterbilt', 'Kenworth'])} ${subCat.name} ${faker.string.alphanumeric(4).toUpperCase()}`);
       }
 
+      const skuPrefix = skuPrefixFor(subCat.name);
+      let skuSeq = 0;
       for (const partName of allParts) {
         let brand = "Universal";
         if (partName.includes("Isuzu")) brand = "Isuzu";
@@ -293,11 +299,13 @@ async function main() {
             if(fetchedImage) finalImage = fetchedImage;
         } catch(e) {}
 
+        const oem = mpnFromSeed(`${subCat.name}:${partName}`);
         const part = await prisma.part.create({
           data: {
             name: partName,
-            sku: `SKU-${faker.string.alphanumeric(8).toUpperCase()}`,
-            oem: `OEM-${faker.number.int({ min: 10000, max: 99999 })}`,
+            sku: formatSku(skuPrefix, ++skuSeq),
+            oem,
+            oemNumbers: [oem],
             categoryId: subCategory.id,
             supplierId: supplier.id,
             price: Number(faker.commerce.price({ min: 1500, max: 85000 })),
@@ -326,7 +334,8 @@ async function main() {
 
   const MARKUP_FACTOR = 1.15; // must match active_markup at line 192
   const VAT_RATE = 0.12;
-  const round2 = (n) => Math.round(n * 100) / 100;
+  const round2 = roundMoney;
+  const addDays = (d, n) => new Date(new Date(d).getTime() + n * 24 * 60 * 60 * 1000);
 
   // 1. Prepare Dates (24 months) + Heavy Recent Spike
   let txDates = [];
@@ -344,7 +353,8 @@ async function main() {
     if (i === 1) count += 150;
     
     const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-    const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    // Never past today — the current month is still in progress.
+    const endOfMonth = new Date(Math.min(new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59), now));
     
     for (let j = 0; j < count; j++) {
       txDates.push(faker.date.between({ from: startOfMonth, to: endOfMonth }));
@@ -400,6 +410,22 @@ async function main() {
 
   const allTransactionsData = [];
   
+  function paymentDetails(method, total, date) {
+    if (method === 'CASH') {
+      const tendered = roundUpTender(total);
+      return { amountTendered: tendered, changeGiven: roundMoney(tendered - total) };
+    }
+    if (method === 'CHEQUE') {
+      return {
+        chequeNumber: faker.string.numeric(8),
+        chequeBank: faker.helpers.arrayElement(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank']),
+        chequeDate: date
+      };
+    }
+    if (method === 'GCASH') return { gcashReference: faker.string.numeric(13) };
+    return {};
+  }
+
   function createTxData(userId, channel, customerName, customerContact, customerEmailStr) {
     const date = txDates.pop() || faker.date.recent();
     const isOnline = channel === 'online';
@@ -413,7 +439,7 @@ async function main() {
       const quantity = faker.number.int({ min: 1, max: 3 });
       const sellingPrice = round2(p.price * MARKUP_FACTOR);
       total += quantity * sellingPrice;
-      return { partId: p.id, name: p.name, quantity, price: sellingPrice };
+      return { partId: p.id, name: p.name, sku: p.sku, quantity, price: sellingPrice };
     });
 
     total = round2(total);
@@ -432,7 +458,7 @@ async function main() {
     }
 
     const tx = {
-      invoiceNumber: `${invoicePrefix}${date.getTime()}-${faker.number.int({ min: 100, max: 999 })}`,
+      invoiceType: invoicePrefix.slice(0, 3), // numbered by date after all txns are built
       customerName,
       customerContact,
       customerEmail: customerEmailStr,
@@ -441,18 +467,16 @@ async function main() {
       subtotal: vatableSale,
       taxAmount,
       total,
-      status: isHistorical ? "COMPLETED" : faker.helpers.arrayElement(["ORDER_PLACED", "READY_FOR_PICKUP", "COMPLETED"]),
+      // Walk-in counter sales are always completed on the spot (TransactionsService).
+      status: (!isOnline || isHistorical) ? "COMPLETED" : faker.helpers.arrayElement(["ORDER_PLACED", "READY_FOR_PICKUP", "COMPLETED"]),
+      salesChannel: isOnline ? 'WEB' : 'POS',
+      ...(isOnline && { pickupLocation: STORE_PICKUP.location, pickupHours: STORE_PICKUP.hours }),
       transactionDate: date,
       paymentMethod,
       items: { create: itemsData }
     };
 
-    if (paymentMethod === 'CASH') {
-      tx.amountTendered = total;
-      tx.changeGiven = 0;
-    }
-
-    return tx;
+    return { ...tx, ...paymentDetails(paymentMethod, total, date) };
   }
 
   // 1. Pure online
@@ -497,8 +521,32 @@ async function main() {
     }
   }
 
-  for (const txData of allTransactionsData) {
-    await prisma.transaction.create({ data: txData });
+  // Number invoices TYPE-YYYYMMDD-#### in date order, per type and day.
+  allTransactionsData.sort((a, b) => a.transactionDate - b.transactionDate);
+  const invoiceSeq = new Map();
+  const reservedByPart = new Map();
+  const purchased = new Set(); // `${userId}:${partId}` — drives review verification
+  for (const { invoiceType, ...txData } of allTransactionsData) {
+    const key = `${invoiceType}-${dateKey(txData.transactionDate)}`;
+    invoiceSeq.set(key, (invoiceSeq.get(key) || 0) + 1);
+    const invoiceNumber = formatDocNumber(invoiceType, txData.transactionDate, invoiceSeq.get(key));
+    await prisma.transaction.create({ data: { ...txData, invoiceNumber } });
+
+    for (const item of txData.items.create) {
+      if (txData.userId) purchased.add(`${txData.userId}:${item.partId}`);
+      if (txData.status !== 'COMPLETED') {
+        reservedByPart.set(item.partId, (reservedByPart.get(item.partId) || 0) + item.quantity);
+      }
+    }
+  }
+
+  // Open online orders hold stock, exactly as checkout does.
+  for (const [partId, qty] of reservedByPart) {
+    const part = parts.find(p => p.id === partId);
+    await prisma.part.update({
+      where: { id: partId },
+      data: { reservedStock: qty, stock: Math.max(part.stock, qty) }
+    });
   }
 
   // Create Reviews (8 to 15 per part, realistic distribution) — batched for speed
@@ -521,7 +569,7 @@ async function main() {
           { weight: 1, value: 1 }
         ]),
         body: faker.helpers.arrayElement(ENGLISH_REVIEWS),
-        purchaseVerified: faker.datatype.boolean({ probability: 0.7 }),
+        purchaseVerified: purchased.has(`${reviewer.authId}:${part.id}`),
         createdAt: faker.date.between({ from: '2025-10-01', to: new Date() })
       });
     }
@@ -530,28 +578,50 @@ async function main() {
   console.log(`⭐ Created ${allReviews.length} reviews across ${parts.length} parts`);
 
   // Create Purchase Orders (Admin B2B Purchasing Module)
-  const poStatuses = ['Draft', 'RFQ Sent', 'Acknowledged', 'Ready for Pickup', 'Completed', 'Delayed'];
-  for (let i = 0; i < 40; i++) {
+  // Statuses follow the app lifecycle: Draft → RFQ Sent → Confirmed → Received | Cancelled.
+  const poStatuses = ['Draft', 'RFQ Sent', 'Confirmed', 'Confirmed', 'Received', 'Received', 'Cancelled'];
+  const poSeeds = Array.from({ length: 40 }, () => ({
+    orderDate: faker.date.recent({ days: 60 }),
+    status: faker.helpers.arrayElement(poStatuses)
+  })).sort((a, b) => a.orderDate - b.orderDate);
+
+  const poSeq = new Map();
+  for (const { orderDate, status } of poSeeds) {
     const supplier = faker.helpers.arrayElement(suppliers);
     const orderParts = faker.helpers.arrayElements(parts, faker.number.int({ min: 2, max: 10 }));
-    let totalAmount = 0;
-    
+    const isPlaced = status === 'Confirmed' || status === 'Received';
+
+    let totalCents = 0;
     const items = orderParts.map(p => {
       const quantity = faker.number.int({ min: 10, max: 100 });
       // Supplier cost is cheaper than retail price
-      const unitPrice = Number((p.price * faker.number.float({ min: 0.5, max: 0.8 })).toFixed(2));
-      totalAmount += (quantity * unitPrice);
-      return { partId: p.id, name: p.name, quantity, unitPrice, subtotal: quantity * unitPrice };
+      const unitPrice = roundMoney(p.price * faker.number.float({ min: 0.5, max: 0.8 }));
+      const subtotal = roundMoney(quantity * unitPrice);
+      totalCents += Math.round(subtotal * 100);
+      return {
+        partId: p.id, name: p.name, sku: p.sku, quantity, unitPrice, subtotal,
+        inspectionStatus: status === 'Received' ? 'OK' : 'Pending'
+      };
     });
+
+    const day = dateKey(orderDate);
+    poSeq.set(day, (poSeq.get(day) || 0) + 1);
+    const confirmationDate = isPlaced ? addDays(orderDate, 2) : null;
+    const paymentDueDate = isPlaced ? addDays(confirmationDate, 30) : null; // Net 30
+    const isPaid = status === 'Received' && paymentDueDate < now;
 
     await prisma.purchaseOrder.create({
       data: {
-        poNumber: `PO-${faker.string.alphanumeric(6).toUpperCase()}`,
+        poNumber: formatDocNumber('PO', orderDate, poSeq.get(day)),
         supplierId: supplier.id,
-        orderDate: faker.date.recent({ days: 60 }),
-        expectedDeliveryDate: faker.date.soon({ days: 15 }),
-        status: faker.helpers.arrayElement(poStatuses),
-        totalAmount,
+        orderDate,
+        expectedDeliveryDate: addDays(orderDate, faker.number.int({ min: 5, max: 15 })),
+        status,
+        confirmationDate,
+        paymentDueDate,
+        paidAt: isPaid ? paymentDueDate : null,
+        billingStatus: isPaid ? 'Bills Received' : 'Waiting Bills',
+        totalAmount: totalCents / 100,
         notes: faker.helpers.maybe(() => "Urgent restock needed for upcoming season.", { probability: 0.3 }),
         items: { create: items }
       }
