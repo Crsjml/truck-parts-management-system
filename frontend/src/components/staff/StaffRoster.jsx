@@ -26,9 +26,14 @@ export default function StaffRoster({
   onCancelRemove,
   onRemove,
   pendingRemoveId,
+  pendingPromoteId,
+  onConfirmPromote,
+  onCancelPromote,
   busyId,
   error
 }) {
+  const selfEmail = (currentEmail || '').toLowerCase();
+
   return (
     <div className="glass-panel rounded-2xl overflow-hidden">
       {error && (
@@ -45,8 +50,9 @@ export default function StaffRoster({
         {staff.map((person) => {
           const state = staffState(person.lastSeenAt);
           const style = STATE_STYLE[state];
-          const isSelf = person.email === currentEmail;
+          const isSelf = person.email.toLowerCase() === selfEmail;
           const isPending = pendingRemoveId === person.id;
+          const isPromoting = pendingPromoteId === person.id;
           const isBusy = busyId === person.id;
 
           if (isPending) {
@@ -73,6 +79,36 @@ export default function StaffRoster({
                     className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                   >
                     {isBusy ? 'Removing…' : 'Remove'}
+                  </button>
+                </div>
+              </li>
+            );
+          }
+
+          if (isPromoting) {
+            return (
+              <li
+                key={person.id}
+                className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-amber-500/5 border-l-2 border-l-amber-500/40"
+              >
+                <p className="text-sm font-bold text-foreground">
+                  Make {person.email} a Superadmin? They will be able to manage staff and system settings.
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={onCancelPromote}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onConfirmPromote(person.id)}
+                    disabled={isBusy}
+                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+                  >
+                    Make Superadmin
                   </button>
                 </div>
               </li>
@@ -129,7 +165,7 @@ export default function StaffRoster({
                     type="button"
                     onClick={() => onRequestRemove(person.id)}
                     aria-label={`Remove ${person.email}`}
-                    className="shrink-0 p-2 rounded-lg text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-500 transition-all"
+                    className="shrink-0 p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-500 transition-all"
                   >
                     <Trash weight="bold" className="w-4 h-4" />
                   </button>
