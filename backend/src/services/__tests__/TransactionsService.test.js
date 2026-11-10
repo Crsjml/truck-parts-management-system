@@ -21,37 +21,63 @@ describe('TransactionsService.updateStatus', () => {
     executeTransaction.mockReset();
   });
 
-  it('deducts stock and reserved stock when an online pickup is completed', async () => {
+  // reservedCount: rows matched by the guarded release (1 = enough reserved, 0 = out of sync)
+  function mockOrder({ status = 'READY_FOR_PICKUP', reservedCount = 1 } = {}) {
+    const partUpdateMany = vi.fn().mockResolvedValue({ count: reservedCount });
     const partUpdate = vi.fn();
-    const transactionUpdate = vi.fn().mockResolvedValue({ id: 'tx-1', status: 'COMPLETED' });
-
+    const transactionUpdate = vi.fn().mockImplementation(async ({ data }) => ({ id: 'tx-1', ...data }));
     executeTransaction.mockImplementation(async (callback) => callback({
       transaction: {
-        findUnique: vi.fn().mockResolvedValue({
-          id: 'tx-1',
-          status: 'READY_FOR_PICKUP',
-          items: [{ partId: 'part-1', quantity: 2 }]
-        }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'tx-1', status, items: [{ partId: 'part-1', quantity: 2 }] }),
         update: transactionUpdate
       },
-      part: {
-        update: partUpdate
-      }
+      part: { updateMany: partUpdateMany, update: partUpdate }
     }));
+    return { partUpdateMany, partUpdate, transactionUpdate };
+  }
+
+  it('deducts stock and releases the reservation when an online pickup is completed', async () => {
+    const { partUpdateMany, partUpdate, transactionUpdate } = mockOrder();
+
+    await transactionsService.updateStatus('tx-1', 'COMPLETED');
+
+    expect(partUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'part-1', reservedStock: { gte: 2 } },
+      data: { reservedStock: { decrement: 2 }, stock: { decrement: 2 } }
+    });
+    expect(partUpdate).not.toHaveBeenCalled();
+    expect(transactionUpdate).toHaveBeenCalledWith({ where: { id: 'tx-1' }, data: { status: 'COMPLETED' } });
+  });
+
+  it('never drives reservedStock negative when completing an order whose reservation is out of sync', async () => {
+    const { partUpdate } = mockOrder({ reservedCount: 0 });
 
     await transactionsService.updateStatus('tx-1', 'COMPLETED');
 
     expect(partUpdate).toHaveBeenCalledWith({
       where: { id: 'part-1' },
-      data: {
-        stock: { decrement: 2 },
-        reservedStock: { decrement: 2 }
-      }
+      data: { reservedStock: 0, stock: { decrement: 2 } }
     });
-    expect(transactionUpdate).toHaveBeenCalledWith({
-      where: { id: 'tx-1' },
-      data: { status: 'COMPLETED' }
+  });
+
+  it('releases only the reservation (not stock) when an order is cancelled', async () => {
+    const { partUpdateMany, partUpdate } = mockOrder({ status: 'ORDER_PLACED' });
+
+    await transactionsService.updateStatus('tx-1', 'CANCELLED');
+
+    expect(partUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'part-1', reservedStock: { gte: 2 } },
+      data: { reservedStock: { decrement: 2 } }
     });
+    expect(partUpdate).not.toHaveBeenCalled();
+  });
+
+  it('clamps reservedStock to 0 when cancelling an order whose reservation is out of sync', async () => {
+    const { partUpdate } = mockOrder({ status: 'ORDER_PLACED', reservedCount: 0 });
+
+    await transactionsService.updateStatus('tx-1', 'CANCELLED');
+
+    expect(partUpdate).toHaveBeenCalledWith({ where: { id: 'part-1' }, data: { reservedStock: 0 } });
   });
 });
 

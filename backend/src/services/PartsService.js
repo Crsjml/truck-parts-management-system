@@ -2,11 +2,12 @@ import { partsRepository } from '../repositories/PartsRepository.js';
 import { supabaseStorageService } from './SupabaseStorageService.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
 import { dateKey, nextDocNumber } from '../utils/recordFormats.js';
+import { retryOnUniqueViolation } from '../utils/invoiceNumbers.js';
 
 export class PartsService {
-  async generateAdjustmentNumber() {
+  async generateAdjustmentNumber(client) {
     const date = new Date();
-    const lastAdjustment = await partsRepository.findLatestAdjustmentByDate(dateKey(date));
+    const lastAdjustment = await partsRepository.findLatestAdjustmentByDate(dateKey(date), client);
     return nextDocNumber('SA', date, lastAdjustment?.adjustmentNumber);
   }
 
@@ -206,11 +207,9 @@ export class PartsService {
     let isStockAdjustment = false;
     const oldStock = part.stock;
     const newStock = stock !== undefined ? Number(stock) : oldStock;
-    let difference = 0;
 
     if ((stock !== undefined && newStock !== oldStock) || (adjustmentReason && adjustmentReason.trim() !== '')) {
       isStockAdjustment = true;
-      difference = newStock - oldStock;
       if (!adjustmentReason || adjustmentReason.trim() === '') {
         const error = new Error('Reason for stock adjustment is required.');
         error.status = 400;
@@ -249,7 +248,7 @@ export class PartsService {
       finalImageUrl = await supabaseStorageService.uploadBase64Image(image);
     }
 
-    const updatedPart = await partsRepository.updatePart(id, {
+    const partData = {
       ...(name !== undefined && { name: name.trim() }),
       ...(sku !== undefined && { sku: sku.trim() }),
       ...(oem !== undefined && { oem: oem.trim() }),
@@ -268,30 +267,29 @@ export class PartsService {
       ...(description !== undefined && { description: description.trim() }),
       ...(image !== undefined && { image: finalImageUrl }),
       ...(published !== undefined && { published })
-    });
+    };
 
-    if (isStockAdjustment) {
-      const MAX_ADJUSTMENT_NUMBER_ATTEMPTS = 5;
-      for (let attempt = 1; attempt <= MAX_ADJUSTMENT_NUMBER_ATTEMPTS; attempt++) {
-        const adjustmentNumber = await this.generateAdjustmentNumber();
-        try {
+    // The stock change and its SA- audit record commit together or not at all.
+    // A collision on the SA- number rolls the whole attempt back and retries.
+    const updatedPart = await retryOnUniqueViolation('adjustmentNumber', () =>
+      partsRepository.executeTransaction(async (tx) => {
+        const lockedStock = await partsRepository.lockPartStock(id, tx);
+        const saved = await partsRepository.updatePart(id, partData, tx);
+        if (isStockAdjustment) {
+          const before = lockedStock ?? oldStock;
+          const after = stock !== undefined ? Number(stock) : before;
           await partsRepository.createStockAdjustment({
-            partId: updatedPart.id,
-            adjustmentNumber,
-            oldStock,
-            newStock,
-            difference,
+            partId: id,
+            adjustmentNumber: await this.generateAdjustmentNumber(tx),
+            oldStock: before,
+            newStock: after,
+            difference: after - before,
             reason: adjustmentReason.trim()
-          });
-          break;
-        } catch (error) {
-          const isCollision = error.code === 'P2002' && error.meta?.target?.includes('adjustmentNumber');
-          if (!isCollision || attempt === MAX_ADJUSTMENT_NUMBER_ATTEMPTS) {
-            throw error;
-          }
+          }, tx);
         }
-      }
-    }
+        return saved;
+      })
+    );
 
     return {
       id: updatedPart.id,

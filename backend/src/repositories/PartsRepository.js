@@ -43,23 +43,37 @@ export class PartsRepository {
     });
   }
 
-  async updatePart(id, data) {
-    return prisma.part.update({
+  async executeTransaction(callback) {
+    return prisma.$transaction(callback);
+  }
+
+  /**
+   * Lock the part row for the rest of the transaction and return its current
+   * stock, so concurrent stock edits serialize instead of both reading the
+   * same "old stock".
+   */
+  async lockPartStock(id, client = prisma) {
+    const rows = await client.$queryRaw`SELECT stock FROM "Part" WHERE id = ${id}::uuid FOR UPDATE`;
+    return rows[0]?.stock ?? null;
+  }
+
+  async updatePart(id, data, client = prisma) {
+    return client.part.update({
       where: { id },
       data,
       include: { category: true }
     });
   }
 
-  async findLatestAdjustmentByDate(dateStr) {
-    return prisma.stockAdjustment.findFirst({
+  async findLatestAdjustmentByDate(dateStr, client = prisma) {
+    return client.stockAdjustment.findFirst({
       where: { adjustmentNumber: { startsWith: `SA-${dateStr}-` } },
       orderBy: { adjustmentNumber: 'desc' }
     });
   }
 
-  async createStockAdjustment(data) {
-    return prisma.stockAdjustment.create({ data });
+  async createStockAdjustment(data, client = prisma) {
+    return client.stockAdjustment.create({ data });
   }
 }
 
