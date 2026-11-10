@@ -1,7 +1,7 @@
 import { partsRepository } from '../repositories/PartsRepository.js';
 import { supabaseStorageService } from './SupabaseStorageService.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
-import { dateKey, nextDocNumber } from '../utils/recordFormats.js';
+import { dateKey, nextDocNumber, normalizeOemNumber, normalizeOemNumbers } from '../utils/recordFormats.js';
 import { retryOnUniqueViolation } from '../utils/invoiceNumbers.js';
 
 export class PartsService {
@@ -130,9 +130,7 @@ export class PartsService {
 
   async createPart(data) {
     const { name, sku, oem, oemNumbers, markupOverride, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = data;
-    const normalizedOemNumbers = Array.isArray(oemNumbers)
-      ? oemNumbers.map(v => String(v).trim()).filter(Boolean)
-      : [];
+    const normalizedOemNumbers = normalizeOemNumbers(oemNumbers);
     const normalizedMarkupOverride = (markupOverride === undefined || markupOverride === null || markupOverride === '')
       ? null
       : Number(markupOverride);
@@ -161,7 +159,7 @@ export class PartsService {
     const part = await partsRepository.createPart({
       name: name.trim(),
       sku: sku.trim(),
-      oem: oem ? oem.trim() : '',
+      oem: normalizeOemNumber(oem),
       oemNumbers: normalizedOemNumbers,
       categoryId: categoryDoc.id,
       price: Number(price),
@@ -251,10 +249,8 @@ export class PartsService {
     const partData = {
       ...(name !== undefined && { name: name.trim() }),
       ...(sku !== undefined && { sku: sku.trim() }),
-      ...(oem !== undefined && { oem: oem.trim() }),
-      ...(oemNumbers !== undefined && {
-        oemNumbers: Array.isArray(oemNumbers) ? oemNumbers.map(v => String(v).trim()).filter(Boolean) : []
-      }),
+      ...(oem !== undefined && { oem: normalizeOemNumber(oem) }),
+      ...(oemNumbers !== undefined && { oemNumbers: normalizeOemNumbers(oemNumbers) }),
       ...(markupOverride !== undefined && {
         markupOverride: (markupOverride === null || markupOverride === '') ? null : Number(markupOverride)
       }),
