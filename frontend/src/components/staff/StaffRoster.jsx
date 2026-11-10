@@ -2,37 +2,30 @@
 import { useEffect, useRef } from 'react';
 import { Trash, Warning } from '@phosphor-icons/react';
 import { staffState, relativeTime } from '../../utils/staffState';
-import { STAFF_ROLES, isPromotion, staffRoleLabel } from '../../utils/staffAccess';
+import { STAFF_ROLES, isPromotion, staffRoleLabel, accessDiff, formatList } from '../../utils/staffAccess';
 
 const article = (label) => (/^[aeiou]/i.test(label) ? 'an' : 'a');
-const lowerFirst = (text) => text.charAt(0).toLowerCase() + text.slice(1);
 
-// What the inline Save/Cancel strip says, by kind of change. Promotions and
-// anything touching Superadmin explain what access changes; other moves just
-// restate the change.
+// "They lose A and B and gain C." Names every page that changes hands.
+function accessChangeSentence(from, to) {
+  const { gained, lost } = accessDiff(from, to);
+  if (lost.length && gained.length) return ` They lose ${formatList(lost)} and gain ${formatList(gained)}.`;
+  if (lost.length) return ` They lose ${formatList(lost)}.`;
+  if (gained.length) return ` They gain ${formatList(gained)}.`;
+  return '';
+}
+
+// What the inline Save/Cancel strip says, by kind of change. Every message
+// names the pages gained or lost; promotions read "Make …", the rest "Change …".
 function roleChangeCopy(email, from, to) {
-  if (to === 'SUPERADMIN') {
-    return {
-      message: `Make ${email} a Superadmin? They will be able to manage staff and system settings.`,
-      action: 'Make Superadmin'
-    };
-  }
-  if (from === 'SUPERADMIN') {
-    return {
-      message: `Change ${email} from Superadmin to ${staffRoleLabel(to)}? They lose access to staff and system settings.`,
-      action: 'Change role'
-    };
-  }
+  const toLabel = staffRoleLabel(to);
+  const detail = accessChangeSentence(from, to);
   if (isPromotion(from, to)) {
-    const role = STAFF_ROLES.find((r) => r.value === to);
-    return {
-      message: `Make ${email} ${article(role.label)} ${role.label}? They will get access to ${lowerFirst(role.description)}.`,
-      action: `Make ${role.label}`
-    };
+    return { message: `Make ${email} ${article(toLabel)} ${toLabel}?${detail}`, action: `Make ${toLabel}` };
   }
   return {
-    message: `Change ${email} from ${staffRoleLabel(from)} to ${staffRoleLabel(to)}?`,
-    action: 'Save'
+    message: `Change ${email} from ${staffRoleLabel(from)} to ${toLabel}?${detail}`,
+    action: from === 'SUPERADMIN' ? 'Change role' : 'Save'
   };
 }
 

@@ -18,3 +18,32 @@ export const canAccessPage = (role, page) => {
 
 export const defaultStaffPage = (role) => STAFF_ROLES.find(item => item.value === role)?.pages[0] ?? null;
 export const staffRoleLabel = (role) => STAFF_ROLES.find(item => item.value === role)?.label ?? 'Unknown role';
+
+// Page names as the sidebar shows them, for copy that explains access changes.
+const PAGE_NAMES = {
+  dashboard: 'Dashboard',
+  catalog: 'Parts Inventory',
+  pos: 'Sales POS',
+  analytics: 'Sales Analytics',
+  categories: 'Categories',
+  purchasing: 'Purchasing',
+  customers: 'Customers',
+  staff: 'Staff Management',
+  settings: 'System Settings'
+};
+
+const rolePages = (role) => STAFF_ROLES.find(item => item.value === role)?.pages ?? [];
+
+// Pages someone gains and loses when moved from one role to another.
+export const accessDiff = (from, to) => {
+  const before = rolePages(from);
+  const after = rolePages(to);
+  return {
+    gained: after.filter(page => !before.includes(page)).map(page => PAGE_NAMES[page]),
+    lost: before.filter(page => !after.includes(page)).map(page => PAGE_NAMES[page])
+  };
+};
+
+// "A", "A and B", "A, B and C".
+export const formatList = (items) =>
+  items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
