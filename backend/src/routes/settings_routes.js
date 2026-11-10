@@ -1,6 +1,6 @@
 import express from "express";
 import { prisma } from "../config/prisma.js";
-import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
+import { requireAuth, requireRole, requirePermission } from '../middleware/authMiddleware.js';
 import { hashPin, verifyPin } from '../utils/pin.js';
 
 const router = express.Router();
@@ -95,7 +95,7 @@ router.post('/override-pin', requireAuth, async (req, res) => {
 });
 
 // POST /api/settings/override-pin/verify — any authenticated staff may attempt.
-router.post('/override-pin/verify', requireAuth, async (req, res) => {
+router.post('/override-pin/verify', requireAuth, requirePermission('pos'), async (req, res) => {
   try {
     const settings = await prisma.setting.findFirst();
     const valid = verifyPin(req.body?.pin, settings?.overridePinHash);

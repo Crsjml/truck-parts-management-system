@@ -1,5 +1,5 @@
 import express from 'express';
-import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
+import { requireAuth, requirePermission } from '../middleware/authMiddleware.js';
 import { prisma } from '../config/prisma.js';
 
 const router = express.Router();
@@ -186,7 +186,7 @@ router.delete('/saved-parts/:partId', requireAuth, async (req, res) => {
 });
 
 // ── Admin: list all customers (online + FTF walk-ins) ───────────────────────
-router.get('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.get('/', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const [customers, transactions] = await Promise.all([
       prisma.customer.findMany({ orderBy: { createdAt: 'desc' } }),
@@ -280,7 +280,7 @@ router.get('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
 });
 
 // POST /api/customers — admin manually creates a customer
-router.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.post('/', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const { displayName, email, phoneNumber, companyName, isFtf } = req.body;
     
@@ -321,7 +321,7 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
 });
 
 // PUT /api/customers/:id — admin edits a customer
-router.put('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.put('/:id', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const { id } = req.params;
     const { displayName, email, phoneNumber, companyName } = req.body;
@@ -395,7 +395,7 @@ router.put('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
 });
 
 // DELETE /api/customers/:id — admin deletes a customer
-router.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.delete('/:id', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const { id } = req.params;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -435,7 +435,7 @@ router.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
 });
 
 // POST /api/customers/merge — admin manually links FTF records to online account
-router.post('/merge', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.post('/merge', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const { authId, tempAuthId, customerEmail, customerContact } = req.body;
     if (!authId) return res.status(400).json({ msg: 'Online customer authId is required.' });
@@ -498,7 +498,7 @@ router.post('/merge', requireAuth, requireRole('ADMIN'), async (req, res) => {
 // ponytail: reads transaction history rather than adding a customerId FK to
 // Transaction. Upgrade path: add the FK and join, if walk-ins ever need to
 // merge with online accounts.
-router.get('/lookup', requireAuth, async (req, res) => {
+router.get('/lookup', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const staff = await prisma.staffRole.findUnique({ where: { email: req.auth.email.toLowerCase() } });
     if (!staff) return res.status(403).json({ msg: 'Staff access required.' });
@@ -554,7 +554,7 @@ router.get('/lookup', requireAuth, async (req, res) => {
 
 // GET /api/customers/:id/transactions — admin views purchase history for a customer
 // :id can be a UUID (Customer.id), a temp authId like "temp-ftf-<email>", or an email/phone key
-router.get('/:id/transactions', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.get('/:id/transactions', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
     const { id } = req.params;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

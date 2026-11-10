@@ -1,20 +1,57 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldCheck, Plus, User, CircleNotch, X, Lock, Warning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchStaffRoles, createStaffRole, updateStaffRole, deleteStaffRole } from '../authStore';
 import StaffRoster from './staff/StaffRoster';
+import { STAFF_ROLES } from '../utils/staffAccess';
 
 export default function StaffManagement({ currentEmail }) {
   const [staffList, setStaffList] = useState([]);
   const [loadState, setLoadState] = useState('loading'); // loading | ready | denied | error
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newStaffEmail, setNewStaffEmail] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState('ADMIN');
+  const [newStaffRole, setNewStaffRole] = useState('CASHIER');
   const [modalError, setModalError] = useState('');
   const [saving, setSaving] = useState(false);
   const [rosterError, setRosterError] = useState(null);
   const [pendingRemoveId, setPendingRemoveId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.querySelector('input')?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsModalOpen(false);
+      }
+      if (event.key !== 'Tab') return;
+      const controls = dialogRef.current?.querySelectorAll('button:not(:disabled), input, select');
+      if (!controls?.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isModalOpen]);
 
   const loadStaff = useCallback(async () => {
     setLoadState('loading');
@@ -50,7 +87,7 @@ export default function StaffManagement({ currentEmail }) {
     if (result.ok) {
       setIsModalOpen(false);
       setNewStaffEmail('');
-      setNewStaffRole('ADMIN');
+      setNewStaffRole('CASHIER');
       loadStaff();
     } else {
       setModalError(result.error);
@@ -89,8 +126,8 @@ export default function StaffManagement({ currentEmail }) {
             Staff Access
           </h1>
           <p className="text-muted-foreground text-sm max-w-xl leading-relaxed">
-            Admins run inventory, purchasing and the counter. Superadmins additionally manage
-            these accounts and system settings.
+            Give each person the access they need. Cashiers manage sales and customers;
+            warehouse staff manage stock and purchasing. Superadmins manage staff and settings.
           </p>
         </div>
 
@@ -162,24 +199,26 @@ export default function StaffManagement({ currentEmail }) {
         />
       )}
 
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {isModalOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 sm:p-6"
           >
             <motion.div
               initial={{ scale: 0.98, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.98, opacity: 0 }}
               role="dialog"
+              ref={dialogRef}
               aria-modal="true"
               aria-labelledby="add-staff-title"
-              className="w-full max-w-md bg-background border border-border rounded-2xl overflow-hidden flex flex-col"
+              aria-describedby="add-staff-description"
+              className="w-full max-w-md max-h-[calc(100dvh-2rem)] bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             >
-              <div className="flex items-center justify-between p-5 border-b border-border">
+              <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
                 <h3 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h3>
                 <button
                   onClick={() => setIsModalOpen(false)}
@@ -190,8 +229,8 @@ export default function StaffManagement({ currentEmail }) {
                 </button>
               </div>
 
-              <div className="p-6 space-y-5">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+              <div className="min-h-0 overflow-y-auto p-6 space-y-5">
+                <p id="add-staff-description" className="text-sm text-muted-foreground leading-relaxed">
                   This allowlists an email address. The person signs up through the normal
                   flow and gains access on their first sign-in — no invitation is sent.
                 </p>
@@ -226,13 +265,17 @@ export default function StaffManagement({ currentEmail }) {
                     onChange={(e) => setNewStaffRole(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-accent outline-none transition-colors text-sm font-medium text-foreground"
                   >
-                    <option value="ADMIN">Admin — inventory, purchasing, counter</option>
-                    <option value="SUPERADMIN">Superadmin — also staff and settings</option>
+                    {STAFF_ROLES.map(role => (
+                      <option key={role.value} value={role.value}>{role.label}</option>
+                    ))}
                   </select>
+                  <p className="text-xs text-muted-foreground leading-relaxed pt-1">
+                    {STAFF_ROLES.find(role => role.value === newStaffRole)?.description}
+                  </p>
                 </div>
               </div>
 
-              <div className="p-5 border-t border-border flex justify-end gap-3">
+              <div className="shrink-0 p-5 border-t border-border flex justify-end gap-3 bg-secondary/30">
                 <button
                   onClick={() => setIsModalOpen(false)}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -250,7 +293,7 @@ export default function StaffManagement({ currentEmail }) {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </div>
   );
 }

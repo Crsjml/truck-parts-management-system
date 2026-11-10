@@ -1,17 +1,17 @@
-import React, { useEffect, useState, Suspense, lazy, useRef } from 'react';
+import { useEffect, useState, Suspense, lazy, useRef, useCallback, useMemo } from 'react';
 import { apiPost } from './api/apiClient';
-import { SquaresFour, Package, ShoppingCart, ChartBar, Bell, User, CalendarBlank, ShieldCheck, List, X, Moon, Sun, EnvelopeOpen, CheckCircle, Tag, Buildings, GearSix, Gear, UsersThree, SignOut } from '@phosphor-icons/react';
+import { Bell, User, List, X, Moon, Sun, GearSix, SignOut } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
+import AdminNavigation from './components/staff/AdminNavigation';
+import { canAccessPage, defaultStaffPage, staffRoleLabel } from './utils/staffAccess';
 import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import StatusBar from './components/StatusBar';
-import Footer from './components/Footer';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 import ToastNotification, { useToast } from './components/ToastNotification';
 import UpdatePasswordModal from './components/UpdatePasswordModal';
 import CompleteProfileModal from './components/CompleteProfileModal';
-import { Drawer } from './components/ui/Drawer';
 import LowStockAlertPopover from './components/LowStockAlertPopover';
 
 // Lazy loaded page modules to optimize initial bundle size
@@ -40,7 +40,7 @@ const PageLoader = () => (
 );
 
 
-import { fetchParts, fetchCategories, createPart, updatePart, deletePart, deleteCategory, createTransaction, fetchTransactions, fetchMyTransactions, fetchPurchaseOrders, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs, invalidateToken, setToken } from './authStore';
+import { fetchParts, fetchCategories, createPart, updatePart, deletePart, createTransaction, fetchTransactions, fetchMyTransactions, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs, invalidateToken, setToken } from './authStore';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -65,12 +65,11 @@ export default function App() {
   const [customerProfile, setCustomerProfile] = useState(null);
 
   const [activeView, setActiveView] = useState('storefront');
-  const [page, setPage] = useState('dashboard');
+  const [requestedPage, setRequestedPage] = useState('dashboard');
   const [parts, setParts] = useState([]);
   const [categories, setCategories] = useState(['All']);
   const [isAlertDrawerOpen, setIsAlertDrawerOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [myRfqStats, setMyRfqStats] = useState({ sent: 0, lateRfq: 0, notAck: 0, lateReceipt: 0 });
   const [transactions, setTransactions] = useState([]);
   const [logs, setLogs] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -84,7 +83,6 @@ export default function App() {
     return false;
   });
 
-  const [initialNotice, setInitialNotice] = useState('');
   const [serverStatus, setServerStatus] = useState('checking');
 
   useEffect(() => {
@@ -99,7 +97,7 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const handleUserChange = async (currentUser, event = 'INITIAL_SESSION') => {
+    const handleUserChange = async (currentUser) => {
       invalidateToken();
       if (currentUser) {
         // Google is pre-verified by the provider — don't gate it on email_confirmed_at,
@@ -121,15 +119,10 @@ export default function App() {
 
         const isAdmin = !!staffData;
 
-        setSupabaseUser(currentUser);
+        setSupabaseUser({ ...currentUser, staffData: staffData ?? null });
         setIsSignedIn(true);
 
         const userRole = isAdmin ? 'admin' : 'customer';
-
-        // Expose staff permissions in the session for components to consume
-        if (isAdmin) {
-          currentUser.staffData = staffData;
-        }
 
         if (userRole === 'admin') {
           setActiveView('admin-app');
@@ -161,13 +154,19 @@ export default function App() {
   }, []);
 
   // Derive sessions directly from the state
-  const adminSession = isSignedIn && supabaseUser?.staffData ? {
+  const adminSession = useMemo(() => isSignedIn && supabaseUser?.staffData ? {
     user: {
       fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email,
       role: 'admin',
       staffData: supabaseUser.staffData
     }
-  } : null;
+  } : null, [isSignedIn, supabaseUser]);
+
+  const staffRole = adminSession?.user?.staffData?.role;
+  const page = canAccessPage(staffRole, requestedPage) ? requestedPage : defaultStaffPage(staffRole);
+  const setPage = useCallback((nextPage) => {
+    if (canAccessPage(staffRole, nextPage)) setRequestedPage(nextPage);
+  }, [staffRole]);
 
   useEffect(() => {
     if (!adminSession) return;
@@ -254,50 +253,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!adminSession?.user) return;
-
-    const loadStats = async () => {
-      try {
-        const pos = await fetchPurchaseOrders();
-        const today = new Date();
-        const NOT_ACKNOWLEDGED_DAYS = 7;
-
-        const myPos = pos.filter(p => p.createdBy === adminSession.user.fullName);
-        const rfqs = myPos.filter(p => p.status === 'Draft' || p.status === 'RFQ Sent');
-        const confirmedPos = myPos.filter(p => ['Confirmed', 'Received', 'Cancelled'].includes(p.status));
-
-        setMyRfqStats({
-          sent: rfqs.filter(r => r.status === 'RFQ Sent').length,
-          lateRfq: rfqs.filter(r => r.expectedDeliveryDate && new Date(r.expectedDeliveryDate) < today && r.status !== 'Received').length,
-          notAck: rfqs.filter(r => {
-            if (r.status !== 'RFQ Sent') return false;
-            const diff = (today - new Date(r.updatedAt || r.createdAt)) / (1000 * 60 * 60 * 24);
-            return diff >= NOT_ACKNOWLEDGED_DAYS;
-          }).length,
-          lateReceipt: confirmedPos.filter(r => r.status === 'Confirmed' && r.expectedDeliveryDate && new Date(r.expectedDeliveryDate) < today).length,
-        });
-      } catch (err) {
-        console.error('Failed to load my RFQ stats', err);
-      }
-    };
-
-    loadStats();
-    const handleUpdate = () => loadStats();
-    window.addEventListener('purchasingUpdate', handleUpdate);
-    return () => window.removeEventListener('purchasingUpdate', handleUpdate);
-  }, [adminSession?.user?.fullName]);
-
-  useEffect(() => {
     if (!isLoaded) return;
 
     const loadData = async () => {
-      const isAdmin = Boolean(adminSession?.user?.staffData);
+      const isAdmin = canAccessPage(staffRole, 'pos');
 
       // Parallelize data fetching to prevent sequential waterfalls
       const [fetchedParts, fetchedCategories, fetchedTransactions] = await Promise.all([
         fetchParts(),
         fetchCategories(),
-        isAdmin ? fetchTransactions() : fetchMyTransactions()
+        isAdmin ? fetchTransactions() : staffRole ? Promise.resolve([]) : fetchMyTransactions()
       ]);
       setParts(fetchedParts);
       setCategories(fetchedCategories);
@@ -308,14 +273,14 @@ export default function App() {
 
     // Listen for transaction updates from CustomerStorefront (e.g. after checkout)
     const handleTransactionUpdate = async () => {
-      const isAdmin = Boolean(adminSession?.user?.staffData);
-      const fetchedTransactions = isAdmin ? await fetchTransactions() : await fetchMyTransactions();
+      const isAdmin = canAccessPage(staffRole, 'pos');
+      const fetchedTransactions = isAdmin ? await fetchTransactions() : staffRole ? [] : await fetchMyTransactions();
       setTransactions(fetchedTransactions ?? []);
     };
 
     window.addEventListener('customerTransactionsUpdate', handleTransactionUpdate);
     return () => window.removeEventListener('customerTransactionsUpdate', handleTransactionUpdate);
-  }, [isLoaded, isSignedIn, adminSession?.user?.staffData]);
+  }, [isLoaded, isSignedIn, staffRole]);
 
   // Admin Keyboard Shortcuts
   useEffect(() => {
@@ -350,7 +315,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [adminSession]);
+  }, [adminSession, setPage]);
 
   const addLog = (type, message, meta = null) => {
     const newLog = {
@@ -447,7 +412,7 @@ export default function App() {
     }
   };
 
-  const handleLogout = async (role) => {
+  const handleLogout = async (_role) => {
     await supabase.auth.signOut();
     setActiveView('storefront');
   };
@@ -516,7 +481,7 @@ export default function App() {
 
   const handleAutoAdminLogin = async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: 'admin@tarlactruckparts.local',
         password: 'admin123',
       });
@@ -638,117 +603,13 @@ export default function App() {
             </button>
           </div>
 
-          <nav className="space-y-1">
-            <button
-              onClick={() => setPage('dashboard')}
-              title="Dashboard Overview"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <SquaresFour weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Dashboard Overview</span>}
-            </button>
-
-            <button
-              onClick={() => setPage('catalog')}
-              title="Parts Inventory"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <Package weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Parts Inventory</span>}
-            </button>
-
-            <button
-              onClick={() => setPage('pos')}
-              title="Sales POS Entry"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <ShoppingCart weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Sales POS Entry</span>}
-            </button>
-
-            <button
-              onClick={() => setPage('analytics')}
-              title="Sales Analytics"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <ChartBar weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Sales Analytics</span>}
-            </button>
-
-            <button
-              onClick={() => setPage('categories')}
-              title="Category Management"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <Tag weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Category Management</span>}
-            </button>
-
-            <button
-              onClick={() => setPage('purchasing')}
-              title="Purchasing"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <Buildings weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Purchasing</span>}
-            </button>
-
-            <button
-              onClick={() => setPage('customers')}
-              title="Customer Management"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers'
-                ? 'bg-accent/15 text-accent border border-accent/20'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                }`}
-            >
-              <UsersThree weight="duotone" className="w-5 h-5 shrink-0" />
-              {!isSidebarCollapsed && <span>Customer Management</span>}
-            </button>
-
-            {/* SUPER ADMIN ONLY: Staff Management & Settings */}
-            {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
-              <>
-                <button
-                  onClick={() => setPage('staff')}
-                  title="Staff Management"
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff'
-                    ? 'bg-accent/15 text-accent border border-accent/20'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
-                    }`}
-                >
-                  <ShieldCheck weight="duotone" className="w-5 h-5 shrink-0" />
-                  {!isSidebarCollapsed && <span>Staff Management</span>}
-                </button>
-                <button
-                  onClick={() => setIsSettingsModalOpen(true)}
-                  title="System Settings"
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent`}
-                >
-                  <Gear weight="duotone" className="w-5 h-5 shrink-0" />
-                  {!isSidebarCollapsed && <span>System Settings</span>}
-                </button>
-              </>
-            )}
-
-          </nav>
+          <AdminNavigation
+            role={staffRole}
+            page={page}
+            collapsed={isSidebarCollapsed}
+            onNavigate={setPage}
+            onSettings={() => setIsSettingsModalOpen(true)}
+          />
         </div>
 
         <div className={`shrink-0 border-t border-border flex flex-col bg-secondary/30 transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
@@ -774,7 +635,7 @@ export default function App() {
                   <span className="text-sm font-semibold text-foreground truncate max-w-[120px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
                   <div className="mt-0.5">
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
-                      {adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'STAFF'}
+                      {staffRoleLabel(staffRole)}
                     </span>
                   </div>
                 </div>
@@ -807,111 +668,12 @@ export default function App() {
                 </button>
               </div>
 
-              <nav className="space-y-1">
-                <button
-                  onClick={() => {
-                    setPage('dashboard');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'dashboard' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <SquaresFour weight="duotone" className="w-5 h-5" />
-                  Dashboard Overview
-                </button>
-                <button
-                  onClick={() => {
-                    setPage('catalog');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'catalog' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <Package weight="duotone" className="w-5 h-5" />
-                  Parts Inventory
-                </button>
-                <button
-                  onClick={() => {
-                    setPage('pos');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'pos' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <ShoppingCart weight="duotone" className="w-5 h-5" />
-                  Sales POS Entry
-                </button>
-                <button
-                  onClick={() => {
-                    setPage('analytics');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'analytics' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <ChartBar weight="duotone" className="w-5 h-5" />
-                  Sales Analytics
-                </button>
-                <button
-                  onClick={() => {
-                    setPage('categories');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'categories' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <Tag weight="duotone" className="w-5 h-5" />
-                  Category Management
-                </button>
-                <button
-                  onClick={() => {
-                    setPage('purchasing');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'purchasing' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <Buildings weight="duotone" className="w-5 h-5" />
-                  Purchasing
-                </button>
-                <button
-                  onClick={() => {
-                    setPage('customers');
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'customers' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                >
-                  <UsersThree weight="duotone" className="w-5 h-5" />
-                  Customer Management
-                </button>
-                {/* SUPER ADMIN ONLY: Staff Management & Settings */}
-                {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && (
-                  <>
-                    <button
-                      onClick={() => {
-                        setPage('staff');
-                        setIsSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === 'staff' ? 'bg-accent/15 text-accent border border-accent/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                        }`}
-                    >
-                      <ShieldCheck weight="duotone" className="w-5 h-5" />
-                      Staff Management
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSettingsModalOpen(true);
-                        setIsSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-muted-foreground hover:bg-secondary hover:text-foreground`}
-                    >
-                      <Gear weight="duotone" className="w-5 h-5" />
-                      System Settings
-                    </button>
-                  </>
-                )}
-              </nav>
+              <AdminNavigation
+                role={staffRole}
+                page={page}
+                onNavigate={(nextPage) => { setPage(nextPage); setIsSidebarOpen(false); }}
+                onSettings={() => { setIsSettingsModalOpen(true); setIsSidebarOpen(false); }}
+              />
             </div>
 
             <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col bg-secondary/30">
@@ -939,7 +701,7 @@ export default function App() {
                     <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
                     <div className="mt-0.5">
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
-                        {adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'STAFF'}
+                        {staffRoleLabel(staffRole)}
                       </span>
                     </div>
                   </div>
@@ -992,7 +754,7 @@ export default function App() {
           <div className="flex items-center gap-3 md:gap-4">
             <StatusBar variant="nav" />
 
-            <button
+            {canAccessPage(staffRole, 'catalog') && <button
               ref={bellButtonRef}
               onClick={() => setIsAlertDrawerOpen(true)}
               className="relative p-2 hover:bg-secondary rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all group"
@@ -1005,7 +767,7 @@ export default function App() {
                   {lowStockCount > 99 ? '99+' : lowStockCount}
                 </span>
               )}
-            </button>
+            </button>}
 
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1058,7 +820,7 @@ export default function App() {
 
                 {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
                 {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
-                {page === 'account' && <MyAccount user={supabaseUser} transactions={transactions} variant="admin" backLabel="Back to Dashboard" onGoBack={() => setPage('dashboard')} />}
+                {page === 'account' && <MyAccount user={supabaseUser} transactions={transactions} variant="admin" backLabel="Back to workspace" onGoBack={() => setPage(defaultStaffPage(staffRole))} />}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && page === 'staff' && <StaffManagement currentEmail={adminSession?.user?.staffData?.email} />}
                 {page === 'purchasing' && (
                   <PurchasingModule
@@ -1084,7 +846,7 @@ export default function App() {
       </div>
 
       {/* Alert Notification Drawer -> Popover */}
-      <LowStockAlertPopover
+      {canAccessPage(staffRole, 'catalog') && <LowStockAlertPopover
         lowStockParts={lowStockParts}
         isOpen={isAlertDrawerOpen}
         onClose={() => setIsAlertDrawerOpen(false)}
@@ -1101,10 +863,10 @@ export default function App() {
           setSelectedCategory('All');
           setPage('catalog');
         }}
-      />
+      />}
 
       {/* System Settings Modal */}
-      {isSettingsModalOpen && (
+      {canAccessPage(staffRole, 'settings') && isSettingsModalOpen && (
         <Suspense fallback={null}>
           <AdminSettings onClose={() => setIsSettingsModalOpen(false)} onAddLog={addLog} />
         </Suspense>

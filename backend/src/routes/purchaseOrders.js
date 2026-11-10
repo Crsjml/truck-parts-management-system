@@ -1,32 +1,32 @@
 // backend/src/routes/purchaseOrders.js
 import express from 'express';
 import purchaseOrdersController from '../controllers/PurchaseOrdersController.js';
-import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
+import { requireAuth, requirePermission } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Get all POs (admin only)
-router.get('/', requireAuth, requireRole('ADMIN'), purchaseOrdersController.getPurchaseOrders);
+router.get('/', requireAuth, requirePermission('purchasing'), purchaseOrdersController.getPurchaseOrders);
 
 // Create PO (RFQ Draft) (admin only)
-router.post('/', requireAuth, requireRole('ADMIN'), purchaseOrdersController.createPurchaseOrder);
+router.post('/', requireAuth, requirePermission('purchasing'), purchaseOrdersController.createPurchaseOrder);
 
 // Update editable RFQ details (admin only)
-router.put('/:id', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updatePurchaseOrderDetails);
+router.put('/:id', requireAuth, requirePermission('purchasing'), purchaseOrdersController.updatePurchaseOrderDetails);
 
 // Update PO Status — includes stock increment on Received + confirmationDate (admin only)
-router.put('/:id/status', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updatePOStatus);
+router.put('/:id/status', requireAuth, requirePermission('purchasing'), purchaseOrdersController.updatePOStatus);
 
 // Update Billing Status (admin only)
-router.put('/:id/billing', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updateBillingStatus);
+router.put('/:id/billing', requireAuth, requirePermission('purchasing'), purchaseOrdersController.updateBillingStatus);
 
 // Update supplier payment tracking (admin only)
-router.put('/:id/payment', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updatePayment);
+router.put('/:id/payment', requireAuth, requirePermission('purchasing'), purchaseOrdersController.updatePayment);
 
 // Update quoted prices on PO items (admin only)
-router.put('/:id/items/prices', requireAuth, requireRole('ADMIN'), purchaseOrdersController.updateItemPrices);
-router.put('/:id/items/:itemId/problem', requireAuth, requireRole('ADMIN'), purchaseOrdersController.reportItemProblem);
-router.put('/:id/items/:itemId/resolve', requireAuth, requireRole('ADMIN'), purchaseOrdersController.resolveItemProblem);
-router.put('/:id/return-to-supplier', requireAuth, requireRole('ADMIN'), purchaseOrdersController.returnToSupplier);
+router.put('/:id/items/prices', requireAuth, requirePermission('purchasing'), purchaseOrdersController.updateItemPrices);
+router.put('/:id/items/:itemId/problem', requireAuth, requirePermission('purchasing'), purchaseOrdersController.reportItemProblem);
+router.put('/:id/items/:itemId/resolve', requireAuth, requirePermission('purchasing'), purchaseOrdersController.resolveItemProblem);
+router.put('/:id/return-to-supplier', requireAuth, requirePermission('purchasing'), purchaseOrdersController.returnToSupplier);
 
 export default router;

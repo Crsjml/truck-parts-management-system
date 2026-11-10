@@ -171,6 +171,27 @@ Throwaway credentials for the local/dev Supabase project only, not shared with p
 
 ---
 
+## Staff access
+
+Superadmins assign roles from **Staff Management** when adding a member or changing
+the role in the roster. Existing Admin and Superadmin assignments are preserved.
+
+| Role | Admin pages |
+|---|---|
+| Cashier | Sales POS, Customer Management |
+| Warehouse | Parts Inventory, Category Management, Purchasing (including suppliers, receiving, returns and payment tracking) |
+| Admin | Dashboard, inventory, POS, analytics, categories, purchasing and customers |
+| Superadmin | All Admin pages, Staff Management and System Settings |
+
+All staff can access their own account. Menu visibility, keyboard shortcuts and
+backend authorization enforce the same access rules. Public catalog lookup and
+customer checkout remain available independently of admin page access.
+
+After updating, restart the backend with `docker compose up -d --force-recreate backend`.
+Its startup command regenerates Prisma Client and syncs the schema, including the
+new `CASHIER` and `WAREHOUSE` enum values. A database connection is required. A SQL
+migration is also included for environments that deploy Prisma migrations.
+
 ## Environment variables reference
 
 | Variable | File | Description |
