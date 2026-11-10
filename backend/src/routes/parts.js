@@ -64,6 +64,9 @@ router.get('/vehicle-options', async (req, res) => {
   }
 });
 
+// ── Suggest the next CAT-PRT-##### SKU for a category ────────────────────────
+router.get('/next-sku', requireAuth, requirePermission('catalog'), async (req, res) => partsController.suggestSku(req, res));
+
 // ── Create part record ───────────────────────────────────────────────────────
 router.post('/', requireAuth, requirePermission('catalog'), async (req, res) => partsController.createPart(req, res));
 

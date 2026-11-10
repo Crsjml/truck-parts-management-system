@@ -9,7 +9,8 @@ const repo = {
   updatePart: vi.fn(),
   findLatestAdjustmentByDate: vi.fn(),
   createStockAdjustment: vi.fn(),
-  createPart: vi.fn()
+  createPart: vi.fn(),
+  findLatestSkuByPrefix: vi.fn()
 };
 
 vi.mock('../../repositories/PartsRepository.js', () => ({ partsRepository: repo }));
@@ -123,5 +124,75 @@ describe('PartsService OEM/MPN normalization', () => {
       oem: '1-87610',
       oemNumbers: ['1-87610']
     }), TX);
+  });
+});
+
+describe('PartsService SKU assignment and validation', () => {
+  const NEW_PART = { name: 'Pad', category_id: 'cat-1', price: 1, stock: 1, minStock: 0, oem: '1-87610' };
+  const skuCollision = () => Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['sku'] } });
+
+  beforeEach(() => {
+    Object.values(repo).forEach(fn => fn.mockReset());
+    repo.findPartById.mockResolvedValue(PART);
+    repo.findPartBySku.mockResolvedValue(null);
+    repo.findCategoryById.mockResolvedValue({ id: 'cat-1', name: 'Brake Pads/Linings' });
+    repo.findLatestSkuByPrefix.mockResolvedValue(null);
+    repo.executeTransaction.mockImplementation(async (cb) => cb(TX));
+    repo.updatePart.mockImplementation(async (_id, data) => ({ ...savedPart(10), ...data }));
+    repo.createPart.mockImplementation(async (data) => ({ id: 'new', ...data, category: { name: 'Brake Pads/Linings' } }));
+  });
+
+  it('suggests the next SKU in the category sequence', async () => {
+    repo.findLatestSkuByPrefix.mockResolvedValue({ sku: 'BRK-PAD-00041' });
+
+    await expect(service.suggestSku('cat-1')).resolves.toBe('BRK-PAD-00042');
+    expect(repo.findLatestSkuByPrefix).toHaveBeenCalledWith('BRK-PAD');
+  });
+
+  it('starts a new category at 00001 and 404s for an unknown category', async () => {
+    await expect(service.suggestSku('cat-1')).resolves.toBe('BRK-PAD-00001');
+    repo.findCategoryById.mockResolvedValue(null);
+    await expect(service.suggestSku('missing')).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('assigns the next SKU server-side when none is given', async () => {
+    repo.findLatestSkuByPrefix.mockResolvedValue({ sku: 'BRK-PAD-00007' });
+
+    const part = await service.createPart({ ...NEW_PART, sku: '' });
+
+    expect(part.sku).toBe('BRK-PAD-00008');
+    expect(repo.findPartBySku).not.toHaveBeenCalled();
+  });
+
+  it('retries with the next number when the assigned SKU was just taken', async () => {
+    repo.findLatestSkuByPrefix
+      .mockResolvedValueOnce({ sku: 'BRK-PAD-00007' })
+      .mockResolvedValueOnce({ sku: 'BRK-PAD-00008' });
+    repo.createPart.mockRejectedValueOnce(skuCollision());
+
+    const part = await service.createPart({ ...NEW_PART, sku: '' });
+
+    expect(part.sku).toBe('BRK-PAD-00009');
+    expect(repo.createPart).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a typed SKU, uppercased', async () => {
+    const part = await service.createPart({ ...NEW_PART, sku: ' brk-pad-00500 ' });
+
+    expect(part.sku).toBe('BRK-PAD-00500');
+    expect(repo.findLatestSkuByPrefix).not.toHaveBeenCalled();
+  });
+
+  it('rejects a typed SKU in the wrong format on create', async () => {
+    await expect(service.createPart({ ...NEW_PART, sku: '1231' }))
+      .rejects.toMatchObject({ status: 400, message: expect.stringMatching(/CAT-PRT-#####/) });
+    expect(repo.createPart).not.toHaveBeenCalled();
+  });
+
+  it('rejects a changed SKU in the wrong format on update, but allows it uppercased', async () => {
+    await expect(service.updatePart('part-1', { sku: 'pad-1' })).rejects.toMatchObject({ status: 400 });
+
+    await service.updatePart('part-1', { sku: 'brk-pad-00002' });
+    expect(repo.updatePart).toHaveBeenCalledWith('part-1', expect.objectContaining({ sku: 'BRK-PAD-00002' }), TX);
   });
 });

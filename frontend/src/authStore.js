@@ -513,6 +513,12 @@ export const deleteCategory = api(async (id) => {
 
 // ── Parts CRUD ───────────────────────────────────────────────────────────────
 
+// Suggested next CAT-PRT-##### for a category; the save assigns the final one.
+export const fetchNextSku = api(async (categoryId) => {
+  const { ok, data } = await apiGet(`/api/parts/next-sku?categoryId=${encodeURIComponent(categoryId)}`, { supabase });
+  return ok ? { ok: true, sku: data.sku } : { ok: false, error: data.msg || 'Failed to suggest a SKU.' };
+});
+
 export const createPart = api(async (partData) => {
   const { ok, data } = await apiPost('/api/parts', partData, { supabase });
   return ok ? { ok: true, part: data } : { ok: false, error: data.msg || 'Failed to create part.' };

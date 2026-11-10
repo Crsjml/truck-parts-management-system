@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -12,12 +12,14 @@ import { getCategoryIconAndColor } from '../utils/categoryIcons';
 import { Drawer } from './ui/Drawer';
 import CompatibilityEditor from './inventory/CompatibilityEditor';
 import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
+import { SKU_PATTERN, SKU_FORMAT_MESSAGE, normalizeSku } from '../utils/sku';
 
 const emptyConfirmDialog = () => ({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
 
 const partSchema = z.object({
   name: z.string().min(3, "Part name must be at least 3 characters."),
-  sku: z.string().min(1, "SKU is required."),
+  // Blank is allowed: the server assigns the next number for the category.
+  sku: z.string().refine(v => v === '' || SKU_PATTERN.test(v), SKU_FORMAT_MESSAGE),
   oem: z.string().min(1, "OEM number is required."),
   category: z.string().min(1, "Category selection is required."),
   price: z.number().min(0, "Price must be a valid positive number."),
@@ -30,7 +32,8 @@ export default function AddPartDrawer({
   onClose, 
   onAddPart, 
   categoriesList,
-  parts
+  parts,
+  suggestSku
 }) {
   const [step, setStep] = useState(1);
   const [formErrors, setFormErrors] = useState({});
@@ -41,6 +44,9 @@ export default function AddPartDrawer({
   // Form State
   const [formName, setFormName] = useState('');
   const [formSku, setFormSku] = useState('');
+  // The last SKU we auto-filled, and whether the admin has typed their own.
+  const skuSuggestionRef = useRef('');
+  const skuTypedRef = useRef(false);
   const [formOem, setFormOem] = useState('');
   const [formOemNumbers, setFormOemNumbers] = useState('');
   const [formCategory, setFormCategory] = useState('');
@@ -61,6 +67,8 @@ export default function AddPartDrawer({
       setCloneId('');
       setFormName('');
       setFormSku('');
+      skuSuggestionRef.current = '';
+      skuTypedRef.current = false;
       setFormOem('');
       setFormOemNumbers('');
       setFormCategory('');
@@ -85,7 +93,7 @@ export default function AddPartDrawer({
     if (currentStep === 1) {
       const result = partSchema.pick({ name: true, sku: true, oem: true, category: true }).safeParse({
         name: formName.trim(),
-        sku: formSku.trim(),
+        sku: normalizeSku(formSku),
         oem: formOem.trim(),
         category: formCategory
       });
@@ -116,6 +124,19 @@ export default function AddPartDrawer({
 
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
+  const requestSkuSuggestion = async (categoryId) => {
+    if (!categoryId || !suggestSku) return;
+    try {
+      const res = await suggestSku(categoryId);
+      if (!res?.ok || !res.sku || skuTypedRef.current) return;
+      skuSuggestionRef.current = res.sku;
+      setFormSku(res.sku);
+    } catch (err) {
+      // Optional convenience only: a blank SKU is still assigned on save.
+      console.warn('[AddPartDrawer] SKU suggestion failed:', err?.message || err);
+    }
+  };
+
   const handleFormSubmit = async () => {
     if (!validateStep(3)) return;
     
@@ -124,7 +145,9 @@ export default function AddPartDrawer({
 
     const partData = {
       name: formName.trim(),
-      sku: formSku.trim(),
+      // An untouched suggestion is sent blank so the server assigns the final
+      // number at save time (two admins can't both claim the same suggestion).
+      sku: normalizeSku(formSku) === skuSuggestionRef.current ? '' : normalizeSku(formSku),
       oem: formOem.trim(),
       oemNumbers: formOemNumbers.split(',').map(v => v.trim()).filter(Boolean),
       category_id: formCategory,
@@ -277,6 +300,8 @@ export default function AddPartDrawer({
                               setFormMinStock(p.min_stock || p.minStock || 0);
                               setFormStock(0);
                               setFormSku('');
+                              skuTypedRef.current = false;
+                              requestSkuSuggestion(p.categoryId || p.category?.id);
                               setFormCompatibleWith(normalizeCompatibilityRows(p.compatibleWith?.length ? p.compatibleWith : p.compatibility || ''));
                               setFormDescription(p.description || '');
                               setFormImage(p.image || '');
@@ -334,18 +359,26 @@ export default function AddPartDrawer({
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1.5 group">
                         <label htmlFor="add-part-sku" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                          SKU *
+                          SKU
                         </label>
                         <input 
                           id="add-part-sku"
                           type="text" 
-                          placeholder="e.g. ELC-STR"
+                          placeholder="Auto-filled from category"
+                          aria-describedby="add-part-sku-hint"
                           value={formSku}
-                          onChange={(e) => { setFormSku(e.target.value); setFormErrors(prev => ({...prev, sku: ''})); }}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            skuTypedRef.current = value.trim() !== '' && value !== skuSuggestionRef.current;
+                            setFormSku(value);
+                            setFormErrors(prev => ({...prev, sku: ''}));
+                          }}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
                           className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                         />
-                        {formErrors.sku && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.sku}</p>}
+                        {formErrors.sku
+                          ? <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.sku}</p>
+                          : <p id="add-part-sku-hint" className="text-2xs text-muted-foreground">Format CAT-PRT-#####. Leave blank to auto-assign.</p>}
                       </div>
                       <div className="space-y-1.5 group">
                         <label htmlFor="add-part-oem" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
@@ -403,7 +436,7 @@ export default function AddPartDrawer({
                                 })()
                               : null
                           }
-                          onChange={(selected) => { setFormCategory(selected?.value || ''); setFormErrors(prev => ({...prev, category: ''})); }}
+                          onChange={(selected) => { setFormCategory(selected?.value || ''); setFormErrors(prev => ({...prev, category: ''})); requestSkuSuggestion(selected?.value); }}
                           placeholder="-- Select Category --"
                           styles={customSelectStyles}
                           isClearable

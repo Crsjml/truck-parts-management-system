@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import AddPartDrawer from '../AddPartDrawer';
@@ -183,5 +183,63 @@ describe('AddPartDrawer', () => {
 
     expect(screen.getByLabelText(/select a part to clone its details/i)).toHaveValue('');
     expect(screen.queryByText(/template selected/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('AddPartDrawer SKU suggestion', () => {
+  const categoriesList = [
+    { id: 'brakes', name: 'Braking Systems', parentCategory: null },
+    { id: 'pads', name: 'Brake Pads/Linings', parentCategory: { id: 'brakes' } }
+  ];
+  const renderDrawer = (props = {}) => render(
+    <AddPartDrawer isOpen onClose={vi.fn()} onAddPart={vi.fn()} categoriesList={categoriesList} parts={[]} {...props} />
+  );
+  const skuInput = () => screen.getByLabelText(/^sku/i);
+  const pickCategory = (id) => fireEvent.change(screen.getByLabelText('-- Select Category --'), { target: { value: id } });
+
+  it('fills in the suggested SKU when a category is chosen', async () => {
+    const suggestSku = vi.fn().mockResolvedValue({ ok: true, sku: 'BRK-PAD-00042' });
+    renderDrawer({ suggestSku });
+
+    pickCategory('pads');
+
+    await waitFor(() => expect(skuInput()).toHaveValue('BRK-PAD-00042'));
+    expect(suggestSku).toHaveBeenCalledWith('pads');
+  });
+
+  it('never overwrites a SKU the admin typed', async () => {
+    const suggestSku = vi.fn().mockResolvedValue({ ok: true, sku: 'BRK-PAD-00042' });
+    renderDrawer({ suggestSku });
+
+    fireEvent.change(skuInput(), { target: { value: 'BRK-PAD-00500' } });
+    pickCategory('pads');
+
+    await waitFor(() => expect(suggestSku).toHaveBeenCalled());
+    expect(skuInput()).toHaveValue('BRK-PAD-00500');
+  });
+
+  it('replaces its own earlier suggestion when the category changes', async () => {
+    const suggestSku = vi.fn()
+      .mockResolvedValueOnce({ ok: true, sku: 'BRK-PAD-00042' })
+      .mockResolvedValueOnce({ ok: true, sku: 'BRA-SYS-00001' });
+    renderDrawer({ suggestSku });
+
+    pickCategory('pads');
+    await waitFor(() => expect(skuInput()).toHaveValue('BRK-PAD-00042'));
+    pickCategory('brakes');
+
+    await waitFor(() => expect(skuInput()).toHaveValue('BRA-SYS-00001'));
+  });
+
+  it('shows a format error for a typed SKU that is not CAT-PRT-#####', async () => {
+    renderDrawer();
+
+    fireEvent.change(screen.getByLabelText(/part name/i), { target: { value: 'Brake Pad Set' } });
+    fireEvent.change(skuInput(), { target: { value: '1231' } });
+    fireEvent.change(screen.getByLabelText(/oem no/i), { target: { value: '1-87610' } });
+    pickCategory('pads');
+    fireEvent.click(screen.getByRole('button', { name: /next|continue/i }));
+
+    expect(await screen.findByText(/CAT-PRT-#####/)).toBeInTheDocument();
   });
 });

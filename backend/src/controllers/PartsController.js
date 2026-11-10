@@ -25,6 +25,19 @@ export class PartsController extends BaseController {
     }
   }
 
+  async suggestSku(req, res) {
+    try {
+      const categoryId = String(req.query.categoryId || '');
+      if (!/^[0-9a-f-]{36}$/i.test(categoryId)) {
+        return res.status(400).json({ msg: 'A valid categoryId is required.' });
+      }
+      const sku = await partsService.suggestSku(categoryId);
+      return this.handleSuccess(res, { sku });
+    } catch (error) {
+      return this.handleError(res, error, 'suggestSku');
+    }
+  }
+
   async createPart(req, res) {
     try {
       // Logic expects `partsService.createPart` to handle errors by throwing
