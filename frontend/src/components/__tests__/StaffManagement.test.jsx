@@ -138,6 +138,42 @@ describe('StaffManagement', () => {
       expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('CASHIER');
     });
 
+    it('moves focus to Cancel when a promote confirmation appears, and back to the role control after Cancel', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /^cancel$/i })).toHaveFocus());
+      fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
+    });
+
+    it('returns focus to the role control after confirming a promotion', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
+      fireEvent.click(screen.getByRole('button', { name: /^make superadmin$/i }));
+
+      await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
+    });
+
+    it('moves focus to Cancel for a remove confirmation and back to the remove button after Cancel', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /^cancel$/i })).toHaveFocus());
+      fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Remove clerk@ttp.com' })).toHaveFocus());
+    });
+
+    it('keeps focus in the staff list after a confirmed removal', async () => {
+      deleteStaffRole.mockReset().mockResolvedValue({ ok: true });
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
+      fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
+
+      await waitFor(() => expect(deleteStaffRole).toHaveBeenCalledWith('b'));
+      await waitFor(() => expect(screen.getByRole('list', { name: /staff members/i })).toHaveFocus());
+    });
+
     it('rejects a malformed email in the add dialog without calling the server', async () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
