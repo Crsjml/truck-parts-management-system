@@ -31,6 +31,7 @@ export const SettingsProvider = ({ children }) => {
         setSettings({
           base_currency: data.base_currency || 'PHP',
           active_markup: data.active_markup || 0,
+          overridePinConfigured: Boolean(data.overridePinConfigured),
         });
         // Default display currency to base currency
         setDisplayCurrency(data.base_currency || 'PHP');

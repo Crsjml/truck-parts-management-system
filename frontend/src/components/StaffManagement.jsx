@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { createPortal } from 'react-dom';
 import { ShieldCheck, Plus, User, CircleNotch, X, Lock, Warning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,39 +23,7 @@ export default function StaffManagement({ currentEmail }) {
   const [busyId, setBusyId] = useState(null);
   const dialogRef = useRef(null);
 
-  useEffect(() => {
-    if (!isModalOpen) return;
-
-    const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    dialogRef.current?.querySelector('input')?.focus();
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setIsModalOpen(false);
-      }
-      if (event.key !== 'Tab') return;
-      const controls = dialogRef.current?.querySelectorAll('button:not(:disabled), input, select');
-      if (!controls?.length) return;
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', handleKeyDown);
-      previousFocus?.focus();
-    };
-  }, [isModalOpen]);
+  useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: () => setIsModalOpen(false), initialFocus: 'input' });
 
   // silent: refresh after a change without swapping the roster for a spinner.
   const loadStaff = useCallback(async ({ silent = false } = {}) => {

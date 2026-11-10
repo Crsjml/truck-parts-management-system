@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Percent, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 import { updateSettings as saveSettingsApi, setOverridePin } from '../authStore';
 
@@ -22,6 +23,8 @@ function parseMarkup(text) {
 
 export default function AdminSettings({ onClose, onAddLog }) {
   const { settings, setSettings, formatBaseCurrency } = useSettings();
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, { onClose, initialFocus: '#markup-percent' });
   const formatMoney = formatBaseCurrency || fallbackFormat;
 
   const savedMarkup = settings?.active_markup ?? 0;
@@ -68,7 +71,8 @@ export default function AdminSettings({ onClose, onAddLog }) {
   const [pinSaving, setPinSaving] = useState(false);
   const [pinMessage, setPinMessage] = useState('');
   const [pinError, setPinError] = useState(false);
-  const [pinConfigured, setPinConfigured] = useState(Boolean(settings?.overridePinConfigured));
+  // Derived, not copied into state: the settings can load (or change) after mount.
+  const pinConfigured = Boolean(settings?.overridePinConfigured);
 
   const isPinMismatch = confirmPin.length > 0 && confirmPin.length >= newPin.length && confirmPin !== newPin;
   const canSavePin = PIN_PATTERN.test(newPin) && newPin === confirmPin && !pinSaving;
@@ -88,7 +92,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
     if (result.ok) {
       setPinError(false);
       setPinMessage('Override PIN updated.');
-      setPinConfigured(true);
+      setSettings((prev) => ({ ...prev, overridePinConfigured: true }));
       setNewPin('');
       setConfirmPin('');
     } else {
@@ -100,22 +104,30 @@ export default function AdminSettings({ onClose, onAddLog }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="system-settings-title"
+        className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h3 className="text-lg font-bold text-foreground font-display flex items-center gap-2">
-            <Percent weight="duotone" className="w-5 h-5 text-accent" /> System Settings
-          </h3>
-          <button 
+        <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
+          <h2 id="system-settings-title" className="text-lg font-bold text-foreground font-display flex items-center gap-2">
+            <Percent weight="duotone" aria-hidden="true" className="w-5 h-5 text-accent" /> System Settings
+          </h2>
+          <button
+            type="button"
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors"
           >
-            <X weight="duotone" className="w-5 h-5" />
+            <X weight="duotone" aria-hidden="true" className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6">
+        <div className="min-h-0 overflow-y-auto p-6 space-y-6">
           {/* Shown before the markup control: an applied markup reprices the
               live storefront at once, so this is read before adjusting. */}
           <div
@@ -128,17 +140,21 @@ export default function AdminSettings({ onClose, onAddLog }) {
             </p>
           </div>
 
-          <div className="space-y-4">
+          <section
+            role="group"
+            aria-labelledby="markup-heading"
+            aria-describedby="markup-help"
+            className="space-y-4"
+          >
             <div>
-              <label htmlFor="markup-percent" className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              <h3 id="markup-heading" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                 Global Retail Price Markup
-              </label>
-              <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              </h3>
+              <p id="markup-help" className="text-sm text-muted-foreground leading-relaxed">
                 Sets the display price for all customer-facing storefront items. Nothing changes until you apply it.
               </p>
             </div>
-            
-            <div className="bg-background p-4 rounded-xl border border-border space-y-4 shadow-inner">
+
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold text-foreground">Active Markup</span>
                 <span data-testid="saved-markup" className="text-lg font-extrabold text-accent tabular-nums">{savedMarkup}%</span>
@@ -147,7 +163,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  aria-label="Markup"
+                  aria-label="Markup slider"
                   aria-valuetext={`${sliderValue}%`}
                   min={MARKUP_MIN}
                   max={MARKUP_MAX}
@@ -188,7 +204,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               </p>
 
               {markupStatus === 'confirming' || isMarkupSaving ? (
-                <div className="rounded-xl border border-border bg-secondary p-3 space-y-3">
+                <div className="rounded-xl border border-border bg-background p-3 space-y-3">
                   <p className="text-sm text-foreground leading-relaxed">
                     <span className="font-bold">Change markup from {savedMarkup}% to {draftValue}%?</span>{' '}
                     All shelf prices update immediately.
@@ -229,15 +245,15 @@ export default function AdminSettings({ onClose, onAddLog }) {
               {markupStatus === 'error' && (
                 <p role="alert" className="text-xs font-semibold text-red-500">{markupError}</p>
               )}
-            </div>
-          </div>
+          </section>
 
-          <div className="space-y-4 pt-2 border-t border-border">
+          <section className="space-y-4 pt-6 border-t border-border">
             <div>
-              <label htmlFor="override-pin" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <Lock weight="duotone" className="w-3.5 h-3.5 text-accent" /> Discount Override PIN
-              </label>
-              <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              <h3 id="pin-heading" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <Lock weight="duotone" aria-hidden="true" className="w-3.5 h-3.5 text-accent" />
+                <label htmlFor="override-pin">Discount Override PIN</label>
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Staff must enter this PIN at the POS before any discount is applied.{' '}
                 {pinConfigured
                   ? 'A PIN is currently set.'
@@ -245,7 +261,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               </p>
             </div>
 
-            <div className="bg-background p-4 rounded-xl border border-border space-y-3">
+            <div className="space-y-3">
               <input
                 id="override-pin"
                 type="password"
@@ -297,12 +313,13 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 </p>
               )}
             </div>
-          </div>
+          </section>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end p-5 border-t border-border bg-background/50">
-          <button 
+        <div className="flex shrink-0 justify-end p-5 border-t border-border bg-background/50">
+          <button
+            type="button"
             onClick={onClose}
             className="px-5 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
           >

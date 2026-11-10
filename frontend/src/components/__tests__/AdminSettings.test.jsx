@@ -17,11 +17,11 @@ const AdminSettings = (await import('../AdminSettings')).default;
 const formatBaseCurrency = (amount) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(amount);
 
-function Harness({ initialMarkup = 20, onAddLog = () => {} }) {
-  const [settings, setSettings] = useState({ base_currency: 'PHP', active_markup: initialMarkup });
+function Harness({ initialMarkup = 20, onAddLog = () => {}, onClose = () => {}, pinConfigured = false }) {
+  const [settings, setSettings] = useState({ base_currency: 'PHP', active_markup: initialMarkup, overridePinConfigured: pinConfigured });
   return (
     <SettingsContext.Provider value={{ settings, setSettings, formatBaseCurrency }}>
-      <AdminSettings onClose={() => {}} onAddLog={onAddLog} />
+      <AdminSettings onClose={onClose} onAddLog={onAddLog} />
     </SettingsContext.Provider>
   );
 }
@@ -170,5 +170,85 @@ describe('AdminSettings — override PIN', () => {
     expect(setOverridePin).toHaveBeenCalledWith('4321');
     expect(pinInput()).toHaveValue('');
     expect(confirmInput()).toHaveValue('');
+  });
+});
+
+describe('AdminSettings — dialog accessibility', () => {
+  it('is a modal dialog named by an h2 title', () => {
+    render(<Harness />);
+    const dialog = screen.getByRole('dialog', { name: /system settings/i });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByRole('heading', { level: 2, name: /system settings/i })).toBeInTheDocument();
+  });
+
+  it('labels the icon-only close button', () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: /^close$/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape and returns focus to the element that opened it', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const onClose = vi.fn();
+    const { unmount } = render(<Harness onClose={onClose} />);
+
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
+
+  it('traps Tab focus inside the dialog', () => {
+    render(<Harness />);
+    const close = screen.getByRole('button', { name: /^close$/i });
+    const done = screen.getByRole('button', { name: /^done$/i });
+
+    done.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(close).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(done).toHaveFocus();
+  });
+
+  it('groups the markup controls under the Global Retail Price Markup heading', () => {
+    render(<Harness />);
+    const group = screen.getByRole('group', { name: /global retail price markup/i });
+    expect(group).toContainElement(markupSlider());
+    expect(group).toContainElement(markupInput());
+  });
+
+  it('reflects the current PIN status from settings, not a mount-time copy', () => {
+    const value = (configured) => ({
+      settings: { base_currency: 'PHP', active_markup: 20, overridePinConfigured: configured },
+      setSettings: () => {},
+      formatBaseCurrency,
+    });
+    const { rerender } = render(
+      <SettingsContext.Provider value={value(false)}><AdminSettings onClose={() => {}} /></SettingsContext.Provider>
+    );
+    expect(screen.getByText(/no pin is set yet/i)).toBeInTheDocument();
+
+    rerender(
+      <SettingsContext.Provider value={value(true)}><AdminSettings onClose={() => {}} /></SettingsContext.Provider>
+    );
+    expect(screen.getByText(/a pin is currently set/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /replace pin/i })).toBeInTheDocument();
+  });
+
+  it('marks the PIN as set in shared settings after a successful save', async () => {
+    setOverridePin.mockResolvedValue({ ok: true });
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText(/discount override pin/i), { target: { value: '4321' } });
+    fireEvent.change(screen.getByLabelText(/confirm pin/i), { target: { value: '4321' } });
+    fireEvent.click(screen.getByRole('button', { name: /set pin/i }));
+
+    await waitFor(() => expect(screen.getByText(/a pin is currently set/i)).toBeInTheDocument());
   });
 });

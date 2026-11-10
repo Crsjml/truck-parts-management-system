@@ -1,4 +1,5 @@
 // frontend/src/components/staff/StaffRoster.jsx
+import { useEffect, useRef } from 'react';
 import { Trash, Warning } from '@phosphor-icons/react';
 import { staffState, relativeTime } from '../../utils/staffState';
 import { STAFF_ROLES, staffRoleLabel } from '../../utils/staffAccess';
@@ -33,6 +34,37 @@ export default function StaffRoster({
   error
 }) {
   const selfEmail = (currentEmail || '').toLowerCase();
+  const listRef = useRef(null);
+  const cancelRef = useRef(null);
+  // Where focus goes once the inline confirmation closes:
+  // { id, kind: 'role' | 'remove', removed?: boolean }
+  const returnFocus = useRef(null);
+  const pendingId = pendingRemoveId ?? pendingPromoteId;
+
+  useEffect(() => {
+    if (pendingId) {
+      if (returnFocus.current?.id !== pendingId) {
+        returnFocus.current = { id: pendingId, kind: pendingRemoveId ? 'remove' : 'role' };
+        cancelRef.current?.focus();
+      }
+      return;
+    }
+    const target = returnFocus.current;
+    // The row's controls are disabled while it saves; wait until they're back.
+    if (!target || busyId === target.id) return;
+    returnFocus.current = null;
+    // A confirmed removal takes the row away, so focus stays in the list
+    // instead of falling back to <body>.
+    const control = target.removed
+      ? null
+      : listRef.current?.querySelector(`[data-focus-return="${target.kind}-${target.id}"]`);
+    (control || listRef.current)?.focus();
+  }, [pendingId, pendingRemoveId, busyId]);
+
+  const confirmRemove = (id) => {
+    if (returnFocus.current) returnFocus.current = { ...returnFocus.current, removed: true };
+    onRemove(id);
+  };
 
   return (
     <div className="glass-panel rounded-2xl overflow-hidden">
@@ -46,7 +78,7 @@ export default function StaffRoster({
         </p>
       )}
 
-      <ul className="divide-y divide-border">
+      <ul ref={listRef} tabIndex={-1} aria-label="Staff members" className="divide-y divide-border focus:outline-none">
         {staff.map((person) => {
           const state = staffState(person.lastSeenAt);
           const style = STATE_STYLE[state];
@@ -66,6 +98,7 @@ export default function StaffRoster({
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    ref={cancelRef}
                     type="button"
                     onClick={onCancelRemove}
                     className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -74,7 +107,7 @@ export default function StaffRoster({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onRemove(person.id)}
+                    onClick={() => confirmRemove(person.id)}
                     disabled={isBusy}
                     className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                   >
@@ -96,6 +129,7 @@ export default function StaffRoster({
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    ref={cancelRef}
                     type="button"
                     onClick={onCancelPromote}
                     className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -151,6 +185,7 @@ export default function StaffRoster({
                   </label>
                   <select
                     id={`role-${person.id}`}
+                    data-focus-return={`role-${person.id}`}
                     value={person.role}
                     disabled={isBusy}
                     onChange={(e) => onChangeRole(person.id, e.target.value)}
@@ -164,6 +199,7 @@ export default function StaffRoster({
                   <button
                     type="button"
                     onClick={() => onRequestRemove(person.id)}
+                    data-focus-return={`remove-${person.id}`}
                     aria-label={`Remove ${person.email}`}
                     className="shrink-0 p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-500 transition-all"
                   >
