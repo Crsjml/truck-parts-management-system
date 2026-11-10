@@ -81,7 +81,7 @@ describe('AdminSettings — markup', () => {
     fireEvent.click(applyButton());
 
     expect(screen.getByText(/change markup from 20% to 25%\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/all shelf prices update immediately/i)).toBeInTheDocument();
+    expect(screen.getByText(/shelf prices update for everyone as soon as you confirm/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     expect(screen.queryByText(/change markup from/i)).not.toBeInTheDocument();
@@ -264,6 +264,23 @@ describe('AdminSettings — hardening', () => {
     expect(screen.getByText(/discounts are blocked at the pos/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /set a pin now/i }));
     expect(screen.getByLabelText(/discount override pin/i)).toHaveFocus();
+  });
+
+  it('states the markup consequence only at the confirm step, not as a standing banner', () => {
+    render(<Harness />);
+    expect(screen.queryByText(/changes apply immediately/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/shelf prices update for everyone/i)).not.toBeInTheDocument();
+
+    fireEvent.change(markupInput(), { target: { value: '35' } });
+    fireEvent.click(applyButton());
+    expect(screen.getByText(/shelf prices update for everyone as soon as you confirm/i)).toBeInTheDocument();
+  });
+
+  it('renders Set a PIN now in foreground text (AA on the red tint), not alarm red', () => {
+    render(<Harness pinConfigured={false} />);
+    const link = screen.getByRole('button', { name: /set a pin now/i });
+    expect(link).toHaveClass('text-foreground');
+    expect(link).not.toHaveClass('text-alarm-text');
   });
 
   it('shows no blocked-discounts alert once a PIN is set', () => {
