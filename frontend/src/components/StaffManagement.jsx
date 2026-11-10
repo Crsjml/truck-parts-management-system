@@ -131,13 +131,14 @@ export default function StaffManagement({ currentEmail }) {
     <div className="space-y-6 motion-safe:animate-fadeIn pb-24">
       <div className="glass-panel !shadow-none rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ShieldCheck weight="duotone" className="w-6 h-6 text-accent" />
             Staff Access
-          </h1>
+          </h2>
           <p className="text-foreground/70 text-sm max-w-xl leading-relaxed">
-            Give each person the access they need. Cashiers manage sales and customers;
-            warehouse staff manage stock and purchasing. Superadmins manage staff and settings.
+            Give each person the access they need. Cashiers handle sales and customers;
+            warehouse staff manage stock and purchasing; admins see every operational page and
+            sales analytics. Superadmins also manage staff and system settings.
           </p>
         </div>
 
@@ -162,7 +163,7 @@ export default function StaffManagement({ currentEmail }) {
       {loadState === 'denied' && (
         <div className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Lock weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
-          <h2 className="text-lg font-bold text-foreground">Superadmin access required</h2>
+          <h3 className="text-lg font-bold text-foreground">Superadmin access required</h3>
           <p className="text-sm text-foreground/70 max-w-sm mt-2 leading-relaxed">
             Your account can view the shop but not the staff list. Ask a superadmin if you need access.
           </p>
@@ -172,9 +173,9 @@ export default function StaffManagement({ currentEmail }) {
       {loadState === 'error' && (
         <div role="alert" className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Warning weight="duotone" className="w-12 h-12 text-alarm-text mb-4" />
-          <h2 className="text-lg font-bold text-foreground">
+          <h3 className="text-lg font-bold text-foreground">
             Could not reach the server
-          </h2>
+          </h3>
           <button
             onClick={() => loadStaff()}
             className="mt-4 px-5 py-2.5 rounded-xl bg-secondary hover:bg-muted border border-border text-sm font-semibold text-foreground transition-colors"
@@ -187,9 +188,9 @@ export default function StaffManagement({ currentEmail }) {
       {loadState === 'ready' && staffList.length === 0 && (
         <div className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <User weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
-          <h2 className="text-lg font-bold text-foreground">No staff members yet</h2>
+          <h3 className="text-lg font-bold text-foreground">No staff members yet</h3>
           <p className="text-sm text-foreground/70 max-w-sm mt-2 leading-relaxed">
-            Add an email address to allowlist it. That person registers on the storefront
+            Add an email address to give it staff access. That person registers on the storefront
             with that exact email and gains access on their first sign-in.
           </p>
         </div>
@@ -259,7 +260,7 @@ export default function StaffManagement({ currentEmail }) {
               <form onSubmit={handleAddStaff} noValidate className="flex min-h-0 flex-col">
               <div className="min-h-0 overflow-y-auto p-6 space-y-5">
                 <p id="add-staff-description" className="text-sm text-muted-foreground leading-relaxed">
-                  This allowlists an email address — no invitation is sent. The person
+                  This gives an email address staff access — no invitation is sent. The person
                   registers on the storefront with this exact email, then signs in.
                   You’ll get the steps to share next.
                 </p>
