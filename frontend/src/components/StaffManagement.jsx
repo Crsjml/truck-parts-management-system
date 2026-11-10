@@ -29,7 +29,16 @@ export default function StaffManagement({ currentEmail }) {
   const dialogScale = reduceMotion ? 1 : 0.98;
 
   const emailInputRef = useRef(null);
-  useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: () => setIsModalOpen(false), initialFocus: 'input' });
+
+  // Closing without adding drops the draft so a reopen never shows a stale email.
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setNewStaffEmail('');
+    setNewStaffRole('CASHIER');
+    setModalError('');
+  };
+
+  useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: closeModal, initialFocus: 'input' });
 
   // "Add another" swaps the success panel back for the form; put the caret in
   // the email field. Declared after useDialogFocus so that hook records the
@@ -241,7 +250,7 @@ export default function StaffManagement({ currentEmail }) {
                 <h2 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h2>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                   aria-label="Close"
                   className="p-1.5 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                 >
@@ -254,7 +263,7 @@ export default function StaffManagement({ currentEmail }) {
                   email={addedStaff.email}
                   role={addedStaff.role}
                   onAddAnother={() => setAddedStaff(null)}
-                  onDone={() => setIsModalOpen(false)}
+                  onDone={closeModal}
                 />
               ) : (
               <form onSubmit={handleAddStaff} noValidate className="flex min-h-0 flex-col">
@@ -311,7 +320,7 @@ export default function StaffManagement({ currentEmail }) {
               <div className="shrink-0 p-5 border-t border-border flex justify-end gap-3 bg-secondary/30">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cancel

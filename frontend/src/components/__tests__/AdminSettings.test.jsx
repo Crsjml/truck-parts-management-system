@@ -89,6 +89,21 @@ describe('AdminSettings — markup', () => {
     expect(markupInput()).toHaveValue(25);
   });
 
+  it('opens the Apply confirmation on Enter in the percentage field without saving', () => {
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.keyDown(markupInput(), { key: 'Enter' });
+
+    expect(screen.getByText(/change markup from 20% to 25%\?/i)).toBeInTheDocument();
+    expect(updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('ignores Enter in the percentage field when the draft is unchanged', () => {
+    render(<Harness />);
+    fireEvent.keyDown(markupInput(), { key: 'Enter' });
+    expect(screen.queryByText(/change markup from/i)).not.toBeInTheDocument();
+  });
+
   it('saves on Confirm, shows Saving… then Saved, and updates the saved value', async () => {
     let resolveSave;
     updateSettings.mockReturnValue(new Promise((r) => { resolveSave = r; }));

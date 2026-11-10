@@ -163,7 +163,7 @@ export default function StaffRoster({
           return (
             <li
               key={person.id}
-              className={`group flex flex-wrap items-start sm:items-center gap-x-4 gap-y-3 sm:gap-y-2 px-6 py-5 transition-colors ${rowTint}`}
+              className={`flex flex-wrap items-start sm:items-center gap-x-4 gap-y-3 sm:gap-y-2 px-6 py-5 transition-colors ${rowTint}`}
             >
               <span
                 aria-hidden="true"
