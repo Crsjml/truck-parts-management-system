@@ -233,7 +233,7 @@ describe('AdminSettings — dialog accessibility', () => {
     const { rerender } = render(
       <SettingsContext.Provider value={value(false)}><AdminSettings onClose={() => {}} /></SettingsContext.Provider>
     );
-    expect(screen.getByText(/no pin is set yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/discounts are blocked at the pos/i)).toBeInTheDocument();
 
     rerender(
       <SettingsContext.Provider value={value(true)}><AdminSettings onClose={() => {}} /></SettingsContext.Provider>

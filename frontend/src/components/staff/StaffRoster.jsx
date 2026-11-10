@@ -84,7 +84,7 @@ export default function StaffRoster({
   };
 
   return (
-    <div className="glass-panel rounded-xl overflow-hidden">
+    <div className="glass-panel !shadow-none rounded-xl overflow-hidden">
       {error && (
         <p
           role="alert"
