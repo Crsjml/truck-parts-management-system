@@ -6,6 +6,8 @@ import { fetchStaffRoles, createStaffRole, updateStaffRole, deleteStaffRole } fr
 import StaffRoster from './staff/StaffRoster';
 import { STAFF_ROLES } from '../utils/staffAccess';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function StaffManagement({ currentEmail }) {
   const [staffList, setStaffList] = useState([]);
   const [loadState, setLoadState] = useState('loading'); // loading | ready | denied | error
@@ -16,6 +18,7 @@ export default function StaffManagement({ currentEmail }) {
   const [saving, setSaving] = useState(false);
   const [rosterError, setRosterError] = useState(null);
   const [pendingRemoveId, setPendingRemoveId] = useState(null);
+  const [pendingPromoteId, setPendingPromoteId] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const dialogRef = useRef(null);
 
@@ -53,13 +56,16 @@ export default function StaffManagement({ currentEmail }) {
     };
   }, [isModalOpen]);
 
-  const loadStaff = useCallback(async () => {
-    setLoadState('loading');
+  // silent: refresh after a change without swapping the roster for a spinner.
+  const loadStaff = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoadState('loading');
     const { ok, status, staff } = await fetchStaffRoles();
 
     if (ok) {
       setStaffList(staff);
       setLoadState('ready');
+    } else if (silent) {
+      setRosterError('Saved, but the staff list could not be refreshed. Reload the page to see the latest.');
     } else if (status === 403) {
       setLoadState('denied');
     } else {
@@ -71,12 +77,18 @@ export default function StaffManagement({ currentEmail }) {
     loadStaff();
   }, [loadStaff]);
 
-  const handleAddStaff = async () => {
+  const handleAddStaff = async (event) => {
+    event?.preventDefault();
+    if (saving) return;
     setModalError('');
     const email = newStaffEmail.trim();
 
     if (!email) {
       setModalError('Email is required.');
+      return;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      setModalError('Enter a valid email address, e.g. name@tarlactruckparts.com.');
       return;
     }
 
@@ -88,13 +100,25 @@ export default function StaffManagement({ currentEmail }) {
       setIsModalOpen(false);
       setNewStaffEmail('');
       setNewStaffRole('CASHIER');
-      loadStaff();
+      loadStaff({ silent: true });
     } else {
       setModalError(result.error);
     }
   };
 
-  const handleChangeRole = async (id, role) => {
+  // Superadmin can manage staff and settings, so a promotion is confirmed
+  // first instead of applying the moment the dropdown changes.
+  const handleChangeRole = (id, role) => {
+    if (role === 'SUPERADMIN') {
+      setPendingRemoveId(null);
+      setPendingPromoteId(id);
+      return;
+    }
+    saveRole(id, role);
+  };
+
+  const saveRole = async (id, role) => {
+    setPendingPromoteId(null);
     setRosterError(null);
     setBusyId(id);
     const result = await updateStaffRole(id, role);
@@ -102,7 +126,7 @@ export default function StaffManagement({ currentEmail }) {
 
     // No optimistic update: the server can refuse (last-superadmin demote),
     // and a flipped-then-reverted control is worse than a brief wait.
-    if (result.ok) loadStaff();
+    if (result.ok) loadStaff({ silent: true });
     else setRosterError(result.error);
   };
 
@@ -113,7 +137,7 @@ export default function StaffManagement({ currentEmail }) {
     setBusyId(null);
     setPendingRemoveId(null);
 
-    if (result.ok) loadStaff();
+    if (result.ok) loadStaff({ silent: true });
     else setRosterError(result.error);
   };
 
@@ -166,7 +190,7 @@ export default function StaffManagement({ currentEmail }) {
             Could not reach the server
           </h3>
           <button
-            onClick={loadStaff}
+            onClick={() => loadStaff()}
             className="mt-4 px-5 py-2.5 rounded-xl bg-secondary hover:bg-muted border border-border text-sm font-semibold text-foreground transition-colors"
           >
             Try again
@@ -190,10 +214,13 @@ export default function StaffManagement({ currentEmail }) {
           staff={staffList}
           currentEmail={currentEmail}
           onChangeRole={handleChangeRole}
-          onRequestRemove={setPendingRemoveId}
+          onRequestRemove={(id) => { setPendingPromoteId(null); setPendingRemoveId(id); }}
           onCancelRemove={() => setPendingRemoveId(null)}
           onRemove={handleRemove}
           pendingRemoveId={pendingRemoveId}
+          pendingPromoteId={pendingPromoteId}
+          onConfirmPromote={(id) => saveRole(id, 'SUPERADMIN')}
+          onCancelPromote={() => setPendingPromoteId(null)}
           busyId={busyId}
           error={rosterError}
         />
@@ -221,6 +248,7 @@ export default function StaffManagement({ currentEmail }) {
               <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
                 <h3 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h3>
                 <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   aria-label="Close"
                   className="p-1.5 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
@@ -229,6 +257,7 @@ export default function StaffManagement({ currentEmail }) {
                 </button>
               </div>
 
+              <form onSubmit={handleAddStaff} noValidate className="flex min-h-0 flex-col">
               <div className="min-h-0 overflow-y-auto p-6 space-y-5">
                 <p id="add-staff-description" className="text-sm text-muted-foreground leading-relaxed">
                   This allowlists an email address. The person signs up through the normal
@@ -277,19 +306,21 @@ export default function StaffManagement({ currentEmail }) {
 
               <div className="shrink-0 p-5 border-t border-border flex justify-end gap-3 bg-secondary/30">
                 <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleAddStaff}
+                  type="submit"
                   disabled={saving || !newStaffEmail.trim()}
                   className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? 'Adding…' : 'Add member'}
                 </button>
               </div>
+              </form>
             </motion.div>
           </motion.div>
         )}

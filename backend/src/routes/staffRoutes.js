@@ -6,6 +6,12 @@ import { ROLE_PERMISSIONS } from '../config/permissions.js';
 const router = express.Router();
 
 const VALID_ROLES = Object.keys(ROLE_PERMISSIONS);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Auth emails are compared lowercase; stray spaces would make an allowlisted
+// address that can never match a real sign-in.
+const normalizeEmail = (email) => String(email ?? '').trim().toLowerCase();
 
 // The shape every staff endpoint returns. Kept in one place so a field added
 // here cannot be forgotten in one of the four handlers.
@@ -63,13 +69,14 @@ router.post('/check', requireAuth, async (req, res) => {
 router.post('/', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { email, role } = req.body;
-    if (!email) return res.status(400).json({ msg: 'Email is required' });
+    const lowerEmail = normalizeEmail(email);
+    if (!lowerEmail) return res.status(400).json({ msg: 'Email is required' });
+    if (!EMAIL_PATTERN.test(lowerEmail)) return res.status(400).json({ msg: 'Enter a valid email address.' });
 
     const safeRole = role ?? 'CASHIER';
     if (!VALID_ROLES.includes(safeRole)) {
       return res.status(400).json({ msg: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
     }
-    const lowerEmail = String(email).toLowerCase();
 
     const existing = await prisma.staffRole.findUnique({ where: { email: lowerEmail } });
     if (existing) return res.status(409).json({ msg: 'Staff email already exists' });
@@ -89,6 +96,7 @@ router.put('/:id', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
+    if (!UUID_PATTERN.test(id)) return res.status(404).json({ msg: 'Staff not found' });
 
     if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ msg: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
@@ -118,6 +126,7 @@ router.put('/:id', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
 router.delete('/:id', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
+    if (!UUID_PATTERN.test(id)) return res.status(404).json({ msg: 'Staff not found' });
 
     const target = await prisma.staffRole.findUnique({ where: { id } });
     if (!target) return res.status(404).json({ msg: 'Staff not found' });

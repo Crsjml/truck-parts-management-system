@@ -85,4 +85,77 @@ describe('StaffManagement', () => {
     fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
     await waitFor(() => expect(createStaffRole).toHaveBeenCalledWith({ email: 'warehouse@ttp.com', role: 'WAREHOUSE' }));
   });
+
+  describe('roster safety and usability', () => {
+    const roster = [
+      { id: 'a', email: 'owner@ttp.com', role: 'SUPERADMIN', lastSeenAt: new Date().toISOString(), addedBy: 'system' },
+      { id: 'b', email: 'clerk@ttp.com', role: 'CASHIER', lastSeenAt: null, addedBy: 'owner@ttp.com' }
+    ];
+
+    beforeEach(() => {
+      fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: roster });
+      updateStaffRole.mockReset().mockResolvedValue({ ok: true });
+      createStaffRole.mockReset().mockResolvedValue({ ok: true });
+    });
+
+    it('recognises your own row regardless of email letter case', async () => {
+      render(<StaffManagement currentEmail="Owner@TTP.com" />);
+
+      expect(await screen.findByText(/superadmin · you/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText('Role for owner@ttp.com')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove owner@ttp.com' })).not.toBeInTheDocument();
+    });
+
+    it('keeps the roster on screen (no full-page spinner) while a role change saves', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      const roleSelect = await screen.findByLabelText('Role for clerk@ttp.com');
+      fetchStaffRoles.mockReturnValueOnce(new Promise(() => {})); // the refresh never settles
+      fireEvent.change(roleSelect, { target: { value: 'WAREHOUSE' } });
+
+      await waitFor(() => expect(fetchStaffRoles).toHaveBeenCalledTimes(2));
+      expect(updateStaffRole).toHaveBeenCalledWith('b', 'WAREHOUSE');
+      expect(screen.queryByText(/loading staff records/i)).not.toBeInTheDocument();
+      expect(screen.getByText('clerk@ttp.com')).toBeInTheDocument();
+    });
+
+    it('asks for confirmation before promoting someone to Superadmin', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByText(/make clerk@ttp.com a superadmin/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /^make superadmin$/i }));
+
+      await waitFor(() => expect(updateStaffRole).toHaveBeenCalledWith('b', 'SUPERADMIN'));
+    });
+
+    it('can cancel a Superadmin promotion', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
+      fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('CASHIER');
+    });
+
+    it('rejects a malformed email in the add dialog without calling the server', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'not-an-email' } });
+      fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/valid email/i);
+      expect(createStaffRole).not.toHaveBeenCalled();
+    });
+
+    it('submits the add dialog with the Enter key', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      const email = screen.getByLabelText(/email address/i);
+      fireEvent.change(email, { target: { value: 'new@ttp.com' } });
+      fireEvent.submit(email.closest('form'));
+
+      await waitFor(() => expect(createStaffRole).toHaveBeenCalledWith({ email: 'new@ttp.com', role: 'CASHIER' }));
+    });
+  });
 });
