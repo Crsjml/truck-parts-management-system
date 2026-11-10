@@ -252,3 +252,74 @@ describe('AdminSettings — dialog accessibility', () => {
     await waitFor(() => expect(screen.getByText(/a pin is currently set/i)).toBeInTheDocument());
   });
 });
+
+describe('AdminSettings — hardening', () => {
+  beforeEach(() => {
+    updateSettings.mockReset();
+    setOverridePin.mockReset();
+  });
+
+  it('leads with a blocked-discounts alert when no PIN is set', () => {
+    render(<Harness pinConfigured={false} />);
+    expect(screen.getByText(/discounts are blocked at the pos/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /set a pin now/i }));
+    expect(screen.getByLabelText(/discount override pin/i)).toHaveFocus();
+  });
+
+  it('shows no blocked-discounts alert once a PIN is set', () => {
+    render(<Harness pinConfigured />);
+    expect(screen.queryByText(/discounts are blocked at the pos/i)).not.toBeInTheDocument();
+  });
+
+  it('closes straight away when nothing is unapplied', () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks before discarding an unapplied markup draft, and Keep editing keeps it', () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.change(markupInput(), { target: { value: '35' } });
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText(/discard unapplied changes\?/i)).toBeInTheDocument();
+    const keep = screen.getByRole('button', { name: /keep editing/i });
+    expect(keep).toHaveFocus();
+
+    fireEvent.click(keep);
+    expect(screen.queryByText(/discard unapplied changes\?/i)).not.toBeInTheDocument();
+    expect(markupInput()).toHaveValue(35);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes after Discard is confirmed', () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.change(markupInput(), { target: { value: '35' } });
+    fireEvent.click(screen.getByRole('button', { name: /^close$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('routes Escape through the same discard check', () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText(/discount override pin/i), { target: { value: '1234' } });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText(/discard unapplied changes\?/i)).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByText(/discard unapplied changes\?/i)).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('makes Done a secondary action, not a second primary button', () => {
+    render(<Harness />);
+    expect(screen.getByRole('button', { name: /^done$/i }).className).not.toMatch(/bg-accent/);
+  });
+});
