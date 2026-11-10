@@ -44,6 +44,9 @@ export const accessDiff = (from, to) => {
   };
 };
 
+// Every page a role opens, by sidebar name, e.g. for "they lose access to …".
+export const rolePageNames = (role) => rolePages(role).map(page => PAGE_NAMES[page]);
+
 // "A", "A and B", "A, B and C".
 export const formatList = (items) =>
   items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;

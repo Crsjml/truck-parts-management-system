@@ -425,14 +425,120 @@ describe('StaffManagement', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Remove clerk@ttp.com' })).toHaveFocus());
     });
 
-    it('keeps focus in the staff list after a confirmed removal', async () => {
+    it('moves focus to Undo in the removed notice after a confirmed removal', async () => {
       deleteStaffRole.mockReset().mockResolvedValue({ ok: true });
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
       fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
       await waitFor(() => expect(deleteStaffRole).toHaveBeenCalledWith('b'));
-      await waitFor(() => expect(screen.getByRole('list', { name: /staff members/i })).toHaveFocus());
+      await waitFor(() => expect(screen.getByRole('button', { name: /^undo$/i })).toHaveFocus());
+    });
+
+    describe('remove confirmation names what is lost', () => {
+      it('keeps the role in view and names the pages a cashier loses', async () => {
+        render(<StaffManagement currentEmail="owner@ttp.com" />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
+
+        const question = screen.getByText(/remove clerk@ttp\.com/i);
+        expect(question).toHaveTextContent('Remove clerk@ttp.com (Cashier)? They lose access to Sales POS and Customers immediately.');
+        expect(question.closest('li')).not.toHaveTextContent(/superadmins/i);
+      });
+
+      it('says how many superadmins remain when removing a superadmin', async () => {
+        render(<StaffManagement currentEmail="owner@ttp.com" />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Remove boss@ttp.com' }));
+
+        expect(screen.getByText(/remove boss@ttp\.com \(superadmin\)\?/i)).toBeInTheDocument();
+        expect(screen.getByText(/they are one of 2 superadmins, so this leaves 1\./i)).toBeInTheDocument();
+      });
+    });
+
+    describe('undo after removal', () => {
+      const removeClerk = async () => {
+        deleteStaffRole.mockReset().mockResolvedValue({ ok: true });
+        render(<StaffManagement currentEmail="owner@ttp.com" />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
+        fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
+        return screen.findByText(/removed clerk@ttp\.com \(cashier\)/i);
+      };
+
+      it('offers Undo in a persistent status notice and re-adds the person with their role', async () => {
+        await removeClerk();
+        const notice = screen.getByText(/removed clerk@ttp\.com \(cashier\)/i).closest('[role="status"]');
+        expect(notice).toBeInTheDocument();
+        expect(within(notice).getByRole('button', { name: /^dismiss$/i })).toBeInTheDocument();
+
+        fireEvent.click(within(notice).getByRole('button', { name: /^undo$/i }));
+
+        await waitFor(() => expect(createStaffRole).toHaveBeenCalledWith({ email: 'clerk@ttp.com', role: 'CASHIER' }));
+        expect(await screen.findByText(/restored clerk@ttp\.com as cashier\./i)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^undo$/i })).not.toBeInTheDocument();
+        await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
+      });
+
+      it('shows Restoring… and ignores repeat presses while the undo is pending', async () => {
+        let resolve;
+        createStaffRole.mockReturnValue(new Promise((r) => { resolve = r; }));
+        await removeClerk();
+        fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+
+        const pending = await screen.findByRole('button', { name: /restoring…/i });
+        expect(pending).toHaveAttribute('aria-disabled', 'true');
+        fireEvent.click(pending);
+        expect(createStaffRole).toHaveBeenCalledTimes(1);
+        await act(async () => resolve({ ok: true }));
+      });
+
+      it('keeps the notice and its Undo when the restore fails, and shows the server error', async () => {
+        createStaffRole.mockResolvedValue({ ok: false, error: 'Staff email already exists' });
+        await removeClerk();
+        fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Staff email already exists');
+        expect(screen.getByText(/removed clerk@ttp\.com \(cashier\)/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^undo$/i })).toBeEnabled();
+      });
+
+      it('says when a restore resets sign-in history and who added them', async () => {
+        fetchStaffRoles.mockResolvedValue({
+          ok: true,
+          status: 200,
+          staff: [
+            roster[0],
+            { ...roster[1], lastSeenAt: new Date().toISOString(), addedBy: 'system' }
+          ]
+        });
+        await removeClerk();
+        fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+
+        const restored = (await screen.findByText(/restored clerk@ttp\.com as cashier\./i)).closest('p');
+        expect(restored).toHaveTextContent(/not signed in yet/i);
+        expect(restored).toHaveTextContent(/added by.*you/i);
+      });
+
+      it('does not claim a reset when nothing was lost', async () => {
+        await removeClerk();
+        fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+
+        const restored = (await screen.findByText(/restored clerk@ttp\.com as cashier\./i)).closest('p');
+        expect(restored).not.toHaveTextContent(/not signed in yet|added by/i);
+      });
+
+      it('returns focus to the staff list on Dismiss', async () => {
+        await removeClerk();
+        fireEvent.click(screen.getByRole('button', { name: /^dismiss$/i }));
+
+        expect(screen.queryByText(/removed clerk@ttp\.com/i)).not.toBeInTheDocument();
+        await waitFor(() => expect(screen.getByRole('list', { name: /staff members/i })).toHaveFocus());
+      });
+
+      it('clears the notice when another remove starts', async () => {
+        await removeClerk();
+        fireEvent.click(screen.getByRole('button', { name: 'Remove boss@ttp.com' }));
+
+        expect(screen.queryByText(/removed clerk@ttp\.com/i)).not.toBeInTheDocument();
+      });
     });
 
     it('after adding, keeps the dialog open with exact sign-in steps for that email', async () => {
@@ -584,7 +690,7 @@ describe('StaffManagement', () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
 
-      expect(screen.getByText(/they lose access immediately/i)).toBeInTheDocument();
+      expect(screen.getByText(/they lose access to sales pos and customers immediately/i)).toBeInTheDocument();
       expect(screen.queryByText(/admin access/i)).not.toBeInTheDocument();
     });
 

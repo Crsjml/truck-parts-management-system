@@ -84,7 +84,15 @@ describe('StaffRoster', () => {
 
   it('renders an inline confirm row for the pending removal', () => {
     renderRoster({ pendingRemoveId: 's3' });
-    expect(screen.getByText(/remove ana@ttp.com\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/remove ana@ttp\.com \(admin\)\?/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
+  });
+
+  it('keeps the role tag and sign-in status visible in the confirm row', () => {
+    renderRoster({ pendingRemoveId: 's3' });
+    const row = screen.getByText(/remove ana@ttp\.com/i).closest('li');
+    expect(row.querySelector('span.uppercase')).toHaveTextContent(/^admin$/i);
+    expect(row).toHaveTextContent(/dormant/i);
     expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument();
   });
 
