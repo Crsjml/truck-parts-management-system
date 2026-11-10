@@ -98,6 +98,50 @@ describe('AdminSettings — markup', () => {
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
+  it('moves focus into the Apply confirmation and announces its question', () => {
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.click(applyButton());
+
+    const cancel = screen.getByRole('button', { name: /^cancel$/i });
+    expect(cancel).toHaveFocus();
+    expect(cancel).toHaveAccessibleDescription(/change markup from 20% to 25%/i);
+    expect(screen.getByRole('group', { name: /change markup from 20% to 25%\?/i })).toContainElement(cancel);
+  });
+
+  it('moves focus to Cancel when Enter opens the Apply confirmation', () => {
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.keyDown(markupInput(), { key: 'Enter' });
+    expect(screen.getByRole('button', { name: /^cancel$/i })).toHaveFocus();
+  });
+
+  it('returns focus to the percentage field after a successful save', async () => {
+    updateSettings.mockResolvedValue({ ok: true, settings: { base_currency: 'PHP', active_markup: 25 } });
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.click(applyButton());
+    const confirm = screen.getByRole('button', { name: /^confirm$/i });
+    confirm.focus();
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(screen.getByText(/^saved$/i)).toBeInTheDocument());
+    expect(markupInput()).toHaveFocus();
+  });
+
+  it('returns focus to the percentage field after a failed save', async () => {
+    updateSettings.mockResolvedValue({ ok: false, error: 'Server error updating settings' });
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.click(applyButton());
+    const confirm = screen.getByRole('button', { name: /^confirm$/i });
+    confirm.focus();
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(markupInput()).toHaveFocus();
+  });
+
   it('ignores Enter in the percentage field when the draft is unchanged', () => {
     render(<Harness />);
     fireEvent.keyDown(markupInput(), { key: 'Enter' });
