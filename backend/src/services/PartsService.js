@@ -1,10 +1,28 @@
 import { partsRepository } from '../repositories/PartsRepository.js';
 import { supabaseStorageService } from './SupabaseStorageService.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
-import { dateKey, nextDocNumber, normalizeOemNumber, normalizeOemNumbers } from '../utils/recordFormats.js';
+import {
+  dateKey, nextDocNumber, normalizeOemNumber, normalizeOemNumbers,
+  skuPrefixFor, formatSku, parseSku, normalizeSku, isValidSku, SKU_FORMAT_MESSAGE
+} from '../utils/recordFormats.js';
 import { retryOnUniqueViolation } from '../utils/invoiceNumbers.js';
 
+const httpError = (status, message) => Object.assign(new Error(message), { status });
+
 export class PartsService {
+  /** Next free CAT-PRT-##### for a category (a suggestion; the save is authoritative). */
+  async suggestSku(categoryId) {
+    const category = await partsRepository.findCategoryById(categoryId);
+    if (!category) throw httpError(404, 'Selected category does not exist.');
+    return this.nextSkuFor(category);
+  }
+
+  async nextSkuFor(category) {
+    const prefix = skuPrefixFor(category.name);
+    const latest = await partsRepository.findLatestSkuByPrefix(prefix);
+    return formatSku(prefix, (parseSku(latest?.sku)?.seq ?? 0) + 1);
+  }
+
   async generateAdjustmentNumber(client) {
     const date = new Date();
     const lastAdjustment = await partsRepository.findLatestAdjustmentByDate(dateKey(date), client);
@@ -135,18 +153,15 @@ export class PartsService {
       ? null
       : Number(markupOverride);
 
-    const existing = await partsRepository.findPartBySku(sku.trim());
-    if (existing) {
-      const error = new Error('A part with this SKU already exists.');
-      error.status = 409;
-      throw error;
-    }
-
     const categoryDoc = await partsRepository.findCategoryById(category_id);
-    if (!categoryDoc) {
-      const error = new Error('Selected category does not exist.');
-      error.status = 404;
-      throw error;
+    if (!categoryDoc) throw httpError(404, 'Selected category does not exist.');
+
+    // A typed SKU must already be in the standard format; a blank one is
+    // assigned below from the category's sequence.
+    const typedSku = normalizeSku(sku);
+    if (typedSku) {
+      if (!isValidSku(typedSku)) throw httpError(400, SKU_FORMAT_MESSAGE);
+      if (await partsRepository.findPartBySku(typedSku)) throw httpError(409, 'A part with this SKU already exists.');
     }
 
     const parsedCompatibleWith = (Array.isArray(compatibleWith) && compatibleWith.length > 0)
@@ -156,9 +171,9 @@ export class PartsService {
     // Upload base64 image to Supabase if provided
     const uploadedImageUrl = await supabaseStorageService.uploadBase64Image(image);
 
-    const part = await partsRepository.createPart({
+    const buildPart = (skuValue) => partsRepository.createPart({
       name: name.trim(),
-      sku: sku.trim(),
+      sku: skuValue,
       oem: normalizeOemNumber(oem),
       oemNumbers: normalizedOemNumbers,
       categoryId: categoryDoc.id,
@@ -171,6 +186,10 @@ export class PartsService {
       description: description ? description.trim() : '',
       image: uploadedImageUrl || ''
     });
+
+    const part = typedSku
+      ? await buildPart(typedSku)
+      : await retryOnUniqueViolation('sku', async () => buildPart(await this.nextSkuFor(categoryDoc)));
 
     return {
       id: part.id,
@@ -215,13 +234,10 @@ export class PartsService {
       }
     }
 
-    if (sku && sku.trim() !== part.sku) {
-      const existing = await partsRepository.findPartBySku(sku.trim(), id);
-      if (existing) {
-        const error = new Error('A part with this SKU already exists.');
-        error.status = 409;
-        throw error;
-      }
+    const nextSku = sku !== undefined ? normalizeSku(sku) : undefined;
+    if (nextSku !== undefined && nextSku !== part.sku) {
+      if (!isValidSku(nextSku)) throw httpError(400, SKU_FORMAT_MESSAGE);
+      if (await partsRepository.findPartBySku(nextSku, id)) throw httpError(409, 'A part with this SKU already exists.');
     }
 
     if (category_id) {
@@ -248,7 +264,7 @@ export class PartsService {
 
     const partData = {
       ...(name !== undefined && { name: name.trim() }),
-      ...(sku !== undefined && { sku: sku.trim() }),
+      ...(nextSku !== undefined && { sku: nextSku }),
       ...(oem !== undefined && { oem: normalizeOemNumber(oem) }),
       ...(oemNumbers !== undefined && { oemNumbers: normalizeOemNumbers(oemNumbers) }),
       ...(markupOverride !== undefined && {

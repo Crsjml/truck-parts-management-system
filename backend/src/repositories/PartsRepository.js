@@ -28,6 +28,14 @@ export class PartsRepository {
     return prisma.part.findFirst({ where });
   }
 
+  async findLatestSkuByPrefix(prefix, client = prisma) {
+    return client.part.findFirst({
+      where: { sku: { startsWith: `${prefix}-` } },
+      orderBy: { sku: 'desc' },
+      select: { sku: true }
+    });
+  }
+
   async findPartById(id) {
     return prisma.part.findUnique({ where: { id } });
   }

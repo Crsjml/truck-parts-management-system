@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { MagnifyingGlass, Funnel, Warning, Plus, Pencil, Trash, Wrench, Package, X, XCircle, ShoppingCart, FileCode, PaperPlaneRight, CheckCircle, SquaresFour, GridFour, ListDashes, Gear, ShieldCheck, Pulse, Lightning, CarProfile, Tag, Image, WarningCircle, Star, SortAscending, Sliders, CurrencyDollar, Info, Truck } from '@phosphor-icons/react';
-import { fetchCategoriesList } from '../authStore';
+import { fetchCategoriesList, fetchNextSku } from '../authStore';
+import { SKU_PATTERN, SKU_FORMAT_MESSAGE, normalizeSku } from '../utils/sku';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
@@ -17,7 +18,7 @@ import { z } from 'zod';
 
 const partSchema = z.object({
   name: z.string().min(3, "Part name must be at least 3 characters."),
-  sku: z.string().min(1, "SKU is required."),
+  sku: z.string().min(1, "SKU is required.").refine(v => SKU_PATTERN.test(v), SKU_FORMAT_MESSAGE),
   oem: z.string().min(1, "OEM number is required."),
   category: z.string().min(1, "Category selection is required."),
   price: z.number().min(0, "Price must be a valid positive number."),
@@ -262,7 +263,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
     // Zod Validation
     const result = partSchema.safeParse({
       name: formName.trim(),
-      sku: formSku.trim(),
+      sku: normalizeSku(formSku),
       oem: formOem.trim(),
       category: formCategory,
       price: isNaN(parseFloat(formPrice)) ? -1 : parseFloat(formPrice),
@@ -279,7 +280,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
 
     const partData = {
       name: formName.trim(),
-      sku: formSku.trim(),
+      sku: normalizeSku(formSku),
       oem: formOem.trim(),
       category_id: formCategory,
       price: parseFloat(formPrice),
@@ -1385,6 +1386,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
         document.body
       )}
       <AddPartDrawer 
+        suggestSku={fetchNextSku}
         isOpen={isAddDrawerOpen} 
         onClose={() => setIsAddDrawerOpen(false)} 
         onAddPart={onAddPart} 

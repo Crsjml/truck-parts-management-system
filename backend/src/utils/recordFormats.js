@@ -62,8 +62,24 @@ const TENDER_STEP = 100;
  */
 export function skuPrefixFor(categoryName) {
   if (SKU_PREFIXES[categoryName]) return SKU_PREFIXES[categoryName];
-  const letters = String(categoryName).toUpperCase().replace(/[^A-Z]/g, '');
-  return `${letters.slice(0, 3).padEnd(3, 'X')}-GEN`;
+  // Unmapped categories: first 3 letters of the first two words
+  // ("Super Turbo" -> SUP-TUR); single-word names get -GEN.
+  const words = String(categoryName).toUpperCase().split(/[^A-Z]+/).filter(Boolean);
+  const code = (word = '') => word.slice(0, 3).padEnd(3, 'X');
+  return `${code(words[0])}-${words.length > 1 ? code(words[1]) : 'GEN'}`;
+}
+
+export const SKU_PATTERN = /^[A-Z]{3}-[A-Z]{3}-\d{5}$/;
+export const SKU_FORMAT_MESSAGE = 'SKU must look like CAT-PRT-##### (e.g. BRK-PAD-00012).';
+
+/** @param {unknown} sku @returns {string} trimmed, uppercase */
+export function normalizeSku(sku) {
+  return String(sku ?? '').trim().toUpperCase();
+}
+
+/** @param {string} sku @returns {boolean} */
+export function isValidSku(sku) {
+  return SKU_PATTERN.test(sku);
 }
 
 /**

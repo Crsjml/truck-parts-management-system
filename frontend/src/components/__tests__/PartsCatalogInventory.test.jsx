@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchCategoriesList = vi.fn();
 
 vi.mock('../../authStore', () => ({
-  fetchCategoriesList: (...args) => fetchCategoriesList(...args)
+  fetchCategoriesList: (...args) => fetchCategoriesList(...args),
+  fetchNextSku: vi.fn().mockResolvedValue({ ok: false })
 }));
 
 vi.mock('../../context/SettingsContext', () => ({

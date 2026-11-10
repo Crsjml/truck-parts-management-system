@@ -14,7 +14,9 @@ import {
   parseSku,
   parseDocNumber,
   normalizeOemNumber,
-  normalizeOemNumbers
+  normalizeOemNumbers,
+  normalizeSku,
+  isValidSku
 } from '../recordFormats.js';
 
 describe('skuPrefixFor', () => {
@@ -23,8 +25,14 @@ describe('skuPrefixFor', () => {
     expect(skuPrefixFor('Brake Pads/Linings')).toBe('BRK-PAD');
   });
 
-  it('derives a 3+3 letter code for an unknown category', () => {
-    expect(skuPrefixFor('Exhaust Systems')).toBe('EXH-GEN');
+  it('derives the prefix from the first two words of an unknown category', () => {
+    expect(skuPrefixFor('Exhaust Systems')).toBe('EXH-SYS');
+    expect(skuPrefixFor('Super Break')).toBe('SUP-BRE');
+    expect(skuPrefixFor('Super Turbo')).toBe('SUP-TUR');
+  });
+
+  it('falls back to -GEN for a single-word unknown category', () => {
+    expect(skuPrefixFor('Exhaust')).toBe('EXH-GEN');
   });
 
   it('pads very short category names', () => {
@@ -163,5 +171,19 @@ describe('normalizeOemNumbers', () => {
 
   it('returns an empty list for non-arrays', () => {
     expect(normalizeOemNumbers(undefined)).toEqual([]);
+  });
+});
+
+describe('normalizeSku / isValidSku', () => {
+  it('trims and uppercases', () => {
+    expect(normalizeSku(' brk-pad-00001 ')).toBe('BRK-PAD-00001');
+    expect(normalizeSku(undefined)).toBe('');
+  });
+
+  it('accepts only CAT-PRT-#####', () => {
+    expect(isValidSku('BRK-PAD-00001')).toBe(true);
+    expect(isValidSku('BRK-PAD-1')).toBe(false);
+    expect(isValidSku('1231')).toBe(false);
+    expect(isValidSku('SKU-A1B2C3D4')).toBe(false);
   });
 });
