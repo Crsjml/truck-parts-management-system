@@ -59,6 +59,13 @@ export default function AdminSettings({ onClose, onAddLog }) {
     setMarkupError('');
   };
 
+  // Enter only opens the confirmation; it never saves on its own.
+  const handleMarkupKeyDown = (e) => {
+    if (e.key !== 'Enter' || !isDraftDirty || markupStatus === 'confirming' || isMarkupSaving) return;
+    e.preventDefault();
+    setMarkupStatus('confirming');
+  };
+
   const handleConfirmMarkup = async () => {
     if (!isDraftDirty) return;
     const previous = savedMarkup;
@@ -162,7 +169,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <X weight="duotone" aria-hidden="true" className="w-5 h-5" />
           </button>
@@ -171,7 +178,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
         {/* Body */}
         <div className="min-h-0 overflow-y-auto p-6 space-y-6">
           {!pinConfigured && (
-            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-destructive/10 dark:border-red-500/30 dark:bg-red-500/15">
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-destructive/10 dark:bg-alarm-text/15">
               <Lock weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-alarm-text" />
               <p id="pin-blocked-alert" className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
                 <span className="font-bold">Discounts are blocked at the POS</span> until a Discount Override PIN is set.{' '}
@@ -232,6 +239,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                     step="1"
                     value={markupDraft}
                     onChange={handleDraftChange}
+                    onKeyDown={handleMarkupKeyDown}
                     disabled={isMarkupSaving}
                     className="w-20 bg-background border border-border rounded-xl px-3 py-2 text-sm font-semibold text-right tabular-nums text-foreground focus:outline-none focus:border-accent transition-colors"
                   />
@@ -279,7 +287,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                   type="button"
                   onClick={() => setMarkupStatus('confirming')}
                   disabled={!isDraftDirty}
-                  className="w-full px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  className="w-full px-5 py-2.5 rounded-xl border border-transparent bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:bg-secondary disabled:border-border disabled:text-muted-foreground disabled:cursor-not-allowed transition-colors"
                 >
                   Apply markup
                 </button>
@@ -376,7 +384,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 p-5 border-t border-border bg-background/50">
           {confirmDiscard ? (
             <>
-              <p id="discard-question" role="alert" className="mr-auto text-sm font-semibold text-foreground">
+              <p id="discard-question" role="alert" className="basis-full text-sm font-semibold text-foreground [text-wrap:pretty]">
                 {discardSummary({ markup: isDraftDirty ? draftValue : null, hasPin: newPin !== '' || confirmPin !== '' })}
               </p>
               <button

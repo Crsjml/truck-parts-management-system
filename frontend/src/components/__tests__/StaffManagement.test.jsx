@@ -107,6 +107,22 @@ describe('StaffManagement', () => {
     expect(document.body.style.overflow).toBe('');
   });
 
+  it('starts the Add Staff form empty again after it is closed without adding', async () => {
+    fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
+    render(<StaffManagement currentEmail="a@ttp.com" />);
+    const trigger = await screen.findByRole('button', { name: /add staff member/i });
+
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'stale@ttp.com' } });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'WAREHOUSE' } });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    fireEvent.click(trigger);
+    expect(screen.getByLabelText(/email address/i)).toHaveValue('');
+    expect(screen.getByLabelText('Role')).toHaveValue('CASHIER');
+  });
+
   it('lets a superadmin add warehouse staff with a visible access description', async () => {
     fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
     createStaffRole.mockResolvedValue({ ok: true });
