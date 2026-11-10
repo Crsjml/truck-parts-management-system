@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { fetchStaffRoles, createStaffRole, updateStaffRole, deleteStaffRole } from '../authStore';
 import StaffRoster from './staff/StaffRoster';
 import StaffAddedPanel from './staff/StaffAddedPanel';
-import { STAFF_ROLES, isPromotion } from '../utils/staffAccess';
+import { STAFF_ROLES } from '../utils/staffAccess';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -88,17 +88,13 @@ export default function StaffManagement({ currentEmail }) {
     }
   };
 
-  // Promotions widen access and anything touching Superadmin changes who can
-  // manage staff, so both are confirmed before saving. Sideways moves and
-  // demotions apply at once and offer Undo.
+  // The select only stages a role; nothing is saved until Save is pressed.
+  // Arrow keys on a closed <select> fire `change` on every step in some
+  // browsers, so saving on change would write each step to the database.
   const handleChangeRole = (id, role) => {
     const person = staffList.find((p) => p.id === id);
-    if (isPromotion(person?.role, role) || person?.role === 'SUPERADMIN') {
-      setPendingRemoveId(null);
-      setPendingRoleChange({ id, to: role });
-      return;
-    }
-    saveRole(id, role);
+    setPendingRemoveId(null);
+    setPendingRoleChange(person && role !== person.role ? { id, to: role } : null);
   };
 
   const saveRole = async (id, role, { isUndo = false } = {}) => {
