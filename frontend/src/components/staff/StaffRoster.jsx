@@ -79,8 +79,11 @@ export default function StaffRoster({
   useEffect(() => {
     if (pendingId) {
       if (returnFocus.current?.id !== pendingId) {
-        returnFocus.current = { id: pendingId, kind: pendingRemoveId ? 'remove' : 'role' };
-        cancelRef.current?.focus();
+        const kind = pendingRemoveId ? 'remove' : 'role';
+        returnFocus.current = { id: pendingId, kind };
+        // A staged role leaves focus on its select so arrow keys keep
+        // stepping through options; Save/Cancel are the next Tab stops.
+        if (kind === 'remove') cancelRef.current?.focus();
       }
       return;
     }
@@ -267,7 +270,8 @@ export default function StaffRoster({
 // Inline Save/Cancel for a staged role. The select only stages; this commits.
 function RoleChangeStrip({ id, copy, isBusy, cancelRef, onCancel, onConfirm }) {
   return (
-    <div className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 pl-6">
+    // Focus stays on the select, so the staged change is announced instead.
+    <div aria-live="polite" className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 pl-6">
       <p id={id} className="mr-auto text-sm font-bold text-foreground">
         {copy.message}
       </p>

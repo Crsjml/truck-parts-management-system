@@ -167,7 +167,7 @@ describe('StaffManagement', () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
 
-      await waitFor(() => expect(screen.getByRole('button', { name: /^cancel$/i })).toHaveFocus());
+      screen.getByRole('button', { name: /^cancel$/i }).focus();
       fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
 
       expect(updateStaffRole).not.toHaveBeenCalled();
@@ -214,11 +214,35 @@ describe('StaffManagement', () => {
       expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('CASHIER');
     });
 
-    it('moves focus to Cancel when a promote confirmation appears, and back to the role control after Cancel', async () => {
+    it('keeps focus on the role select while a change is staged, so arrow keys keep stepping', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      const select = await screen.findByLabelText('Role for clerk@ttp.com');
+      select.focus();
+      fireEvent.change(select, { target: { value: 'WAREHOUSE' } });
+      fireEvent.change(screen.getByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
+
+      // Let any focus effect run before asserting nothing moved.
+      await act(async () => {});
+      expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus();
+      expect(updateStaffRole).not.toHaveBeenCalled();
+    });
+
+    it('announces the staged change politely without moving focus', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      const live = document.querySelector('[aria-live="polite"]');
+      expect(live).not.toBeNull();
+      expect(live).toHaveTextContent(/change clerk@ttp\.com from cashier to warehouse\?/i);
+      expect(screen.getByLabelText('Role for clerk@ttp.com'))
+        .toHaveAccessibleDescription(/change clerk@ttp\.com from cashier to warehouse\?/i);
+    });
+
+    it('returns focus to the role control after cancelling a promotion', async () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
 
-      await waitFor(() => expect(screen.getByRole('button', { name: /^cancel$/i })).toHaveFocus());
+      screen.getByRole('button', { name: /^cancel$/i }).focus();
       fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
       await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
     });
