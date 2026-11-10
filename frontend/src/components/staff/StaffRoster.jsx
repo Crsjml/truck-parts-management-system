@@ -1,7 +1,7 @@
 // frontend/src/components/staff/StaffRoster.jsx
-import React from 'react';
 import { Trash, Warning } from '@phosphor-icons/react';
 import { staffState, relativeTime } from '../../utils/staffState';
+import { STAFF_ROLES, staffRoleLabel } from '../../utils/staffAccess';
 
 // Colour is the only signal that varies per state, so it carries meaning
 // rather than decoration. Muted pastel treatment per minimalist-ui §5.
@@ -13,7 +13,9 @@ const STATE_STYLE = {
 
 const ROLE_STYLE = {
   SUPERADMIN: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20',
-  ADMIN: 'bg-brandBlue-500/10 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/20'
+  ADMIN: 'bg-brandBlue-500/10 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/20',
+  CASHIER: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+  WAREHOUSE: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20'
 };
 
 export default function StaffRoster({
@@ -104,7 +106,7 @@ export default function StaffRoster({
                 <span
                   className={`shrink-0 px-2.5 py-1 rounded-full border text-2xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}
                 >
-                  {person.role} · you
+                  {staffRoleLabel(person.role)} · you
                 </span>
               ) : (
                 <>
@@ -118,8 +120,9 @@ export default function StaffRoster({
                     onChange={(e) => onChangeRole(person.id, e.target.value)}
                     className="shrink-0 bg-secondary border border-border rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-foreground focus:outline-none focus:border-accent disabled:opacity-40 transition-colors"
                   >
-                    <option value="ADMIN">Admin</option>
-                    <option value="SUPERADMIN">Superadmin</option>
+                    {STAFF_ROLES.map(role => (
+                      <option key={role.value} value={role.value}>{role.label}</option>
+                    ))}
                   </select>
 
                   <button

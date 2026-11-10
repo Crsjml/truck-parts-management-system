@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { prisma } from '../config/prisma.js';
+import { ROLE_PERMISSIONS, hasPermission } from '../config/permissions.js';
 
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -38,12 +39,7 @@ const ROLE_RANK = Object.freeze(
   })
 );
 
-export const requireRole = (minimum) => {
-  const requiredRank = ROLE_RANK[minimum];
-  if (!requiredRank) {
-    throw new Error(`[requireRole] Invalid minimum role specified: "${minimum}"`);
-  }
-
+const authorizeStaff = (allows) => {
   return async (req, res, next) => {
     if (!req.auth || !req.auth.email) {
       return res.status(401).json({ msg: 'Not authenticated.' });
@@ -54,9 +50,7 @@ export const requireRole = (minimum) => {
         where: { email: req.auth.email.toLowerCase() }
       });
 
-      const staffRank = ROLE_RANK[staff?.role] ?? 0;
-
-      if (!staff || staffRank < requiredRank) {
+      if (!staff || !allows(staff.role)) {
         return res.status(403).json({ msg: 'Insufficient privileges.' });
       }
 
@@ -67,5 +61,18 @@ export const requireRole = (minimum) => {
       return res.status(500).json({ msg: 'Authorization check failed.' });
     }
   };
+};
+
+export const requireRole = (minimum) => {
+  const requiredRank = ROLE_RANK[minimum];
+  if (!requiredRank) throw new Error(`[requireRole] Invalid minimum role specified: "${minimum}"`);
+  return authorizeStaff(role => (ROLE_RANK[role] ?? 0) >= requiredRank);
+};
+
+export const requirePermission = (permission) => {
+  if (!ROLE_PERMISSIONS.SUPERADMIN.includes(permission)) {
+    throw new Error(`Invalid permission: ${permission}`);
+  }
+  return authorizeStaff(role => hasPermission(role, permission));
 };
 

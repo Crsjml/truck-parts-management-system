@@ -21,7 +21,7 @@ vi.mock('../../middleware/authMiddleware.js', () => ({
     req.auth = { userId: 'admin-1', email: 'admin@ttp.test' };
     next();
   },
-  requireRole: () => (_req, _res, next) => next()
+  requirePermission: () => (_req, _res, next) => next()
 }));
 
 const customersRouter = (await import('../customers.js')).default;

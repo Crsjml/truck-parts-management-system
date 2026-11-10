@@ -1,10 +1,11 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
 import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
+import { ROLE_PERMISSIONS } from '../config/permissions.js';
 
 const router = express.Router();
 
-const VALID_ROLES = ['SUPERADMIN', 'ADMIN'];
+const VALID_ROLES = Object.keys(ROLE_PERMISSIONS);
 
 // The shape every staff endpoint returns. Kept in one place so a field added
 // here cannot be forgotten in one of the four handlers.
@@ -17,8 +18,8 @@ const present = (s) => ({
   createdAt: s.createdAt
 });
 
-// Any admin may see who has access. Only a superadmin may change it.
-router.get('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
+// Staff access is managed by superadmins only.
+router.get('/', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const staff = await prisma.staffRole.findMany({ orderBy: { createdAt: 'desc' } });
     res.json(staff.map(present));
@@ -35,6 +36,9 @@ router.post('/check', requireAuth, async (req, res) => {
     if (!email) return res.status(400).json({ msg: 'Email is required' });
 
     const lowerEmail = String(email).toLowerCase();
+    if (lowerEmail !== req.auth.email?.toLowerCase()) {
+      return res.status(403).json({ msg: 'You can only check your own staff access.' });
+    }
     const staff = await prisma.staffRole.findUnique({ where: { email: lowerEmail } });
 
     if (!staff) {
@@ -61,7 +65,10 @@ router.post('/', requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
     const { email, role } = req.body;
     if (!email) return res.status(400).json({ msg: 'Email is required' });
 
-    const safeRole = VALID_ROLES.includes(role) ? role : 'ADMIN';
+    const safeRole = role ?? 'CASHIER';
+    if (!VALID_ROLES.includes(safeRole)) {
+      return res.status(400).json({ msg: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
+    }
     const lowerEmail = String(email).toLowerCase();
 
     const existing = await prisma.staffRole.findUnique({ where: { email: lowerEmail } });

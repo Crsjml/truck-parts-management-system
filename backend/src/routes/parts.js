@@ -1,7 +1,7 @@
 // backend/src/routes/parts.js
 import express from 'express';
 import { prisma } from '../config/prisma.js';
-import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
+import { requireAuth, requirePermission } from '../middleware/authMiddleware.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
 import { partsController } from '../controllers/PartsController.js';
 
@@ -65,13 +65,13 @@ router.get('/vehicle-options', async (req, res) => {
 });
 
 // ── Create part record ───────────────────────────────────────────────────────
-router.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => partsController.createPart(req, res));
+router.post('/', requireAuth, requirePermission('catalog'), async (req, res) => partsController.createPart(req, res));
 
 // ── Update part record ───────────────────────────────────────────────────────
-router.put('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => partsController.updatePart(req, res));
+router.put('/:id', requireAuth, requirePermission('catalog'), async (req, res) => partsController.updatePart(req, res));
 
 // ── Get all stock adjustments globally ───────────────────────────────────────
-router.get('/adjustments/all', requireAuth, async (req, res) => {
+router.get('/adjustments/all', requireAuth, requirePermission('catalog'), async (req, res) => {
   try {
     const adjustments = await prisma.stockAdjustment.findMany({
       include: { part: { select: { name: true, sku: true } } },
@@ -86,7 +86,7 @@ router.get('/adjustments/all', requireAuth, async (req, res) => {
 });
 
 // ── Get stock adjustments for a specific part ─────────────────────────────────
-router.get('/:id/adjustments', async (req, res) => {
+router.get('/:id/adjustments', requireAuth, requirePermission('catalog'), async (req, res) => {
   try {
     const adjustments = await prisma.stockAdjustment.findMany({
       where: { partId: req.params.id },
@@ -100,7 +100,7 @@ router.get('/:id/adjustments', async (req, res) => {
 });
 
 // ── Archive part record (soft delete) ────────────────────────────────────────
-router.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.delete('/:id', requireAuth, requirePermission('catalog'), async (req, res) => {
   try {
     const { id } = req.params;
     const part = await prisma.part.findUnique({ where: { id } });
@@ -115,7 +115,7 @@ router.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
 });
 
 // ── Toggle published status ───────────────────────────────────────────────────
-router.put('/:id/published', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.put('/:id/published', requireAuth, requirePermission('catalog'), async (req, res) => {
   try {
     const { id } = req.params;
     const part = await prisma.part.findUnique({ where: { id } });
@@ -133,7 +133,7 @@ router.put('/:id/published', requireAuth, requireRole('ADMIN'), async (req, res)
 });
 
 // ── Restore archived part ─────────────────────────────────────────────────────
-router.put('/:id/restore', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.put('/:id/restore', requireAuth, requirePermission('catalog'), async (req, res) => {
   try {
     const { id } = req.params;
     const part = await prisma.part.findUnique({ where: { id } });
@@ -148,7 +148,7 @@ router.put('/:id/restore', requireAuth, requireRole('ADMIN'), async (req, res) =
 });
 
 // ── Bulk price adjustment ──────────────────────────────────────────────────────
-router.post('/bulk-adjust', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.post('/bulk-adjust', requireAuth, requirePermission('catalog'), async (req, res) => {
   try {
     const { percentage } = req.body;
     if (percentage === undefined || isNaN(Number(percentage))) {

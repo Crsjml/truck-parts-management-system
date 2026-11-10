@@ -1,5 +1,5 @@
 // frontend/src/components/__tests__/StaffManagement.test.jsx
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const fetchStaffRoles = vi.fn();
@@ -52,5 +52,37 @@ describe('StaffManagement', () => {
     render(<StaffManagement currentEmail="a@ttp.com" />);
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/could not reach/i));
+  });
+
+  it('opens outside the animated page and restores focus and scrolling on Escape', async () => {
+    fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
+    const { container } = render(<StaffManagement currentEmail="a@ttp.com" />);
+    const trigger = await screen.findByRole('button', { name: /add staff member/i });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: /add staff member/i });
+    expect(document.body).toContainElement(dialog);
+    expect(container).not.toContainElement(dialog);
+    expect(screen.getByLabelText(/email address/i)).toHaveFocus();
+    expect(document.body.style.overflow).toBe('hidden');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('lets a superadmin add warehouse staff with a visible access description', async () => {
+    fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
+    createStaffRole.mockResolvedValue({ ok: true });
+    render(<StaffManagement currentEmail="owner@ttp.com" />);
+    fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+    expect(screen.getByLabelText('Role')).toHaveValue('CASHIER');
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'WAREHOUSE' } });
+    expect(screen.getByText('Parts inventory, categories and purchasing')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'warehouse@ttp.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
+    await waitFor(() => expect(createStaffRole).toHaveBeenCalledWith({ email: 'warehouse@ttp.com', role: 'WAREHOUSE' }));
   });
 });

@@ -11,7 +11,7 @@ vi.mock('../../config/supabase.js', () => ({
   supabase: { auth: { getUser: vi.fn() } }
 }));
 
-const { requireRole } = await import('../authMiddleware.js');
+const { requireRole, requirePermission } = await import('../authMiddleware.js');
 
 const mockRes = () => {
   const res = {};
@@ -101,5 +101,41 @@ describe('requireRole', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe('job permissions', () => {
+  const grants = {
+    CASHIER: ['pos', 'customers'],
+    WAREHOUSE: ['catalog', 'categories', 'purchasing'],
+    ADMIN: ['dashboard', 'catalog', 'pos', 'analytics', 'categories', 'purchasing', 'customers'],
+    SUPERADMIN: ['dashboard', 'catalog', 'pos', 'analytics', 'categories', 'purchasing', 'customers', 'staff', 'settings']
+  };
+
+  for (const [role, allowed] of Object.entries(grants)) {
+    it.each(grants.SUPERADMIN)(`${role} enforces %s access`, async (permission) => {
+      findUnique.mockResolvedValue({ email: 'staff@ttp.com', role });
+      const res = mockRes();
+      const next = vi.fn();
+      await requirePermission(permission)({ auth: { email: 'staff@ttp.com' } }, res, next);
+      if (allowed.includes(permission)) expect(next).toHaveBeenCalledOnce();
+      else {
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+      }
+    });
+  }
+
+  it.each([null, { role: 'UNKNOWN' }, { role: '__proto__' }])('denies missing or unknown staff: %j', async (staff) => {
+    findUnique.mockResolvedValue(staff);
+    const res = mockRes();
+    const next = vi.fn();
+    await requirePermission('pos')({ auth: { email: 'staff@ttp.com' } }, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects a misspelled permission at startup', () => {
+    expect(() => requirePermission('purchase')).toThrow();
   });
 });

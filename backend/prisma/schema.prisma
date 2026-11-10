@@ -222,6 +222,8 @@ model Review {
 enum StaffRoleLevel {
   SUPERADMIN
   ADMIN
+  CASHIER
+  WAREHOUSE
 }
 
 model StaffRole {
