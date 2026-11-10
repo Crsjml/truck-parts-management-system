@@ -8,7 +8,8 @@ const repo = {
   lockPartStock: vi.fn(),
   updatePart: vi.fn(),
   findLatestAdjustmentByDate: vi.fn(),
-  createStockAdjustment: vi.fn()
+  createStockAdjustment: vi.fn(),
+  createPart: vi.fn()
 };
 
 vi.mock('../../repositories/PartsRepository.js', () => ({ partsRepository: repo }));
@@ -89,5 +90,38 @@ describe('PartsService.updatePart — stock adjustments', () => {
   it('still requires a reason for a stock change', async () => {
     await expect(service.updatePart('part-1', { stock: 7 })).rejects.toThrow('Reason for stock adjustment is required.');
     expect(repo.executeTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('PartsService OEM/MPN normalization', () => {
+  beforeEach(() => {
+    Object.values(repo).forEach(fn => fn.mockReset());
+    repo.findPartById.mockResolvedValue(PART);
+    repo.findPartBySku.mockResolvedValue(null);
+    repo.findCategoryById.mockResolvedValue({ id: 'cat-1', name: 'Brake Pads/Linings' });
+    repo.executeTransaction.mockImplementation(async (cb) => cb(TX));
+    repo.updatePart.mockImplementation(async (_id, data) => ({ ...savedPart(10), ...data }));
+    repo.createPart.mockImplementation(async (data) => ({ id: 'new', ...data, category: { name: 'Brake Pads/Linings' } }));
+  });
+
+  it('normalizes oem and oemNumbers on create', async () => {
+    await service.createPart({
+      name: 'Pad', sku: 'BRK-PAD-00009', category_id: 'cat-1', price: 1, stock: 1, minStock: 0,
+      oem: ' oem: me-220437 ', oemNumbers: ['me-220437', 'MPN: 8-97x', '']
+    });
+
+    expect(repo.createPart).toHaveBeenCalledWith(expect.objectContaining({
+      oem: 'ME-220437',
+      oemNumbers: ['ME-220437', '8-97X']
+    }));
+  });
+
+  it('normalizes oem and oemNumbers on update', async () => {
+    await service.updatePart('part-1', { oem: 'p/n 1-87610', oemNumbers: ['p/n 1-87610', '1-87610 '] });
+
+    expect(repo.updatePart).toHaveBeenCalledWith('part-1', expect.objectContaining({
+      oem: '1-87610',
+      oemNumbers: ['1-87610']
+    }), TX);
   });
 });

@@ -178,3 +178,28 @@ export function mpnFromSeed(seed) {
   const b = String(1000 + (Math.floor(h / 90000) % 9000));
   return `${a}-${b}`;
 }
+
+// A leading "OEM", "MPN", "P/N", "PN" or "Part No." label, only when a
+// separator (space, colon, #, dot or dash) follows, so real numbers that
+// merely start with those letters (e.g. "PN12345", "OEMX-100") are kept.
+const OEM_LABEL = /^(?:OEM|MPN|P\/?N|PART\s*(?:NO|NUMBER)\.?)(?:\s*[:#.-]\s*|\s+)(?=\S)/;
+
+/**
+ * Manufacturer part number as stored: trimmed, single-spaced, uppercase,
+ * without an artificial label prefix.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function normalizeOemNumber(value) {
+  const cleaned = String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+  return cleaned.replace(OEM_LABEL, '');
+}
+
+/**
+ * @param {unknown} values
+ * @returns {string[]} normalized, non-empty, de-duplicated (first wins)
+ */
+export function normalizeOemNumbers(values) {
+  if (!Array.isArray(values)) return [];
+  return [...new Set(values.map(normalizeOemNumber).filter(Boolean))];
+}

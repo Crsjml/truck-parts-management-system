@@ -12,7 +12,9 @@ import {
   LEGACY,
   createSequencer,
   parseSku,
-  parseDocNumber
+  parseDocNumber,
+  normalizeOemNumber,
+  normalizeOemNumbers
 } from '../recordFormats.js';
 
 describe('skuPrefixFor', () => {
@@ -134,5 +136,32 @@ describe('createSequencer', () => {
     const next = createSequencer(['BRK-PAD-00007', 'SKU-A1B2C3D4'], parseSku);
     expect(next('BRK-PAD')).toBe(8);
     expect(next('ENG-TRB')).toBe(1);
+  });
+});
+
+describe('normalizeOemNumber', () => {
+  it.each([
+    [' oem: 17801-2340 ', '17801-2340'],
+    ['mpn-8-97 x', '8-97 X'],
+    ['p/n 1-87610-059-0', '1-87610-059-0'],
+    ['Part No. ME-220437', 'ME-220437'],
+    ['OEM-12345', '12345'],
+    ['  me220437   a ', 'ME220437 A'],
+    ['PN12345', 'PN12345'],        // no separator after the label: a real number
+    ['OEMX-100', 'OEMX-100'],      // label must be a whole word
+    ['', ''],
+    [null, '']
+  ])('normalizes %j to %j', (input, expected) => {
+    expect(normalizeOemNumber(input)).toBe(expected);
+  });
+});
+
+describe('normalizeOemNumbers', () => {
+  it('normalizes, drops blanks and de-duplicates while keeping order', () => {
+    expect(normalizeOemNumbers(['a1', ' A1 ', 'oem: b2', '', '  '])).toEqual(['A1', 'B2']);
+  });
+
+  it('returns an empty list for non-arrays', () => {
+    expect(normalizeOemNumbers(undefined)).toEqual([]);
   });
 });
