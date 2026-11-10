@@ -48,13 +48,6 @@ export function formatDateTime(date) {
   return `${formatDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-// Doc numbering convention: TYPE-YYYYMMDD-####
-export function docNo(type, date = new Date(), seq = 1) {
-  const d = new Date(date);
-  const stamp = `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`;
-  return `${type}-${stamp}-${String(seq).padStart(4, '0')}`;
-}
-
 const headStyleFor = (color) => ({ fillColor: color, textColor: 255, fontSize: 9 });
 
 // Monospaced (tabular-figure) column style so digits align down the decimal.
