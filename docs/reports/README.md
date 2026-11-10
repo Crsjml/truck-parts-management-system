@@ -108,3 +108,21 @@ All six PDFs share one low-ink scheme, defined in `frontend/src/utils/pdf/report
 - **Guarded by a test.** `frontend/src/utils/__tests__/reportPdfInk.test.js` parses each export's
   PDF content stream and fails on any fill darker than 85% white or any non-pastel RGB color.
 
+
+## Open-style drafts (experimental)
+
+`generate-report-open-drafts.cjs` (+ `open-drafts/`) renders all six reports in an
+"open" table style based on the Systems Design *Output & Data Design* reference. The
+legacy grid-style generators and PDFs above are unchanged, for side-by-side comparison.
+
+- Report header on page 1, **page header on every later page** (title, period, page no.)
+- Short, stacked headings **justified over their field** (numbers right, text left)
+- **No grid:** one rule under headings, single rule above totals, double rule under grand totals
+- **Control break** on Slow-Moving by category (category printed once, group subtotals)
+- **Zero quantities not printed**; money totals always print
+- Picture notation `A` alphabetic · `9` digit · `Z` zero-suppressed digit · `X` alphanumeric
+
+```bash
+NODE_PATH="$(pwd)/frontend/node_modules" node docs/reports/generate-report-open-drafts.cjs
+# -> docs/reports/report-open-drafts/{layout,sample}/  (+ a 3-page Best-Selling sample)
+```
