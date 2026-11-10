@@ -24,6 +24,8 @@ export default function StaffManagement({ currentEmail }) {
   const [roleNotice, setRoleNotice] = useState(null); // { id, email, from, to, isUndo }
   const [busyId, setBusyId] = useState(null);
   const [addedStaff, setAddedStaff] = useState(null); // { email, role } after a successful add
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const keepEditingRef = useRef(null);
   const dialogRef = useRef(null);
   const reduceMotion = useReducedMotion();
   const dialogScale = reduceMotion ? 1 : 0.98;
@@ -36,9 +38,33 @@ export default function StaffManagement({ currentEmail }) {
     setNewStaffEmail('');
     setNewStaffRole('CASHIER');
     setModalError('');
+    setConfirmDiscard(false);
   };
 
-  useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: closeModal, initialFocus: 'input' });
+  // Escape/✕/Cancel back out of the innermost step and never silently drop a
+  // typed email: a second Escape dismisses the prompt, Discard closes.
+  const keepEditing = () => {
+    setConfirmDiscard(false);
+    emailInputRef.current?.focus();
+  };
+
+  const requestCloseModal = () => {
+    if (confirmDiscard) {
+      keepEditing();
+      return;
+    }
+    if (!addedStaff && newStaffEmail.trim()) {
+      setConfirmDiscard(true);
+      return;
+    }
+    closeModal();
+  };
+
+  useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: requestCloseModal, initialFocus: 'input' });
+
+  useEffect(() => {
+    if (confirmDiscard) keepEditingRef.current?.focus();
+  }, [confirmDiscard]);
 
   // "Add another" swaps the success panel back for the form; put the caret in
   // the email field. Declared after useDialogFocus so that hook records the
@@ -250,7 +276,7 @@ export default function StaffManagement({ currentEmail }) {
                 <h2 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h2>
                 <button
                   type="button"
-                  onClick={closeModal}
+                  onClick={requestCloseModal}
                   aria-label="Close"
                   className="p-1.5 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                 >
@@ -317,21 +343,47 @@ export default function StaffManagement({ currentEmail }) {
                 </div>
               </div>
 
-              <div className="shrink-0 p-5 border-t border-border flex justify-end gap-3 bg-secondary/30">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {saving ? 'Adding…' : 'Add member'}
-                </button>
+              <div className="shrink-0 p-5 border-t border-border flex flex-wrap items-center justify-end gap-3 bg-secondary/30">
+                {confirmDiscard ? (
+                  <>
+                    <p id="discard-email-question" role="alert" className="basis-full text-sm font-semibold text-foreground">
+                      Discard the email you typed?
+                    </p>
+                    <button
+                      ref={keepEditingRef}
+                      type="button"
+                      aria-describedby="discard-email-question"
+                      onClick={keepEditing}
+                      className="px-4 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors"
+                    >
+                      Keep editing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="px-4 py-2 rounded-xl bg-alarm-solid hover:bg-alarm-solid/90 text-white text-sm font-bold transition-colors"
+                    >
+                      Discard
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={requestCloseModal}
+                      className="px-5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {saving ? 'Adding…' : 'Add member'}
+                    </button>
+                  </>
+                )}
               </div>
               </form>
               )}

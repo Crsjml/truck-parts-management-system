@@ -303,6 +303,39 @@ describe('AdminSettings — hardening', () => {
     expect(screen.queryByText(/discounts are blocked at the pos/i)).not.toBeInTheDocument();
   });
 
+  it('backs out of only the markup confirmation on Escape, never showing both prompts', async () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.click(applyButton());
+    expect(screen.getByText(/change markup from 20% to 25%\?/i)).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByText(/change markup from/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/discard unapplied changes\?/i)).not.toBeInTheDocument();
+    expect(markupInput()).toHaveValue(25);
+    await waitFor(() => expect(markupInput()).toHaveFocus());
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByText(/discard unapplied changes\?/i)).toBeInTheDocument();
+    expect(screen.queryByText(/change markup from/i)).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('backs out of the markup confirmation from Done as well', () => {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.change(markupInput(), { target: { value: '25' } });
+    fireEvent.click(applyButton());
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+
+    expect(screen.queryByText(/change markup from/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/discard unapplied changes\?/i)).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('closes straight away when nothing is unapplied', () => {
     const onClose = vi.fn();
     render(<Harness onClose={onClose} />);

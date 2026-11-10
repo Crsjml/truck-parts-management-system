@@ -116,11 +116,70 @@ describe('StaffManagement', () => {
     fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'stale@ttp.com' } });
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'WAREHOUSE' } });
     fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     fireEvent.click(trigger);
     expect(screen.getByLabelText(/email address/i)).toHaveValue('');
     expect(screen.getByLabelText('Role')).toHaveValue('CASHIER');
+  });
+
+  describe('Escape never silently discards a typed email', () => {
+    const openWithEmail = async (email) => {
+      fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
+      render(<StaffManagement currentEmail="a@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: email } });
+    };
+
+    it('asks before discarding on Escape, with Keep editing focused', async () => {
+      await openWithEmail('new@ttp.com');
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.getByRole('dialog', { name: /add staff member/i })).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(/discard the email you typed\?/i);
+      const keep = screen.getByRole('button', { name: /keep editing/i });
+      await waitFor(() => expect(keep).toHaveFocus());
+      expect(keep).toHaveAccessibleDescription(/discard the email you typed\?/i);
+    });
+
+    it('dismisses the prompt on a second Escape and keeps the email', async () => {
+      await openWithEmail('new@ttp.com');
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.getByText(/discard the email you typed\?/i)).toBeInTheDocument();
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByText(/discard the email you typed\?/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: /add staff member/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/email address/i)).toHaveValue('new@ttp.com');
+      expect(screen.getByLabelText(/email address/i)).toHaveFocus();
+    });
+
+    it('asks the same from the Close and Cancel buttons', async () => {
+      await openWithEmail('new@ttp.com');
+      fireEvent.click(screen.getByRole('button', { name: /^close$/i }));
+      expect(screen.getByText(/discard the email you typed\?/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /keep editing/i }));
+      expect(screen.queryByText(/discard the email you typed\?/i)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      expect(screen.getByText(/discard the email you typed\?/i)).toBeInTheDocument();
+    });
+
+    it('closes straight away on Escape when only whitespace was typed', async () => {
+      await openWithEmail('   ');
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('closes straight away on Escape after a successful add', async () => {
+      createStaffRole.mockReset().mockResolvedValue({ ok: true });
+      await openWithEmail('new@ttp.com');
+      fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
+      await screen.findByRole('button', { name: /add another/i });
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
   });
 
   it('lets a superadmin add warehouse staff with a visible access description', async () => {
@@ -329,6 +388,32 @@ describe('StaffManagement', () => {
       fireEvent.click(screen.getByRole('button', { name: /^make superadmin$/i }));
 
       await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
+    });
+
+    it('backs out of a staged role change on Escape, like Cancel', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      const select = await screen.findByLabelText('Role for clerk@ttp.com');
+      select.focus();
+      fireEvent.change(select, { target: { value: 'WAREHOUSE' } });
+
+      fireEvent.keyDown(screen.getByLabelText('Role for clerk@ttp.com'), { key: 'Escape' });
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('CASHIER');
+      expect(screen.queryByText(/change clerk@ttp\.com from/i)).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
+    });
+
+    it('backs out of a remove confirmation on Escape and returns focus to the remove button', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
+      const cancel = await screen.findByRole('button', { name: /^cancel$/i });
+      await waitFor(() => expect(cancel).toHaveFocus());
+
+      fireEvent.keyDown(cancel, { key: 'Escape' });
+
+      expect(screen.queryByText(/remove clerk@ttp\.com\?/i)).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Remove clerk@ttp.com' })).toHaveFocus());
     });
 
     it('moves focus to Cancel for a remove confirmation and back to the remove button after Cancel', async () => {
