@@ -22,6 +22,8 @@ export default function StaffManagement({ currentEmail }) {
   const [pendingRemoveId, setPendingRemoveId] = useState(null);
   const [pendingRoleChange, setPendingRoleChange] = useState(null); // { id, to }
   const [roleNotice, setRoleNotice] = useState(null); // { id, email, from, to, isUndo }
+  // { email, role, lastSeenAt, addedBy, status: 'removed' | 'restoring' | 'restored' }
+  const [removedNotice, setRemovedNotice] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [addedStaff, setAddedStaff] = useState(null); // { email, role } after a successful add
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -129,6 +131,7 @@ export default function StaffManagement({ currentEmail }) {
   const handleChangeRole = (id, role) => {
     const person = staffList.find((p) => p.id === id);
     setPendingRemoveId(null);
+    setRemovedNotice(null);
     setPendingRoleChange(person && role !== person.role ? { id, to: role } : null);
   };
 
@@ -136,6 +139,7 @@ export default function StaffManagement({ currentEmail }) {
     const person = staffList.find((p) => p.id === id);
     setRosterError(null);
     setRoleNotice(null);
+    setRemovedNotice(null);
     setBusyId(id);
     const result = await updateStaffRole(id, role);
     setBusyId(null);
@@ -151,15 +155,47 @@ export default function StaffManagement({ currentEmail }) {
     loadStaff({ silent: true });
   };
 
+  const requestRemove = (id) => {
+    setPendingRoleChange(null);
+    setRemovedNotice(null);
+    setPendingRemoveId(id);
+  };
+
   const handleRemove = async (id) => {
+    const person = staffList.find((p) => p.id === id);
     setRosterError(null);
     setBusyId(id);
     const result = await deleteStaffRole(id);
     setBusyId(null);
     setPendingRemoveId(null);
 
-    if (result.ok) loadStaff({ silent: true });
-    else setRosterError(result.error);
+    if (!result.ok) {
+      setRosterError(result.error);
+      return;
+    }
+    if (person) {
+      const { email, role, lastSeenAt, addedBy } = person;
+      setRemovedNotice({ email, role, lastSeenAt, addedBy, status: 'removed' });
+    }
+    loadStaff({ silent: true });
+  };
+
+  // Undo re-adds the same email and role. The server treats it as a new entry,
+  // so sign-in history and "added by" start over; the notice says so.
+  const undoRemove = async () => {
+    if (!removedNotice || removedNotice.status !== 'removed') return;
+    const notice = removedNotice;
+    setRosterError(null);
+    setRemovedNotice({ ...notice, status: 'restoring' });
+    const result = await createStaffRole({ email: notice.email, role: notice.role });
+
+    if (!result.ok) {
+      setRosterError(result.error);
+      setRemovedNotice({ ...notice, status: 'removed' });
+      return;
+    }
+    await loadStaff({ silent: true });
+    setRemovedNotice({ ...notice, status: 'restored' });
   };
 
   return (
@@ -236,7 +272,7 @@ export default function StaffManagement({ currentEmail }) {
           staff={staffList}
           currentEmail={currentEmail}
           onChangeRole={handleChangeRole}
-          onRequestRemove={(id) => { setPendingRoleChange(null); setPendingRemoveId(id); }}
+          onRequestRemove={requestRemove}
           onCancelRemove={() => setPendingRemoveId(null)}
           onRemove={handleRemove}
           pendingRemoveId={pendingRemoveId}
@@ -248,6 +284,10 @@ export default function StaffManagement({ currentEmail }) {
           roleNotice={roleNotice}
           onUndoRoleChange={() => saveRole(roleNotice.id, roleNotice.from, { isUndo: true })}
           onDismissRoleNotice={() => setRoleNotice(null)}
+          superadminCount={staffList.filter((p) => p.role === 'SUPERADMIN').length}
+          removedNotice={removedNotice}
+          onUndoRemove={undoRemove}
+          onDismissRemovedNotice={() => setRemovedNotice(null)}
         />
       )}
 

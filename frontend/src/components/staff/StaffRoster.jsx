@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 import { Trash, Warning } from '@phosphor-icons/react';
 import { staffState, relativeTime } from '../../utils/staffState';
 import { STAFF_ROLES, isPromotion, staffRoleLabel, accessDiff, formatList } from '../../utils/staffAccess';
+import { removeCopy } from './removeCopy';
+import RemovedNotice from './RemovedNotice';
 
 const article = (label) => (/^[aeiou]/i.test(label) ? 'an' : 'a');
 
@@ -83,11 +85,16 @@ export default function StaffRoster({
   error,
   roleNotice,
   onUndoRoleChange,
-  onDismissRoleNotice
+  onDismissRoleNotice,
+  superadminCount = 0,
+  removedNotice = null,
+  onUndoRemove,
+  onDismissRemovedNotice
 }) {
   const selfEmail = (currentEmail || '').toLowerCase();
   const listRef = useRef(null);
   const cancelRef = useRef(null);
+  const undoRef = useRef(null);
   // Where focus goes once the inline confirmation closes:
   // { id, kind: 'role' | 'remove', removed?: boolean }
   const returnFocus = useRef(null);
@@ -108,13 +115,29 @@ export default function StaffRoster({
     // The row's controls are disabled while it saves; wait until they're back.
     if (!target || busyId === target.id) return;
     returnFocus.current = null;
-    // A confirmed removal takes the row away, so focus stays in the list
-    // instead of falling back to <body>.
+    // A confirmed removal takes the row away, so focus moves to the Undo it
+    // offers (or the list if the removal failed) instead of falling to <body>.
     const control = target.removed
-      ? null
+      ? undoRef.current
       : listRef.current?.querySelector(`[data-focus-return="${target.kind}-${target.id}"]`);
     (control || listRef.current)?.focus();
   }, [pendingId, pendingRemoveId, busyId]);
+
+  // Once an Undo restores someone, put focus on their row's role select.
+  const restoredEmail = removedNotice?.status === 'restored' ? removedNotice.email : null;
+  useEffect(() => {
+    if (!restoredEmail) return;
+    const restored = staff.find((p) => p.email.toLowerCase() === restoredEmail.toLowerCase());
+    const select = restored && listRef.current?.querySelector(`[data-focus-return="role-${restored.id}"]`);
+    (select || listRef.current)?.focus();
+    // Only on the transition to restored, not on every later refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredEmail]);
+
+  const dismissRemovedNotice = () => {
+    onDismissRemovedNotice();
+    listRef.current?.focus();
+  };
 
   const confirmRemove = (id) => {
     if (returnFocus.current) returnFocus.current = { ...returnFocus.current, removed: true };
@@ -133,6 +156,16 @@ export default function StaffRoster({
         </p>
       )}
 
+      {removedNotice && (
+        <RemovedNotice
+          notice={removedNotice}
+          currentEmail={selfEmail}
+          undoRef={undoRef}
+          onUndo={onUndoRemove}
+          onDismiss={dismissRemovedNotice}
+        />
+      )}
+
       <ul ref={listRef} tabIndex={-1} aria-label="Staff members" className="divide-y divide-border focus:outline-none">
         {staff.map((person) => {
           const state = staffState(person.lastSeenAt);
@@ -143,15 +176,23 @@ export default function StaffRoster({
           const isBusy = busyId === person.id;
 
           if (isPending) {
+            const copy = removeCopy(person, superadminCount);
             return (
               <li
                 key={person.id}
                 onKeyDown={isBusy ? undefined : cancelOnEscape(onCancelRemove)}
                 className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-destructive/5"
               >
-                <p className="text-sm font-bold text-foreground">
-                  Remove {person.email}? They lose access immediately.
-                </p>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <p className="text-sm font-bold text-foreground [overflow-wrap:anywhere]">{copy.question}</p>
+                  {copy.superadmins && <p className="text-sm text-foreground">{copy.superadmins}</p>}
+                  <p className="flex flex-wrap items-center gap-2 text-xs text-foreground/70">
+                    <span className={`px-2 py-0.5 rounded-md border text-xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}>
+                      {staffRoleLabel(person.role)}
+                    </span>
+                    <span className="font-semibold">{style.label}</span>
+                  </p>
+                </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     ref={cancelRef}
