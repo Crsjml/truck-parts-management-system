@@ -187,7 +187,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                     value={markupDraft}
                     onChange={handleDraftChange}
                     disabled={isMarkupSaving}
-                    className="w-20 bg-secondary border border-border rounded-xl px-3 py-2 text-sm font-semibold text-right tabular-nums text-foreground focus:outline-none focus:border-accent transition-colors"
+                    className="w-20 bg-background border border-border rounded-xl px-3 py-2 text-sm font-semibold text-right tabular-nums text-foreground focus:outline-none focus:border-accent transition-colors"
                   />
                   <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">%</span>
                 </div>
@@ -271,7 +271,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 placeholder="Enter a 4–6 digit PIN"
                 value={newPin}
                 onChange={handlePinInput(setNewPin)}
-                className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-accent transition-colors"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
               />
 
               <div className="space-y-1.5">
@@ -289,7 +289,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                   onChange={handlePinInput(setConfirmPin)}
                   aria-invalid={isPinMismatch}
                   aria-describedby={isPinMismatch ? 'override-pin-mismatch' : undefined}
-                  className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-accent transition-colors"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
                 />
                 {isPinMismatch && (
                   <p id="override-pin-mismatch" className="text-xs font-semibold text-red-500">

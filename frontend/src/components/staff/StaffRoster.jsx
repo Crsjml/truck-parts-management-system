@@ -13,7 +13,7 @@ const STATE_STYLE = {
 };
 
 const ROLE_STYLE = {
-  SUPERADMIN: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20',
+  SUPERADMIN: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30',
   ADMIN: 'bg-brandBlue-500/10 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/20',
   CASHIER: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
   WAREHOUSE: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20'
@@ -124,7 +124,7 @@ export default function StaffRoster({
             return (
               <li
                 key={person.id}
-                className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-amber-500/5 border-l-2 border-l-amber-500/40"
+                className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-amber-500/5"
               >
                 <p className="text-sm font-bold text-foreground">
                   {isPromotion
@@ -157,9 +157,7 @@ export default function StaffRoster({
           return (
             <li
               key={person.id}
-              className={`group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5 transition-colors hover:bg-secondary/40 ${
-                person.role === 'SUPERADMIN' ? 'border-l-2 border-l-amber-500/40' : 'border-l-2 border-l-transparent'
-              }`}
+              className="group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5 transition-colors hover:bg-secondary/40"
             >
               <span
                 aria-hidden="true"
@@ -178,7 +176,7 @@ export default function StaffRoster({
 
               {isSelf ? (
                 <span
-                  className={`shrink-0 px-2.5 py-1 rounded-full border text-2xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}
+                  className={`shrink-0 px-2.5 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}
                 >
                   {staffRoleLabel(person.role)} · you
                 </span>

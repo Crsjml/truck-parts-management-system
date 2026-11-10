@@ -635,7 +635,7 @@ export default function App() {
                 <div className="flex flex-col text-left overflow-hidden">
                   <span className="text-sm font-semibold text-foreground truncate max-w-[120px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
                   <div className="mt-0.5">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
+                    <span className={`text-11px font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-foreground bg-muted'}`}>
                       {staffRoleLabel(staffRole)}
                     </span>
                   </div>
@@ -701,7 +701,7 @@ export default function App() {
                   <div className="flex flex-col text-left overflow-hidden">
                     <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
                     <div className="mt-0.5">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'}`}>
+                      <span className={`text-11px font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-foreground bg-muted'}`}>
                         {staffRoleLabel(staffRole)}
                       </span>
                     </div>
@@ -743,7 +743,7 @@ export default function App() {
                   serverStatus === 'checking' ? 'bg-amber-500 animate-pulse' :
                   serverStatus === 'online' ? 'bg-emerald-500' : 'bg-destructive'
                 }`} />
-                <span className="font-mono text-muted-foreground text-[10px] tracking-wider uppercase">
+                <span className="font-mono text-muted-foreground text-11px tracking-wider uppercase">
                   {serverStatus === 'checking' ? 'Connecting...' : 
                    serverStatus === 'online' ? 'System Online' : 
                    <button onClick={() => window.location.reload()} className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-2 cursor-pointer">Offline - Click to Retry</button>}
@@ -764,7 +764,7 @@ export default function App() {
             >
               <Bell weight="duotone" className="w-4.5 h-4.5" />
               {lowStockCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-destructive text-3xs font-extrabold text-white rounded-md flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] scale-100 group-hover:scale-110">
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 bg-red-700 dark:bg-destructive text-11px font-extrabold text-white rounded-md flex items-center justify-center">
                   {lowStockCount > 99 ? '99+' : lowStockCount}
                 </span>
               )}
