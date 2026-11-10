@@ -1,5 +1,5 @@
 // frontend/src/utils/invoicePdf.js
-import { jsPDF, autoTable, BRAND, DIVIDER, INK, MUTED, ZEBRA, safe, masthead, paginate, sectionLabel, docNo, formatDateTime } from './pdf/reportPdfKit';
+import { jsPDF, autoTable, BRAND, DIVIDER, INK, MUTED, ZEBRA, safe, masthead, paginate, sectionLabel, formatDateTime } from './pdf/reportPdfKit';
 
 export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
   const doc = new jsPDF();
@@ -8,7 +8,8 @@ export function buildInvoicePdf(tx, { formatCurrency, duplicate = false }) {
     title: duplicate ? 'SALES INVOICE (DUPLICATE)' : 'SALES INVOICE',
     color: BRAND,
     meta: [
-      `Invoice No : ${safe(tx.invoiceNumber || docNo('INV'), 24)}`,
+      // Never invent a number: the server assigns every invoice number.
+      `Invoice No : ${safe(tx.invoiceNumber, 24) || '—'}`,
       `Date : ${formatDateTime(tx.transactionDate)}`
     ]
   });
