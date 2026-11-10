@@ -2,20 +2,38 @@
 import { useEffect, useRef } from 'react';
 import { Trash, Warning } from '@phosphor-icons/react';
 import { staffState, relativeTime } from '../../utils/staffState';
-import { STAFF_ROLES, staffRoleLabel } from '../../utils/staffAccess';
+import { STAFF_ROLES, isPromotion, staffRoleLabel } from '../../utils/staffAccess';
 
 const article = (label) => (/^[aeiou]/i.test(label) ? 'an' : 'a');
+const lowerFirst = (text) => text.charAt(0).toLowerCase() + text.slice(1);
 
-// What the inline confirmation says, by kind of change.
-function roleChangeCopy(email, to) {
+// What the inline Save/Cancel strip says, by kind of change. Promotions and
+// anything touching Superadmin explain what access changes; other moves just
+// restate the change.
+function roleChangeCopy(email, from, to) {
   if (to === 'SUPERADMIN') {
     return {
       message: `Make ${email} a Superadmin? They will be able to manage staff and system settings.`,
       action: 'Make Superadmin'
     };
   }
-  const role = STAFF_ROLES.find((r) => r.value === to);
-  return { message: null, action: `Make ${role?.label ?? 'this role'}`, role };
+  if (from === 'SUPERADMIN') {
+    return {
+      message: `Change ${email} from Superadmin to ${staffRoleLabel(to)}? They lose access to staff and system settings.`,
+      action: 'Change role'
+    };
+  }
+  if (isPromotion(from, to)) {
+    const role = STAFF_ROLES.find((r) => r.value === to);
+    return {
+      message: `Make ${email} ${article(role.label)} ${role.label}? They will get access to ${lowerFirst(role.description)}.`,
+      action: `Make ${role.label}`
+    };
+  }
+  return {
+    message: `Change ${email} from ${staffRoleLabel(from)} to ${staffRoleLabel(to)}?`,
+    action: 'Save'
+  };
 }
 
 // Colour is the only signal that varies per state, so it carries meaning
@@ -136,47 +154,13 @@ export default function StaffRoster({
             );
           }
 
-          if (roleChange) {
-            const isDemotion = person.role === 'SUPERADMIN';
-            const copy = roleChangeCopy(person.email, roleChange.to);
-            const message = isDemotion
-              ? `Change ${person.email} from Superadmin to ${staffRoleLabel(roleChange.to)}? They lose access to staff and system settings.`
-              : copy.message ?? `Make ${person.email} ${article(copy.role.label)} ${copy.role.label}? They will get access to ${copy.role.description.charAt(0).toLowerCase()}${copy.role.description.slice(1)}.`;
-            return (
-              <li
-                key={person.id}
-                className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-amber-500/5"
-              >
-                <p className="text-sm font-bold text-foreground">
-                  {message}
-                </p>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    ref={cancelRef}
-                    type="button"
-                    onClick={onCancelRoleChange}
-                    disabled={isBusy}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onConfirmRoleChange(person.id, roleChange.to)}
-                    disabled={isBusy}
-                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
-                  >
-                    {isBusy ? 'Saving…' : isDemotion ? 'Change role' : copy.action}
-                  </button>
-                </div>
-              </li>
-            );
-          }
+          const rowTint = roleChange ? 'bg-amber-500/5' : 'hover:bg-secondary/40';
+          const changeId = `role-change-${person.id}`;
 
           return (
             <li
               key={person.id}
-              className="group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5 transition-colors hover:bg-secondary/40"
+              className={`group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5 transition-colors ${rowTint}`}
             >
               <span
                 aria-hidden="true"
@@ -207,8 +191,9 @@ export default function StaffRoster({
                   <select
                     id={`role-${person.id}`}
                     data-focus-return={`role-${person.id}`}
-                    value={person.role}
+                    value={roleChange?.to ?? person.role}
                     disabled={isBusy}
+                    aria-describedby={roleChange ? changeId : undefined}
                     onChange={(e) => onChangeRole(person.id, e.target.value)}
                     className="shrink-0 bg-secondary border border-border rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-foreground focus:outline-none focus:border-accent disabled:opacity-40 transition-colors"
                   >
@@ -229,7 +214,18 @@ export default function StaffRoster({
                 </>
               )}
 
-              {roleNotice?.id === person.id && (
+              {roleChange && (
+                <RoleChangeStrip
+                  id={changeId}
+                  copy={roleChangeCopy(person.email, person.role, roleChange.to)}
+                  isBusy={isBusy}
+                  cancelRef={cancelRef}
+                  onCancel={onCancelRoleChange}
+                  onConfirm={() => onConfirmRoleChange(person.id, roleChange.to)}
+                />
+              )}
+
+              {!roleChange && roleNotice?.id === person.id && (
                 // Stays until dismissed: a timed-out Undo fails WCAG 2.2.1.
                 <div
                   role="status"
@@ -264,6 +260,34 @@ export default function StaffRoster({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+// Inline Save/Cancel for a staged role. The select only stages; this commits.
+function RoleChangeStrip({ id, copy, isBusy, cancelRef, onCancel, onConfirm }) {
+  return (
+    <div className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 pl-6">
+      <p id={id} className="mr-auto text-sm font-bold text-foreground">
+        {copy.message}
+      </p>
+      <button
+        ref={cancelRef}
+        type="button"
+        onClick={onCancel}
+        disabled={isBusy}
+        className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={isBusy}
+        className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+      >
+        {isBusy ? 'Saving…' : copy.action}
+      </button>
     </div>
   );
 }

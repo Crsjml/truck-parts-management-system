@@ -124,11 +124,74 @@ describe('StaffManagement', () => {
       const roleSelect = await screen.findByLabelText('Role for clerk@ttp.com');
       fetchStaffRoles.mockReturnValueOnce(new Promise(() => {})); // the refresh never settles
       fireEvent.change(roleSelect, { target: { value: 'WAREHOUSE' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
       await waitFor(() => expect(fetchStaffRoles).toHaveBeenCalledTimes(2));
       expect(updateStaffRole).toHaveBeenCalledWith('b', 'WAREHOUSE');
       expect(screen.queryByText(/loading staff records/i)).not.toBeInTheDocument();
       expect(screen.getByText('clerk@ttp.com')).toBeInTheDocument();
+    });
+
+    it('stages a sideways move instead of saving it, and saves once on Save', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      const select = await screen.findByLabelText('Role for clerk@ttp.com');
+      fireEvent.change(select, { target: { value: 'WAREHOUSE' } });
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByText(/change clerk@ttp\.com from cashier to warehouse\?/i)).toBeInTheDocument();
+      expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('WAREHOUSE');
+
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      await waitFor(() => expect(updateStaffRole).toHaveBeenCalledTimes(1));
+      expect(updateStaffRole).toHaveBeenCalledWith('b', 'WAREHOUSE');
+      const notice = await screen.findByRole('status');
+      expect(notice).toHaveTextContent(/role changed to warehouse/i);
+      expect(screen.getByText('clerk@ttp.com').closest('li')).toContainElement(notice);
+    });
+
+    it('does not save while arrowing through roles; one Save sends only the last value', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      const select = await screen.findByLabelText('Role for clerk@ttp.com');
+      fireEvent.change(select, { target: { value: 'WAREHOUSE' } });
+      fireEvent.change(screen.getByLabelText('Role for clerk@ttp.com'), { target: { value: 'ADMIN' } });
+      fireEvent.change(screen.getByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+      await waitFor(() => expect(updateStaffRole).toHaveBeenCalledTimes(1));
+      expect(updateStaffRole).toHaveBeenCalledWith('b', 'WAREHOUSE');
+    });
+
+    it('cancels a staged change without a server call and returns focus to the select', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /^cancel$/i })).toHaveFocus());
+      fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('CASHIER');
+      expect(screen.queryByRole('button', { name: /^save$/i })).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
+    });
+
+    it('clears the staged change when the saved role is picked again', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+      fireEvent.change(screen.getByLabelText('Role for clerk@ttp.com'), { target: { value: 'CASHIER' } });
+
+      expect(screen.queryByRole('button', { name: /^save$/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/change clerk@ttp\.com from/i)).not.toBeInTheDocument();
+      expect(updateStaffRole).not.toHaveBeenCalled();
+    });
+
+    it('returns focus to the role select after saving a staged change', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+      await waitFor(() => expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveFocus());
     });
 
     it('asks for confirmation before promoting someone to Superadmin', async () => {
@@ -265,6 +328,7 @@ describe('StaffManagement', () => {
     it('confirms a role change with an Undo that restores the previous role', async () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
       const notice = await screen.findByRole('status');
       expect(notice).toHaveTextContent(/role changed to warehouse/i);
@@ -291,6 +355,7 @@ describe('StaffManagement', () => {
     it('shows the role-changed notice on the changed row and keeps it until dismissed', async () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
       const notice = await screen.findByRole('status');
       const clerkRow = screen.getByText('clerk@ttp.com').closest('li');
@@ -309,9 +374,11 @@ describe('StaffManagement', () => {
       updateStaffRole.mockResolvedValue({ ok: false, error: 'Cannot demote the last superadmin.' });
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/last superadmin/i);
       expect(screen.queryByText(/role changed to/i)).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Role for clerk@ttp.com')).toHaveValue('CASHIER');
     });
 
     it('says a removed person loses access, not just admin access', async () => {

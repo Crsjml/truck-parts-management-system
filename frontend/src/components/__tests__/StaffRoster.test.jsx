@@ -59,6 +59,16 @@ describe('StaffRoster', () => {
     expect(onChangeRole).toHaveBeenCalledWith('s3', 'SUPERADMIN');
   });
 
+  it('shows a staged role in the select with an inline Save that commits it', () => {
+    const onConfirmRoleChange = vi.fn();
+    renderRoster({ pendingRoleChange: { id: 's3', to: 'CASHIER' }, onConfirmRoleChange, onCancelRoleChange: vi.fn() });
+    const select = screen.getByLabelText(/role for ana@ttp.com/i);
+    expect(select).toHaveValue('CASHIER');
+    expect(select).toHaveAccessibleDescription(/change ana@ttp\.com from admin to cashier\?/i);
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(onConfirmRoleChange).toHaveBeenCalledWith('s3', 'CASHIER');
+  });
+
   it('asks for confirmation before removing', () => {
     const onRequestRemove = vi.fn();
     renderRoster({ onRequestRemove });
