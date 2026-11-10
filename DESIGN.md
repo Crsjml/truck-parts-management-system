@@ -64,7 +64,7 @@ Two semantic colors carry the entire system; everything else is structural (pape
 
 ### Secondary
 - **Signal Red** (`hsl(0 72.2% 50.6%)`): The attention color. Hover-state accents, glow borders, "look here" moments — the color used in the marketing gradient wash and the `glowing-red-border` focus treatment. Reserved for genuine emphasis, not general decoration.
-- **Alarm Red** (`hsl(0 84.2% 60.2%)`): Distinct from Signal Red — brighter, more saturated. Destructive actions and error states only (delete confirmations, validation failures, stock-out warnings). Don't substitute Signal Red here; the two reds mean different things.
+- **Alarm Red** (`hsl(0 84.2% 60.2%)`): Distinct from Signal Red — brighter, more saturated. Destructive actions and error states only (delete confirmations, validation failures, stock-out warnings). Don't substitute Signal Red here; the two reds mean different things. The base value is for tints (`bg-destructive/10`); it is only 3.6:1 as text and 3.8:1 under white, so error text uses `text-alarm-text` (red-600 light / red-400 dark) and solid destructive buttons use `bg-alarm-solid` — both AA shades of the same red.
 
 ### Neutral
 - **Paper** (`hsl(210 40% 98%)`): Base background, light mode.

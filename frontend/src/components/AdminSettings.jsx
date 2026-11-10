@@ -109,7 +109,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="system-settings-title"
-        className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp"
+        className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-secondary border border-border rounded-xl overflow-hidden motion-safe:animate-scaleUp"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
@@ -132,7 +132,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               live storefront at once, so this is read before adjusting. */}
           <div
             role="note"
-            className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10"
+            className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-amber-500/10"
           >
             <WarningCircle weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
             <p className="text-xs leading-relaxed font-medium text-amber-800 dark:text-amber-200">
@@ -197,7 +197,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 <span>100% (Double)</span>
               </div>
 
-              <p id="markup-example" className={`text-sm tabular-nums ${isDraftValid ? 'text-foreground' : 'text-red-500 font-semibold'}`}>
+              <p id="markup-example" className={`text-sm tabular-nums ${isDraftValid ? 'text-foreground' : 'text-alarm-text font-semibold'}`}>
                 {isDraftValid
                   ? `${formatMoney(EXAMPLE_COST)} cost → ${formatMoney(EXAMPLE_COST * (1 + draftValue / 100))} shelf price`
                   : `Enter a whole number between ${MARKUP_MIN} and ${MARKUP_MAX}.`}
@@ -240,10 +240,10 @@ export default function AdminSettings({ onClose, onAddLog }) {
               )}
 
               {markupStatus === 'saved' && (
-                <p role="status" className="text-xs font-semibold text-emerald-500">Saved</p>
+                <p role="status" className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Saved</p>
               )}
               {markupStatus === 'error' && (
-                <p role="alert" className="text-xs font-semibold text-red-500">{markupError}</p>
+                <p role="alert" className="text-xs font-semibold text-alarm-text">{markupError}</p>
               )}
           </section>
 
@@ -292,7 +292,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                   className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
                 />
                 {isPinMismatch && (
-                  <p id="override-pin-mismatch" className="text-xs font-semibold text-red-500">
+                  <p id="override-pin-mismatch" className="text-xs font-semibold text-alarm-text">
                     PINs don’t match. Re-enter the same 4–6 digits in both fields.
                   </p>
                 )}
@@ -308,7 +308,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               </button>
 
               {pinMessage && (
-                <p role="status" className={`text-xs font-semibold ${pinError ? 'text-red-500' : 'text-emerald-500'}`}>
+                <p role="status" className={`text-xs font-semibold ${pinError ? 'text-alarm-text' : 'text-emerald-700 dark:text-emerald-400'}`}>
                   {pinMessage}
                 </p>
               )}
@@ -321,7 +321,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl shadow-lg shadow-accent/20 transition-all"
+            className="px-5 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl transition-colors"
           >
             Done
           </button>

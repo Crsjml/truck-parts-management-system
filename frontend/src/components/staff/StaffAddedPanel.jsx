@@ -76,7 +76,7 @@ export default function StaffAddedPanel({ email, role, onAddAnother, onDone }) {
             {copyState === 'copied' ? 'Copied' : 'Copy sign-in steps'}
           </button>
           {copyState === 'failed' && (
-            <p role="alert" className="text-xs font-semibold text-red-600 dark:text-red-400">
+            <p role="alert" className="text-xs font-semibold text-alarm-text">
               Couldn’t copy. Select the steps above instead.
             </p>
           )}

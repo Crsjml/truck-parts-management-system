@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { createPortal } from 'react-dom';
 import { ShieldCheck, Plus, User, CircleNotch, X, Lock, Warning } from '@phosphor-icons/react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { fetchStaffRoles, createStaffRole, updateStaffRole, deleteStaffRole } from '../authStore';
 import StaffRoster from './staff/StaffRoster';
 import StaffAddedPanel from './staff/StaffAddedPanel';
@@ -26,6 +26,8 @@ export default function StaffManagement({ currentEmail }) {
   const [busyId, setBusyId] = useState(null);
   const [addedStaff, setAddedStaff] = useState(null); // { email, role } after a successful add
   const dialogRef = useRef(null);
+  const reduceMotion = useReducedMotion();
+  const dialogScale = reduceMotion ? 1 : 0.98;
 
   const emailInputRef = useRef(null);
   useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: () => setIsModalOpen(false), initialFocus: 'input' });
@@ -136,8 +138,8 @@ export default function StaffManagement({ currentEmail }) {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-24">
-      <div className="glass-panel rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-6 motion-safe:animate-fadeIn pb-24">
+      <div className="glass-panel rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ShieldCheck weight="duotone" className="w-6 h-6 text-accent" />
@@ -161,14 +163,14 @@ export default function StaffManagement({ currentEmail }) {
       </div>
 
       {loadState === 'loading' && (
-        <div className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20">
+        <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20">
           <CircleNotch weight="bold" className="w-8 h-8 text-accent animate-spin" />
           <p className="mt-4 text-sm font-semibold text-muted-foreground">Loading staff records…</p>
         </div>
       )}
 
       {loadState === 'denied' && (
-        <div className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
+        <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Lock weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-bold text-foreground">Superadmin access required</h2>
           <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
@@ -178,8 +180,8 @@ export default function StaffManagement({ currentEmail }) {
       )}
 
       {loadState === 'error' && (
-        <div role="alert" className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
-          <Warning weight="duotone" className="w-12 h-12 text-red-500 mb-4" />
+        <div role="alert" className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
+          <Warning weight="duotone" className="w-12 h-12 text-alarm-text mb-4" />
           <h2 className="text-lg font-bold text-foreground">
             Could not reach the server
           </h2>
@@ -193,7 +195,7 @@ export default function StaffManagement({ currentEmail }) {
       )}
 
       {loadState === 'ready' && staffList.length === 0 && (
-        <div className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
+        <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <User weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-bold text-foreground">No staff members yet</h2>
           <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
@@ -250,18 +252,20 @@ export default function StaffManagement({ currentEmail }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={reduceMotion ? { duration: 0 } : undefined}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 sm:p-6"
           >
             <motion.div
-              initial={{ scale: 0.98, opacity: 0 }}
+              initial={{ scale: dialogScale, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.98, opacity: 0 }}
+              exit={{ scale: dialogScale, opacity: 0 }}
+              transition={reduceMotion ? { duration: 0 } : undefined}
               role="dialog"
               ref={dialogRef}
               aria-modal="true"
               aria-labelledby="add-staff-title"
               aria-describedby={addedStaff ? undefined : 'add-staff-description'}
-              className="w-full max-w-md max-h-[calc(100dvh-2rem)] bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+              className="w-full max-w-md max-h-[calc(100dvh-2rem)] bg-background border border-border rounded-xl overflow-hidden flex flex-col"
             >
               <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
                 <h3 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h3>
@@ -292,7 +296,7 @@ export default function StaffManagement({ currentEmail }) {
                 </p>
 
                 {modalError && (
-                  <p role="alert" className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold">
+                  <p role="alert" className="p-3 bg-destructive/10 border border-border text-alarm-text rounded-xl text-sm font-semibold">
                     {modalError}
                   </p>
                 )}

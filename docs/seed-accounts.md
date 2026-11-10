@@ -9,7 +9,7 @@ This account provides access to the **Admin Dashboard** (Catalog management, sal
 
 | Role | Full Name | Email Address | Password |
 | :--- | :--- | :--- | :--- |
-| **System Admin** | System Admin | `admin@tarlactruckparts.local` | `Admin@12345` |
+| **System Admin** | System Admin | `admin@tarlactruckparts.local` | `admin123` |
 | **System Admin** | Raphael Maagma | `rbenedict.maagma@gmail.com` | `Rbndct694200` |
 | **System Admin** | Azhora | `azhoraaaa@gmail.com` | `Rbndct694200` |
 
