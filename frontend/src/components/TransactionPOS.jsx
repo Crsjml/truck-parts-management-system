@@ -23,17 +23,20 @@ export default function TransactionPOS({ parts, onCheckout }) {
   const posContainerRef = useRef(null);
   const searchInputRef = useRef(null);
   const submitInFlightRef = useRef(false);
-  const invoiceNumberRef = useRef(null);
+  // Idempotency key for one sale attempt: retries reuse it so the server
+  // returns the original sale instead of charging twice. The server assigns
+  // the actual INV-YYYYMMDD-#### invoice number.
+  const clientRefRef = useRef(null);
 
   const resetSaleAttempt = useCallback(() => {
-    invoiceNumberRef.current = null;
+    clientRefRef.current = null;
   }, []);
 
-  const getSaleInvoiceNumber = useCallback(() => {
-    if (!invoiceNumberRef.current) {
-      invoiceNumberRef.current = `TTP-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const getSaleClientRef = useCallback(() => {
+    if (!clientRefRef.current) {
+      clientRefRef.current = `pos-${crypto.randomUUID()}`;
     }
-    return invoiceNumberRef.current;
+    return clientRefRef.current;
   }, []);
 
   // Fullscreen sync handler
@@ -139,7 +142,7 @@ export default function TransactionPOS({ parts, onCheckout }) {
     const finalTotals = computePosTotals({ cart, discount: discountVal, vatRate: VAT_RATE });
 
     const txData = {
-      invoiceNumber: getSaleInvoiceNumber(),
+      clientRef: getSaleClientRef(),
       transactionDate: new Date().toISOString(),
       status: 'COMPLETED',
       customerName: payment.customerName,
@@ -167,13 +170,13 @@ export default function TransactionPOS({ parts, onCheckout }) {
     };
 
     try {
-      const ok = await onCheckout(txData);
-      if (!ok) {
+      const saved = await onCheckout(txData);
+      if (!saved) {
         setWarning('Sale could not be completed. Nothing was charged — check stock and try again.');
         return;
       }
 
-      setLastTx(txData);
+      setLastTx({ ...txData, invoiceNumber: saved.invoiceNumber, transactionDate: saved.transactionDate || txData.transactionDate });
       setCart([]);
       setDiscount(0);
       resetSaleAttempt();

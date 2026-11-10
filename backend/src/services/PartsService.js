@@ -1,20 +1,13 @@
 import { partsRepository } from '../repositories/PartsRepository.js';
 import { supabaseStorageService } from './SupabaseStorageService.js';
 import { parseCompatibility } from '../utils/parseCompatibility.js';
+import { dateKey, nextDocNumber } from '../utils/recordFormats.js';
 
 export class PartsService {
   async generateAdjustmentNumber() {
     const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-
-    const lastAdjustment = await partsRepository.findLatestAdjustmentByDate(dateStr);
-
-    let sequence = 1;
-    if (lastAdjustment) {
-      const parts = lastAdjustment.adjustmentNumber.split('-');
-      sequence = parseInt(parts[2], 10) + 1;
-    }
-    return `SA-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+    const lastAdjustment = await partsRepository.findLatestAdjustmentByDate(dateKey(date));
+    return nextDocNumber('SA', date, lastAdjustment?.adjustmentNumber);
   }
 
   async getParts(query) {

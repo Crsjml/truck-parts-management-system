@@ -17,6 +17,9 @@ const validators = {
     const errors = [];
     if (!data.customerName || typeof data.customerName !== 'string') errors.push('customerName is required');
     if (!data.items || !Array.isArray(data.items) || data.items.length === 0) errors.push('items array is required and must not be empty');
+    if (data.clientRef != null && (typeof data.clientRef !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(data.clientRef))) {
+      errors.push('clientRef must be 8-64 letters, digits, "-" or "_"');
+    }
 
     // Payment-method allowlist + method-specific field requirements.
     const ALLOWED_METHODS = ['CASH', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'GCASH'];
