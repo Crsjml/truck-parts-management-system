@@ -98,7 +98,7 @@ export default function Logo({ className = "w-12 h-12", showText = true }) {
           <span className="text-lg font-bold tracking-wider text-foreground uppercase leading-none font-display">
             Tarlac Truck
           </span>
-          <span className="text-xs font-bold tracking-[0.25em] text-red-500 uppercase leading-none mt-1">
+          <span className="text-xs font-bold tracking-[0.25em] text-red-700 dark:text-red-400 uppercase leading-none mt-1">
             Pitstop
           </span>
         </div>
