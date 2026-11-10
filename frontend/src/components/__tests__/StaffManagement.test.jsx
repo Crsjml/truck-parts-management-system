@@ -493,7 +493,11 @@ describe('StaffManagement', () => {
 
       expect(updateStaffRole).not.toHaveBeenCalled();
       expect(screen.getByText(/change boss@ttp\.com from superadmin to cashier\?/i)).toBeInTheDocument();
-      expect(screen.getByText(/lose access to staff and system settings/i)).toBeInTheDocument();
+      const demote = screen.getByText(/change boss@ttp\.com from superadmin to cashier\?/i);
+      expect(demote).toHaveTextContent(/they lose/i);
+      expect(demote).toHaveTextContent('Staff Management');
+      expect(demote).toHaveTextContent('Sales Analytics');
+      expect(demote).toHaveTextContent('System Settings');
       fireEvent.click(screen.getByRole('button', { name: /^change role$/i }));
 
       await waitFor(() => expect(updateStaffRole).toHaveBeenCalledWith('c', 'CASHIER'));
@@ -508,6 +512,16 @@ describe('StaffManagement', () => {
       const saving = await screen.findByRole('button', { name: /saving…/i });
       expect(saving).toBeDisabled();
       expect(screen.getByRole('button', { name: /^cancel$/i })).toBeDisabled();
+    });
+
+    it('says what a sideways Cashier to Warehouse move loses and gains', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      expect(screen.getByText(
+        'Change clerk@ttp.com from Cashier to Warehouse? They lose Sales POS and Customers and gain Parts Inventory, Categories and Purchasing.'
+      )).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
     });
 
     it('confirms a role change with an Undo that restores the previous role', async () => {
@@ -531,7 +545,7 @@ describe('StaffManagement', () => {
 
       expect(updateStaffRole).not.toHaveBeenCalled();
       expect(screen.getByText(/make clerk@ttp\.com an admin\?/i)).toBeInTheDocument();
-      expect(screen.getByText(/all operational pages and sales analytics/i)).toBeInTheDocument();
+      expect(screen.getByText(/make clerk@ttp\.com an admin\?/i)).toHaveTextContent(/they gain .*dashboard.*sales analytics/i);
       fireEvent.click(screen.getByRole('button', { name: /^make admin$/i }));
 
       await waitFor(() => expect(updateStaffRole).toHaveBeenCalledWith('b', 'ADMIN'));
