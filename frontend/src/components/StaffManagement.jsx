@@ -5,6 +5,7 @@ import { ShieldCheck, Plus, User, CircleNotch, X, Lock, Warning } from '@phospho
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchStaffRoles, createStaffRole, updateStaffRole, deleteStaffRole } from '../authStore';
 import StaffRoster from './staff/StaffRoster';
+import StaffAddedPanel from './staff/StaffAddedPanel';
 import { STAFF_ROLES } from '../utils/staffAccess';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,9 +22,18 @@ export default function StaffManagement({ currentEmail }) {
   const [pendingRemoveId, setPendingRemoveId] = useState(null);
   const [pendingPromoteId, setPendingPromoteId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [addedStaff, setAddedStaff] = useState(null); // { email, role } after a successful add
   const dialogRef = useRef(null);
 
+  const emailInputRef = useRef(null);
   useDialogFocus(dialogRef, { isOpen: isModalOpen, onClose: () => setIsModalOpen(false), initialFocus: 'input' });
+
+  // "Add another" swaps the success panel back for the form; put the caret in
+  // the email field. Declared after useDialogFocus so that hook records the
+  // opener before any focus moves.
+  useEffect(() => {
+    if (isModalOpen && !addedStaff) emailInputRef.current?.focus();
+  }, [addedStaff, isModalOpen]);
 
   // silent: refresh after a change without swapping the roster for a spinner.
   const loadStaff = useCallback(async ({ silent = false } = {}) => {
@@ -66,7 +76,7 @@ export default function StaffManagement({ currentEmail }) {
     setSaving(false);
 
     if (result.ok) {
-      setIsModalOpen(false);
+      setAddedStaff({ email, role: newStaffRole });
       setNewStaffEmail('');
       setNewStaffRole('CASHIER');
       loadStaff({ silent: true });
@@ -126,7 +136,7 @@ export default function StaffManagement({ currentEmail }) {
 
         {loadState === 'ready' && (
           <button
-            onClick={() => { setIsModalOpen(true); setModalError(''); }}
+            onClick={() => { setIsModalOpen(true); setModalError(''); setAddedStaff(null); }}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white font-semibold transition-colors shrink-0"
           >
             <Plus weight="bold" className="w-4 h-4" />
@@ -172,8 +182,8 @@ export default function StaffManagement({ currentEmail }) {
           <User weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-bold text-foreground">No staff members yet</h3>
           <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
-            Add an email address to allowlist it. That person then signs up normally and
-            gains access on their first sign-in.
+            Add an email address to allowlist it. That person registers on the storefront
+            with that exact email and gains access on their first sign-in.
           </p>
         </div>
       )}
@@ -211,7 +221,7 @@ export default function StaffManagement({ currentEmail }) {
               ref={dialogRef}
               aria-modal="true"
               aria-labelledby="add-staff-title"
-              aria-describedby="add-staff-description"
+              aria-describedby={addedStaff ? undefined : 'add-staff-description'}
               className="w-full max-w-md max-h-[calc(100dvh-2rem)] bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             >
               <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
@@ -226,11 +236,20 @@ export default function StaffManagement({ currentEmail }) {
                 </button>
               </div>
 
+              {addedStaff ? (
+                <StaffAddedPanel
+                  email={addedStaff.email}
+                  role={addedStaff.role}
+                  onAddAnother={() => setAddedStaff(null)}
+                  onDone={() => setIsModalOpen(false)}
+                />
+              ) : (
               <form onSubmit={handleAddStaff} noValidate className="flex min-h-0 flex-col">
               <div className="min-h-0 overflow-y-auto p-6 space-y-5">
                 <p id="add-staff-description" className="text-sm text-muted-foreground leading-relaxed">
-                  This allowlists an email address. The person signs up through the normal
-                  flow and gains access on their first sign-in — no invitation is sent.
+                  This allowlists an email address — no invitation is sent. The person
+                  registers on the storefront with this exact email, then signs in.
+                  You’ll get the steps to share next.
                 </p>
 
                 {modalError && (
@@ -246,6 +265,7 @@ export default function StaffManagement({ currentEmail }) {
                   <input
                     id="new-staff-email"
                     type="email"
+                    ref={emailInputRef}
                     value={newStaffEmail}
                     onChange={(e) => { setNewStaffEmail(e.target.value); setModalError(''); }}
                     placeholder="name@tarlactruckparts.com"
@@ -290,6 +310,7 @@ export default function StaffManagement({ currentEmail }) {
                 </button>
               </div>
               </form>
+              )}
             </motion.div>
           </motion.div>
         )}
