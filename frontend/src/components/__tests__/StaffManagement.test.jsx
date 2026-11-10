@@ -149,6 +149,44 @@ describe('StaffManagement', () => {
       createStaffRole.mockReset().mockResolvedValue({ ok: true });
     });
 
+    describe('staged role-change colour carries meaning', () => {
+      const stage = async (email, value) => {
+        render(<StaffManagement currentEmail="owner@ttp.com" />);
+        const select = await screen.findByLabelText(`Role for ${email}`);
+        fireEvent.change(select, { target: { value } });
+        return select.closest('li');
+      };
+
+      it('commits a demotion with the Alarm Red fill, never amber', async () => {
+        const row = await stage('boss@ttp.com', 'CASHIER');
+        const commit = within(row).getByRole('button', { name: /^change role$/i });
+        expect(commit.className).toMatch(/bg-alarm-solid/);
+        expect(commit.className).not.toMatch(/amber/);
+        expect(row.className).not.toMatch(/amber/);
+      });
+
+      it('commits a promotion with the Fleet Navy accent', async () => {
+        const row = await stage('clerk@ttp.com', 'ADMIN');
+        const commit = within(row).getByRole('button', { name: /^make admin$/i });
+        expect(commit.className).toMatch(/bg-accent/);
+        expect(commit.className).not.toMatch(/amber|alarm/);
+      });
+
+      it('commits a sideways move with the Fleet Navy accent', async () => {
+        const row = await stage('clerk@ttp.com', 'WAREHOUSE');
+        const commit = within(row).getByRole('button', { name: /^save$/i });
+        expect(commit.className).toMatch(/bg-accent/);
+        expect(commit.className).not.toMatch(/amber|alarm/);
+      });
+
+      it('draws your own role tag as a rounded rectangle, not a pill', async () => {
+        render(<StaffManagement currentEmail="owner@ttp.com" />);
+        const self = await screen.findByText(/superadmin · you/i);
+        expect(self.className).not.toMatch(/rounded-full/);
+        expect(self.className).toMatch(/rounded-md/);
+      });
+    });
+
     it('recognises your own row regardless of email letter case', async () => {
       render(<StaffManagement currentEmail="Owner@TTP.com" />);
 

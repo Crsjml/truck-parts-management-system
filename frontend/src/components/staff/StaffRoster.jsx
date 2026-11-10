@@ -36,6 +36,23 @@ function roleChangeCopy(email, from, to) {
   };
 }
 
+// A demotion narrows access, so its commit reads as destructive (Alarm Red);
+// promotions and sideways moves commit with the Fleet Navy accent.
+const isDemotion = (from, to) => isPromotion(to, from);
+
+const CHANGE_TONE = {
+  demotion: {
+    row: 'bg-destructive/10 dark:bg-alarm-text/10',
+    commit: 'bg-alarm-solid hover:bg-alarm-solid/90'
+  },
+  other: {
+    row: 'bg-accent/5 dark:bg-accent/10',
+    commit: 'bg-accent hover:bg-accent/90'
+  }
+};
+
+const changeTone = (from, to) => CHANGE_TONE[isDemotion(from, to) ? 'demotion' : 'other'];
+
 // Colour is the only signal that varies per state, so it carries meaning
 // rather than decoration. Muted pastel treatment per minimalist-ui §5.
 const STATE_STYLE = {
@@ -157,7 +174,8 @@ export default function StaffRoster({
             );
           }
 
-          const rowTint = roleChange ? 'bg-amber-500/5' : 'hover:bg-secondary/40';
+          const tone = roleChange ? changeTone(person.role, roleChange.to) : null;
+          const rowTint = tone ? tone.row : 'hover:bg-secondary/40';
           const changeId = `role-change-${person.id}`;
 
           return (
@@ -183,7 +201,7 @@ export default function StaffRoster({
               <div className="flex items-center gap-x-4 pl-6 sm:pl-0 shrink-0">
               {isSelf ? (
                 <span
-                  className={`shrink-0 px-2.5 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}
+                  className={`shrink-0 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}
                 >
                   {staffRoleLabel(person.role)} · you
                 </span>
@@ -223,6 +241,7 @@ export default function StaffRoster({
                 <RoleChangeStrip
                   id={changeId}
                   copy={roleChangeCopy(person.email, person.role, roleChange.to)}
+                  commitTone={tone.commit}
                   isBusy={isBusy}
                   cancelRef={cancelRef}
                   onCancel={onCancelRoleChange}
@@ -270,7 +289,7 @@ export default function StaffRoster({
 }
 
 // Inline Save/Cancel for a staged role. The select only stages; this commits.
-function RoleChangeStrip({ id, copy, isBusy, cancelRef, onCancel, onConfirm }) {
+function RoleChangeStrip({ id, copy, commitTone, isBusy, cancelRef, onCancel, onConfirm }) {
   return (
     // Focus stays on the select, so the staged change is announced instead.
     <div aria-live="polite" className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 pl-6">
@@ -290,7 +309,7 @@ function RoleChangeStrip({ id, copy, isBusy, cancelRef, onCancel, onConfirm }) {
         type="button"
         onClick={onConfirm}
         disabled={isBusy}
-        className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+        className={`px-4 py-2 rounded-lg ${commitTone} text-white text-sm font-bold disabled:opacity-40 transition-colors`}
       >
         {isBusy ? 'Saving…' : copy.action}
       </button>
