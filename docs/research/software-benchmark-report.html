@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Software Benchmark Report — Tarlac Truck Parts IS</title>
+<style>
+  @page { size: letter; margin: 1in; }
+  * { box-sizing: border-box; }
+  html, body { font-family: "Times New Roman", Times, serif; font-size: 12pt; color: #000; }
+  body { margin: 0; line-height: 2.0; }           /* APA double-spacing */
+  p { margin: 0 0 0 0; text-indent: 0.5in; text-align: left; }
+  h1, h2, h3 { font-weight: bold; line-height: 2.0; margin: 0; }
+  h1.section { font-size: 12pt; text-align: center; margin-top: 0.1in; }   /* APA Level 1 */
+  h2.section { font-size: 12pt; text-align: left; margin-top: 0.1in; }     /* APA Level 2 */
+  .nohang { text-indent: 0; }
+
+  /* Title page */
+  .title-page { height: 9in; display: flex; flex-direction: column; justify-content: center;
+                text-align: center; page-break-after: always; }
+  .title-page .title { font-weight: bold; font-size: 12pt; margin-bottom: 0.5in; }
+  .title-page .meta { margin: 0; text-indent: 0; }
+  .spacer { height: 0.5in; }
+
+  /* Abstract */
+  .abstract p { text-indent: 0; }
+
+  /* Table — APA style: title above, horizontal rules only */
+  .apa-table-wrap { page-break-inside: auto; }
+  table.apa { width: 100%; border-collapse: collapse; font-size: 9.5pt; line-height: 1.25; margin-top: 4pt; }
+  table.apa caption { caption-side: top; text-align: left; line-height: 1.4; }
+  table.apa th, table.apa td { padding: 4px 6px; vertical-align: top; text-align: left; }
+  table.apa thead th { border-top: 1.5px solid #000; border-bottom: 1px solid #000; font-weight: bold; }
+  table.apa tbody tr:last-child td { border-bottom: 1.5px solid #000; }
+  table.apa td.feat { font-weight: bold; width: 20%; }
+  table.apa td, table.apa th { width: 40%; }
+  table.apa tbody tr { page-break-inside: avoid; }
+  .tbl-num { font-weight: bold; }
+  .tbl-title { font-style: italic; }
+  .tbl-note { font-size: 9pt; line-height: 1.3; text-indent: 0; margin-top: 4pt; }
+
+  /* References — hanging indent */
+  .references p { text-indent: -0.5in; padding-left: 0.5in; margin-bottom: 0; }
+
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- ===================== TITLE PAGE ===================== -->
+<section class="title-page">
+  <p class="title">Benchmarking a Commercial Software Package Against a Proposed<br>
+  Truck Parts Management Information System for Tarlac Truck Parts</p>
+  <p class="meta">[Your Full Name]</p>
+  <p class="meta">Department of Information Technology, [Your University]</p>
+  <p class="meta">ITISDEV / ISANDE1: Information Systems Development</p>
+  <p class="meta">[Instructor&rsquo;s Name]</p>
+  <p class="meta">October 2, 2026</p>
+</section>
+
+<!-- ===================== ABSTRACT ===================== -->
+<section class="abstract">
+  <h1 class="section">Abstract</h1>
+  <p>This report benchmarks a commercial retail management software package, Lightspeed
+  Retail (X-Series), against a proposed custom Information System (IS) being developed for
+  Tarlac Truck Parts, a truck parts and accessories retailer in Tarlac City, Philippines.
+  The benchmark package was selected because it combines the capabilities of an
+  inventory-focused specialist and a general small-to-medium business (SMB) point-of-sale
+  (POS) platform. The report describes the features, strengths, and limitations of Lightspeed
+  Retail, summarizes the planned features of the proposed IS, and presents a side-by-side
+  feature comparison in tabular form. A narrative analysis then argues that, although
+  Lightspeed Retail is the more mature and feature-complete platform, the proposed IS is the
+  better fit for Tarlac Truck Parts because of its localization (Bureau of Internal Revenue
+  [BIR] value-added tax [VAT] invoicing, GCash payment support, and Philippine peso pricing),
+  its absence of recurring foreign-currency licensing fees, and its purchasing and analytics
+  features tailored to spare-parts retail.</p>
+  <p class="nohang" style="text-indent:0; margin-top:8pt"><em>Keywords</em>: information
+  systems, software benchmarking, retail point of sale, inventory management, Lightspeed
+  Retail</p>
+</section>
+
+<!-- ===================== BODY ===================== -->
+<section class="page-break">
+  <h1 class="section">Benchmarking a Commercial Software Package Against a Proposed Truck Parts Management Information System</h1>
+
+  <p>Selecting or designing an information system for a retail business benefits from
+  benchmarking&mdash;the practice of measuring a proposed solution against an established
+  product to identify feature gaps, strengths, and realistic expectations (Stair &amp;
+  Reynolds, 2020). This report evaluates one widely adopted commercial package, Lightspeed
+  Retail (X-Series), as a benchmark for the Truck Parts Management IS being developed for the
+  client company, Tarlac Truck Parts. Lightspeed Retail was chosen deliberately: it is marketed
+  as an advanced inventory and multi-location platform used by specialty retailers such as
+  hardware, bike, and parts stores, while also serving as a mainstream SMB POS system, so a
+  single package captures both the specialist and the general-purpose perspectives relevant to
+  an auto-parts retailer. The sections below discuss the benchmark&rsquo;s features and its pros
+  and cons, outline the proposed IS, compare the two in a feature table, and conclude with a
+  recommendation.</p>
+
+  <h1 class="section">The Benchmark Package: Lightspeed Retail (X-Series)</h1>
+
+  <p>Lightspeed Retail (X-Series) is a cloud-based retail management platform that unifies
+  point of sale, inventory, purchasing, payments, and analytics for small and medium retailers
+  (Lightspeed Commerce, 2026). Its <em>inventory management</em> module provides low-stock
+  alerts, automated restocking, multi-location stock tracking, and bulk updating of minimum and
+  maximum reorder levels across the product catalog (Sehmbi &amp; Crawford, 2026). Its
+  <em>point-of-sale</em> capabilities include cloud transaction processing and barcode scanning
+  through a dedicated mobile scanner application (Lightspeed Commerce, 2026).</p>
+
+  <p>For <em>purchasing</em>, Lightspeed Retail allows merchants to generate purchase orders
+  directly from replenishment and inventory reports, and to record landed costs such as
+  discounts, freight charges, and duties on each order for more accurate reconciliation
+  (Lightspeed, n.d.). It also connects to NuORDER, a built-in wholesale catalog of roughly five
+  million products that enables one-click ordering from participating brands (Sehmbi &amp;
+  Crawford, 2026). Its <em>reporting and analytics</em> suite, Lightspeed Insights, offers
+  real-time sales tracking, cross-location trend analysis, and demand forecasting (Lightspeed
+  Commerce, 2026). The platform further supports multi-location management with inter-store
+  stock transfers, integrated card payment processing, customer loyalty and marketing, and
+  e-commerce or omnichannel selling, although the more advanced capabilities are tied to
+  higher-priced subscription tiers (Lightspeed Commerce, 2026; Sehmbi &amp; Crawford, 2026).</p>
+
+  <h2 class="section">Pros of Lightspeed Retail</h2>
+
+  <p>Independent reviewers consistently praise Lightspeed Retail for its depth of inventory
+  control and reporting, which are included in every subscription tier, and for its strong
+  multi-location and omnichannel support (Sehmbi &amp; Crawford, 2026). The built-in NuORDER
+  wholesale network reduces manual data entry during procurement, and 24/7 chat support is
+  available across all plans. Because the platform is a mature commercial product with an app
+  marketplace and accounting integrations (for example, Xero), it offers an ecosystem that an
+  individual business would not need to build or maintain itself (Lightspeed Commerce, 2026).</p>
+
+  <h2 class="section">Cons of Lightspeed Retail</h2>
+
+  <p>The most frequently cited drawback is cost. Subscription pricing ranges from USD 109 per
+  month for the Basic plan to USD 339 per month for the Plus plan, with discounts only on annual
+  contracts and additional fees of USD 89 to USD 339 for each extra location or register (Sehmbi
+  &amp; Crawford, 2026). Key capabilities&mdash;accounting integrations, advanced reporting,
+  loyalty, and e-commerce&mdash;are gated behind higher tiers or paid add-ons, so the effective
+  cost for a fully featured deployment is higher than the entry price suggests. For a single-store
+  Philippine retailer, two further gaps matter: the platform provides no native BIR-compliant VAT
+  invoicing, and its integrated payment processing and e-wallet options are oriented toward North
+  American and European markets rather than local methods such as GCash.</p>
+
+  <h1 class="section">The Proposed Information System</h1>
+
+  <p>The proposed Truck Parts Management IS is a custom web application (a React front end with a
+  Node.js and Prisma back end) designed specifically for Tarlac Truck Parts. It provides parts
+  inventory management with stock-keeping units (SKUs), categories, stock levels, and low-stock
+  alerting; a sales and POS workflow that generates BIR-style VAT (12%) invoices in Philippine
+  pesos and accepts cash, GCash, cheque, and card payments; and a purchasing module that supports
+  both request-for-quotation (RFQ) and purchase-order (PO) workflows with dedicated supplier
+  management. Its analytics layer produces a daily sales summary, a best-selling parts report with
+  rank-movement tracking, a slow-moving (zero-sales) stock report with last-sale dating, and a
+  low-stock severity report, all exportable as formatted PDFs. Access is governed by role-based
+  permissions for staff. In short, the proposed IS is narrower than Lightspeed Retail but is
+  shaped around the exact operating context of a Philippine spare-parts retailer.</p>
+
+  <!-- ===================== TABLE ===================== -->
+  <div class="apa-table-wrap">
+  <p class="nohang tbl-num" style="text-indent:0; margin-top:8pt">Table 1</p>
+  <p class="nohang tbl-title" style="text-indent:0">Feature Comparison: Lightspeed Retail (X-Series) Versus the Proposed Truck Parts Management IS</p>
+  <table class="apa">
+    <thead>
+      <tr><th class="feat" style="width:20%">Feature</th><th>Lightspeed Retail (X-Series)</th><th>Proposed Truck Parts IS</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="feat">Deployment model</td><td>Cloud SaaS (subscription)</td><td>Custom web app, self-hosted (React + Node/Prisma)</td></tr>
+      <tr><td class="feat">Licensing cost</td><td>USD 109&ndash;339/mo + per-location fees</td><td>No licensing fee (in-house build and upkeep)</td></tr>
+      <tr><td class="feat">Inventory management</td><td>Advanced; multi-location, auto-replenish, min/max</td><td>Yes; SKU, categories, stock, low-stock alerts (single store)</td></tr>
+      <tr><td class="feat">Point of sale / sales</td><td>Full cloud POS + barcode scanning (Core tier+)</td><td>Sales/POS with invoice generation</td></tr>
+      <tr><td class="feat">Tax-compliant invoicing</td><td>Generic invoices; no PH/BIR format</td><td>BIR-style VAT (12%) invoices in PHP</td></tr>
+      <tr><td class="feat">Payment methods</td><td>Card (Lightspeed Payments), cash; local e-wallets N/A</td><td>Cash, GCash, cheque, card</td></tr>
+      <tr><td class="feat">Purchase orders (PO)</td><td>Yes; incl. NuORDER one-click ordering</td><td>Yes; PO workflow with PDF export</td></tr>
+      <tr><td class="feat">Request for quotation (RFQ)</td><td>Not a standard feature</td><td>Yes; dedicated RFQ workflow</td></tr>
+      <tr><td class="feat">Supplier management</td><td>Via wholesale network (NuORDER)</td><td>Dedicated supplier module</td></tr>
+      <tr><td class="feat">Reporting &amp; analytics</td><td>Lightspeed Insights; forecasting (advanced gated)</td><td>Daily sales, best-selling, slow-moving, low-stock</td></tr>
+      <tr><td class="feat">Slow-moving / dead-stock view</td><td>Via general inventory reports</td><td>Dedicated zero-sales report with last-sale dating</td></tr>
+      <tr><td class="feat">Multi-location support</td><td>Yes (paid add-on per location)</td><td>No (single store; planned)</td></tr>
+      <tr><td class="feat">E-commerce / omnichannel</td><td>Yes (higher tiers)</td><td>No</td></tr>
+      <tr><td class="feat">Customer loyalty / CRM</td><td>Yes (higher tiers / add-on)</td><td>No (out of scope)</td></tr>
+      <tr><td class="feat">Role-based access control</td><td>Yes</td><td>Yes (staff roles)</td></tr>
+      <tr><td class="feat">Customizability</td><td>Limited to settings + app marketplace</td><td>Full control over own codebase</td></tr>
+      <tr><td class="feat">Vendor support</td><td>24/7 chat on all plans</td><td>In-house development team</td></tr>
+      <tr><td class="feat">Local fit (PHP, GCash, PH phone, BIR)</td><td>No</td><td>Yes (built for the Philippines)</td></tr>
+    </tbody>
+  </table>
+  <p class="tbl-note"><em>Note.</em> Lightspeed Retail details are drawn from Lightspeed Commerce
+  (2026), Lightspeed (n.d.), and Sehmbi and Crawford (2026). Proposed IS details reflect the
+  system&rsquo;s current and planned scope for Tarlac Truck Parts.</p>
+  </div>
+
+  <h1 class="section">Discussion and Recommendation</h1>
+
+  <p>Table 1 shows two systems built for different purposes. Lightspeed Retail is the broader and
+  more mature platform: it leads on multi-location operations, omnichannel e-commerce, customer
+  loyalty, forecasting-grade analytics, a large wholesale ordering network, and round-the-clock
+  vendor support. If Tarlac Truck Parts intended to scale into a multi-branch, omnichannel chain
+  tomorrow, Lightspeed Retail would be difficult to beat. For that reason it is an excellent
+  <em>benchmark</em>&mdash;it defines the feature ceiling the proposed IS can aspire to over time.</p>
+
+  <p>However, the question is which package best suits the client&rsquo;s <em>current</em> needs,
+  and here the comparison favors the proposed IS. Tarlac Truck Parts is a single-location Philippine
+  retailer that is cost-sensitive and legally required to issue BIR-compliant VAT invoices, and
+  whose customers routinely pay by cash and GCash. Lightspeed Retail addresses none of these local
+  requirements out of the box, yet would impose recurring foreign-currency subscription and
+  per-feature costs for capabilities (multi-location, loyalty, e-commerce) the business does not yet
+  use. The proposed IS, by contrast, delivers exactly the domain-specific workflows that matter to a
+  spare-parts dealer&mdash;RFQ and PO purchasing, supplier tracking, and best-selling and
+  slow-moving analyses that drive reorder and markdown decisions&mdash;while charging no licensing
+  fee and remaining fully customizable.</p>
+
+  <p>The recommendation, therefore, is for Tarlac Truck Parts to adopt the proposed Truck Parts
+  Management IS as its operational system, and to treat Lightspeed Retail as a feature roadmap.
+  Capabilities where Lightspeed clearly leads&mdash;multi-location inventory, loyalty and CRM,
+  e-commerce, and more advanced forecasting&mdash;should be logged as prioritized future
+  enhancements, so that the custom system grows toward the commercial benchmark without sacrificing
+  the local fit and cost advantages that make it the right choice today.</p>
+</section>
+
+<!-- ===================== REFERENCES ===================== -->
+<section class="references page-break">
+  <h1 class="section">References</h1>
+  <p>Lightspeed. (n.d.). <em>Configuring replenishment and inventory tracking in Retail POS
+  (X-Series)</em>. Lightspeed Retail (X-Series) Support. Retrieved October 2, 2026, from
+  https://x-series-support.lightspeedhq.com/hc/en-us/articles/25533711829019-Configuring-replenishment-and-inventory-tracking-in-Retail-POS-X-Series</p>
+
+  <p>Lightspeed Commerce. (2026). <em>Retail POS system</em>. Retrieved October 2, 2026, from
+  https://www.lightspeedhq.com/pos/retail/</p>
+
+  <p>Sehmbi, K., &amp; Crawford, H. (2026, July 17). <em>Lightspeed Retail POS review</em>.
+  NerdWallet. https://www.nerdwallet.com/reviews/small-business/lightspeed-retail-pos</p>
+
+  <p>Stair, R. M., &amp; Reynolds, G. W. (2020). <em>Principles of information systems</em> (14th
+  ed.). Cengage Learning.</p>
+</section>
+
+</body>
+</html>
