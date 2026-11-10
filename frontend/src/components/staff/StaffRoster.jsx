@@ -27,9 +27,9 @@ export default function StaffRoster({
   onCancelRemove,
   onRemove,
   pendingRemoveId,
-  pendingPromoteId,
-  onConfirmPromote,
-  onCancelPromote,
+  pendingRoleChange,
+  onConfirmRoleChange,
+  onCancelRoleChange,
   busyId,
   error
 }) {
@@ -39,7 +39,7 @@ export default function StaffRoster({
   // Where focus goes once the inline confirmation closes:
   // { id, kind: 'role' | 'remove', removed?: boolean }
   const returnFocus = useRef(null);
-  const pendingId = pendingRemoveId ?? pendingPromoteId;
+  const pendingId = pendingRemoveId ?? pendingRoleChange?.id ?? null;
 
   useEffect(() => {
     if (pendingId) {
@@ -84,7 +84,7 @@ export default function StaffRoster({
           const style = STATE_STYLE[state];
           const isSelf = person.email.toLowerCase() === selfEmail;
           const isPending = pendingRemoveId === person.id;
-          const isPromoting = pendingPromoteId === person.id;
+          const roleChange = pendingRoleChange?.id === person.id ? pendingRoleChange : null;
           const isBusy = busyId === person.id;
 
           if (isPending) {
@@ -94,13 +94,14 @@ export default function StaffRoster({
                 className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-red-500/5"
               >
                 <p className="text-sm font-bold text-foreground">
-                  Remove {person.email}? They lose admin access immediately.
+                  Remove {person.email}? They lose access immediately.
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     ref={cancelRef}
                     type="button"
                     onClick={onCancelRemove}
+                    disabled={isBusy}
                     className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
@@ -118,31 +119,35 @@ export default function StaffRoster({
             );
           }
 
-          if (isPromoting) {
+          if (roleChange) {
+            const isPromotion = roleChange.to === 'SUPERADMIN';
             return (
               <li
                 key={person.id}
                 className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-amber-500/5 border-l-2 border-l-amber-500/40"
               >
                 <p className="text-sm font-bold text-foreground">
-                  Make {person.email} a Superadmin? They will be able to manage staff and system settings.
+                  {isPromotion
+                    ? `Make ${person.email} a Superadmin? They will be able to manage staff and system settings.`
+                    : `Change ${person.email} from Superadmin to ${staffRoleLabel(roleChange.to)}? They lose access to staff and system settings.`}
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     ref={cancelRef}
                     type="button"
-                    onClick={onCancelPromote}
+                    onClick={onCancelRoleChange}
+                    disabled={isBusy}
                     className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    onClick={() => onConfirmPromote(person.id)}
+                    onClick={() => onConfirmRoleChange(person.id, roleChange.to)}
                     disabled={isBusy}
                     className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                   >
-                    Make Superadmin
+                    {isBusy ? 'Saving…' : isPromotion ? 'Make Superadmin' : 'Change role'}
                   </button>
                 </div>
               </li>

@@ -89,7 +89,8 @@ describe('StaffManagement', () => {
   describe('roster safety and usability', () => {
     const roster = [
       { id: 'a', email: 'owner@ttp.com', role: 'SUPERADMIN', lastSeenAt: new Date().toISOString(), addedBy: 'system' },
-      { id: 'b', email: 'clerk@ttp.com', role: 'CASHIER', lastSeenAt: null, addedBy: 'owner@ttp.com' }
+      { id: 'b', email: 'clerk@ttp.com', role: 'CASHIER', lastSeenAt: null, addedBy: 'owner@ttp.com' },
+      { id: 'c', email: 'boss@ttp.com', role: 'SUPERADMIN', lastSeenAt: null, addedBy: 'owner@ttp.com' }
     ];
 
     beforeEach(() => {
@@ -224,6 +225,60 @@ describe('StaffManagement', () => {
       expect(dialog).toHaveTextContent(/no invitation is sent/i);
       expect(dialog).toHaveTextContent(/register/i);
       expect(dialog).not.toHaveTextContent(/normal flow/i);
+    });
+
+    it('asks for confirmation before demoting a Superadmin', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for boss@ttp.com'), { target: { value: 'CASHIER' } });
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByText(/change boss@ttp\.com from superadmin to cashier\?/i)).toBeInTheDocument();
+      expect(screen.getByText(/lose access to staff and system settings/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /^change role$/i }));
+
+      await waitFor(() => expect(updateStaffRole).toHaveBeenCalledWith('c', 'CASHIER'));
+    });
+
+    it('shows Saving… and disables the confirm button while a promotion saves', async () => {
+      updateStaffRole.mockReturnValue(new Promise(() => {}));
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'SUPERADMIN' } });
+      fireEvent.click(screen.getByRole('button', { name: /^make superadmin$/i }));
+
+      const saving = await screen.findByRole('button', { name: /saving…/i });
+      expect(saving).toBeDisabled();
+      expect(screen.getByRole('button', { name: /^cancel$/i })).toBeDisabled();
+    });
+
+    it('confirms a role change with an Undo that restores the previous role', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      const notice = await screen.findByRole('status');
+      expect(notice).toHaveTextContent(/role changed to warehouse/i);
+      expect(notice).toHaveTextContent('clerk@ttp.com');
+
+      fireEvent.click(screen.getByRole('button', { name: /^undo$/i }));
+      await waitFor(() => expect(updateStaffRole).toHaveBeenLastCalledWith('b', 'CASHIER'));
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/changed back to cashier/i));
+      expect(screen.queryByRole('button', { name: /^undo$/i })).not.toBeInTheDocument();
+    });
+
+    it('does not show a role-changed notice when the server refuses', async () => {
+      updateStaffRole.mockResolvedValue({ ok: false, error: 'Cannot demote the last superadmin.' });
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/last superadmin/i);
+      expect(screen.queryByText(/role changed to/i)).not.toBeInTheDocument();
+    });
+
+    it('says a removed person loses access, not just admin access', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove clerk@ttp.com' }));
+
+      expect(screen.getByText(/they lose access immediately/i)).toBeInTheDocument();
+      expect(screen.queryByText(/admin access/i)).not.toBeInTheDocument();
     });
 
     it('rejects a malformed email in the add dialog without calling the server', async () => {
