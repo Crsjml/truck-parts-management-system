@@ -50,7 +50,7 @@ Parts ranked by units sold in the selected period, with rank-movement vs the pri
 
 ```
  ┌──────────────────────────────────────────────────────────────────────────────┐
- │       WHITE MASTHEAD (no fill) - gray logo, black text, black rule below       │
+ │       WHITE MASTHEAD (no fill) - color logo, black text, black rule below       │
  │  TARLAC TRUCK PARTS                     BEST-SELLING PARTS REPORT               │
  │  Period: 09/02/2026 – 10/02/2026        Generated: 10/02/2026 14:35            │
  ├──────────────────────────────────────────────────────────────────────────────┤

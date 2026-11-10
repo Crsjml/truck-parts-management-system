@@ -63,7 +63,7 @@ skeleton with the RFQ (Report 3); the difference is that prices are **filled in*
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
+ │    WHITE MASTHEAD (no fill) - color logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                              PURCHASE ORDER          │
  │  Tarlac City, Philippines                       PO No : PO-000045        │
  │  Contact: 0917-XXX-XXXX                         Date  : 10/02/2026       │

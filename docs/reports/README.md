@@ -103,8 +103,8 @@ All six PDFs share one low-ink scheme, defined in `frontend/src/utils/pdf/report
 
 - **Single-channel black.** Colors are passed to jsPDF as one number, which it writes as
   DeviceGray (`0 g`), so printers use black toner only instead of a CMY+K "rich black".
-- **No solid or dark fills.** White masthead (light-gray DeviceGray logo `assets/logo-mark-print.png`
-  + one black rule), no zebra striping, outline-only KPI tiles. RGB is reserved for the two pale tints.
+- **No solid or dark fills.** White masthead (the full-color logo `assets/logo-mark.png` is the only
+  color on the page, kept for brand recognition, + one black rule), no zebra striping, outline-only KPI tiles. RGB is reserved for the two pale tints.
 - **Guarded by a test.** `frontend/src/utils/__tests__/reportPdfInk.test.js` parses each export's
   PDF content stream and fails on any fill darker than 85% white or any non-pastel RGB color.
 

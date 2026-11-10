@@ -15,7 +15,7 @@
 //    real PDF content stream of every export.
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { LOGO_PRINT_B64 } from './logoPrintBase64';
+import { LOGO_B64 } from './logoBase64';
 
 export { jsPDF, autoTable };
 
@@ -113,7 +113,7 @@ export function totalBox(doc, { x, y, w, h = 8, label, value }) {
 }
 
 function companyBlock(doc) {
-  doc.addImage('data:image/png;base64,' + LOGO_PRINT_B64, 'PNG', 14, 7, 18, 18);
+  doc.addImage('data:image/png;base64,' + LOGO_B64, 'PNG', 14, 7, 18, 18);
   doc.setTextColor(INK);
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(17);
@@ -125,7 +125,7 @@ function companyBlock(doc) {
   doc.text('Contact: 0917-XXX-XXXX   TIN: XXX-XXX-XXX-XXX', 36, 25);
 }
 
-// Masthead — white page, light-gray logo, black company name, right-aligned
+// Masthead — white page, full-color logo, black company name, right-aligned
 // title/meta, closed by one crisp black rule. No background band.
 export function masthead(doc, { title, meta = [] }) {
   const w = doc.internal.pageSize.getWidth();

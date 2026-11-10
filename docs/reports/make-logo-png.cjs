@@ -56,38 +56,14 @@ const banner = `
   <text x="150" y="151" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="21" fill="#1b365d" letter-spacing="0.5">TARLAC TRUCK</text>
   <text x="150" y="167" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="12" fill="#dc2626" letter-spacing="2">PARTS</text>`;
 
-// Print variant — same emblem recolored to light single-channel grays so the
-// report PDFs spend almost no toner on the logo (ink-efficient print scheme).
-const PRINT_GRAYS = {
-  '#dc2626': '#d9d9d9', // gear body (was red)
-  '#1e3a8a': '#a6a6a6', // piston heads (was blue)
-  '#0f172a': '#b3b3b3', // piston bodies
-  '#1b365d': '#595959', // rods + ring (thin, keeps the outline crisp)
-  '#e2e8f0': '#ffffff',
-};
-const toPrint = (svg) => Object.entries(PRINT_GRAYS).reduce((acc, [from, to]) => acc.split(from).join(to), svg);
-
-// Re-encode the print logo as a true grayscale PNG so jsPDF embeds it as
-// /DeviceGray (black toner only) instead of RGB. Uses macOS `sips`.
-function toDeviceGray(file) {
-  const { execFileSync } = require('child_process');
-  const profile = '/System/Library/ColorSync/Profiles/Generic Gray Profile.icc';
-  try {
-    execFileSync('sips', ['--matchTo', profile, file, '--out', file], { stdio: 'ignore' });
-  } catch (e) {
-    console.warn('WARN: could not convert ' + file + ' to grayscale (sips unavailable); PDFs will embed it as RGB.');
-  }
-}
-
 (async () => {
   const { chromium } = require('playwright');
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 600, height: 600 }, deviceScaleFactor: 2 });
-  for (const [name, inner] of [['logo.png', core + banner], ['logo-mark.png', core], ['logo-mark-print.png', toPrint(core)]]) {
+  for (const [name, inner] of [['logo.png', core + banner], ['logo-mark.png', core]]) {
     const file = path.join(OUT, name);
     await page.setContent(`<!doctype html><html><body style="margin:0">${WRAP(inner)}</body></html>`);
     await (await page.$('svg')).screenshot({ path: file, omitBackground: true });
-    if (name === 'logo-mark-print.png') toDeviceGray(file);
     console.log('Wrote ' + file);
   }
   await browser.close();
