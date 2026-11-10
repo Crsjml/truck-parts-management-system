@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Percent, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
@@ -24,7 +24,10 @@ function parseMarkup(text) {
 export default function AdminSettings({ onClose, onAddLog }) {
   const { settings, setSettings, formatBaseCurrency } = useSettings();
   const dialogRef = useRef(null);
-  useDialogFocus(dialogRef, { onClose, initialFocus: '#markup-percent' });
+  const keepEditingRef = useRef(null);
+  const doneRef = useRef(null);
+  const wasConfirmingDiscard = useRef(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const formatMoney = formatBaseCurrency || fallbackFormat;
 
   const savedMarkup = settings?.active_markup ?? 0;
@@ -74,6 +77,32 @@ export default function AdminSettings({ onClose, onAddLog }) {
   // Derived, not copied into state: the settings can load (or change) after mount.
   const pinConfigured = Boolean(settings?.overridePinConfigured);
 
+  // Closing must never silently drop a markup draft or a half-typed PIN.
+  const hasUnappliedChanges = isDraftDirty || newPin !== '' || confirmPin !== '';
+
+  const requestClose = () => {
+    if (confirmDiscard) {
+      setConfirmDiscard(false);
+      return;
+    }
+    if (hasUnappliedChanges && !isMarkupSaving && !pinSaving) {
+      setConfirmDiscard(true);
+      return;
+    }
+    onClose();
+  };
+
+  useDialogFocus(dialogRef, { onClose: requestClose, initialFocus: '#markup-percent' });
+
+  // Focus follows the footer swap: into the prompt, then back to Done.
+  useEffect(() => {
+    if (confirmDiscard) keepEditingRef.current?.focus();
+    else if (wasConfirmingDiscard.current) doneRef.current?.focus();
+    wasConfirmingDiscard.current = confirmDiscard;
+  }, [confirmDiscard]);
+
+  const focusPinField = () => dialogRef.current?.querySelector('#override-pin')?.focus();
+
   const isPinMismatch = confirmPin.length > 0 && confirmPin.length >= newPin.length && confirmPin !== newPin;
   const canSavePin = PIN_PATTERN.test(newPin) && newPin === confirmPin && !pinSaving;
 
@@ -118,7 +147,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
             className="p-1.5 hover:bg-background rounded-lg text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -128,6 +157,22 @@ export default function AdminSettings({ onClose, onAddLog }) {
 
         {/* Body */}
         <div className="min-h-0 overflow-y-auto p-6 space-y-6">
+          {!pinConfigured && (
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-destructive/10">
+              <Lock weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-alarm-text" />
+              <p className="text-sm leading-relaxed text-foreground">
+                <span className="font-bold">Discounts are blocked at the POS</span> until a Discount Override PIN is set.{' '}
+                <button
+                  type="button"
+                  onClick={focusPinField}
+                  className="font-semibold text-alarm-text underline underline-offset-2 hover:no-underline"
+                >
+                  Set a PIN now
+                </button>
+              </p>
+            </div>
+          )}
+
           {/* Shown before the markup control: an applied markup reprices the
               live storefront at once, so this is read before adjusting. */}
           <div
@@ -171,7 +216,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                   value={sliderValue}
                   onChange={handleDraftChange}
                   disabled={isMarkupSaving}
-                  className="flex-1 min-w-0 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-accent disabled:cursor-not-allowed"
+                  className="flex-1 min-w-0 h-2 bg-muted-foreground/30 rounded-lg appearance-none cursor-pointer accent-accent disabled:cursor-not-allowed"
                 />
                 <div className="flex items-center gap-1 shrink-0">
                   <input
@@ -317,14 +362,36 @@ export default function AdminSettings({ onClose, onAddLog }) {
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 justify-end p-5 border-t border-border bg-background/50">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-xl transition-colors"
-          >
-            Done
-          </button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 p-5 border-t border-border bg-background/50">
+          {confirmDiscard ? (
+            <>
+              <p className="mr-auto text-sm font-semibold text-foreground">Discard unapplied changes?</p>
+              <button
+                ref={keepEditingRef}
+                type="button"
+                onClick={() => setConfirmDiscard(false)}
+                className="px-4 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-alarm-solid hover:bg-alarm-solid/90 text-white text-sm font-bold transition-colors"
+              >
+                Discard
+              </button>
+            </>
+          ) : (
+            <button
+              ref={doneRef}
+              type="button"
+              onClick={requestClose}
+              className="px-5 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors"
+            >
+              Done
+            </button>
+          )}
         </div>
       </div>
     </div>,
