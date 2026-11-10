@@ -322,6 +322,26 @@ describe('StaffManagement', () => {
       expect(screen.queryByText(/admin access/i)).not.toBeInTheDocument();
     });
 
+    it('titles the add dialog with an h2 under the page h1', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      expect(screen.getByRole('heading', { level: 2, name: /add staff member/i })).toBeInTheDocument();
+    });
+
+    it('says the email is required when submitted empty, and ties the error to the field', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      const submit = screen.getByRole('button', { name: /^add member$/i });
+      expect(submit).toBeEnabled();
+      fireEvent.click(submit);
+
+      const email = screen.getByLabelText(/email address/i);
+      expect(await screen.findByRole('alert')).toHaveTextContent(/email is required/i);
+      expect(email).toHaveAttribute('aria-invalid', 'true');
+      expect(email).toHaveAccessibleDescription(/email is required/i);
+      expect(createStaffRole).not.toHaveBeenCalled();
+    });
+
     it('rejects a malformed email in the add dialog without calling the server', async () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));

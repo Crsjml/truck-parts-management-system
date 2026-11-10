@@ -139,7 +139,7 @@ export default function StaffManagement({ currentEmail }) {
             <ShieldCheck weight="duotone" className="w-6 h-6 text-accent" />
             Staff Access
           </h1>
-          <p className="text-muted-foreground text-sm max-w-xl leading-relaxed">
+          <p className="text-foreground/70 text-sm max-w-xl leading-relaxed">
             Give each person the access they need. Cashiers manage sales and customers;
             warehouse staff manage stock and purchasing. Superadmins manage staff and settings.
           </p>
@@ -167,7 +167,7 @@ export default function StaffManagement({ currentEmail }) {
         <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Lock weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-bold text-foreground">Superadmin access required</h2>
-          <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
+          <p className="text-sm text-foreground/70 max-w-sm mt-2 leading-relaxed">
             Your account can view the shop but not the staff list. Ask a superadmin if you need access.
           </p>
         </div>
@@ -192,7 +192,7 @@ export default function StaffManagement({ currentEmail }) {
         <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <User weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-bold text-foreground">No staff members yet</h2>
-          <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
+          <p className="text-sm text-foreground/70 max-w-sm mt-2 leading-relaxed">
             Add an email address to allowlist it. That person registers on the storefront
             with that exact email and gains access on their first sign-in.
           </p>
@@ -241,7 +241,7 @@ export default function StaffManagement({ currentEmail }) {
               className="w-full max-w-md max-h-[calc(100dvh-2rem)] bg-background border border-border rounded-xl overflow-hidden flex flex-col"
             >
               <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
-                <h3 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h3>
+                <h2 id="add-staff-title" className="text-lg font-bold text-foreground">Add staff member</h2>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -269,7 +269,7 @@ export default function StaffManagement({ currentEmail }) {
                 </p>
 
                 {modalError && (
-                  <p role="alert" className="p-3 bg-destructive/10 border border-border text-alarm-text rounded-xl text-sm font-semibold">
+                  <p id="new-staff-email-error" role="alert" className="p-3 bg-destructive/10 border border-border text-alarm-text rounded-xl text-sm font-semibold">
                     {modalError}
                   </p>
                 )}
@@ -282,10 +282,12 @@ export default function StaffManagement({ currentEmail }) {
                     id="new-staff-email"
                     type="email"
                     ref={emailInputRef}
+                    aria-invalid={Boolean(modalError)}
+                    aria-describedby={modalError ? 'new-staff-email-error' : undefined}
                     value={newStaffEmail}
                     onChange={(e) => { setNewStaffEmail(e.target.value); setModalError(''); }}
                     placeholder="name@tarlactruckparts.com"
-                    className="w-full px-4 py-3 rounded-xl bg-secondary border border-border focus:border-accent outline-none transition-colors text-sm font-medium text-foreground"
+                    className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent outline-none transition-colors text-sm font-medium text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -319,7 +321,7 @@ export default function StaffManagement({ currentEmail }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || !newStaffEmail.trim()}
+                  disabled={saving}
                   className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? 'Adding…' : 'Add member'}
