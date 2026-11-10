@@ -46,16 +46,16 @@ selected period — candidates for promotion, markdown, or de-listing.
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │############## NAVY HEADER BAND (#1B365D) ###############################│
+ │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                        SLOW-MOVING STOCK REPORT      │
  │  Period: 09/02/2026 – 10/02/2026           Generated: 10/02/2026 14:35  │
  │  Criteria: has stock on hand AND 0 units sold in the period             │  <- criteria subline
  ├────────────────────────────────────────────────────────────────────────┤
  │ +-----------------------------+----------+---------------+-------+-------------+ │
- │ | PART NAME                   | SKU      | CURRENT STOCK | SOLD  |  LAST SALE  | │  <- navy header
+ │ | PART NAME                   | SKU      | CURRENT STOCK | SOLD  |  LAST SALE  | │  <- pale-tint header, bold black
  │ +-----------------------------+----------+---------------+-------+-------------+ │
  │ | Radiator Cap 1.1bar         | RC-11    |      34       |   0   | 92 days ago | │
- │ | Wiper Blade 22"             | WB-22    |      18       |   0   |   Never     | │  <- amber "Never"
+ │ | Wiper Blade 22"             | WB-22    |      18       |   0   |   Never     | │  <- "Never" in black
  │ | Tail Lamp Assy - Fuso       | TL-FU    |       6       |   0   | 140 days ago| │
  │ +-----------------------------+----------+---------------+-------+-------------+ │
  │        TOTAL IDLE PARTS: 12          TOTAL IDLE STOCK UNITS: 418              │  <- bold totals row
@@ -64,7 +64,7 @@ selected period — candidates for promotion, markdown, or de-listing.
 ```
 
 **Styling notes**
-- Navy masthead (operational/internal report).
+- White masthead shared by all reports. See README "Print styling" — white page, single-channel black/gray text, pale-tint table headers, no solid fills.
 - "SOLD" column reads `0` for every row by definition (zero-sales criteria); kept for clarity.
-- "Last Sale" highlights `Never` in amber to flag never-sold stock.
+- "Last Sale" prints `Never` for never-sold stock (black text; no color highlight).
 - Bold totals row summarizes how much idle inventory is tied up.

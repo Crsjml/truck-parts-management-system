@@ -13,7 +13,7 @@ Parts ranked by units sold in the selected period, with rank-movement vs the pri
 |-----------------|--------|------------------|--------|
 | Period start/end | report parameters | `99/99/9999` | ✅ |
 | Rank | `rankPartsBySales` order | `ZZ9` | ✅ |
-| Momentum (MOV) | `getRankDeltaBadge` (`NEW`/`▲n`/`▼n`/`—`) | `X(4)` | ✅ |
+| Momentum (MOV) | `momentumText` (`NEW`/`+n`/`-n`/`-`) | `X(4)` | ✅ |
 | Part Name | `TransactionItem.name` / `Part.name` | `X(22)` | ✅ |
 | SKU | `Part.sku` | `X(12)` | ✅ |
 | Category | `Part.category` | `X(12)` | ✅ |
@@ -44,22 +44,22 @@ Parts ranked by units sold in the selected period, with rank-movement vs the pri
 ================================================================================
 ```
 
-`MOV` (Momentum) = rank movement vs prior period: `NEW`, `▲n`, `▼n`, or `—`.
+`MOV` (Momentum) = rank movement vs prior period: `NEW`, `+n`, `-n`, or `-`. The PDF uses ASCII because jsPDF's built-in Helvetica cannot encode the on-screen ▲/▼ glyphs.
 
 ## B. Mockup Layout (visual wireframe) — A4 landscape
 
 ```
  ┌──────────────────────────────────────────────────────────────────────────────┐
- │############## BLUE HEADER BAND (#2563EB) ######################################│
+ │       WHITE MASTHEAD (no fill) - gray logo, black text, black rule below       │
  │  TARLAC TRUCK PARTS                     BEST-SELLING PARTS REPORT               │
  │  Period: 09/02/2026 – 10/02/2026        Generated: 10/02/2026 14:35            │
  ├──────────────────────────────────────────────────────────────────────────────┤
  │ +------+------+-------------------------+---------+----------+-----+-----+-----------+ │
- │ | RANK | MOV  | PART NAME               | SKU     | CATEGORY |STOCK|UNITS|  REVENUE  | │  <- blue header
+ │ | RANK | MOV  | PART NAME               | SKU     | CATEGORY |STOCK|UNITS|  REVENUE  | │  <- pale-tint header, bold black
  │ +------+------+-------------------------+---------+----------+-----+-----+-----------+ │
- │ |  #1  | NEW  | Brake Pad Set Isuzu ELF | BP-ELF  | Brakes   |  18 |  42 | 35,700.00 | │  <- green badge NEW
- │ |  #2  | ^ 3  | Oil Filter FH-120       | OF-120  | Filters  |  60 |  38 |  8,360.00 | │  <- green up badge
- │ |  #3  | v 1  | Clutch Disc 350mm       | CL-350  | Clutch   |   7 |  25 | 18,750.00 | │  <- red down badge
+ │ |  #1  | NEW  | Brake Pad Set Isuzu ELF | BP-ELF  | Brakes   |  18 |  42 | 35,700.00 | │  <- plain text NEW
+ │ |  #2  | +3   | Oil Filter FH-120       | OF-120  | Filters  |  60 |  38 |  8,360.00 | │  <- ASCII +n (no color)
+ │ |  #3  | -1   | Clutch Disc 350mm       | CL-350  | Clutch   |   7 |  25 | 18,750.00 | │  <- ASCII -n (no color)
  │ +------+------+-------------------------+---------+----------+-----+-----+-----------+ │
  │                                               TOTAL UNITS: 105   TOTAL REV: 62,810.00 │  <- bold totals row
  │  Showing 1 to 10 of 24 parts                                          Page 1 of 3     │
@@ -68,6 +68,6 @@ Parts ranked by units sold in the selected period, with rank-movement vs the pri
 
 **Styling notes**
 - Landscape A4 (8 columns need the width).
-- Rank in a blue chip; Momentum badge colored: green (NEW / up) vs red (down).
+- Rank and Momentum as plain black text — no colored chips or badges. See README "Print styling" — white page, single-channel black/gray text, pale-tint table headers, no solid fills.
 - Numeric columns right-aligned; totals row bold with a top rule.
 - Footer carries the pagination line + page number.

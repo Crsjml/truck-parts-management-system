@@ -59,7 +59,7 @@ A period roll-up of sales. On screen it is a single day; the PDF supports a date
 
 ```
  ┌────────────────────────────────────────────────────────────────────────┐
- │############## BLUE HEADER BAND (#2563EB) ###############################│
+ │    WHITE MASTHEAD (no fill) - gray logo, black text, black rule below   │
  │  TARLAC TRUCK PARTS                           SALES SUMMARY              │
  │  Tarlac City, Philippines      Period: 10/01/2026 – 10/02/2026          │
  │                                Generated: 10/02/2026 14:35              │
@@ -87,7 +87,7 @@ A period roll-up of sales. On screen it is a single day; the PDF supports a date
 ```
 
 **Styling notes**
-- KPI tiles across the top (same style as the on-screen Analytics tiles).
+- KPI tiles across the top, drawn as outline-only boxes (no fill) to save toner. See README "Print styling" — white page, single-channel black/gray text, pale-tint table headers, no solid fills.
 - Payment mix uses horizontal percentage bars; shares sum to 100%.
 - Two-column middle band (Payment Mix | Order Status), table below.
 - `➕` Discounts and VAT totals are new to the PDF (not totaled on screen today).

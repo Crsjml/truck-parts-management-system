@@ -4,13 +4,17 @@
 // BestSellingPartsReport.jsx renders on screen (rankPartsBySales + part
 // lookup) so the PDF totals always match the dashboard.
 import {
-  jsPDF, autoTable, BRAND, safe, masthead, paginate, headStyle,
+  jsPDF, autoTable, safe, masthead, paginate, headStyle, bodyStyle, tableLines,
   alternateRowStyles, footStyles, numCol, formatMoney, formatDate, formatDateTime
 } from './pdf/reportPdfKit';
-import { getRankDeltaBadge } from './salesAnalytics';
 
+// The on-screen badge uses ▲/▼, which jsPDF's built-in Helvetica cannot
+// encode (they print as mojibake), so the PDF spells movement in ASCII.
 function momentumText(rankDelta) {
-  return getRankDeltaBadge(rankDelta).text;
+  if (rankDelta === null || rankDelta === undefined) return 'NEW';
+  if (rankDelta > 0) return `+${rankDelta}`;
+  if (rankDelta < 0) return `${rankDelta}`;
+  return '-';
 }
 
 export function buildBestSellingPartsPdf(ranked, { dateRange }) {
@@ -18,7 +22,6 @@ export function buildBestSellingPartsPdf(ranked, { dateRange }) {
 
   masthead(doc, {
     title: 'BEST-SELLING PARTS REPORT',
-    color: BRAND,
     meta: [
       `Period : ${formatDate(dateRange.start)} to ${formatDate(dateRange.end)}`,
       `Generated : ${formatDateTime(new Date())}`
@@ -35,7 +38,7 @@ export function buildBestSellingPartsPdf(ranked, { dateRange }) {
       item.rank,
       momentumText(item.rankDelta),
       safe(item.name, 28),
-      safe(item.sku, 12) || 'N/A',
+      safe(item.sku, 13) || 'N/A',
       safe(item.oem, 12) || 'N/A',
       safe(item.category, 18) || 'Uncategorized',
       item.stock,
@@ -48,11 +51,11 @@ export function buildBestSellingPartsPdf(ranked, { dateRange }) {
       totalUnits,
       formatMoney(totalRevenue)
     ]],
-    theme: 'grid',
-    headStyles: headStyle(BRAND),
+    ...tableLines,
+    headStyles: headStyle(),
     alternateRowStyles,
     footStyles,
-    bodyStyles: { fontSize: 9 },
+    bodyStyles: bodyStyle(),
     columnStyles: {
       0: numCol('center'),
       1: { halign: 'center' },

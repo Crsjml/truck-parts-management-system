@@ -87,3 +87,24 @@ Every report uses the same masthead and footer so the PDFs read as one family:
 
 `✅ grounded in code` = field already exists and is displayed/exported today.
 `➕ proposed` = new field/row added for the report (needs group OK).
+
+## Print styling (ink-efficient)
+
+All six PDFs share one low-ink scheme, defined in `frontend/src/utils/pdf/reportPdfKit.js`
+(site exports) and mirrored in `generate-report-layout-pdfs.cjs` / `generate-report-sample-pdfs.cjs`.
+
+| Token | Value | Used for |
+|---|---|---|
+| `INK` | gray `0` (pure black, DeviceGray) | primary text, masthead rule, total-box border |
+| `INK_2` | gray `70` | secondary text, labels, footer |
+| `RULE` / `RULE_SOFT` | gray `150` / `205` | table borders / row separators, KPI tile outlines |
+| `TINT_HEAD` | `#EEF1F6` pastel | table header rows |
+| `TINT_TOT` | `#F4F6F9` pastel | totals rows, NET TOTAL box |
+
+- **Single-channel black.** Colors are passed to jsPDF as one number, which it writes as
+  DeviceGray (`0 g`), so printers use black toner only instead of a CMY+K "rich black".
+- **No solid or dark fills.** White masthead (light-gray DeviceGray logo `assets/logo-mark-print.png`
+  + one black rule), no zebra striping, outline-only KPI tiles. RGB is reserved for the two pale tints.
+- **Guarded by a test.** `frontend/src/utils/__tests__/reportPdfInk.test.js` parses each export's
+  PDF content stream and fails on any fill darker than 85% white or any non-pastel RGB color.
+

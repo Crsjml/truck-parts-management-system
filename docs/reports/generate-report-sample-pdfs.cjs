@@ -26,20 +26,28 @@ const OUT_DIR = path.join(__dirname, 'report-sample-pdfs');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 // Company logo (rasterized from frontend/src/components/Logo.jsx via make-logo-png.cjs).
-const LOGO_PATH = path.join(__dirname, 'assets', 'logo-mark.png');
+const LOGO_PATH = path.join(__dirname, 'assets', 'logo-mark-print.png');
 const LOGO_B64 = fs.existsSync(LOGO_PATH) ? fs.readFileSync(LOGO_PATH).toString('base64') : null;
 
-// Muted, formal palette (no bright colors) — one scheme shared by all reports.
-const BRAND = [30, 41, 59];    // slate-800 — every masthead, table header, section label
+// Ink-efficient PRINT palette — mirrors frontend/src/utils/pdf/reportPdfKit.js.
+// Single numbers are written as DeviceGray ("0 g"), so text and rules print with
+// black toner only; no solid/dark fills, only pale pastel tints (~3-6% coverage).
+const INK = 0;                     // primary text — pure single-channel black
+const INK_2 = 70;                  // secondary text / labels — dark gray
+const RULE = 150;                  // structural rules, table borders, tile outlines
+const RULE_SOFT = 205;             // row separators
+const TINT_HEAD = [238, 241, 246]; // pale slate-blue pastel — table headers
+const TINT_TOT = [244, 246, 249];  // paler pastel — totals rows / NET TOTAL box
+const BRAND = INK;                 // aliases kept so existing call sites need no change
 const CUST = BRAND;
 const INT = BRAND;
-const DIVIDER = [203, 213, 225];
-const INK = [30, 41, 59];
-const MUTED = [100, 116, 139];
-const ZEBRA = [247, 248, 250]; // alternate table-row stripe
-const FOOT = [235, 238, 242];  // footer / totals-row fill
-const POS = [21, 128, 61];     // muted emerald — positive period-over-period delta
-const NEG = [185, 28, 28];     // muted red — negative delta
+const DIVIDER = RULE;
+const MUTED = INK_2;
+const ZEBRA = false;               // no striped rows — hairlines separate them instead
+const FOOT = TINT_TOT;
+const GRID = { lineColor: RULE_SOFT, lineWidth: 0.1, textColor: INK };
+const POS = INK;          // muted emerald — positive period-over-period delta
+const NEG = INK;          // muted red — negative delta
 
 // Money formatter: PHP 1,234.56 (comma grouping, always 2 decimals).
 const php = (n) => 'PHP ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -49,52 +57,45 @@ function save(doc, filename) {
   console.log('  wrote', filename);
 }
 
-function masthead(doc, { title, meta = [], color = CUST }) {
+function masthead(doc, { title, meta = [] }) {
   const w = doc.internal.pageSize.getWidth();
-  doc.setFillColor(...color);
-  doc.rect(0, 0, w, 32, 'F');
-  doc.setFillColor(...DIVIDER);
-  doc.rect(0, 32, w, 0.8, 'F');
-  doc.setFillColor(255, 255, 255); doc.roundedRect(13, 5, 22, 22, 4, 4, 'F');
+  // White masthead: light-gray DeviceGray logo, black company block, one crisp rule.
   if (LOGO_B64) {
-    doc.addImage('data:image/png;base64,' + LOGO_B64, 'PNG', 15, 7, 18, 18);
-  } else {
-    doc.setTextColor(120, 120, 120); doc.setFont('Helvetica', 'italic'); doc.setFontSize(7);
-    doc.text('LOGO', 24, 16, { align: 'center' });
+    doc.addImage('data:image/png;base64,' + LOGO_B64, 'PNG', 14, 7, 18, 18);
   }
-  doc.setLineWidth(0.2);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(INK);
   doc.setFont('Helvetica', 'bold'); doc.setFontSize(17);
-  doc.text('TARLAC TRUCK PARTS', 40, 14);
-  doc.setTextColor(...DIVIDER);
+  doc.text('TARLAC TRUCK PARTS', 36, 14);
+  doc.setTextColor(INK_2);
   doc.setFont('Helvetica', 'normal'); doc.setFontSize(8);
-  doc.text('Quality Truck Accessories & Spare Parts  |  Tarlac City, Philippines', 40, 20);
-  doc.text('Contact: 0917 555 1234   TIN: 123-456-789-000', 40, 25);
-  doc.setTextColor(255, 255, 255);
+  doc.text('Quality Truck Accessories & Spare Parts  |  Tarlac City, Philippines', 36, 20);
+  doc.text('Contact: 0917 555 1234   TIN: 123-456-789-000', 36, 25);
+  doc.setTextColor(INK);
   doc.setFont('Helvetica', 'bold'); doc.setFontSize(13);
   doc.text(title, w - 14, 13, { align: 'right' });
-  doc.setTextColor(...DIVIDER);
+  doc.setTextColor(INK_2);
   doc.setFont('Helvetica', 'normal'); doc.setFontSize(9);
   meta.forEach((line, i) => doc.text(line, w - 14, 20 + i * 5, { align: 'right' }));
-  doc.setTextColor(...INK);
+  doc.setDrawColor(INK); doc.setLineWidth(0.6); doc.line(14, 34, w - 14, 34); doc.setLineWidth(0.2);
+  doc.setTextColor(INK);
 }
 
 function sampleFooter(doc) {
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   doc.setDrawColor(200); doc.line(14, h - 20, w - 14, h - 20);
-  doc.setFont('Helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+  doc.setFont('Helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(MUTED);
   doc.text('SAMPLE REPORT — illustrative data only; figures and names are fictitious and for layout review.', 14, h - 14);
   doc.text('ID formats — SKU: CATEGORY-PART-#####   ·   Docs: TYPE-YYYYMMDD-####', 14, h - 9);
   doc.text('Page 1 of 1', w - 14, h - 9, { align: 'right' });
 }
 
-const headStyle = (c) => ({ fillColor: c, textColor: 255, fontSize: 9 });
+const headStyle = () => ({ fillColor: TINT_HEAD, textColor: INK, fontStyle: 'bold', fontSize: 9, lineColor: RULE, lineWidth: 0.2 });
 
 function sectionLabel(doc, text, x, y, color = INT) {
-  doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...color);
+  doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(color);
   doc.setCharSpace(0.8); doc.text(text.toUpperCase(), x, y); doc.setCharSpace(0);
-  doc.setTextColor(...INK);
+  doc.setTextColor(INK);
 }
 
 const numCol = (halign = 'right') => ({ halign, font: 'courier', fontSize: 8.5 });
@@ -118,7 +119,7 @@ function salesInvoice() {
     startY: 62,
     head: [['#', 'SKU', 'PART DESCRIPTION', 'UNIT PRICE', 'QTY', 'AMOUNT']],
     body: items,
-    theme: 'grid', headStyles: { ...headStyle(CUST), halign: 'left' }, bodyStyles: { fontSize: 9 },
+    theme: 'grid', styles: GRID, headStyles: { ...headStyle(CUST), halign: 'left' }, bodyStyles: { fontSize: 9 },
     alternateRowStyles: { fillColor: ZEBRA },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center', font: 'courier' },
@@ -132,19 +133,19 @@ function salesInvoice() {
 
   let y = doc.lastAutoTable.finalY + 8; doc.setFontSize(9);
   const right = (l, v, yy) => {
-    doc.setFont('Helvetica', 'normal'); doc.setTextColor(...MUTED); doc.text(l, 120, yy);
-    doc.setFont('Courier', 'normal'); doc.setTextColor(...INK); doc.text(v, 196, yy, { align: 'right' });
+    doc.setFont('Helvetica', 'normal'); doc.setTextColor(MUTED); doc.text(l, 120, yy);
+    doc.setFont('Courier', 'normal'); doc.setTextColor(INK); doc.text(v, 196, yy, { align: 'right' });
   };
   // Total 16,640.00 VAT-inclusive -> VATable = /1.12, VAT = total - VATable.
   right('Subtotal (VATable):', php(14857.14), y);
   right('Discount:', '-' + php(0), y + 5.5);
   right('VAT (12%):', php(1782.86), y + 11);
-  doc.setFillColor(...CUST); doc.rect(118, y + 15, 78, 8, 'F');
-  doc.setTextColor(255, 255, 255);
+  doc.setFillColor(...FOOT); doc.setDrawColor(INK); doc.setLineWidth(0.4); doc.rect(118, y + 15, 78, 8, 'FD'); doc.setLineWidth(0.2);
+  doc.setTextColor(INK);
   doc.setFont('Helvetica', 'bold'); doc.text('NET TOTAL:', 121, y + 20.3);
   doc.setFont('Courier', 'bold'); doc.text(php(16640), 193, y + 20.3, { align: 'right' });
   sectionLabel(doc, 'Payment', 14, y + 33, CUST);
-  doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...INK);
+  doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(INK);
   doc.text('Payment Method : Cash', 14, y + 39);
   doc.text('[CASH] Tendered: ' + php(20000) + '   Change: ' + php(3360), 14, y + 45);
   doc.text('Cashier: J. Mercado    Branch: Main Store (Tarlac City)', 14, y + 51);
@@ -173,7 +174,7 @@ function purchaseOrder() {
     startY: 82,
     head: [['#', 'SKU', 'OEM / MPN', 'DESCRIPTION', 'QTY', 'UNIT PRICE', 'AMOUNT']],
     body: items,
-    theme: 'grid', headStyles: headStyle(INT), bodyStyles: { fontSize: 9 },
+    theme: 'grid', styles: GRID, headStyles: headStyle(INT), bodyStyles: { fontSize: 9 },
     alternateRowStyles: { fillColor: ZEBRA },
     columnStyles: {
       0: { cellWidth: 10, ...numCol('center') }, 1: numCol('left'), 2: numCol('left'),
@@ -182,7 +183,7 @@ function purchaseOrder() {
     margin: { left: 14, right: 14 },
   });
   let y = doc.lastAutoTable.finalY + 8;
-  doc.setFontSize(11); doc.setTextColor(...INK);
+  doc.setFontSize(11); doc.setTextColor(INK);
   const gv = php(71800); doc.setFont('Courier', 'bold'); const gvw = doc.getTextWidth(gv);
   doc.setFont('Helvetica', 'bold'); doc.text('GRAND TOTAL:', 196 - gvw - 3, y, { align: 'right' });
   doc.setFont('Courier', 'bold'); doc.text(gv, 196, y, { align: 'right' });
@@ -215,9 +216,9 @@ function rfq() {
     head: [['#', 'SKU / DESCRIPTION', 'QTY REQ', 'YOUR UNIT PRICE', 'TOTAL']],
     body: items,
     foot: [[{ content: 'QUOTED TOTAL', colSpan: 4, styles: { halign: 'right' } }, { content: php(71800), styles: { halign: 'right' } }]],
-    theme: 'grid', headStyles: headStyle(INT), bodyStyles: { fontSize: 9, minCellHeight: 10 },
+    theme: 'grid', styles: GRID, headStyles: headStyle(INT), bodyStyles: { fontSize: 9, minCellHeight: 10 },
     alternateRowStyles: { fillColor: ZEBRA },
-    footStyles: { fillColor: FOOT, textColor: 30, fontStyle: 'bold', font: 'courier' },
+    footStyles: { fillColor: FOOT, textColor: INK, fontStyle: 'bold', font: 'courier' },
     columnStyles: { 0: { cellWidth: 10, ...numCol('center') }, 2: numCol('center'), 3: { cellWidth: 45, ...numCol('right') }, 4: { cellWidth: 35, ...numCol('right') } },
     margin: { left: 14, right: 14 },
   });
@@ -241,17 +242,17 @@ function salesSummary() {
   ];
   const tw = 59.3, gap = 3; let tx = 14;
   tiles.forEach(([lab, val, delta, up]) => {
-    doc.setDrawColor(210); doc.setFillColor(247, 248, 250); doc.roundedRect(tx, 42, tw, 21, 2, 2, 'FD');
-    doc.setFont('Helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(...MUTED); doc.text(lab, tx + 3, 48);
-    doc.setFont('Courier', 'bold'); doc.setFontSize(10); doc.setTextColor(...INK); doc.text(val, tx + 3, 55);
-    doc.setFont('Helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...(up ? POS : NEG));
+    doc.setDrawColor(RULE); doc.setLineWidth(0.3); doc.roundedRect(tx, 42, tw, 21, 2, 2, 'S'); doc.setLineWidth(0.2);
+    doc.setFont('Helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(MUTED); doc.text(lab, tx + 3, 48);
+    doc.setFont('Courier', 'bold'); doc.setFontSize(10); doc.setTextColor(INK); doc.text(val, tx + 3, 55);
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(up ? POS : NEG);
     doc.text(delta + ' vs prev', tx + 3, 60.5);
     tx += tw + gap;
   });
   doc.setFont('Helvetica', 'normal');
 
   // Financial breakdown — Net Sales = Gross - Discounts; VATable = Net / 1.12.
-  doc.setFontSize(8.5); doc.setTextColor(...INK);
+  doc.setFontSize(8.5); doc.setTextColor(INK);
   doc.text('Gross Sales: ' + php(1284560) + '      Discounts: -' + php(24500) + '      Net Sales: ' + php(1260060), 14, 71);
   doc.text('VATable (net of VAT): ' + php(1125053.57) + '      Output VAT (12%): ' + php(135006.43), 14, 76);
 
@@ -266,7 +267,7 @@ function salesSummary() {
       ['Cheque', php(79000), '6.2%'],
       [{ content: 'TOTAL', styles: { fontStyle: 'bold' } }, { content: php(1284560), styles: { fontStyle: 'bold', halign: 'right' } }, { content: '100.0%', styles: { fontStyle: 'bold' } }],
     ],
-    theme: 'grid', headStyles: headStyle(CUST), bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: ZEBRA },
+    theme: 'grid', styles: GRID, headStyles: headStyle(CUST), bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: ZEBRA },
     columnStyles: { 1: numCol('right'), 2: numCol('center') }, margin: { left: 14, right: 110 },
   });
   const payEndY = doc.lastAutoTable.finalY; // payment table is the taller of the two
@@ -274,12 +275,12 @@ function salesSummary() {
   autoTable(doc, {
     startY: 81, head: [['ORDER STATUS', 'COUNT']],
     body: [['Completed', '318'], ['Ready for Pickup', '9'], ['Cancelled', '12'], ['Order Placed', '3']],
-    theme: 'grid', headStyles: headStyle(CUST), bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: ZEBRA },
+    theme: 'grid', styles: GRID, headStyles: headStyle(CUST), bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: ZEBRA },
     columnStyles: { 1: numCol('center') }, margin: { left: 110, right: 14 },
   });
   // Anchor captions below whichever side table is taller (side-by-side tables).
   const y = Math.max(payEndY, doc.lastAutoTable.finalY) + 10;
-  doc.setFontSize(7.5); doc.setFont('Helvetica', 'italic'); doc.setTextColor(...MUTED);
+  doc.setFontSize(7.5); doc.setFont('Helvetica', 'italic'); doc.setTextColor(MUTED);
   doc.text('Deltas compare against the previous period (08/2026).', 14, y);
   sampleFooter(doc);
   save(doc, '04-sales-summary.pdf');
@@ -291,17 +292,17 @@ function bestSelling() {
   masthead(doc, { title: 'BEST-SELLING PARTS REPORT', color: CUST, meta: ['Period : 09/01/2026 to 09/30/2026', 'Generated : 10/01/2026 09:15'] });
   // MOV = rank movement vs. previous period. ASCII only (built-in font has no arrow glyphs).
   const rows = [
-    ['1', 'UP', 'Front Brake Pad Set', 'BRK-PAD-00001', '8980066870', 'Brake System', '48', '210', php(388500)],
-    ['2', 'UP', 'Clutch Disc 300mm', 'CLT-DSC-00004', 'ME521103', 'Transmission', '26', '154', php(369600)],
-    ['3', 'DOWN', 'Air Filter Element', 'FLT-AIR-00012', '17801-2340', 'Filters', '132', '186', php(182280)],
+    ['1', '+2', 'Front Brake Pad Set', 'BRK-PAD-00001', '8980066870', 'Brake System', '48', '210', php(388500)],
+    ['2', '+1', 'Clutch Disc 300mm', 'CLT-DSC-00004', 'ME521103', 'Transmission', '26', '154', php(369600)],
+    ['3', '-1', 'Air Filter Element', 'FLT-AIR-00012', '17801-2340', 'Filters', '132', '186', php(182280)],
   ];
   autoTable(doc, {
     startY: 40,
     head: [['RANK', 'MOV', 'PART NAME', 'SKU', 'OEM / MPN', 'CATEGORY', 'STOCK', 'UNITS', 'REVENUE']],
     body: rows,
     foot: [[{ content: '', colSpan: 6 }, { content: 'TOTAL', styles: { halign: 'right' } }, '550', php(940380)]],
-    theme: 'grid', headStyles: headStyle(CUST), alternateRowStyles: { fillColor: ZEBRA },
-    footStyles: { fillColor: FOOT, textColor: 30, fontStyle: 'bold' }, bodyStyles: { fontSize: 9 },
+    theme: 'grid', styles: GRID, headStyles: headStyle(CUST), alternateRowStyles: { fillColor: ZEBRA },
+    footStyles: { fillColor: FOOT, textColor: INK, fontStyle: 'bold' }, bodyStyles: { fontSize: 9 },
     columnStyles: { 0: numCol('center'), 1: { halign: 'center' }, 3: numCol('left'), 4: numCol('left'), 6: numCol('right'), 7: numCol('right'), 8: numCol('right') },
     margin: { left: 14, right: 14 },
   });
@@ -313,7 +314,7 @@ function bestSelling() {
 function slowMoving() {
   const doc = new jsPDF();
   masthead(doc, { title: 'SLOW-MOVING STOCK REPORT', color: INT, meta: ['Period : 09/01/2026 to 09/30/2026', 'Generated : 10/01/2026 09:15'] });
-  doc.setFontSize(8); doc.setTextColor(...MUTED);
+  doc.setFontSize(8); doc.setTextColor(MUTED);
   doc.text('Criteria: parts with stock on hand and low/zero units sold during the period', 14, 42);
   autoTable(doc, {
     startY: 47,
@@ -326,8 +327,8 @@ function slowMoving() {
     foot: [[{ content: 'TOTAL IDLE PARTS: 27', colSpan: 3, styles: { halign: 'left' } },
             { content: '113', styles: { halign: 'center' } },
             { content: 'IDLE STOCK UNITS', colSpan: 2, styles: { halign: 'right' } }]],
-    theme: 'grid', headStyles: headStyle(INT), alternateRowStyles: { fillColor: ZEBRA },
-    footStyles: { fillColor: FOOT, textColor: 30, fontStyle: 'bold' }, bodyStyles: { fontSize: 9 },
+    theme: 'grid', styles: GRID, headStyles: headStyle(INT), alternateRowStyles: { fillColor: ZEBRA },
+    footStyles: { fillColor: FOOT, textColor: INK, fontStyle: 'bold' }, bodyStyles: { fontSize: 9 },
     columnStyles: { 1: numCol('left'), 2: numCol('left'), 3: numCol('center'), 4: numCol('center'), 5: { halign: 'center' } },
     margin: { left: 14, right: 14 },
   });
