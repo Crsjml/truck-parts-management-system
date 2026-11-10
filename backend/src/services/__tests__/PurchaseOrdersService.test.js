@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const purchaseOrdersRepository = {
   findLatestByDate: vi.fn(),
@@ -272,5 +272,27 @@ describe('PurchaseOrdersService RFQ detail edits', () => {
       paymentDueDate: new Date('2026-09-20'),
       notes: 'Updated RFQ note'
     });
+  });
+});
+
+describe('PurchaseOrdersService.generatePONumber', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('dates PO numbers by the Philippine calendar day, not UTC', async () => {
+    // 2026-11-09 23:30 UTC is already 07:30 on Nov 10 in Manila.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-09T23:30:00Z'));
+    purchaseOrdersRepository.findLatestByDate.mockResolvedValue({ poNumber: 'PO-20261110-0007' });
+
+    const poNumber = await purchaseOrdersService.generatePONumber();
+
+    expect(purchaseOrdersRepository.findLatestByDate).toHaveBeenCalledWith('20261110');
+    expect(poNumber).toBe('PO-20261110-0008');
   });
 });

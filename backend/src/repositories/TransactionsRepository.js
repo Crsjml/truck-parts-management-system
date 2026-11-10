@@ -18,6 +18,13 @@ class TransactionsRepository {
     });
   }
 
+  async findByClientRef(clientRef) {
+    return await prisma.transaction.findUnique({
+      where: { clientRef },
+      include: { items: true }
+    });
+  }
+
   async executeTransaction(callback) {
     return await prisma.$transaction(callback);
   }

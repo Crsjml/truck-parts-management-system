@@ -151,6 +151,8 @@ model Supplier {
 model Transaction {
   id              String   @id @default(uuid()) @db.Uuid
   invoiceNumber   String   @unique
+  /// Client-generated idempotency key for POS submits (server owns invoiceNumber).
+  clientRef       String?  @unique
   customerName    String   @default("Walk-in Customer")
   customerContact String   @default("N/A")
   customerEmail   String   @default("")

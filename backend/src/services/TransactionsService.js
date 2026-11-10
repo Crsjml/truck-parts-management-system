@@ -1,6 +1,7 @@
 // backend/src/services/TransactionsService.js
 import transactionsRepository from '../repositories/TransactionsRepository.js';
 import { prisma } from '../config/prisma.js';
+import { nextInvoiceNumber, isUniqueViolation, retryOnUniqueViolation } from '../utils/invoiceNumbers.js';
 
 const ORDER_STATUS = {
   'Order Placed': 'ORDER_PLACED',
@@ -93,8 +94,22 @@ class TransactionsService {
   }
 
   async createTransaction(data, userId, processedBy = '') {
+    try {
+      return await retryOnUniqueViolation('invoiceNumber', () => this.#insertTransaction(data, userId, processedBy));
+    } catch (error) {
+      // Two submits of the same sale raced: the loser returns the winner's row.
+      if (data.clientRef && isUniqueViolation(error, 'clientRef')) {
+        const winner = await transactionsRepository.findByClientRef(data.clientRef);
+        if (winner) return winner;
+      }
+      throw error;
+    }
+  }
+
+  async #insertTransaction(data, userId, processedBy) {
+    // invoiceNumber from the client is ignored: the server owns numbering.
     const {
-      invoiceNumber,
+      clientRef,
       customerName,
       customerContact,
       customerEmail,
@@ -125,9 +140,9 @@ class TransactionsService {
     const isImmediateSale = status === 'COMPLETED';
 
     return await transactionsRepository.executeTransaction(async (tx) => {
-      if (invoiceNumber) {
+      if (clientRef) {
         const existingTransaction = await tx.transaction.findUnique({
-          where: { invoiceNumber },
+          where: { clientRef },
           include: { items: true }
         });
         if (existingTransaction) return existingTransaction;
@@ -209,9 +224,12 @@ class TransactionsService {
         finalUserId = userId || null;
       }
 
+      const invoiceNumber = await nextInvoiceNumber(tx, 'INV');
+
       return await tx.transaction.create({
         data: {
           invoiceNumber,
+          clientRef: clientRef || null,
           customerName: customerName || 'Walk-in Customer',
           customerContact: customerContact || 'N/A',
           customerEmail: customerEmail || '',

@@ -402,7 +402,8 @@ export default function App() {
       // Replace optimistic update with the real transaction from the backend
       setTransactions((prev) => prev.map(tx => tx.id === tempId ? res.transaction : tx));
 
-      return true;
+      // The saved row carries the server-assigned invoice number for the receipt.
+      return res.transaction;
     } else {
       // Revert optimistic update on failure
       setTransactions((prev) => prev.filter(tx => tx.id !== tempId));

@@ -2,6 +2,8 @@
 import Stripe from 'stripe';
 import { prisma } from '../config/prisma.js';
 import transactionsRepository from '../repositories/TransactionsRepository.js';
+import { STORE_PICKUP } from '../utils/recordFormats.js';
+import { nextInvoiceNumber, retryOnUniqueViolation } from '../utils/invoiceNumbers.js';
 
 /**
  * Part.price is the wholesale base price; the customer-facing selling price is
@@ -125,15 +127,16 @@ class CheckoutService {
     const cartItems = JSON.parse(session.metadata.cartItems);
     const totalAmount = session.amount_total / 100;
 
-    await transactionsRepository.executeTransaction(async (tx) => {
+    await retryOnUniqueViolation('invoiceNumber', () => transactionsRepository.executeTransaction(async (tx) => {
       // Snapshot each line item's SKU at sale time, same as the POS path.
       const parts = await tx.part.findMany({ where: { id: { in: cartItems.map(item => item.id) } } });
       const skuById = new Map(parts.map(p => [p.id, p.sku]));
 
       // 1. Create a transaction
+      const invoiceNumber = await nextInvoiceNumber(tx, 'WEB');
       await tx.transaction.create({
         data: {
-          invoiceNumber: `WEB-${Date.now()}`,
+          invoiceNumber,
           customerName: session.metadata.userEmail,
           customerContact: session.metadata.userId,
           userId: session.metadata.userId !== 'N/A' ? session.metadata.userId : null,
@@ -142,8 +145,8 @@ class CheckoutService {
           subtotal: Math.round((totalAmount / (1 + VAT_RATE)) * 100) / 100,
           taxAmount: Math.round((totalAmount - totalAmount / (1 + VAT_RATE)) * 100) / 100,
           total: totalAmount,
-          pickupLocation: "Tarlac Truck Pitstop, 123 MacArthur Highway, Tarlac City",
-          pickupHours: "Mon-Sat: 8:00 AM - 5:00 PM",
+          pickupLocation: STORE_PICKUP.location,
+          pickupHours: STORE_PICKUP.hours,
           items: {
             create: cartItems.map(item => ({
               partId: item.id,
@@ -163,7 +166,7 @@ class CheckoutService {
           data: { reservedStock: { increment: item.quantity } }
         });
       }
-    });
+    }));
 
     const paidCurrency = session.metadata.currency || 'PHP';
     console.log(`Successfully processed order for ${session.metadata.userEmail}. Total: ${totalAmount} ${paidCurrency.toUpperCase()}`);

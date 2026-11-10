@@ -1,5 +1,6 @@
 // backend/src/services/PurchaseOrdersService.js
 import purchaseOrdersRepository from '../repositories/PurchaseOrdersRepository.js';
+import { dateKey, nextDocNumber } from '../utils/recordFormats.js';
 
 export const PAYMENT_DUE_SOON_DAYS = 7;
 
@@ -85,16 +86,8 @@ const withPaymentStatus = (po, today) => ({
 class PurchaseOrdersService {
   async generatePONumber() {
     const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    
-    const lastPO = await purchaseOrdersRepository.findLatestByDate(dateStr);
-
-    let sequence = 1;
-    if (lastPO) {
-      const parts = lastPO.poNumber.split('-');
-      sequence = parseInt(parts[2], 10) + 1;
-    }
-    return `PO-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+    const lastPO = await purchaseOrdersRepository.findLatestByDate(dateKey(date));
+    return nextDocNumber('PO', date, lastPO?.poNumber);
   }
 
   async getPurchaseOrders(today = new Date()) {
