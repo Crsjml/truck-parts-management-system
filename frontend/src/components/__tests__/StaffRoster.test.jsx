@@ -29,6 +29,12 @@ const renderRoster = (props = {}) =>
   );
 
 describe('StaffRoster', () => {
+  it('shows the remove button at rest rather than hiding it until hover', () => {
+    renderRoster();
+    const remove = screen.getByRole('button', { name: 'Remove newhire@ttp.com' });
+    expect(remove.className).not.toMatch(/opacity-0/);
+  });
+
   it('lists every staff member by email', () => {
     renderRoster();
     expect(screen.getByText('owner@ttp.com')).toBeInTheDocument();

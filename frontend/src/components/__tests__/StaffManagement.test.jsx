@@ -58,12 +58,34 @@ describe('StaffManagement', () => {
     ['empty', { ok: true, status: 200, staff: [] }, /no staff members yet/i],
     ['denied', { ok: false, status: 403, staff: [] }, /superadmin access required/i],
     ['error', { ok: false, status: 0, staff: [] }, /could not reach the server/i]
-  ])('titles the %s state with an h2 under the page h1', async (_, response, title) => {
+  ])('titles the %s state with an h3 under the page h2 (the shell owns the h1)', async (_, response, title) => {
     fetchStaffRoles.mockResolvedValue(response);
+    const { container } = render(<StaffManagement currentEmail="a@ttp.com" />);
+
+    expect(await screen.findByRole('heading', { level: 3, name: title })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /staff access/i })).toBeInTheDocument();
+    expect(container.querySelectorAll('h1').length).toBe(0);
+  });
+
+  it('introduces all four roles, including Admin', async () => {
+    fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
     render(<StaffManagement currentEmail="a@ttp.com" />);
 
-    expect(await screen.findByRole('heading', { level: 2, name: title })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: /staff access/i })).toBeInTheDocument();
+    const title = await screen.findByRole('heading', { level: 2, name: /staff access/i });
+    const intro = title.parentElement;
+    [/cashier/i, /warehouse/i, /\badmins?\b/i, /superadmin/i].forEach((role) => {
+      expect(intro).toHaveTextContent(role);
+    });
+  });
+
+  it('explains access in plain language, without "allowlist" jargon', async () => {
+    fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
+    render(<StaffManagement currentEmail="a@ttp.com" />);
+
+    await screen.findByText(/no staff members yet/i);
+    expect(document.body).not.toHaveTextContent(/allowlist/i);
+    fireEvent.click(screen.getByRole('button', { name: /add staff member/i }));
+    expect(screen.getByRole('dialog', { name: /add staff member/i })).not.toHaveTextContent(/allowlist/i);
   });
 
   it('opens outside the animated page and restores focus and scrolling on Escape', async () => {

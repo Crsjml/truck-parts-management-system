@@ -211,7 +211,7 @@ export default function StaffRoster({
                     onClick={() => onRequestRemove(person.id)}
                     data-focus-return={`remove-${person.id}`}
                     aria-label={`Remove ${person.email}`}
-                    className="shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-alarm-text transition-all"
+                    className="shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-alarm-text transition-colors"
                   >
                     <Trash weight="bold" className="w-4 h-4" />
                   </button>
