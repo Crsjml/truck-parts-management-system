@@ -6,10 +6,9 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { fetchStaffRoles, createStaffRole, updateStaffRole, deleteStaffRole } from '../authStore';
 import StaffRoster from './staff/StaffRoster';
 import StaffAddedPanel from './staff/StaffAddedPanel';
-import { STAFF_ROLES, staffRoleLabel } from '../utils/staffAccess';
+import { STAFF_ROLES, isPromotion } from '../utils/staffAccess';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ROLE_NOTICE_MS = 8000;
 
 export default function StaffManagement({ currentEmail }) {
   const [staffList, setStaffList] = useState([]);
@@ -38,12 +37,6 @@ export default function StaffManagement({ currentEmail }) {
   useEffect(() => {
     if (isModalOpen && !addedStaff) emailInputRef.current?.focus();
   }, [addedStaff, isModalOpen]);
-
-  useEffect(() => {
-    if (!roleNotice) return undefined;
-    const timer = setTimeout(() => setRoleNotice(null), ROLE_NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [roleNotice]);
 
   // silent: refresh after a change without swapping the roster for a spinner.
   const loadStaff = useCallback(async ({ silent = false } = {}) => {
@@ -95,11 +88,12 @@ export default function StaffManagement({ currentEmail }) {
     }
   };
 
-  // Superadmin can manage staff and settings, so any change into or out of
-  // it is confirmed first instead of applying the moment the dropdown changes.
+  // Promotions widen access and anything touching Superadmin changes who can
+  // manage staff, so both are confirmed before saving. Sideways moves and
+  // demotions apply at once and offer Undo.
   const handleChangeRole = (id, role) => {
     const person = staffList.find((p) => p.id === id);
-    if (role === 'SUPERADMIN' || person?.role === 'SUPERADMIN') {
+    if (isPromotion(person?.role, role) || person?.role === 'SUPERADMIN') {
       setPendingRemoveId(null);
       setPendingRoleChange({ id, to: role });
       return;
@@ -205,30 +199,6 @@ export default function StaffManagement({ currentEmail }) {
         </div>
       )}
 
-      {roleNotice && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-xl border border-border bg-secondary text-sm text-foreground"
-        >
-          <p>
-            <span className="font-semibold">
-              {roleNotice.isUndo ? 'Role changed back to' : 'Role changed to'} {staffRoleLabel(roleNotice.to)}
-            </span>{' '}
-            for {roleNotice.email}.
-          </p>
-          {!roleNotice.isUndo && (
-            <button
-              type="button"
-              onClick={() => saveRole(roleNotice.id, roleNotice.from, { isUndo: true })}
-              disabled={busyId === roleNotice.id}
-              className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-background disabled:opacity-40 transition-colors"
-            >
-              Undo
-            </button>
-          )}
-        </div>
-      )}
-
       {loadState === 'ready' && staffList.length > 0 && (
         <StaffRoster
           staff={staffList}
@@ -243,6 +213,9 @@ export default function StaffManagement({ currentEmail }) {
           onCancelRoleChange={() => setPendingRoleChange(null)}
           busyId={busyId}
           error={rosterError}
+          roleNotice={roleNotice}
+          onUndoRoleChange={() => saveRole(roleNotice.id, roleNotice.from, { isUndo: true })}
+          onDismissRoleNotice={() => setRoleNotice(null)}
         />
       )}
 

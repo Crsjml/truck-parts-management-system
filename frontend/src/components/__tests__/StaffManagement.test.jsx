@@ -1,5 +1,5 @@
 // frontend/src/components/__tests__/StaffManagement.test.jsx
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const fetchStaffRoles = vi.fn();
@@ -274,6 +274,35 @@ describe('StaffManagement', () => {
       await waitFor(() => expect(updateStaffRole).toHaveBeenLastCalledWith('b', 'CASHIER'));
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/changed back to cashier/i));
       expect(screen.queryByRole('button', { name: /^undo$/i })).not.toBeInTheDocument();
+    });
+
+    it('asks for confirmation before promoting a Cashier to Admin', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'ADMIN' } });
+
+      expect(updateStaffRole).not.toHaveBeenCalled();
+      expect(screen.getByText(/make clerk@ttp\.com an admin\?/i)).toBeInTheDocument();
+      expect(screen.getByText(/all operational pages and sales analytics/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /^make admin$/i }));
+
+      await waitFor(() => expect(updateStaffRole).toHaveBeenCalledWith('b', 'ADMIN'));
+    });
+
+    it('shows the role-changed notice on the changed row and keeps it until dismissed', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.change(await screen.findByLabelText('Role for clerk@ttp.com'), { target: { value: 'WAREHOUSE' } });
+
+      const notice = await screen.findByRole('status');
+      const clerkRow = screen.getByText('clerk@ttp.com').closest('li');
+      expect(clerkRow).toContainElement(notice);
+
+      vi.useFakeTimers();
+      act(() => { vi.advanceTimersByTime(30000); });
+      vi.useRealTimers();
+      expect(screen.getByRole('status')).toHaveTextContent(/role changed to warehouse/i);
+
+      fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: /dismiss/i }));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
     it('does not show a role-changed notice when the server refuses', async () => {
