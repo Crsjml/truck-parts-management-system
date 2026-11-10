@@ -67,6 +67,18 @@ export default function AdminSettings({ onClose, onAddLog }) {
 
         {/* Body */}
         <div className="p-6 space-y-6">
+          {/* Shown before the slider: markup saves on every change, so the
+              warning has to be read before the first adjustment, not after. */}
+          <div
+            role="note"
+            className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10"
+          >
+            <WarningCircle weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs leading-relaxed font-medium text-amber-800 dark:text-amber-200">
+              <span className="font-bold">Changes apply immediately</span> to all active sessions. Verify before making large adjustments.
+            </p>
+          </div>
+
           <div className="space-y-4">
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
@@ -139,13 +151,6 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 </p>
               )}
             </div>
-          </div>
-
-          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-950/20 border border-amber-900/30">
-            <WarningCircle weight="fill" className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-            <p className="text-xs text-amber-500/90 leading-relaxed font-medium">
-              Changes apply immediately to all active sessions. Verify before making large adjustments.
-            </p>
           </div>
         </div>
 
