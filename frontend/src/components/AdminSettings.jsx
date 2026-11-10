@@ -14,6 +14,17 @@ const PIN_PATTERN = /^\d{4,6}$/;
 const fallbackFormat = (amount) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(amount || 0);
 
+function pinHint(newPin, confirmPin) {
+  if (newPin.length > 0 && newPin.length < 4) return `4–6 digits (${newPin.length} entered)`;
+  if (PIN_PATTERN.test(newPin) && confirmPin === '') return 'Re-enter the PIN to confirm';
+  return '';
+}
+
+function discardSummary({ markup, hasPin }) {
+  const parts = [markup !== null && `Markup ${markup}%`, hasPin && 'new PIN'].filter(Boolean);
+  return `Discard unapplied changes? ${parts.join(', ')}.`;
+}
+
 function parseMarkup(text) {
   if (String(text).trim() === '') return null;
   const value = Number(text);
@@ -105,6 +116,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
 
   const isPinMismatch = confirmPin.length > 0 && confirmPin.length >= newPin.length && confirmPin !== newPin;
   const canSavePin = PIN_PATTERN.test(newPin) && newPin === confirmPin && !pinSaving;
+  const hint = pinHint(newPin, confirmPin);
 
   const handlePinInput = (setter) => (e) => {
     setter(e.target.value.replace(/\D/g, ''));
@@ -138,6 +150,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="system-settings-title"
+        aria-describedby={pinConfigured ? undefined : 'pin-blocked-alert'}
         className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-background border border-border rounded-xl overflow-hidden motion-safe:animate-scaleUp"
       >
         {/* Header */}
@@ -160,7 +173,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
           {!pinConfigured && (
             <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-destructive/10 dark:border-red-500/30 dark:bg-red-500/15">
               <Lock weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-alarm-text" />
-              <p className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
+              <p id="pin-blocked-alert" className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
                 <span className="font-bold">Discounts are blocked at the POS</span> until a Discount Override PIN is set.{' '}
                 <button
                   type="button"
@@ -293,19 +306,24 @@ export default function AdminSettings({ onClose, onAddLog }) {
             </div>
 
             <div className="space-y-3">
-              <input
-                id="override-pin"
-                aria-labelledby="pin-heading"
-                aria-describedby="pin-help"
-                type="password"
-                inputMode="numeric"
-                autoComplete="new-password"
-                maxLength={6}
-                placeholder="Enter a 4–6 digit PIN"
-                value={newPin}
-                onChange={handlePinInput(setNewPin)}
-                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
-              />
+              <div className="space-y-1.5">
+                <label id="override-pin-label" htmlFor="override-pin" className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                  New PIN
+                </label>
+                <input
+                  id="override-pin"
+                  aria-labelledby="pin-heading override-pin-label"
+                  aria-describedby="pin-help pin-hint"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={6}
+                  placeholder="Enter a 4–6 digit PIN"
+                  value={newPin}
+                  onChange={handlePinInput(setNewPin)}
+                  className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
 
               <div className="space-y-1.5">
                 <label htmlFor="override-pin-confirm" className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
@@ -331,10 +349,15 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 )}
               </div>
 
+              <p id="pin-hint" aria-live="polite" className="text-xs text-muted-foreground empty:hidden">
+                {hint}
+              </p>
+
               <button
                 type="button"
                 onClick={handleSavePin}
                 disabled={!canSavePin}
+                aria-describedby="pin-hint"
                 className="w-full px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 {pinSaving ? 'Saving…' : pinConfigured ? 'Replace PIN' : 'Set PIN'}
@@ -353,9 +376,12 @@ export default function AdminSettings({ onClose, onAddLog }) {
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 p-5 border-t border-border bg-background/50">
           {confirmDiscard ? (
             <>
-              <p className="mr-auto text-sm font-semibold text-foreground">Discard unapplied changes?</p>
+              <p id="discard-question" role="alert" className="mr-auto text-sm font-semibold text-foreground">
+                {discardSummary({ markup: isDraftDirty ? draftValue : null, hasPin: newPin !== '' || confirmPin !== '' })}
+              </p>
               <button
                 ref={keepEditingRef}
+                aria-describedby="discard-question"
                 type="button"
                 onClick={() => setConfirmDiscard(false)}
                 className="px-4 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors"

@@ -340,3 +340,68 @@ describe('AdminSettings — hardening', () => {
     expect(screen.getByRole('button', { name: /^done$/i }).className).not.toMatch(/bg-accent/);
   });
 });
+
+describe('AdminSettings — screen reader announcements', () => {
+  beforeEach(() => {
+    updateSettings.mockReset();
+    setOverridePin.mockReset();
+  });
+
+  it('announces the discard prompt and names what is unapplied', () => {
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '35' } });
+    fireEvent.change(screen.getByLabelText(/discount override pin/i), { target: { value: '12' } });
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/discard unapplied changes\?/i);
+    expect(alert).toHaveTextContent(/markup 35%/i);
+    expect(alert).toHaveTextContent(/new pin/i);
+    expect(screen.getByRole('button', { name: /keep editing/i }))
+      .toHaveAccessibleDescription(/discard unapplied changes\? markup 35%, new pin/i);
+  });
+
+  it('lists only what applies in the discard prompt', () => {
+    render(<Harness />);
+    fireEvent.change(markupInput(), { target: { value: '35' } });
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/pin/i);
+  });
+
+  it('describes the dialog with the blocked-discounts alert when no PIN is set', () => {
+    render(<Harness pinConfigured={false} />);
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(/discounts are blocked at the pos/i);
+    expect(markupInput()).toHaveFocus();
+  });
+
+  it('has no blocked-discounts description once a PIN is set', () => {
+    render(<Harness pinConfigured />);
+    expect(screen.getByRole('dialog')).not.toHaveAccessibleDescription(/discounts are blocked/i);
+  });
+
+  it('gives the PIN field a visible New PIN label', () => {
+    render(<Harness />);
+    expect(screen.getByText('New PIN').tagName).toBe('LABEL');
+    const pin = screen.getByLabelText(/new pin/i);
+    expect(pin).toHaveAttribute('id', 'override-pin');
+    expect(screen.getByLabelText(/discount override pin/i)).toBe(pin);
+  });
+
+  it('explains why Set PIN is disabled while the PIN is too short or unconfirmed', () => {
+    render(<Harness />);
+    const pin = screen.getByLabelText(/new pin/i);
+    const setPin = screen.getByRole('button', { name: /set pin/i });
+
+    fireEvent.change(pin, { target: { value: '123' } });
+    expect(screen.getByText('4–6 digits (3 entered)')).toBeInTheDocument();
+    expect(setPin).toHaveAccessibleDescription('4–6 digits (3 entered)');
+    expect(pin).toHaveAccessibleDescription(/4–6 digits \(3 entered\)/);
+
+    fireEvent.change(pin, { target: { value: '1234' } });
+    expect(setPin).toHaveAccessibleDescription(/re-enter the pin to confirm/i);
+
+    fireEvent.change(screen.getByLabelText(/confirm pin/i), { target: { value: '1234' } });
+    expect(setPin).toBeEnabled();
+    expect(setPin).not.toHaveAccessibleDescription(/digits|re-enter/i);
+  });
+});
