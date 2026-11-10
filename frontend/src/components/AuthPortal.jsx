@@ -449,26 +449,6 @@ export default function AuthPortal({
     }
   };
 
-  const handleDevAutoLogin = async () => {
-    setLoading(true);
-    resetFeedback();
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email: 'admin@tarlactruckparts.local', password: 'Admin@12345' });
-      if (error) throw error;
-      
-      try {
-        await apiPost('/api/audit/login', {}, { supabase });
-      } catch (logErr) {
-        console.warn('Failed to post audit log', logErr);
-      }
-    } catch (err) {
-      setNotice(err.message || 'Auto-login failed.');
-      triggerShake();
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 md:p-8 lg:p-12 relative overflow-hidden bg-dot-[#00000020] dark:bg-dot-[#ffffff20] text-foreground font-sans">
       {/* Main Glass Container */}

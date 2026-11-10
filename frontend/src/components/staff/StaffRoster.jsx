@@ -13,10 +13,10 @@ const STATE_STYLE = {
 };
 
 const ROLE_STYLE = {
-  SUPERADMIN: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30',
-  ADMIN: 'bg-brandBlue-500/10 text-brandBlue-600 dark:text-brandBlue-400 border-brandBlue-500/20',
-  CASHIER: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-  WAREHOUSE: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20'
+  SUPERADMIN: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-border',
+  ADMIN: 'bg-brandBlue-500/10 text-brandBlue-700 dark:text-brandBlue-400 border-border',
+  CASHIER: 'bg-secondary text-foreground border-border',
+  WAREHOUSE: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-border'
 };
 
 export default function StaffRoster({
@@ -67,11 +67,11 @@ export default function StaffRoster({
   };
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden">
+    <div className="glass-panel rounded-xl overflow-hidden">
       {error && (
         <p
           role="alert"
-          className="flex items-start gap-2 px-6 py-3 border-b border-border bg-red-500/5 text-sm font-semibold text-red-600 dark:text-red-400"
+          className="flex items-start gap-2 px-6 py-3 border-b border-border bg-destructive/5 text-sm font-semibold text-alarm-text"
         >
           <Warning weight="fill" className="w-4 h-4 shrink-0 mt-0.5" />
           {error}
@@ -91,7 +91,7 @@ export default function StaffRoster({
             return (
               <li
                 key={person.id}
-                className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-red-500/5"
+                className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-destructive/5"
               >
                 <p className="text-sm font-bold text-foreground">
                   Remove {person.email}? They lose access immediately.
@@ -110,7 +110,7 @@ export default function StaffRoster({
                     type="button"
                     onClick={() => confirmRemove(person.id)}
                     disabled={isBusy}
-                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+                    className="px-4 py-2 rounded-lg bg-alarm-solid hover:bg-alarm-solid/90 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                   >
                     {isBusy ? 'Removing…' : 'Remove'}
                   </button>
@@ -203,7 +203,7 @@ export default function StaffRoster({
                     onClick={() => onRequestRemove(person.id)}
                     data-focus-return={`remove-${person.id}`}
                     aria-label={`Remove ${person.email}`}
-                    className="shrink-0 p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-500 transition-all"
+                    className="shrink-0 p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-alarm-text transition-all"
                   >
                     <Trash weight="bold" className="w-4 h-4" />
                   </button>
