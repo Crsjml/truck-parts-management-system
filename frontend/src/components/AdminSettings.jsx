@@ -5,33 +5,81 @@ import { useSettings } from '../context/SettingsContext';
 
 import { updateSettings as saveSettingsApi, setOverridePin } from '../authStore';
 
-export default function AdminSettings({ onClose, onAddLog }) {
-  const { settings, setSettings } = useSettings();
-  
-  // Use 1 as a fallback if active_markup is somehow undefined, though it defaults to 0 in some places, 1 means no markup (cost).
-  // Wait, in SettingsContext, markupFactor = 1 + (settings.active_markup / 100).
-  // Oh, wait! The slider expects a multiplier (1.0 to 2.0). 
-  // If active_markup is 20 (meaning 20%), multiplier is 1.20.
-  
-  const activeMultiplier = 1 + ((settings?.active_markup || 0) / 100);
+const MARKUP_MIN = 0;
+const MARKUP_MAX = 100;
+const EXAMPLE_COST = 1000;
+const PIN_PATTERN = /^\d{4,6}$/;
 
-  const handleMarkupChange = async (e) => {
-    const multiplier = parseFloat(e.target.value);
-    // Convert multiplier back to percentage for backend (1.20 -> 20)
-    const newMarkupPercentage = Math.round((multiplier - 1) * 100);
-    
-    setSettings({ ...settings, active_markup: newMarkupPercentage });
-    await saveSettingsApi({ ...settings, active_markup: newMarkupPercentage });
-    if (onAddLog) onAddLog('system', `Markup rate updated: ${settings?.active_markup ?? 0}% → ${newMarkupPercentage}%`);
+const fallbackFormat = (amount) =>
+  new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(amount || 0);
+
+function parseMarkup(text) {
+  if (String(text).trim() === '') return null;
+  const value = Number(text);
+  if (!Number.isInteger(value) || value < MARKUP_MIN || value > MARKUP_MAX) return null;
+  return value;
+}
+
+export default function AdminSettings({ onClose, onAddLog }) {
+  const { settings, setSettings, formatBaseCurrency } = useSettings();
+  const formatMoney = formatBaseCurrency || fallbackFormat;
+
+  const savedMarkup = settings?.active_markup ?? 0;
+  const [markupDraft, setMarkupDraft] = useState(String(savedMarkup));
+  // idle | confirming | saving | saved | error
+  const [markupStatus, setMarkupStatus] = useState('idle');
+  const [markupError, setMarkupError] = useState('');
+
+  const draftValue = parseMarkup(markupDraft);
+  const isDraftValid = draftValue !== null;
+  const isDraftDirty = isDraftValid && draftValue !== savedMarkup;
+  const isMarkupSaving = markupStatus === 'saving';
+  const sliderValue = isDraftValid ? draftValue : savedMarkup;
+
+  const handleDraftChange = (e) => {
+    setMarkupDraft(e.target.value);
+    setMarkupStatus('idle');
+    setMarkupError('');
+  };
+
+  const handleConfirmMarkup = async () => {
+    if (!isDraftDirty) return;
+    const previous = savedMarkup;
+    setMarkupStatus('saving');
+    setMarkupError('');
+
+    const result = await saveSettingsApi({ active_markup: draftValue });
+
+    if (!result?.ok) {
+      setMarkupStatus('error');
+      setMarkupError(result?.error || 'Could not save the markup. Nothing was changed.');
+      return;
+    }
+
+    const applied = result.settings?.active_markup ?? draftValue;
+    setSettings((prev) => ({ ...prev, active_markup: applied }));
+    setMarkupDraft(String(applied));
+    setMarkupStatus('saved');
+    if (onAddLog) onAddLog('system', `Markup rate updated: ${previous}% → ${applied}%`);
   };
 
   const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [pinSaving, setPinSaving] = useState(false);
   const [pinMessage, setPinMessage] = useState('');
   const [pinError, setPinError] = useState(false);
   const [pinConfigured, setPinConfigured] = useState(Boolean(settings?.overridePinConfigured));
 
+  const isPinMismatch = confirmPin.length > 0 && confirmPin.length >= newPin.length && confirmPin !== newPin;
+  const canSavePin = PIN_PATTERN.test(newPin) && newPin === confirmPin && !pinSaving;
+
+  const handlePinInput = (setter) => (e) => {
+    setter(e.target.value.replace(/\D/g, ''));
+    setPinMessage('');
+  };
+
   const handleSavePin = async () => {
+    if (!canSavePin) return;
     setPinSaving(true);
     setPinMessage('');
 
@@ -42,6 +90,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
       setPinMessage('Override PIN updated.');
       setPinConfigured(true);
       setNewPin('');
+      setConfirmPin('');
     } else {
       setPinError(true);
       setPinMessage(result.error);
@@ -67,8 +116,8 @@ export default function AdminSettings({ onClose, onAddLog }) {
 
         {/* Body */}
         <div className="p-6 space-y-6">
-          {/* Shown before the slider: markup saves on every change, so the
-              warning has to be read before the first adjustment, not after. */}
+          {/* Shown before the markup control: an applied markup reprices the
+              live storefront at once, so this is read before adjusting. */}
           <div
             role="note"
             className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10"
@@ -81,32 +130,105 @@ export default function AdminSettings({ onClose, onAddLog }) {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              <label htmlFor="markup-percent" className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                 Global Retail Price Markup
               </label>
               <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                Adjusting this multiplier instantly affects the display price for all customer-facing storefront items.
+                Sets the display price for all customer-facing storefront items. Nothing changes until you apply it.
               </p>
             </div>
             
             <div className="bg-background p-4 rounded-xl border border-border space-y-4 shadow-inner">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold text-foreground">Active Markup</span>
-                <span className="text-lg font-extrabold text-accent">{((activeMultiplier - 1) * 100).toFixed(0)}%</span>
+                <span data-testid="saved-markup" className="text-lg font-extrabold text-accent tabular-nums">{savedMarkup}%</span>
               </div>
-              <input 
-                type="range"
-                min="1.0"
-                max="2.0"
-                step="0.05"
-                value={activeMultiplier}
-                onChange={handleMarkupChange}
-                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-accent"
-              />
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  aria-label="Markup"
+                  aria-valuetext={`${sliderValue}%`}
+                  min={MARKUP_MIN}
+                  max={MARKUP_MAX}
+                  step="1"
+                  value={sliderValue}
+                  onChange={handleDraftChange}
+                  disabled={isMarkupSaving}
+                  className="flex-1 min-w-0 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-accent disabled:cursor-not-allowed"
+                />
+                <div className="flex items-center gap-1 shrink-0">
+                  <input
+                    id="markup-percent"
+                    type="number"
+                    inputMode="numeric"
+                    aria-label="Markup percentage"
+                    aria-invalid={!isDraftValid}
+                    aria-describedby="markup-example"
+                    min={MARKUP_MIN}
+                    max={MARKUP_MAX}
+                    step="1"
+                    value={markupDraft}
+                    onChange={handleDraftChange}
+                    disabled={isMarkupSaving}
+                    className="w-20 bg-secondary border border-border rounded-xl px-3 py-2 text-sm font-semibold text-right tabular-nums text-foreground focus:outline-none focus:border-accent transition-colors"
+                  />
+                  <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">%</span>
+                </div>
+              </div>
               <div className="flex justify-between text-xs font-bold text-muted-foreground">
                 <span>0% (Cost)</span>
                 <span>100% (Double)</span>
               </div>
+
+              <p id="markup-example" className={`text-sm tabular-nums ${isDraftValid ? 'text-foreground' : 'text-red-500 font-semibold'}`}>
+                {isDraftValid
+                  ? `${formatMoney(EXAMPLE_COST)} cost → ${formatMoney(EXAMPLE_COST * (1 + draftValue / 100))} shelf price`
+                  : `Enter a whole number between ${MARKUP_MIN} and ${MARKUP_MAX}.`}
+              </p>
+
+              {markupStatus === 'confirming' || isMarkupSaving ? (
+                <div className="rounded-xl border border-border bg-secondary p-3 space-y-3">
+                  <p className="text-sm text-foreground leading-relaxed">
+                    <span className="font-bold">Change markup from {savedMarkup}% to {draftValue}%?</span>{' '}
+                    All shelf prices update immediately.
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMarkupStatus('idle')}
+                      disabled={isMarkupSaving}
+                      className="px-4 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmMarkup}
+                      disabled={isMarkupSaving}
+                      className="px-4 py-2 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    >
+                      {isMarkupSaving ? 'Saving…' : 'Confirm'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setMarkupStatus('confirming')}
+                  disabled={!isDraftDirty}
+                  className="w-full px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Apply markup
+                </button>
+              )}
+
+              {markupStatus === 'saved' && (
+                <p role="status" className="text-xs font-semibold text-emerald-500">Saved</p>
+              )}
+              {markupStatus === 'error' && (
+                <p role="alert" className="text-xs font-semibold text-red-500">{markupError}</p>
+              )}
             </div>
           </div>
 
@@ -132,14 +254,38 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 maxLength={6}
                 placeholder="Enter a 4–6 digit PIN"
                 value={newPin}
-                onChange={(e) => { setNewPin(e.target.value.replace(/\D/g, '')); setPinMessage(''); }}
+                onChange={handlePinInput(setNewPin)}
                 className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-accent transition-colors"
               />
+
+              <div className="space-y-1.5">
+                <label htmlFor="override-pin-confirm" className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                  Confirm PIN
+                </label>
+                <input
+                  id="override-pin-confirm"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={6}
+                  placeholder="Re-enter the PIN"
+                  value={confirmPin}
+                  onChange={handlePinInput(setConfirmPin)}
+                  aria-invalid={isPinMismatch}
+                  aria-describedby={isPinMismatch ? 'override-pin-mismatch' : undefined}
+                  className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-accent transition-colors"
+                />
+                {isPinMismatch && (
+                  <p id="override-pin-mismatch" className="text-xs font-semibold text-red-500">
+                    PINs don’t match. Re-enter the same 4–6 digits in both fields.
+                  </p>
+                )}
+              </div>
 
               <button
                 type="button"
                 onClick={handleSavePin}
-                disabled={!/^\d{4,6}$/.test(newPin) || pinSaving}
+                disabled={!canSavePin}
                 className="w-full px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 {pinSaving ? 'Saving…' : pinConfigured ? 'Replace PIN' : 'Set PIN'}

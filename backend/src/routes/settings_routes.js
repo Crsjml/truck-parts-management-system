@@ -33,6 +33,14 @@ router.get("/", async (req, res) => {
 router.post("/", requireAuth, requireRole('SUPERADMIN'), async (req, res) => {
   try {
     const { base_currency, active_markup } = req.body;
+    // Markup reprices the whole live catalog: only a real number from 0 to 100.
+    if (active_markup !== undefined) {
+      const isValidMarkup = typeof active_markup === 'number' && Number.isFinite(active_markup)
+        && active_markup >= 0 && active_markup <= 100;
+      if (!isValidMarkup) {
+        return res.status(400).json({ msg: 'Markup must be a number from 0 to 100.' });
+      }
+    }
     let settings = await prisma.setting.findFirst();
     
     if (!settings) {
