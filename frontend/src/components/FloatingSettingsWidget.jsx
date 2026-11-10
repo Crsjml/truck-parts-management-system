@@ -29,8 +29,12 @@ const FloatingSettingsWidget = ({ onAdminLogin, onCustomerLogin, onLogout, isLog
   if (!isOpen) {
     return (
       <button 
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-8 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white p-3.5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:scale-105 transition-all duration-300 z-[100] flex items-center justify-center border border-white/10 group"
+        aria-label="Open testing tools"
+        aria-expanded={false}
+        title="Testing tools"
+        className="fixed bottom-24 right-8 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white p-3.5 rounded-full transition-colors duration-300 z-[100] flex items-center justify-center border border-white/10 group"
       >
         <Gear weight="duotone" className="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" />
       </button>
@@ -38,13 +42,15 @@ const FloatingSettingsWidget = ({ onAdminLogin, onCustomerLogin, onLogout, isLog
   }
 
   return (
-    <div className="fixed bottom-24 right-8 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[100] flex flex-col gap-4 w-72 animate-scaleUp">
+    <div role="region" aria-label="Testing tools" className="fixed bottom-24 right-8 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 z-[100] flex flex-col gap-4 w-72 animate-scaleUp">
       <div className="flex justify-between items-center">
         <div className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">
           Testing Tools
         </div>
         <button 
+          type="button"
           onClick={() => setIsOpen(false)} 
+          aria-label="Close testing tools"
           className="text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 p-1.5 rounded-lg"
         >
           <X weight="bold" className="w-4 h-4" />

@@ -598,6 +598,8 @@ export default function App() {
             )}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!isSidebarCollapsed}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors shrink-0"
             >
               <List weight="duotone" className="w-5 h-5" />
@@ -663,6 +665,7 @@ export default function App() {
                 <Logo className="w-12 h-12" showText={true} />
                 <button
                   onClick={() => setIsSidebarOpen(false)}
+                  aria-label="Close navigation menu"
                   className="p-1.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
                 >
                   <X weight="duotone" className="w-5 h-5" />
@@ -727,6 +730,8 @@ export default function App() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}
+              aria-label="Open navigation menu"
+              aria-expanded={isSidebarOpen}
               className="lg:hidden p-1.5 bg-secondary border border-border hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors"
             >
               <List weight="duotone" className="w-5 h-5" />

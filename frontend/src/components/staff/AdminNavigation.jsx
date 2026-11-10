@@ -24,8 +24,8 @@ export default function AdminNavigation({ role, page, collapsed = false, onNavig
           aria-current={page === id ? 'page' : undefined}
           onClick={() => id === 'settings' ? onSettings() : onNavigate(id)}
           className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'gap-3.5 px-4'} py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${page === id
-            ? 'bg-accent/15 text-accent border border-accent/20'
-            : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'}`}
+            ? 'bg-accent/15 text-blue-700 dark:text-blue-300 border border-accent/20'
+            : 'text-foreground/70 hover:bg-secondary hover:text-foreground border border-transparent'}`}
         >
           <Icon weight="duotone" className="w-5 h-5 shrink-0" />
           {!collapsed && <span>{label}</span>}
