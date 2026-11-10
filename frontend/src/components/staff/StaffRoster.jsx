@@ -163,16 +163,16 @@ export default function StaffRoster({
           return (
             <li
               key={person.id}
-              className={`group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5 transition-colors ${rowTint}`}
+              className={`group flex flex-wrap items-start sm:items-center gap-x-4 gap-y-3 sm:gap-y-2 px-6 py-5 transition-colors ${rowTint}`}
             >
               <span
                 aria-hidden="true"
-                className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`}
+                className={`w-2 h-2 mt-2 sm:mt-0 rounded-full shrink-0 ${style.dot}`}
               />
 
-              <div className="min-w-0 flex-1">
-                <p className="text-base font-bold text-foreground truncate">{person.email}</p>
-                <p className="text-xs text-foreground/70 truncate">
+              <div className="min-w-0 flex-[1_1_calc(100%-1.5rem)] sm:flex-1">
+                <p className="text-base font-bold text-foreground [overflow-wrap:anywhere] sm:truncate">{person.email}</p>
+                <p className="text-xs text-foreground/70 sm:truncate">
                   <span className="font-semibold">{style.label}</span>
                   {state !== 'pending' && <>{' · '}{relativeTime(person.lastSeenAt)}</>}
                   {' · added by '}
@@ -180,6 +180,7 @@ export default function StaffRoster({
                 </p>
               </div>
 
+              <div className="flex items-center gap-x-4 pl-6 sm:pl-0 shrink-0">
               {isSelf ? (
                 <span
                   className={`shrink-0 px-2.5 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${ROLE_STYLE[person.role]}`}
@@ -198,7 +199,7 @@ export default function StaffRoster({
                     disabled={isBusy}
                     aria-describedby={roleChange ? changeId : undefined}
                     onChange={(e) => onChangeRole(person.id, e.target.value)}
-                    className="shrink-0 bg-secondary border border-border rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-foreground focus:outline-none focus:border-accent disabled:opacity-40 transition-colors"
+                    className="shrink-0 min-h-11 sm:min-h-0 bg-secondary border border-border rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-foreground focus:outline-none focus:border-accent disabled:opacity-40 transition-colors"
                   >
                     {STAFF_ROLES.map(role => (
                       <option key={role.value} value={role.value}>{role.label}</option>
@@ -210,12 +211,13 @@ export default function StaffRoster({
                     onClick={() => onRequestRemove(person.id)}
                     data-focus-return={`remove-${person.id}`}
                     aria-label={`Remove ${person.email}`}
-                    className="shrink-0 p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-alarm-text transition-all"
+                    className="shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center p-2 rounded-lg text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 hover:text-alarm-text transition-all"
                   >
                     <Trash weight="bold" className="w-4 h-4" />
                   </button>
                 </>
               )}
+              </div>
 
               {roleChange && (
                 <RoleChangeStrip
