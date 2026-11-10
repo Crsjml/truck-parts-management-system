@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, GearSix, WarningCircle, Lock } from '@phosphor-icons/react';
+import { X, GearSix, Lock } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 
@@ -158,32 +158,20 @@ export default function AdminSettings({ onClose, onAddLog }) {
         {/* Body */}
         <div className="min-h-0 overflow-y-auto p-6 space-y-6">
           {!pinConfigured && (
-            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-destructive/10">
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-destructive/10 dark:border-red-500/30 dark:bg-red-500/15">
               <Lock weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-alarm-text" />
-              <p className="text-sm leading-relaxed text-foreground">
+              <p className="text-sm leading-relaxed text-foreground [text-wrap:pretty]">
                 <span className="font-bold">Discounts are blocked at the POS</span> until a Discount Override PIN is set.{' '}
                 <button
                   type="button"
                   onClick={focusPinField}
-                  className="font-semibold text-alarm-text underline underline-offset-2 hover:no-underline"
+                  className="font-semibold text-foreground underline decoration-alarm-text decoration-2 underline-offset-2 hover:no-underline"
                 >
                   Set a PIN now
                 </button>
               </p>
             </div>
           )}
-
-          {/* Shown before the markup control: an applied markup reprices the
-              live storefront at once, so this is read before adjusting. */}
-          <div
-            role="note"
-            className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-border bg-amber-500/10"
-          >
-            <WarningCircle weight="fill" aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <p className="text-xs leading-relaxed font-medium text-amber-800 dark:text-amber-200">
-              <span className="font-bold">Changes apply immediately</span> to all active sessions. Verify before making large adjustments.
-            </p>
-          </div>
 
           <section
             role="group"
@@ -195,7 +183,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
               <h3 id="markup-heading" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
                 Global Retail Price Markup
               </h3>
-              <p id="markup-help" className="text-sm text-muted-foreground leading-relaxed">
+              <p id="markup-help" className="text-sm text-muted-foreground leading-relaxed [text-wrap:pretty]">
                 Sets the display price for all customer-facing storefront items. Nothing changes until you apply it.
               </p>
             </div>
@@ -252,7 +240,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 <div className="rounded-xl border border-border bg-secondary p-3 space-y-3">
                   <p className="text-sm text-foreground leading-relaxed">
                     <span className="font-bold">Change markup from {savedMarkup}% to {draftValue}%?</span>{' '}
-                    All shelf prices update immediately.
+                    Shelf prices update for everyone as soon as you confirm.
                   </p>
                   <div className="flex justify-end gap-2">
                     <button
@@ -298,7 +286,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 <Lock weight="duotone" aria-hidden="true" className="w-3.5 h-3.5 text-accent" />
                 Discount Override PIN
               </h3>
-              <p id="pin-help" className="text-sm text-muted-foreground leading-relaxed">
+              <p id="pin-help" className="text-sm text-muted-foreground leading-relaxed [text-wrap:pretty]">
                 Staff must enter this PIN at the POS before any discount is applied.
                 {pinConfigured && ' A PIN is currently set.'}
               </p>
