@@ -4,6 +4,20 @@ import { Trash, Warning } from '@phosphor-icons/react';
 import { staffState, relativeTime } from '../../utils/staffState';
 import { STAFF_ROLES, staffRoleLabel } from '../../utils/staffAccess';
 
+const article = (label) => (/^[aeiou]/i.test(label) ? 'an' : 'a');
+
+// What the inline confirmation says, by kind of change.
+function roleChangeCopy(email, to) {
+  if (to === 'SUPERADMIN') {
+    return {
+      message: `Make ${email} a Superadmin? They will be able to manage staff and system settings.`,
+      action: 'Make Superadmin'
+    };
+  }
+  const role = STAFF_ROLES.find((r) => r.value === to);
+  return { message: null, action: `Make ${role?.label ?? 'this role'}`, role };
+}
+
 // Colour is the only signal that varies per state, so it carries meaning
 // rather than decoration. Muted pastel treatment per minimalist-ui §5.
 const STATE_STYLE = {
@@ -31,7 +45,10 @@ export default function StaffRoster({
   onConfirmRoleChange,
   onCancelRoleChange,
   busyId,
-  error
+  error,
+  roleNotice,
+  onUndoRoleChange,
+  onDismissRoleNotice
 }) {
   const selfEmail = (currentEmail || '').toLowerCase();
   const listRef = useRef(null);
@@ -120,16 +137,18 @@ export default function StaffRoster({
           }
 
           if (roleChange) {
-            const isPromotion = roleChange.to === 'SUPERADMIN';
+            const isDemotion = person.role === 'SUPERADMIN';
+            const copy = roleChangeCopy(person.email, roleChange.to);
+            const message = isDemotion
+              ? `Change ${person.email} from Superadmin to ${staffRoleLabel(roleChange.to)}? They lose access to staff and system settings.`
+              : copy.message ?? `Make ${person.email} ${article(copy.role.label)} ${copy.role.label}? They will get access to ${copy.role.description.charAt(0).toLowerCase()}${copy.role.description.slice(1)}.`;
             return (
               <li
                 key={person.id}
                 className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-amber-500/5"
               >
                 <p className="text-sm font-bold text-foreground">
-                  {isPromotion
-                    ? `Make ${person.email} a Superadmin? They will be able to manage staff and system settings.`
-                    : `Change ${person.email} from Superadmin to ${staffRoleLabel(roleChange.to)}? They lose access to staff and system settings.`}
+                  {message}
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -147,7 +166,7 @@ export default function StaffRoster({
                     disabled={isBusy}
                     className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-40 transition-colors"
                   >
-                    {isBusy ? 'Saving…' : isPromotion ? 'Make Superadmin' : 'Change role'}
+                    {isBusy ? 'Saving…' : isDemotion ? 'Change role' : copy.action}
                   </button>
                 </div>
               </li>
@@ -208,6 +227,38 @@ export default function StaffRoster({
                     <Trash weight="bold" className="w-4 h-4" />
                   </button>
                 </>
+              )}
+
+              {roleNotice?.id === person.id && (
+                // Stays until dismissed: a timed-out Undo fails WCAG 2.2.1.
+                <div
+                  role="status"
+                  className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 pl-6 text-sm text-foreground"
+                >
+                  <p className="mr-auto">
+                    <span className="font-semibold">
+                      {roleNotice.isUndo ? 'Role changed back to' : 'Role changed to'} {staffRoleLabel(roleNotice.to)}
+                    </span>{' '}
+                    for {roleNotice.email}.
+                  </p>
+                  {!roleNotice.isUndo && (
+                    <button
+                      type="button"
+                      onClick={onUndoRoleChange}
+                      disabled={isBusy}
+                      className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-secondary disabled:opacity-40 transition-colors"
+                    >
+                      Undo
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onDismissRoleNotice}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               )}
             </li>
           );
