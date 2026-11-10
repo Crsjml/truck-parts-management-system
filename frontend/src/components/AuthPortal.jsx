@@ -817,7 +817,7 @@ export default function AuthPortal({
                 ) : (
                   <>
                     <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-300">
-                      Admin accounts are not publicly registered. Use this separate portal for privileged access.
+                      Staff access is granted by a superadmin. Once your email is added under Staff Access, register on the storefront with that exact email, then sign in here.
                     </div>
 
                     <div className="space-y-2">

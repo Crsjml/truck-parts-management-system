@@ -5,9 +5,9 @@ import { staffState, relativeTime } from '../staffState';
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
 
 describe('staffState', () => {
-  it('treats a null last-seen as invited', () => {
-    expect(staffState(null)).toBe('invited');
-    expect(staffState(undefined)).toBe('invited');
+  it('treats a null last-seen as pending (allowlisted, never signed in)', () => {
+    expect(staffState(null)).toBe('pending');
+    expect(staffState(undefined)).toBe('pending');
   });
 
   it('treats a recent sign-in as active', () => {
@@ -20,8 +20,8 @@ describe('staffState', () => {
     expect(staffState(daysAgo(400))).toBe('dormant');
   });
 
-  it('treats an unparseable value as invited rather than throwing', () => {
-    expect(staffState('not-a-date')).toBe('invited');
+  it('treats an unparseable value as pending rather than throwing', () => {
+    expect(staffState('not-a-date')).toBe('pending');
   });
 });
 

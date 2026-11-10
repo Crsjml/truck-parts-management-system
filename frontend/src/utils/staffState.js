@@ -2,14 +2,15 @@
 
 // A staff row is an allowlist entry, not a user account. `lastSeenAt` is
 // stamped by POST /api/staff/check on each successful staff sign-in, so a
-// null value means the person has been allowlisted but never signed in.
+// null value means the person has been allowlisted but never signed in
+// ('pending'). No invitation is ever sent, so this is not called 'invited'.
 const DORMANT_AFTER_DAYS = 60;
 
 export const staffState = (lastSeenAt) => {
-  if (!lastSeenAt) return 'invited';
+  if (!lastSeenAt) return 'pending';
 
   const seen = new Date(lastSeenAt).getTime();
-  if (Number.isNaN(seen)) return 'invited';
+  if (Number.isNaN(seen)) return 'pending';
 
   const days = (Date.now() - seen) / 86400000;
   return days > DORMANT_AFTER_DAYS ? 'dormant' : 'active';

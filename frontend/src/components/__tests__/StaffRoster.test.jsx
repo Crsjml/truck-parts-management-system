@@ -36,9 +36,10 @@ describe('StaffRoster', () => {
     expect(screen.getByText('ana@ttp.com')).toBeInTheDocument();
   });
 
-  it('labels a never-signed-in account as invited', () => {
+  it('labels a never-signed-in account as "Not signed in yet", never "Invited"', () => {
     renderRoster();
-    expect(screen.getByText(/never signed in/i)).toBeInTheDocument();
+    expect(screen.getByText(/not signed in yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/invited/i)).not.toBeInTheDocument();
   });
 
   it('labels an account unseen for over 60 days as dormant', () => {

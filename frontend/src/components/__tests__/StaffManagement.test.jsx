@@ -174,6 +174,58 @@ describe('StaffManagement', () => {
       await waitFor(() => expect(screen.getByRole('list', { name: /staff members/i })).toHaveFocus());
     });
 
+    it('after adding, keeps the dialog open with exact sign-in steps for that email', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'New.Hire@ttp.com' } });
+      fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'WAREHOUSE' } });
+      fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
+
+      const dialog = await screen.findByRole('dialog');
+      expect(await screen.findByRole('heading', { name: /new\.hire@ttp\.com can now sign in/i })).toBeInTheDocument();
+      const steps = screen.getByRole('list', { name: /sign-in steps/i });
+      expect(steps).toHaveTextContent(window.location.origin);
+      expect(steps).toHaveTextContent(/register/i);
+      expect(steps).toHaveTextContent('New.Hire@ttp.com');
+      expect(dialog).toHaveTextContent(/warehouse/i);
+      expect(screen.queryByLabelText(/email address/i)).not.toBeInTheDocument();
+    });
+
+    it('copies the sign-in steps to the clipboard', async () => {
+      const writeText = vi.fn().mockResolvedValue();
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'new@ttp.com' } });
+      fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
+
+      fireEvent.click(await screen.findByRole('button', { name: /copy sign-in steps/i }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(writeText.mock.calls[0][0]).toContain('new@ttp.com');
+      expect(writeText.mock.calls[0][0]).toContain(window.location.origin);
+      expect(await screen.findByRole('button', { name: /copied/i })).toBeInTheDocument();
+    });
+
+    it('can add another member from the success panel', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'new@ttp.com' } });
+      fireEvent.click(screen.getByRole('button', { name: /^add member$/i }));
+
+      fireEvent.click(await screen.findByRole('button', { name: /add another/i }));
+      expect(screen.getByLabelText(/email address/i)).toHaveValue('');
+      expect(screen.getByLabelText(/email address/i)).toHaveFocus();
+    });
+
+    it('says no invitation is sent and points to Register, not a "normal flow"', async () => {
+      render(<StaffManagement currentEmail="owner@ttp.com" />);
+      fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveTextContent(/no invitation is sent/i);
+      expect(dialog).toHaveTextContent(/register/i);
+      expect(dialog).not.toHaveTextContent(/normal flow/i);
+    });
+
     it('rejects a malformed email in the add dialog without calling the server', async () => {
       render(<StaffManagement currentEmail="owner@ttp.com" />);
       fireEvent.click(await screen.findByRole('button', { name: /add staff member/i }));

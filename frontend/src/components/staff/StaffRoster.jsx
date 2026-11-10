@@ -8,7 +8,7 @@ import { STAFF_ROLES, staffRoleLabel } from '../../utils/staffAccess';
 // rather than decoration. Muted pastel treatment per minimalist-ui §5.
 const STATE_STYLE = {
   active: { dot: 'bg-emerald-500', label: 'Active' },
-  invited: { dot: 'bg-amber-500', label: 'Invited' },
+  pending: { dot: 'bg-amber-500', label: 'Not signed in yet' },
   dormant: { dot: 'bg-muted-foreground/50', label: 'Dormant' }
 };
 
@@ -165,8 +165,7 @@ export default function StaffRoster({
                 <p className="text-base font-bold text-foreground truncate">{person.email}</p>
                 <p className="text-xs text-muted-foreground truncate">
                   <span className="font-semibold">{style.label}</span>
-                  {' · '}
-                  {relativeTime(person.lastSeenAt)}
+                  {state !== 'pending' && <>{' · '}{relativeTime(person.lastSeenAt)}</>}
                   {' · added by '}
                   {person.addedBy}
                 </p>
