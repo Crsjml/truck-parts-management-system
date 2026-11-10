@@ -38,6 +38,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
   const keepEditingRef = useRef(null);
   const doneRef = useRef(null);
   const wasConfirmingDiscard = useRef(false);
+  const markupCancelRef = useRef(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const formatMoney = formatBaseCurrency || fallbackFormat;
 
@@ -130,6 +131,15 @@ export default function AdminSettings({ onClose, onAddLog }) {
     else if (wasConfirmingDiscard.current) doneRef.current?.focus();
     wasConfirmingDiscard.current = confirmDiscard;
   }, [confirmDiscard]);
+
+  // Opening the Apply confirmation lands on its safe choice; once the save
+  // settles the panel is gone, so focus returns to the percentage field.
+  useEffect(() => {
+    if (markupStatus === 'confirming') markupCancelRef.current?.focus();
+    else if (markupStatus === 'saved' || markupStatus === 'error') {
+      dialogRef.current?.querySelector('#markup-percent')?.focus();
+    }
+  }, [markupStatus]);
 
   const focusPinField = () => dialogRef.current?.querySelector('#override-pin')?.focus();
 
@@ -270,15 +280,17 @@ export default function AdminSettings({ onClose, onAddLog }) {
               </p>
 
               {markupStatus === 'confirming' || isMarkupSaving ? (
-                <div className="rounded-xl border border-border bg-secondary p-3 space-y-3">
-                  <p className="text-sm text-foreground leading-relaxed">
-                    <span className="font-bold">Change markup from {savedMarkup}% to {draftValue}%?</span>{' '}
+                <div role="group" aria-labelledby="markup-confirm-question" className="rounded-xl border border-border bg-secondary p-3 space-y-3">
+                  <p id="markup-confirm-text" className="text-sm text-foreground leading-relaxed">
+                    <span id="markup-confirm-question" className="font-bold">Change markup from {savedMarkup}% to {draftValue}%?</span>{' '}
                     Shelf prices update for everyone as soon as you confirm.
                   </p>
                   <div className="flex justify-end gap-2">
                     <button
+                      ref={markupCancelRef}
                       type="button"
                       onClick={cancelMarkupConfirm}
+                      aria-describedby="markup-confirm-text"
                       disabled={isMarkupSaving}
                       className="px-4 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
