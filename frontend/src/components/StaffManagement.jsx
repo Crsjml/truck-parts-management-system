@@ -137,7 +137,7 @@ export default function StaffManagement({ currentEmail }) {
 
   return (
     <div className="space-y-6 animate-fadeIn pb-24">
-      <div className="glass-panel rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-2 border-l-accent">
+      <div className="glass-panel rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ShieldCheck weight="duotone" className="w-6 h-6 text-accent" />
@@ -170,7 +170,7 @@ export default function StaffManagement({ currentEmail }) {
       {loadState === 'denied' && (
         <div className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Lock weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-bold text-foreground">Superadmin access required</h3>
+          <h2 className="text-lg font-bold text-foreground">Superadmin access required</h2>
           <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
             Your account can view the shop but not the staff list. Ask a superadmin if you need access.
           </p>
@@ -178,11 +178,11 @@ export default function StaffManagement({ currentEmail }) {
       )}
 
       {loadState === 'error' && (
-        <div className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
+        <div role="alert" className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Warning weight="duotone" className="w-12 h-12 text-red-500 mb-4" />
-          <h3 role="alert" className="text-lg font-bold text-foreground">
+          <h2 className="text-lg font-bold text-foreground">
             Could not reach the server
-          </h3>
+          </h2>
           <button
             onClick={() => loadStaff()}
             className="mt-4 px-5 py-2.5 rounded-xl bg-secondary hover:bg-muted border border-border text-sm font-semibold text-foreground transition-colors"
@@ -195,7 +195,7 @@ export default function StaffManagement({ currentEmail }) {
       {loadState === 'ready' && staffList.length === 0 && (
         <div className="glass-panel rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
           <User weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-bold text-foreground">No staff members yet</h3>
+          <h2 className="text-lg font-bold text-foreground">No staff members yet</h2>
           <p className="text-sm text-muted-foreground max-w-sm mt-2 leading-relaxed">
             Add an email address to allowlist it. That person registers on the storefront
             with that exact email and gains access on their first sign-in.

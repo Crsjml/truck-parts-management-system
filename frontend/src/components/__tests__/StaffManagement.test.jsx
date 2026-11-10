@@ -54,6 +54,18 @@ describe('StaffManagement', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/could not reach/i));
   });
 
+  it.each([
+    ['empty', { ok: true, status: 200, staff: [] }, /no staff members yet/i],
+    ['denied', { ok: false, status: 403, staff: [] }, /superadmin access required/i],
+    ['error', { ok: false, status: 0, staff: [] }, /could not reach the server/i]
+  ])('titles the %s state with an h2 under the page h1', async (_, response, title) => {
+    fetchStaffRoles.mockResolvedValue(response);
+    render(<StaffManagement currentEmail="a@ttp.com" />);
+
+    expect(await screen.findByRole('heading', { level: 2, name: title })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /staff access/i })).toBeInTheDocument();
+  });
+
   it('opens outside the animated page and restores focus and scrolling on Escape', async () => {
     fetchStaffRoles.mockResolvedValue({ ok: true, status: 200, staff: [] });
     const { container } = render(<StaffManagement currentEmail="a@ttp.com" />);
