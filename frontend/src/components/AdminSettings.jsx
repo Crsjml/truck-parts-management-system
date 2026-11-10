@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Percent, WarningCircle, Lock } from '@phosphor-icons/react';
+import { X, GearSix, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useSettings } from '../context/SettingsContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 
@@ -143,7 +143,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between p-5 border-b border-border">
           <h2 id="system-settings-title" className="text-lg font-bold text-foreground font-display flex items-center gap-2">
-            <Percent weight="duotone" aria-hidden="true" className="w-5 h-5 text-accent" /> System Settings
+            <GearSix weight="duotone" aria-hidden="true" className="w-5 h-5 text-accent" /> System Settings
           </h2>
           <button
             type="button"
@@ -299,10 +299,8 @@ export default function AdminSettings({ onClose, onAddLog }) {
                 Discount Override PIN
               </h3>
               <p id="pin-help" className="text-sm text-muted-foreground leading-relaxed">
-                Staff must enter this PIN at the POS before any discount is applied.{' '}
-                {pinConfigured
-                  ? 'A PIN is currently set.'
-                  : 'No PIN is set yet — discounts stay blocked until one is.'}
+                Staff must enter this PIN at the POS before any discount is applied.
+                {pinConfigured && ' A PIN is currently set.'}
               </p>
             </div>
 

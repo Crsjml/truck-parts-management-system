@@ -133,7 +133,7 @@ export default function StaffManagement({ currentEmail }) {
 
   return (
     <div className="space-y-6 motion-safe:animate-fadeIn pb-24">
-      <div className="glass-panel rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="glass-panel !shadow-none rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ShieldCheck weight="duotone" className="w-6 h-6 text-accent" />
@@ -157,14 +157,14 @@ export default function StaffManagement({ currentEmail }) {
       </div>
 
       {loadState === 'loading' && (
-        <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20">
+        <div className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20">
           <CircleNotch weight="bold" className="w-8 h-8 text-accent animate-spin" />
           <p className="mt-4 text-sm font-semibold text-muted-foreground">Loading staff records…</p>
         </div>
       )}
 
       {loadState === 'denied' && (
-        <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
+        <div className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Lock weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-bold text-foreground">Superadmin access required</h2>
           <p className="text-sm text-foreground/70 max-w-sm mt-2 leading-relaxed">
@@ -174,7 +174,7 @@ export default function StaffManagement({ currentEmail }) {
       )}
 
       {loadState === 'error' && (
-        <div role="alert" className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
+        <div role="alert" className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <Warning weight="duotone" className="w-12 h-12 text-alarm-text mb-4" />
           <h2 className="text-lg font-bold text-foreground">
             Could not reach the server
@@ -189,7 +189,7 @@ export default function StaffManagement({ currentEmail }) {
       )}
 
       {loadState === 'ready' && staffList.length === 0 && (
-        <div className="glass-panel rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
+        <div className="glass-panel !shadow-none rounded-xl flex flex-col items-center justify-center py-20 text-center px-6">
           <User weight="duotone" className="w-12 h-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-bold text-foreground">No staff members yet</h2>
           <p className="text-sm text-foreground/70 max-w-sm mt-2 leading-relaxed">
