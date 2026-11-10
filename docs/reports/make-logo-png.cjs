@@ -67,6 +67,18 @@ const PRINT_GRAYS = {
 };
 const toPrint = (svg) => Object.entries(PRINT_GRAYS).reduce((acc, [from, to]) => acc.split(from).join(to), svg);
 
+// Re-encode the print logo as a true grayscale PNG so jsPDF embeds it as
+// /DeviceGray (black toner only) instead of RGB. Uses macOS `sips`.
+function toDeviceGray(file) {
+  const { execFileSync } = require('child_process');
+  const profile = '/System/Library/ColorSync/Profiles/Generic Gray Profile.icc';
+  try {
+    execFileSync('sips', ['--matchTo', profile, file, '--out', file], { stdio: 'ignore' });
+  } catch (e) {
+    console.warn('WARN: could not convert ' + file + ' to grayscale (sips unavailable); PDFs will embed it as RGB.');
+  }
+}
+
 (async () => {
   const { chromium } = require('playwright');
   const browser = await chromium.launch();
@@ -75,6 +87,7 @@ const toPrint = (svg) => Object.entries(PRINT_GRAYS).reduce((acc, [from, to]) =>
     const file = path.join(OUT, name);
     await page.setContent(`<!doctype html><html><body style="margin:0">${WRAP(inner)}</body></html>`);
     await (await page.$('svg')).screenshot({ path: file, omitBackground: true });
+    if (name === 'logo-mark-print.png') toDeviceGray(file);
     console.log('Wrote ' + file);
   }
   await browser.close();
