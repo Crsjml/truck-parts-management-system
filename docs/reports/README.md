@@ -109,7 +109,10 @@ All six PDFs share one low-ink scheme, defined in `frontend/src/utils/pdf/report
   PDF content stream and fails on any fill darker than 85% white or any non-pastel RGB color.
 
 
-## Open-style drafts (experimental)
+## Open-style drafts (adopted by the site exports)
+
+The in-app exports (`frontend/src/utils/*Pdf.js` via `pdf/reportPdfKit.js`) now render this
+open style; `reportPdfStructure.test.js` guards it. The drafts remain the design reference.
 
 `generate-report-open-drafts.cjs` (+ `open-drafts/`) renders all six reports in an
 "open" table style based on the Systems Design *Output & Data Design* reference. The
