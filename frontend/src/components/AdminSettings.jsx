@@ -98,7 +98,19 @@ export default function AdminSettings({ onClose, onAddLog }) {
   // Closing must never silently drop a markup draft or a half-typed PIN.
   const hasUnappliedChanges = isDraftDirty || newPin !== '' || confirmPin !== '';
 
+  // Backing out of the Apply confirmation keeps the draft and returns to its field.
+  const cancelMarkupConfirm = () => {
+    setMarkupStatus('idle');
+    dialogRef.current?.querySelector('#markup-percent')?.focus();
+  };
+
+  // Escape/Done/✕ back out of the innermost pending step first, so the markup
+  // confirmation and the discard prompt are never on screen together.
   const requestClose = () => {
+    if (markupStatus === 'confirming') {
+      cancelMarkupConfirm();
+      return;
+    }
     if (confirmDiscard) {
       setConfirmDiscard(false);
       return;
@@ -266,7 +278,7 @@ export default function AdminSettings({ onClose, onAddLog }) {
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
-                      onClick={() => setMarkupStatus('idle')}
+                      onClick={cancelMarkupConfirm}
                       disabled={isMarkupSaving}
                       className="px-4 py-2 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >

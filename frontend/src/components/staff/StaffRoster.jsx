@@ -53,6 +53,13 @@ const CHANGE_TONE = {
 
 const changeTone = (from, to) => CHANGE_TONE[isDemotion(from, to) ? 'demotion' : 'other'];
 
+// Escape inside a row with a pending step backs out of that step, same as Cancel.
+const cancelOnEscape = (onCancel) => (event) => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  onCancel();
+};
+
 // Colour is the only signal that varies per state, so it carries meaning
 // rather than decoration. Muted pastel treatment per minimalist-ui §5.
 const STATE_STYLE = {
@@ -146,6 +153,7 @@ export default function StaffRoster({
             return (
               <li
                 key={person.id}
+                onKeyDown={isBusy ? undefined : cancelOnEscape(onCancelRemove)}
                 className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 bg-destructive/5"
               >
                 <p className="text-sm font-bold text-foreground">
@@ -181,6 +189,7 @@ export default function StaffRoster({
           return (
             <li
               key={person.id}
+              onKeyDown={roleChange && !isBusy ? cancelOnEscape(onCancelRoleChange) : undefined}
               className={`flex flex-wrap items-start sm:items-center gap-x-4 gap-y-3 sm:gap-y-2 px-6 py-5 transition-colors ${rowTint}`}
             >
               <span
