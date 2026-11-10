@@ -80,7 +80,9 @@ export const StatusBadge = ({ status }) => {
 
 export const StatChip = ({ label, count, icon: Icon, color, active, onClick }) => (
   <button
+    type="button"
     onClick={onClick}
+    aria-pressed={active}
     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${active ? color : 'bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
       }`}
   >

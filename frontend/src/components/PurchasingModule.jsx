@@ -6,8 +6,9 @@ import {
   Star, Funnel, ArrowsDownUp, ChartBar, Receipt, EnvelopeSimple,
   Globe, Archive, Eye, EyeSlash, ArrowCounterClockwise, FilePdf, Clock,
   TrendUp, ClockCounterClockwise, Truck, ListDashes, SquaresFour,
-  WarningCircle, CheckSquare, Timer, CalendarBlank, Copy
+  WarningCircle, CheckSquare, Timer, CalendarBlank, Copy, ArrowUUpLeft
 } from '@phosphor-icons/react';
+import DefectLogTable from './purchasing/DefectLogTable';
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrderDetails,
@@ -100,6 +101,16 @@ const DEFECT_REASONS = [
   { value: 'Other Problem', label: 'Other Problem (specify in remarks below)' },
 ];
 
+// issueNote is stored as "<reason>: <remarks>" (or just "<reason>").
+const parseIssueNote = (note = '') => {
+  const matched = DEFECT_REASONS.find(r => note.startsWith(r.value));
+  if (!matched) return { reason: 'Other Problem', remarks: note };
+  return { reason: matched.value, remarks: note.slice(matched.value.length).replace(/^:\s*/, '') };
+};
+
+// Statuses shown on the Purchase Orders tab (everything past the RFQ stage).
+const PO_TAB_STATUSES = ['Confirmed', 'Received', 'Cancelled', 'Problem Reported', 'Returned to Supplier'];
+
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
@@ -161,6 +172,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [posGroup, setPosGroup] = useState(null);
   const [posFavsOnly, setPosFavsOnly] = useState(false);
   const [posFavs, setPosFavs] = useState(getFavorites('pos'));
+  const [posStatFilter, setPosStatFilter] = useState(null);
 
   const [payableSearch, setPayableSearch] = useState('');
   const [payableFilters, setPayableFilters] = useState([]);
@@ -235,7 +247,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   useEffect(() => { setRfqPage(1); setPosPage(1); setPayablePage(1); setSupplierPage(1); }, [activeOrderTab]);
   // Reset per-tab page on any filter/search/groupBy/favorites change
   useEffect(() => { setRfqPage(1); }, [rfqSearch, rfqFilters, rfqGroup, rfqFavsOnly, rfqStatFilter]);
-  useEffect(() => { setPosPage(1); }, [posSearch, posFilters, posGroup, posFavsOnly]);
+  useEffect(() => { setPosPage(1); }, [posSearch, posFilters, posGroup, posFavsOnly, posStatFilter]);
   useEffect(() => { setPayablePage(1); }, [payableSearch, payableFilters, payableGroup, payableFavsOnly]);
   useEffect(() => { setSupplierPage(1); }, [supplierSearch, supplierFilters, supplierGroup, supplierFavsOnly]);
   useEffect(() => { setProdPage(1); }, [prodSearch, prodFilters, prodGroup, prodFavsOnly]);
@@ -294,7 +306,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   // ── RFQ derived data ─────────────────────────────────────────────────────────
   const today = useMemo(() => new Date(), []);
   const rfqs = useMemo(() => purchaseOrders.filter(p => p.status === 'Draft' || p.status === 'RFQ Sent'), [purchaseOrders]);
-  const confirmedPos = useMemo(() => purchaseOrders.filter(p => ['Confirmed', 'Received', 'Cancelled'].includes(p.status)), [purchaseOrders]);
+  const confirmedPos = useMemo(() => purchaseOrders.filter(p => PO_TAB_STATUSES.includes(p.status)), [purchaseOrders]);
 
   const rfqStats = useMemo(() => ({
     new: rfqs.filter(r => r.status === 'Draft').length,
@@ -305,8 +317,32 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       const diff = (today - new Date(r.updatedAt)) / (1000 * 60 * 60 * 24);
       return diff >= NOT_ACKNOWLEDGED_DAYS;
     }).length,
-    lateReceipt: confirmedPos.filter(r => r.status === 'Confirmed' && r.expectedDeliveryDate && new Date(r.expectedDeliveryDate) < today).length,
-  }), [rfqs, confirmedPos]);
+  }), [rfqs, today]);
+
+  const isLateReceipt = useCallback(
+    (r) => r.status === 'Confirmed' && r.expectedDeliveryDate && new Date(r.expectedDeliveryDate) < today,
+    [today]
+  );
+
+  const defectRows = useMemo(() => confirmedPos.flatMap(po => (po.items || [])
+    .filter(item => item.inspectionStatus === 'Problem')
+    .map(item => ({
+      key: `${po.id}:${item.id}`,
+      po,
+      poNumber: po.poNumber,
+      supplier: po.supplier?.name || '—',
+      sku: item.sku || '—',
+      name: item.name,
+      status: po.status,
+      ...parseIssueNote(item.issueNote || '')
+    }))), [confirmedPos]);
+
+  const poStats = useMemo(() => ({
+    lateReceipt: confirmedPos.filter(isLateReceipt).length,
+    problems: confirmedPos.filter(r => r.status === 'Problem Reported').length,
+    returned: confirmedPos.filter(r => r.status === 'Returned to Supplier').length,
+    defects: defectRows.length
+  }), [confirmedPos, isLateReceipt, defectRows]);
 
   // ── Filter / search helpers ───────────────────────────────────────────────────
   const applyFilter = (rows, search, filters, favsOnly, favs, searchFields) => {
@@ -336,10 +372,13 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
   const filteredPos = useMemo(() => {
     let rows = confirmedPos;
+    if (posStatFilter === 'lateReceipt') rows = rows.filter(isLateReceipt);
+    else if (posStatFilter === 'problems') rows = rows.filter(r => r.status === 'Problem Reported');
+    else if (posStatFilter === 'returned') rows = rows.filter(r => r.status === 'Returned to Supplier');
     if (posFilters.includes('waitingBills')) rows = rows.filter(r => r.billingStatus === 'Waiting Bills');
     if (posFilters.includes('billsReceived')) rows = rows.filter(r => r.billingStatus === 'Bills Received');
     return applyFilter(rows, posSearch, posFilters, posFavsOnly, posFavs, ['poNumber', 'createdBy']);
-  }, [confirmedPos, posSearch, posFilters, posFavsOnly, posFavs]);
+  }, [confirmedPos, posSearch, posFilters, posFavsOnly, posFavs, posStatFilter, isLateReceipt]);
 
   const payableRows = useMemo(() => purchaseOrders
     .filter(po => po.status !== 'Cancelled' && (po.paymentDueDate || po.paidAt))
@@ -926,15 +965,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const openDefectModal = (item) => {
     setDefectModalItem(item);
     if (item.inspectionStatus === 'Problem' && item.issueNote) {
-      const matched = DEFECT_REASONS.find(r => item.issueNote.startsWith(r.value));
-      if (matched) {
-        setDefectReason(matched.value);
-        const remainder = item.issueNote.slice(matched.value.length).replace(/^:\s*/, '');
-        setDefectNote(remainder);
-      } else {
-        setDefectReason('Other Problem');
-        setDefectNote(item.issueNote);
-      }
+      const { reason, remarks } = parseIssueNote(item.issueNote);
+      setDefectReason(reason);
+      setDefectNote(remarks);
     } else {
       setDefectReason('Broken / Physically Damaged');
       setDefectNote('');
@@ -1396,6 +1429,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             {/* PO Tab */}
             {activeOrderTab === 'pos' && (
               <>
+                {/* Stat chips */}
+                <div className="flex flex-wrap gap-2 mb-5">
+                  <StatChip label="Late Receipt" count={poStats.lateReceipt} icon={Timer} color="bg-orange-500/15 border-orange-500/30 text-orange-400" active={posStatFilter === 'lateReceipt'} onClick={() => setPosStatFilter(p => p === 'lateReceipt' ? null : 'lateReceipt')} />
+                  <StatChip label="Problems" count={poStats.problems} icon={WarningCircle} color="bg-red-500/15 border-red-500/30 text-red-400" active={posStatFilter === 'problems'} onClick={() => setPosStatFilter(p => p === 'problems' ? null : 'problems')} />
+                  <StatChip label="Returned" count={poStats.returned} icon={ArrowUUpLeft} color="bg-orange-500/15 border-orange-500/30 text-orange-400" active={posStatFilter === 'returned'} onClick={() => setPosStatFilter(p => p === 'returned' ? null : 'returned')} />
+                  <StatChip label="Defects" count={poStats.defects} icon={WarningCircle} color="bg-red-500/15 border-red-500/30 text-red-400" active={posStatFilter === 'defects'} onClick={() => setPosStatFilter(p => p === 'defects' ? null : 'defects')} />
+                </div>
+                {posStatFilter === 'defects' ? (
+                  <DefectLogTable rows={defectRows} onOpen={openPoModal} />
+                ) : (<>
                 <ControlPanel
                   search={posSearch} onSearch={setPosSearch}
                   filters={[{ value: 'waitingBills', label: 'Waiting Bills' }, { value: 'billsReceived', label: 'Bills Received' }]}
@@ -1443,6 +1486,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     </>
                   );
                 })()}
+                </>)}
               </>
             )}
 
@@ -1778,7 +1822,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         stroke="none"
                       >
                         {reportData.pipelineData.map((entry, index) => {
-                          const COLORS = { 'Draft': '#94a3b8', 'RFQ Sent': '#a855f7', 'Confirmed': '#3b82f6', 'Received': '#10b981', 'Cancelled': '#ef4444' };
+                          const COLORS = { 'Draft': '#94a3b8', 'RFQ Sent': '#a855f7', 'Confirmed': '#3b82f6', 'Received': '#10b981', 'Cancelled': '#ef4444', 'Problem Reported': '#dc2626', 'Returned to Supplier': '#f97316' };
                           return <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#64748b'} />;
                         })}
                       </Pie>
