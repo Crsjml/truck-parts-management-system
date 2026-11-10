@@ -92,6 +92,13 @@ describe('StaffRoster', () => {
     expect(screen.queryByLabelText(/role for owner@ttp.com/i)).not.toBeInTheDocument();
   });
 
+  it('lets the email wrap instead of truncating on mobile', () => {
+    renderRoster();
+    const email = screen.getByText('ana@ttp.com');
+    expect(email.className).not.toMatch(/(^|\s)truncate(\s|$)/);
+    expect(email.className).toMatch(/\[overflow-wrap:anywhere\]|break-all/);
+  });
+
   it('announces an error inline', () => {
     renderRoster({ error: 'Cannot remove the last superadmin.' });
     expect(screen.getByRole('alert')).toHaveTextContent('Cannot remove the last superadmin.');
