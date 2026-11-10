@@ -16,6 +16,26 @@ const ORDER_STATUS = {
 
 const normalizeOrderStatus = (status) => ORDER_STATUS[status] || status;
 
+/**
+ * Release an order line's stock reservation (and deduct stock on completion)
+ * without ever driving reservedStock below zero. The guarded updateMany only
+ * matches when enough is reserved; if the reservation is out of sync (e.g.
+ * legacy rows), whatever is left is cleared instead of going negative.
+ */
+async function releaseReservation(tx, item, deductStock) {
+  const stockChange = deductStock ? { stock: { decrement: item.quantity } } : {};
+  const released = await tx.part.updateMany({
+    where: { id: item.partId, reservedStock: { gte: item.quantity } },
+    data: { reservedStock: { decrement: item.quantity }, ...stockChange }
+  });
+  if (released.count === 0) {
+    await tx.part.update({
+      where: { id: item.partId },
+      data: { reservedStock: 0, ...stockChange }
+    });
+  }
+}
+
 class TransactionsService {
   async getTransactions() {
     return await transactionsRepository.findMany();
@@ -67,22 +87,10 @@ class TransactionsService {
         throw new Error(`Cannot change status of a ${transaction.status} transaction.`);
       }
 
-      if (nextStatus === 'COMPLETED') {
+      if (nextStatus === 'COMPLETED' || nextStatus === 'CANCELLED') {
+        const deductStock = nextStatus === 'COMPLETED';
         for (const item of transaction.items) {
-          await tx.part.update({
-            where: { id: item.partId },
-            data: { 
-              stock: { decrement: item.quantity },
-              reservedStock: { decrement: item.quantity } 
-            }
-          });
-        }
-      } else if (nextStatus === 'CANCELLED') {
-        for (const item of transaction.items) {
-          await tx.part.update({
-            where: { id: item.partId },
-            data: { reservedStock: { decrement: item.quantity } }
-          });
+          await releaseReservation(tx, item, deductStock);
         }
       }
 
