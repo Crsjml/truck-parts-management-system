@@ -17,6 +17,7 @@ import {
 } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { buildPurchaseOrderPdf } from '../utils/purchaseOrderPdf';
 import { buildRfqPdf } from '../utils/rfqPdf';
 import ReactCountryFlag from 'react-country-flag';
@@ -109,6 +110,18 @@ const parseIssueNote = (note = '') => {
 // Statuses shown on the Purchase Orders tab (everything past the RFQ stage).
 const PO_TAB_STATUSES = ['Confirmed', 'Received', 'Cancelled', 'Problem Reported', 'Returned to Supplier'];
 
+
+// A field counts as changed only when its text differs, so retyping "10" over
+// a numeric 10 does not trip the unsaved-changes guard.
+const isProductFormDirty = (form, initial) => {
+  if (!initial) return false;
+  const keys = new Set([...Object.keys(form), ...Object.keys(initial)]);
+  const asText = (v) => (v && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''));
+  return [...keys].some(k => asText(form[k]) !== asText(initial[k]));
+};
+
+const isActivationKey = (e) => e.key === 'Enter' || e.key === ' ';
+
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
@@ -148,6 +161,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
   const [viewingPo, setViewingPo] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [productFormInitial, setProductFormInitial] = useState(null);
+  const [confirmProductDiscard, setConfirmProductDiscard] = useState(false);
+  const productDialogRef = useRef(null);
+  const keepEditingProductRef = useRef(null);
   const [viewingPart, setViewingPart] = useState(null);
   const [productActiveTab, setProductActiveTab] = useState('general');
 
@@ -296,6 +313,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPoModalOpen, defectModalItem]);
+
+  useDialogFocus(productDialogRef, {
+    isOpen: isProductModalOpen,
+    onClose: () => requestCloseProductModal(),
+    initialFocus: '[data-product-close]'
+  });
+
+  useEffect(() => {
+    if (confirmProductDiscard) keepEditingProductRef.current?.focus();
+  }, [confirmProductDiscard]);
 
 
 
@@ -911,8 +938,30 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setViewingPart(part);
     setProductActiveTab('general');
     setProductValidationErrors({});
-    setProductForm(part ? { ...part } : { name: '', sku: '', oem: '', category: categories?.[1] || '', price: '', stock: '', minStock: '' });
+    const initialForm = part ? { ...part } : { name: '', sku: '', oem: '', category: categories?.[1] || '', price: '', stock: '', minStock: '' };
+    setProductForm(initialForm);
+    setProductFormInitial(initialForm);
+    setConfirmProductDiscard(false);
     setIsProductModalOpen(true);
+  };
+
+  const closeProductModal = () => {
+    setConfirmProductDiscard(false);
+    setIsProductModalOpen(false);
+  };
+
+  // Escape / backdrop / Close: a second Escape while the prompt is up keeps
+  // editing; a clean form closes straight away.
+  const requestCloseProductModal = () => {
+    if (confirmProductDiscard) {
+      setConfirmProductDiscard(false);
+      return;
+    }
+    if (!savingProduct && isProductFormDirty(productForm, productFormInitial)) {
+      setConfirmProductDiscard(true);
+      return;
+    }
+    closeProductModal();
   };
 
   const saveProduct = async () => {
@@ -957,7 +1006,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         });
       }
       if (!result || result.ok) {
-        setIsProductModalOpen(false);
+        closeProductModal();
         notifySuccess(viewingPart ? `Product "${productForm.name}" updated.` : `New product "${productForm.name}" created.`);
       } else if (result.error) {
         notifyError(`Error: ${result.error}`);
@@ -1193,19 +1242,21 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   return (
     <div className="flex flex-col h-full bg-background animate-fadeIn">
       {/* ── Top Navigation ── */}
-      <div className="bg-background border-b border-border px-6 py-3 flex items-center justify-between gap-4 sticky top-0 z-10">
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+      <div className="bg-background border-b border-border px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sticky top-0 z-10">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground min-w-0">
           <span className="font-bold text-foreground">Purchasing</span>
           {activeSection !== 'orders' && <><CaretRight className="w-3 h-3" /><span className="capitalize text-foreground font-medium">{activeSection}</span></>}
           {activeSection === 'orders' && <><CaretRight className="w-3 h-3" /><span className="text-foreground font-medium">{orderTabs.find(t => t.key === activeOrderTab)?.label}</span></>}
         </div>
-        <div className="flex items-center gap-1 bg-secondary border border-border p-1 rounded-xl">
+        <div className="order-last sm:order-none w-full sm:w-auto min-w-0 overflow-x-auto hide-scrollbar scroll-fade-edges sm:[mask-image:none] sm:[-webkit-mask-image:none]">
+          <div className="flex w-max items-center gap-1 bg-secondary border border-border p-1 rounded-xl">
           {sectionTabs.map(t => (
-            <button key={t.key} onClick={() => setActiveSection(t.key)} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${activeSection === t.key ? 'bg-background text-accent border border-border' : 'text-muted-foreground hover:text-foreground border border-transparent'}`}>
+            <button key={t.key} onClick={() => setActiveSection(t.key)} className={`flex shrink-0 items-center gap-1.5 px-4 py-1.5 rounded-lg whitespace-nowrap text-sm font-semibold transition-colors ${activeSection === t.key ? 'bg-background text-accent border border-border' : 'text-muted-foreground hover:text-foreground border border-transparent'}`}>
               <t.icon weight={activeSection === t.key ? 'duotone' : 'regular'} className="w-4 h-4" />
               {t.label}
             </button>
           ))}
+          </div>
         </div>
         <button
           onClick={() => {
@@ -1223,9 +1274,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       {activeSection === 'orders' && (
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Sub tabs */}
-          <div className="flex gap-0 border-b border-border bg-background px-6">
+          <div className="flex gap-0 border-b border-border bg-background px-4 sm:px-6 overflow-x-auto hide-scrollbar">
             {orderTabs.map(t => (
-              <button key={t.key} onClick={() => setActiveOrderTab(t.key)} className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeOrderTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+              <button key={t.key} onClick={() => setActiveOrderTab(t.key)} className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeOrderTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                 {t.label}
                 {t.key === 'rfq' && rfqs.length > 0 && <span className="ml-2 px-1.5 py-0.5 text-2xs bg-accent/20 text-accent rounded-full font-bold">{rfqs.length}</span>}
                 {t.key === 'payables' && payableRows.length > 0 && <span className="ml-2 px-1.5 py-0.5 text-2xs bg-accent/20 text-accent rounded-full font-bold">{payableRows.length}</span>}
@@ -1493,8 +1544,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
       {/* ── Products Section ── */}
       {activeSection === 'products' && (
-        <div className="flex-1 overflow-y-auto p-6 bg-secondary/20">
-          <div className="flex items-center justify-between mb-2">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-secondary/20">
+          <div className="flex items-start justify-between gap-2 mb-2">
             <ControlPanel
               search={prodSearch} onSearch={setProdSearch}
               filters={[{ value: 'published', label: 'Published' }, { value: 'unpublished', label: 'Unpublished' }, { value: 'lowStock', label: 'Low Stock' }, { value: 'archived', label: 'Show Archived' }]}
@@ -1502,9 +1553,9 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
               groupByOptions={['Category']} activeGroup={prodGroup} onGroupBy={setProdGroup}
               favoritesCount={prodFavs.length} onFavoritesFilter={() => setProdFavsOnly(p => !p)} showFavoritesOnly={prodFavsOnly}
             />
-            <div className="flex items-center gap-1 bg-secondary border border-border p-1 rounded-lg ml-2 mb-4">
-              <button onClick={() => setProdView('grid')} className={`p-1.5 rounded transition-colors ${prodView === 'grid' ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><SquaresFour className="w-4 h-4" /></button>
-              <button onClick={() => setProdView('list')} className={`p-1.5 rounded transition-colors ${prodView === 'list' ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><ListDashes className="w-4 h-4" /></button>
+            <div className="flex shrink-0 items-center gap-1 bg-secondary border border-border p-1 rounded-lg mb-4">
+              <button type="button" aria-label="Grid view" aria-pressed={prodView === 'grid'} onClick={() => setProdView('grid')} className={`p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${prodView === 'grid' ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><SquaresFour className="w-4 h-4" aria-hidden="true" /></button>
+              <button type="button" aria-label="List view" aria-pressed={prodView === 'list'} onClick={() => setProdView('list')} className={`p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${prodView === 'list' ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><ListDashes className="w-4 h-4" aria-hidden="true" /></button>
             </div>
           </div>
 
@@ -1520,9 +1571,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       const isLow = part.stock <= part.minStock;
                       const isFav = prodFavs.includes(part.id);
                       return (
-                        <div key={part.id} onClick={() => openProductModal(part)} className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
+                        <div
+                          key={part.id}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={part.name}
+                          onClick={() => openProductModal(part)}
+                          onKeyDown={e => { if (e.target === e.currentTarget && isActivationKey(e)) { e.preventDefault(); openProductModal(part); } }}
+                          className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
                           {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
-                          <button onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button" aria-label={isFav ? `Remove ${part.name} from favorites` : `Add ${part.name} to favorites`} aria-pressed={isFav} onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-visible:opacity-100 transition-opacity rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                             <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
                           </button>
                           <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3 shadow-inner" style={{ color: color || '#888' }}>
@@ -2513,27 +2571,29 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
           {/* ── PRODUCT PROFILE MODAL ── */}
           {isProductModalOpen && createPortal(
             <div
-              onClick={(e) => { if (e.target === e.currentTarget) setIsProductModalOpen(false); }}
+              onClick={(e) => { if (e.target === e.currentTarget) requestCloseProductModal(); }}
               className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
             >
               <div
+                ref={productDialogRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="product-modal-title"
                 className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col"
               >
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shadow-inner">
+                {/* Header: title + Close share the first row on phones, actions wrap below */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 sm:px-6 py-4 border-b border-border bg-background">
+                  <div className="order-1 flex flex-1 items-center gap-3 min-w-0">
+                    <div className="shrink-0 w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shadow-inner">
                       <Package weight="duotone" className="w-6 h-6 text-accent" />
                     </div>
-                    <div>
-                      <h3 id="product-modal-title" className="text-xl font-bold text-foreground leading-tight">{viewingPart ? viewingPart.name : 'New Product'}</h3>
-                      {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider">SKU: {viewingPart.sku}</p>}
+                    <div className="min-w-0">
+                      <h3 id="product-modal-title" className="text-lg sm:text-xl font-bold text-foreground leading-tight break-words">{viewingPart ? viewingPart.name : 'New Product'}</h3>
+                      {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <button type="button" data-product-close onClick={requestCloseProductModal} aria-label="Close product" className="order-2 sm:order-3 shrink-0 p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X weight="bold" className="w-5 h-5" aria-hidden="true" /></button>
+                  <div className="order-3 sm:order-2 basis-full sm:basis-auto flex flex-wrap items-center gap-2">
                     <button
                       onClick={saveProduct}
                       disabled={savingProduct}
@@ -2543,20 +2603,43 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       {savingProduct ? 'Saving...' : 'Save'}
                     </button>
                     {viewingPart && (
-                      <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); setIsProductModalOpen(false); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                      <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); closeProductModal(); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
                         {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
                       </button>
                     )}
                     {viewingPart && (
-                      <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); setIsProductModalOpen(false); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
+                      <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); closeProductModal(); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
                         <Archive weight="bold" className="w-4 h-4" /> Archive
                       </button>
                     )}
-                    <button onClick={() => setIsProductModalOpen(false)} aria-label="Close product modal" className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg ml-1"><X weight="bold" className="w-5 h-5" /></button>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-background p-6 md:p-8">
+                {confirmProductDiscard && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 sm:px-6 py-3 border-b border-border bg-secondary">
+                    <p id="product-discard-question" role="alert" className="basis-full sm:basis-auto sm:flex-1 text-sm font-semibold text-foreground">
+                      Discard unsaved changes?
+                    </p>
+                    <button
+                      ref={keepEditingProductRef}
+                      type="button"
+                      aria-describedby="product-discard-question"
+                      onClick={() => setConfirmProductDiscard(false)}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-bold text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      Keep editing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeProductModal}
+                      className="px-3 py-1.5 rounded-lg border border-alarm-text/40 text-sm font-bold text-alarm-text hover:bg-alarm-text/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 md:p-8">
                   {/* Stats row */}
                   {viewingPart && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
@@ -2579,12 +2662,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   )}
 
                   {/* Tabs */}
-                  <div className="flex border-b border-border mb-6">
+                  <div className="flex border-b border-border mb-6 overflow-x-auto hide-scrollbar">
                     {[
                       { key: 'general', label: 'General Information' },
                       ...(viewingPart ? [{ key: 'sales', label: 'Sales Analytics' }, { key: 'purchases', label: 'Purchase History' }] : []),
                     ].map(t => (
-                      <button key={t.key} onClick={() => setProductActiveTab(t.key)} className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                      <button key={t.key} onClick={() => setProductActiveTab(t.key)} className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                         {t.label}
                       </button>
                     ))}
