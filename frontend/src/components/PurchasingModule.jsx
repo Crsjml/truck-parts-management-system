@@ -124,8 +124,19 @@ const isProductFormDirty = (form, initial) => {
 
 const isActivationKey = (e) => e.key === 'Enter' || e.key === ' ';
 
-export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
-  const { formatCurrency } = useSettings();
+// Sellable units: on-hand stock minus units held by pending orders.
+const availableStock = (part) => (Number(part?.stock) || 0) - (Number(part?.reservedStock) || 0);
+const isLowStock = (part) => availableStock(part) <= (Number(part?.minStock) || 0);
+
+// Empty markup field means "use the global rate" (null), matching what Save sends.
+const parseMarkupOverride = (value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, transactionsLoading = false, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
+  const { formatCurrency, formatBaseCurrency = formatCurrency, settings } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
   const [activeOrderTab, setActiveOrderTab] = useState('rfq'); // 'rfq' | 'pos' | 'suppliers'
 
@@ -462,7 +473,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     let rows = showArchived ? archivedParts : (parts || []);
     if (prodFilters.includes('published')) rows = rows.filter(p => p.published);
     if (prodFilters.includes('unpublished')) rows = rows.filter(p => !p.published);
-    if (prodFilters.includes('lowStock')) rows = rows.filter(p => p.stock <= p.minStock);
+    if (prodFilters.includes('lowStock')) rows = rows.filter(isLowStock);
     const search = prodSearch;
     if (search) {
       rows = rows.filter(p => matchesSearch(search, [p.name, p.sku, p.category, p.oem]));
@@ -1575,7 +1586,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                     {prodRows.map(part => {
                       const { Icon, color } = getCategoryIconAndColor(part.category);
-                      const isLow = part.stock <= part.minStock;
+                      const isLow = isLowStock(part);
+                      const available = availableStock(part);
                       const isFav = prodFavs.includes(part.id);
                       return (
                         <div
@@ -1586,7 +1598,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           onClick={() => openProductModal(part)}
                           onKeyDown={e => { if (e.target === e.currentTarget && isActivationKey(e)) { e.preventDefault(); openProductModal(part); } }}
                           className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
-                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
+                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-alarm-text rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
                           <button type="button" aria-label={isFav ? `Remove ${part.name} from favorites` : `Add ${part.name} to favorites`} aria-pressed={isFav} onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-visible:opacity-100 transition-opacity rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                             <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
                           </button>
@@ -1600,8 +1612,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                             <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price, part)}</span>
-                            <span className={`text-11px font-bold ${isLow ? 'text-red-500' : 'text-emerald-500'}`} title={`Current stock: ${part.stock} / Safety threshold: ${part.minStock || 0}`}>
-                              {part.stock} <span className="text-muted-foreground/70 font-normal text-3xs">/ {part.minStock || 0} min</span>
+                            <span className={`text-11px font-bold ${isLow ? 'text-alarm-text' : 'text-emerald-500'}`} title={`Available: ${available} (${part.stock} in stock, ${part.reservedStock || 0} reserved) / Safety threshold: ${part.minStock || 0}`}>
+                              {available} <span className="text-muted-foreground/70 font-normal text-3xs">/ {part.minStock || 0} min</span>
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 mt-2">
@@ -1625,10 +1637,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         </div>
                       ) },
                       { key: 'category', label: 'Category' },
-                      { key: 'price', label: 'Price', align: 'right', render: v => formatCurrency(v) },
-                      { key: 'stock', label: 'Stock / Min', align: 'right', render: (v, r) => (
-                        <span className={`font-bold ${v <= (r.minStock || 0) ? 'text-accent' : 'text-emerald-500'}`}>
-                          {v} <span className="text-muted-foreground/70 font-normal text-3xs">/ {r.minStock || 0} min</span>
+                      { key: 'price', label: 'Price', align: 'right', render: (v, r) => formatCurrency(v, r) },
+                      { key: 'stock', label: 'Available / Min', align: 'right', render: (v, r) => (
+                        <span className={`font-bold ${isLowStock(r) ? 'text-alarm-text' : 'text-emerald-500'}`} title={`${v} in stock, ${r.reservedStock || 0} reserved`}>
+                          {availableStock(r)} <span className="text-muted-foreground/70 font-normal text-3xs">/ {r.minStock || 0} min</span>
                         </span>
                       ) },
                       { key: 'published', label: 'Published', align: 'right', render: v => v ? <Eye weight="duotone" className="w-4 h-4 text-emerald-500 ml-auto" /> : <EyeSlash weight="duotone" className="w-4 h-4 text-muted-foreground ml-auto" /> },
@@ -2653,23 +2665,46 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
                 <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 md:p-8">
                   {/* Stats row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-                    {[
-                      { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground' },
-                      { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
-                      { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400' },
-                      { label: 'In Stock', value: viewingPart.stock, icon: Package, color: viewingPart.stock <= viewingPart.minStock ? 'text-accent' : 'text-foreground', alert: viewingPart.stock <= viewingPart.minStock },
-                      { label: 'Reserved', value: viewingPart.reservedStock || 0, icon: Clock, color: 'text-amber-500', alert: (viewingPart.reservedStock || 0) > 0 },
-                    ].map(s => (
-                      <div key={s.label} className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-accent/50' : 'border-border'}`}>
-                        {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />}
-                        <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
-                          <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
-                        </span>
-                        <div className={`text-2xl font-extrabold font-display ${s.color}`}>{s.value}</div>
+                  {(() => {
+                    const available = availableStock(viewingPart);
+                    const isLow = isLowStock(viewingPart);
+                    const tiles = [
+                      { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground', busy: transactionsLoading },
+                      { label: 'Revenue', value: formatBaseCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500', busy: transactionsLoading },
+                      {
+                        label: 'Available', value: available, icon: Package, color: isLow ? 'text-alarm-text' : 'text-foreground', alert: isLow, lowStock: isLow,
+                        detail: [`${viewingPart.stock ?? 0} in stock · ${viewingPart.reservedStock || 0} reserved`, `min ${viewingPart.minStock || 0}`],
+                      },
+                      { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400', busy: loading },
+                    ];
+                    return (
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        {tiles.map(s => (
+                          <div
+                            key={s.label}
+                            role="group"
+                            aria-label={s.label}
+                            aria-busy={s.busy ? 'true' : 'false'}
+                            data-low-stock={s.lowStock ? 'true' : undefined}
+                            className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-alarm-text/50' : 'border-border'}`}
+                          >
+                            {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-alarm-text" />}
+                            <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                              <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
+                            </span>
+                            {s.busy ? (
+                              <div className="h-8 w-16 mx-auto rounded-md bg-muted motion-safe:animate-pulse" aria-hidden="true" />
+                            ) : (
+                              <div className={`text-lg sm:text-2xl font-extrabold font-display tabular-nums [overflow-wrap:anywhere] ${s.color}`}>{s.value}</div>
+                            )}
+                            {s.detail && s.detail.map(d => (
+                              <div key={d} className="text-xs text-muted-foreground mt-0.5">{d}</div>
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
 
                   {/* Tabs */}
                   <div className="flex border-b border-border mb-6 overflow-x-auto hide-scrollbar">
@@ -2705,7 +2740,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               <input
                                 id={`prod-field-${f.key}`}
                                 type={f.type}
-                                value={productForm[f.key] || ''}
+                                value={productForm[f.key] ?? ''}
                                 onChange={e => {
                                   setProductForm({ ...productForm, [f.key]: e.target.value });
                                   if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
@@ -2728,8 +2763,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         </div>
                         <div className="space-y-5">
                           {[
-                            { label: 'Unit Price (PHP) *', key: 'price', type: 'number' },
-                            { label: 'Markup Override % (optional)', key: 'markupOverride', type: 'number', min: '-100', max: '1000', step: '0.5', suffix: '%', placeholder: 'Global rate', showSpinner: true },
+                            { label: 'Cost (₱) *', key: 'price', type: 'number', hint: `Sells at ${formatCurrency(Number(productForm.price) || 0, { markupOverride: parseMarkupOverride(productForm.markupOverride) })}` },
+                            { label: 'Markup Override % (optional)', key: 'markupOverride', type: 'number', min: '-100', max: '1000', step: '0.5', suffix: '%', placeholder: `Global rate (${Number(settings?.active_markup) || 0}%)`, showSpinner: true },
                             { label: 'Current Stock *', key: 'stock', type: 'number' },
                             { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
                           ].map(f => (
@@ -2744,7 +2779,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                   max={f.max}
                                   step={f.step}
                                   placeholder={f.placeholder}
-                                  value={productForm[f.key] || ''}
+                                  value={productForm[f.key] ?? ''}
                                   onChange={e => {
                                     setProductForm({ ...productForm, [f.key]: e.target.value });
                                     if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
@@ -2753,6 +2788,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 />
                                 {f.suffix && <span className="absolute right-0 top-1/2 -translate-y-1/2 text-sm font-normal text-muted-foreground pointer-events-none">{f.suffix}</span>}
                               </div>
+                              {f.hint && <span className="text-xs font-semibold text-muted-foreground mt-0.5" aria-live="polite">{f.hint}</span>}
                             </div>
                           ))}
                           {Number(productForm.stock) !== Number(viewingPart.stock) && (
@@ -2803,7 +2839,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               <td className="p-3 font-bold text-foreground">{s.invoice}</td>
                               <td className="p-3">{s.customer}</td>
                               <td className="p-3 text-right font-bold">{s.qty}</td>
-                              <td className="p-3 text-right text-emerald-500 font-bold">{formatCurrency(s.revenue)}</td>
+                              <td className="p-3 text-right text-emerald-500 font-bold">{formatBaseCurrency(s.revenue)}</td>
                             </tr>
                           ))}
                           {productSales.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-muted-foreground">No sales recorded yet.</td></tr>}
@@ -2813,7 +2849,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             <tr>
                               <td colSpan="3" className="p-3 font-bold text-foreground">Total</td>
                               <td className="p-3 text-right font-black text-foreground">{totalUnitsSold}</td>
-                              <td className="p-3 text-right font-black text-emerald-500">{formatCurrency(totalRevenue)}</td>
+                              <td className="p-3 text-right font-black text-emerald-500">{formatBaseCurrency(totalRevenue)}</td>
                             </tr>
                           </tfoot>
                         )}

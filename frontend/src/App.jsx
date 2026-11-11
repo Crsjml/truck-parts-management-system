@@ -75,6 +75,9 @@ export default function App() {
   const [isAlertDrawerOpen, setIsAlertDrawerOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
+  // Distinguishes "still fetching" from "genuinely no transactions" so
+  // screens can show skeletons instead of misleading zeros.
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [logs, setLogs] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -273,7 +276,9 @@ export default function App() {
       setTransactions(fetchedTransactions ?? []);
     };
 
-    loadData();
+    loadData()
+      .catch((err) => console.error('Failed to load workspace data:', err))
+      .finally(() => setTransactionsLoading(false));
 
     // Listen for transaction updates from CustomerStorefront (e.g. after checkout)
     const handleTransactionUpdate = async () => {
@@ -770,6 +775,7 @@ export default function App() {
                       setParts(updatedParts);
                     }}
                     transactions={transactions}
+                    transactionsLoading={transactionsLoading}
                     onAddPart={handleAddPart}
                     onEditPart={handleEditPart}
                     onDeletePart={handleDeletePart}
