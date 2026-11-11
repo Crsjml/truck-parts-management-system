@@ -10,6 +10,7 @@ import { canAccessPage, defaultStaffPage, staffRoleLabel } from './utils/staffAc
 import AuthPortal from './components/AuthPortal';
 import CustomerStorefront from './components/CustomerStorefront';
 import StatusBar from './components/StatusBar';
+import SectionErrorBoundary from './components/ui/SectionErrorBoundary';
 import FloatingSettingsWidget from './components/FloatingSettingsWidget';
 import ToastNotification, { useToast } from './components/ToastNotification';
 import UpdatePasswordModal from './components/UpdatePasswordModal';
@@ -760,6 +761,7 @@ export default function App() {
                 {page === 'account' && <MyAccount user={supabaseUser} transactions={transactions} variant="admin" backLabel="Back to workspace" onGoBack={() => setPage(defaultStaffPage(staffRole))} />}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && page === 'staff' && <StaffManagement currentEmail={adminSession?.user?.staffData?.email} />}
                 {page === 'purchasing' && (
+                  <SectionErrorBoundary>
                   <PurchasingModule
                     onAddLog={addLog}
                     parts={parts}
@@ -774,6 +776,7 @@ export default function App() {
                     categories={categories}
                     showToast={showToast}
                   />
+                  </SectionErrorBoundary>
                 )}
                 {page === 'customers' && <CustomerManagement showToast={showToast} />}
               </Suspense>
