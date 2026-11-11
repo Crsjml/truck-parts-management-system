@@ -44,6 +44,7 @@ const PageLoader = () => (
 
 import { fetchParts, fetchCategories, createPart, updatePart, deletePart, createTransaction, fetchTransactions, fetchMyTransactions, checkStaffRole, fetchCustomerProfile, fetchPartAdjustments, fetchGlobalAuditLogs, invalidateToken, setToken } from './authStore';
 import { supabase } from './supabaseClient';
+import { displayNameFor } from './utils/displayName';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
@@ -158,7 +159,7 @@ export default function App() {
   // Derive sessions directly from the state
   const adminSession = useMemo(() => isSignedIn && supabaseUser?.staffData ? {
     user: {
-      fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email,
+      fullName: displayNameFor(supabaseUser),
       role: 'admin',
       staffData: supabaseUser.staffData
     }
@@ -589,7 +590,7 @@ export default function App() {
 
 
   const sidebarFooterProps = {
-    name: adminSession?.user?.fullName || 'Cris Dela Cruz',
+    name: displayNameFor(adminSession?.user),
     roleLabel: staffRoleLabel(staffRole),
     isSuperadmin: adminSession?.user?.staffData?.role === 'SUPERADMIN',
     avatarUrl: supabaseUser ? (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url || null) : null,
