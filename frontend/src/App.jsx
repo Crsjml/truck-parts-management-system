@@ -1,8 +1,10 @@
 import { useEffect, useState, Suspense, lazy, useRef, useCallback, useMemo } from 'react';
 import { apiPost } from './api/apiClient';
-import { Bell, User, List, X, Moon, Sun, GearSix, SignOut } from '@phosphor-icons/react';
+import { Bell, List, Moon, Sun, GearSix } from '@phosphor-icons/react';
 
 import Logo from './components/Logo';
+import AdminSidebarFooter from './components/staff/AdminSidebarFooter';
+import MobileNavDrawer from './components/staff/MobileNavDrawer';
 import AdminNavigation from './components/staff/AdminNavigation';
 import { canAccessPage, defaultStaffPage, staffRoleLabel } from './utils/staffAccess';
 import AuthPortal from './components/AuthPortal';
@@ -586,6 +588,14 @@ export default function App() {
 
 
 
+  const sidebarFooterProps = {
+    name: adminSession?.user?.fullName || 'Cris Dela Cruz',
+    roleLabel: staffRoleLabel(staffRole),
+    isSuperadmin: adminSession?.user?.staffData?.role === 'SUPERADMIN',
+    avatarUrl: supabaseUser ? (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url || null) : null,
+    onLogout: () => handleLogout('admin')
+  };
+
   return (
     <div className="h-full flex overflow-hidden bg-background text-foreground font-sans transition-colors duration-300">
       <aside className={`hidden lg:flex lg:flex-col shrink-0 glass-panel border-r border-border justify-between overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
@@ -616,114 +626,34 @@ export default function App() {
         </div>
 
         <div className={`shrink-0 border-t border-border flex flex-col bg-secondary/30 transition-all duration-300 ${isSidebarCollapsed ? 'p-3 items-center' : 'p-5 pt-4 items-start'}`}>
-          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between gap-2'}`}>
-            <div 
-              onClick={() => setPage('account')}
-              className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}
-              title="My Account"
-            >
-              {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
-                <img
-                  src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
-                  alt="Profile"
-                  className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full border border-border object-cover bg-secondary shrink-0`}
-                />
-              ) : (
-                <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-10 h-10'} rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shrink-0`}>
-                  <User weight="duotone" className="w-5 h-5" />
-                </div>
-              )}
-              {!isSidebarCollapsed && (
-                <div className="flex flex-col text-left overflow-hidden">
-                  <span className="text-sm font-semibold text-foreground truncate max-w-[120px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                  <div className="mt-0.5">
-                    <span className={`text-11px font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-foreground bg-muted'}`}>
-                      {staffRoleLabel(staffRole)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-            {!isSidebarCollapsed && (
-              <button
-                onClick={() => handleLogout('admin')}
-                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
-                title="Logout"
-              >
-                <SignOut weight="duotone" className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+          <AdminSidebarFooter
+            {...sidebarFooterProps}
+            collapsed={isSidebarCollapsed}
+            onAccount={() => setPage('account')}
+          />
         </div>
       </aside>
 
-      {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm">
-          <aside className="w-72 bg-background border-r border-border flex flex-col justify-between overflow-hidden animate-slideRight">
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 hide-scrollbar">
-              <div className="flex items-center justify-between py-2 border-b border-border">
-                <Logo className="w-12 h-12" showText={true} />
-                <button
-                  onClick={() => setIsSidebarOpen(false)}
-                  aria-label="Close navigation menu"
-                  className="p-1.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-                >
-                  <X weight="duotone" className="w-5 h-5" />
-                </button>
-              </div>
-
-              <AdminNavigation
-                role={staffRole}
-                page={page}
-                onNavigate={(nextPage) => { setPage(nextPage); setIsSidebarOpen(false); }}
-                onSettings={() => { setIsSettingsModalOpen(true); setIsSidebarOpen(false); }}
-              />
-            </div>
-
-            <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col bg-secondary/30">
-              <div className="flex items-center justify-between w-full gap-2">
-                <div 
-                  onClick={() => {
-                    setPage('account');
-                    setIsSidebarOpen(false);
-                  }}
-                  className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                  title="My Account"
-                >
-                  {supabaseUser && (customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url) ? (
-                    <img
-                      src={customerProfile?.photoURL || supabaseUser.user_metadata?.avatar_url}
-                      alt="Profile"
-                      className="w-10 h-10 rounded-full border border-border object-cover bg-secondary shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-secondary-foreground text-sm font-bold shrink-0">
-                      <User weight="duotone" className="w-5 h-5" />
-                    </div>
-                  )}
-                  <div className="flex flex-col text-left overflow-hidden">
-                    <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{adminSession?.user?.fullName || 'Cris Dela Cruz'}</span>
-                    <div className="mt-0.5">
-                      <span className={`text-11px font-bold px-1.5 py-0.5 rounded tracking-wide ${adminSession?.user?.staffData?.role === 'SUPERADMIN' ? 'bg-primary text-primary-foreground' : 'text-foreground bg-muted'}`}>
-                        {staffRoleLabel(staffRole)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleLogout('admin')}
-                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0"
-                  title="Logout"
-                >
-                  <SignOut weight="duotone" className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </aside>
-
-          <div className="flex-1" onClick={() => setIsSidebarOpen(false)} />
-        </div>
-      )}
+      <MobileNavDrawer
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        footer={
+          <div className="shrink-0 p-5 pt-4 border-t border-border flex flex-col bg-secondary/30">
+            <AdminSidebarFooter
+              {...sidebarFooterProps}
+              nameMaxWidth="max-w-[140px]"
+              onAccount={() => { setPage('account'); setIsSidebarOpen(false); }}
+            />
+          </div>
+        }
+      >
+        <AdminNavigation
+          role={staffRole}
+          page={page}
+          onNavigate={(nextPage) => { setPage(nextPage); setIsSidebarOpen(false); }}
+          onSettings={() => { setIsSettingsModalOpen(true); setIsSidebarOpen(false); }}
+        />
+      </MobileNavDrawer>
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 shrink-0 glass-panel border-b border-border px-6 flex items-center justify-between relative z-40">
