@@ -13,8 +13,10 @@ import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrderDetails,
   updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment, fetchParts,
-  reportPoItemProblem, resolvePoItemProblem, returnPoToSupplier
+  reportPoItemProblem, resolvePoItemProblem, returnPoToSupplier,
+  fetchCategoriesList, fetchNextSku
 } from '../authStore';
+import AddPartDrawer from './AddPartDrawer';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
@@ -161,6 +163,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
   const [viewingPo, setViewingPo] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isAddPartDrawerOpen, setIsAddPartDrawerOpen] = useState(false);
+  const [addPartCategories, setAddPartCategories] = useState([]);
   const [productFormInitial, setProductFormInitial] = useState(null);
   const [confirmProductDiscard, setConfirmProductDiscard] = useState(false);
   const productDialogRef = useRef(null);
@@ -934,11 +938,26 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   }, [viewingPo, notifyError, notifySuccess]);
 
   // ── Product CRUD ──────────────────────────────────────────────────────────────
-  const openProductModal = (part = null) => {
+  // New parts go through the inventory Add Part drawer (fitment, description,
+  // explicit publish choice); this modal only views and edits existing parts.
+  const openAddPartDrawer = async () => {
+    setIsAddPartDrawerOpen(true);
+    if (addPartCategories.length === 0) setAddPartCategories(await fetchCategoriesList());
+  };
+
+  const handleCreatePart = async (partData) => {
+    const result = await onAddPart(partData);
+    if (result && !result.ok) return result;
+    notifySuccess(`New product "${partData.name}" saved${partData.published ? '' : ' as unpublished'}.`);
+    if (onPartsUpdated) await onPartsUpdated();
+    return result;
+  };
+
+  const openProductModal = (part) => {
     setViewingPart(part);
     setProductActiveTab('general');
     setProductValidationErrors({});
-    const initialForm = part ? { ...part } : { name: '', sku: '', oem: '', category: categories?.[1] || '', price: '', stock: '', minStock: '' };
+    const initialForm = { ...part };
     setProductForm(initialForm);
     setProductFormInitial(initialForm);
     setConfirmProductDiscard(false);
@@ -971,10 +990,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (productForm.price === '' || Number(productForm.price) < 0) errs.price = true;
     if (productForm.stock === '' || Number(productForm.stock) < 0) errs.stock = true;
 
-    if (viewingPart && Number(productForm.stock) !== Number(viewingPart.stock)) {
-      if (!productForm.adjustmentReason?.trim()) {
-        errs.adjustmentReason = true;
-      }
+    if (Number(productForm.stock) !== Number(viewingPart.stock) && !productForm.adjustmentReason?.trim()) {
+      errs.adjustmentReason = true;
     }
 
     if (Object.keys(errs).length > 0) {
@@ -988,26 +1005,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setSavingProduct(true);
     let result;
     try {
-      if (viewingPart) {
-        result = await onEditPart(viewingPart.id, {
-          ...productForm,
-          price: Math.max(0, Number(productForm.price) || 0),
-          markupOverride: (productForm.markupOverride === '' || productForm.markupOverride == null) ? null : Number(productForm.markupOverride),
-          stock: Math.max(0, Number(productForm.stock) || 0),
-          minStock: Math.max(0, Number(productForm.minStock) || 0)
-        });
-      } else {
-        result = await onAddPart({
-          ...productForm,
-          price: Math.max(0, Number(productForm.price) || 0),
-          markupOverride: (productForm.markupOverride === '' || productForm.markupOverride == null) ? null : Number(productForm.markupOverride),
-          stock: Math.max(0, Number(productForm.stock) || 0),
-          minStock: Math.max(0, Number(productForm.minStock) || 0)
-        });
-      }
+      result = await onEditPart(viewingPart.id, {
+        ...productForm,
+        price: Math.max(0, Number(productForm.price) || 0),
+        markupOverride: (productForm.markupOverride === '' || productForm.markupOverride == null) ? null : Number(productForm.markupOverride),
+        stock: Math.max(0, Number(productForm.stock) || 0),
+        minStock: Math.max(0, Number(productForm.minStock) || 0)
+      });
       if (!result || result.ok) {
         closeProductModal();
-        notifySuccess(viewingPart ? `Product "${productForm.name}" updated.` : `New product "${productForm.name}" created.`);
+        notifySuccess(`Product "${productForm.name}" updated.`);
       } else if (result.error) {
         notifyError(`Error: ${result.error}`);
       }
@@ -1260,7 +1267,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         </div>
         <button
           onClick={() => {
-            if (activeSection === 'products') openProductModal();
+            if (activeSection === 'products') openAddPartDrawer();
             else if (activeSection === 'orders' && activeOrderTab === 'suppliers') openSupplierModal();
             else if (activeSection === 'orders') openPoModal();
           }}
@@ -2568,6 +2575,15 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         </div>, document.body
       )}
 
+          <AddPartDrawer
+            isOpen={isAddPartDrawerOpen}
+            onClose={() => setIsAddPartDrawerOpen(false)}
+            onAddPart={handleCreatePart}
+            categoriesList={addPartCategories}
+            parts={parts}
+            suggestSku={fetchNextSku}
+          />
+
           {/* ── PRODUCT PROFILE MODAL ── */}
           {isProductModalOpen && createPortal(
             <div
@@ -2588,8 +2604,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       <Package weight="duotone" className="w-6 h-6 text-accent" />
                     </div>
                     <div className="min-w-0">
-                      <h3 id="product-modal-title" className="text-lg sm:text-xl font-bold text-foreground leading-tight break-words">{viewingPart ? viewingPart.name : 'New Product'}</h3>
-                      {viewingPart && <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>}
+                      <h3 id="product-modal-title" className="text-lg sm:text-xl font-bold text-foreground leading-tight break-words">{viewingPart.name}</h3>
+                      <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>
                     </div>
                   </div>
                   <button type="button" data-product-close onClick={requestCloseProductModal} aria-label="Close product" className="order-2 sm:order-3 shrink-0 p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X weight="bold" className="w-5 h-5" aria-hidden="true" /></button>
@@ -2602,16 +2618,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       {savingProduct ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
                       {savingProduct ? 'Saving...' : 'Save'}
                     </button>
-                    {viewingPart && (
-                      <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); closeProductModal(); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                        {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
-                      </button>
-                    )}
-                    {viewingPart && (
-                      <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); closeProductModal(); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
-                        <Archive weight="bold" className="w-4 h-4" /> Archive
-                      </button>
-                    )}
+                    <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); closeProductModal(); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                      {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
+                    </button>
+                    <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); closeProductModal(); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
+                      <Archive weight="bold" className="w-4 h-4" /> Archive
+                    </button>
                   </div>
                 </div>
 
@@ -2641,31 +2653,30 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
                 <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 md:p-8">
                   {/* Stats row */}
-                  {viewingPart && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-                      {[
-                        { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground' },
-                        { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
-                        { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400' },
-                        { label: 'In Stock', value: viewingPart.stock, icon: Package, color: viewingPart.stock <= viewingPart.minStock ? 'text-accent' : 'text-foreground', alert: viewingPart.stock <= viewingPart.minStock },
-                        { label: 'Reserved', value: viewingPart.reservedStock || 0, icon: Clock, color: 'text-amber-500', alert: (viewingPart.reservedStock || 0) > 0 },
-                      ].map(s => (
-                        <div key={s.label} className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-accent/50' : 'border-border'}`}>
-                          {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />}
-                          <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
-                            <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
-                          </span>
-                          <div className={`text-2xl font-extrabold font-display ${s.color}`}>{s.value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+                    {[
+                      { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground' },
+                      { label: 'Revenue', value: formatCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500' },
+                      { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400' },
+                      { label: 'In Stock', value: viewingPart.stock, icon: Package, color: viewingPart.stock <= viewingPart.minStock ? 'text-accent' : 'text-foreground', alert: viewingPart.stock <= viewingPart.minStock },
+                      { label: 'Reserved', value: viewingPart.reservedStock || 0, icon: Clock, color: 'text-amber-500', alert: (viewingPart.reservedStock || 0) > 0 },
+                    ].map(s => (
+                      <div key={s.label} className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-accent/50' : 'border-border'}`}>
+                        {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />}
+                        <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                          <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
+                        </span>
+                        <div className={`text-2xl font-extrabold font-display ${s.color}`}>{s.value}</div>
+                      </div>
+                    ))}
+                  </div>
 
                   {/* Tabs */}
                   <div className="flex border-b border-border mb-6 overflow-x-auto hide-scrollbar">
                     {[
                       { key: 'general', label: 'General Information' },
-                      ...(viewingPart ? [{ key: 'sales', label: 'Sales Analytics' }, { key: 'purchases', label: 'Purchase History' }] : []),
+                      { key: 'sales', label: 'Sales Analytics' },
+                      { key: 'purchases', label: 'Purchase History' },
                     ].map(t => (
                       <button key={t.key} onClick={() => setProductActiveTab(t.key)} className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                         {t.label}
@@ -2744,7 +2755,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               </div>
                             </div>
                           ))}
-                          {viewingPart && Number(productForm.stock) !== Number(viewingPart.stock) && (
+                          {Number(productForm.stock) !== Number(viewingPart.stock) && (
                             <div className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors.adjustmentReason ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
                               <label htmlFor="prod-field-adjustmentReason" className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
                               <input
@@ -2761,18 +2772,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               />
                             </div>
                           )}
-                          {viewingPart && (
-                            <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
-                              <div>
-                                <div className="text-sm font-bold text-foreground">Published</div>
-                                <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
-                              </div>
-                              <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
-                                className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
-                                <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
-                              </button>
+                          <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
+                            <div>
+                              <div className="text-sm font-bold text-foreground">Published</div>
+                              <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
                             </div>
-                          )}
+                            <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
+                              className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
+                              <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

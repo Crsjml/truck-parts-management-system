@@ -337,9 +337,9 @@ export default function App() {
     if (result.ok) {
       setParts((prev) => [...prev, result.part]);
       addLog('stock', `New part catalog item '${result.part.name}' added with SKU: ${result.part.sku}.`, { sku: result.part.sku });
-    } else {
-      alert(`Error adding part: ${result.error}`);
     }
+    // The Add Part drawer shows result.error inline and stays open on failure.
+    return result;
   };
 
   const handleEditPart = async (id, updatedData) => {

@@ -147,7 +147,7 @@ export class PartsService {
   }
 
   async createPart(data) {
-    const { name, sku, oem, oemNumbers, markupOverride, category_id, price, stock, minStock, compatibility, description, image, compatibleWith } = data;
+    const { name, sku, oem, oemNumbers, markupOverride, category_id, price, stock, minStock, compatibility, description, image, compatibleWith, published } = data;
     const normalizedOemNumbers = normalizeOemNumbers(oemNumbers);
     const normalizedMarkupOverride = (markupOverride === undefined || markupOverride === null || markupOverride === '')
       ? null
@@ -184,7 +184,9 @@ export class PartsService {
       compatibility: compatibility ? compatibility.trim() : '',
       compatibleWith: parsedCompatibleWith,
       description: description ? description.trim() : '',
-      image: uploadedImageUrl || ''
+      image: uploadedImageUrl || '',
+      // Only an explicit boolean is honoured; otherwise the schema default applies.
+      ...(typeof published === 'boolean' && { published })
     });
 
     const part = typedSku
@@ -207,7 +209,8 @@ export class PartsService {
       compatibility: part.compatibility,
       compatibleWith: part.compatibleWith,
       description: part.description,
-      image: part.image || ''
+      image: part.image || '',
+      published: part.published
     };
   }
 

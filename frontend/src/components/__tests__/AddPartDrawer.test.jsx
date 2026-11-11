@@ -243,3 +243,59 @@ describe('AddPartDrawer SKU suggestion', () => {
     expect(await screen.findByText(/CAT-PRT-#####/)).toBeInTheDocument();
   });
 });
+
+describe('AddPartDrawer publish and category defaults', () => {
+  const categoriesList = [
+    { id: 'brakes', name: 'Braking Systems', parentCategory: null },
+    { id: 'pads', name: 'Brake Pads/Linings', parentCategory: { id: 'brakes' } }
+  ];
+
+  const fillToStepThree = () => {
+    fireEvent.change(screen.getByLabelText(/part name/i), { target: { value: 'Brake Pad Set' } });
+    fireEvent.change(screen.getByLabelText(/oem no/i), { target: { value: '1-87610' } });
+    fireEvent.change(screen.getByLabelText('-- Select Category --'), { target: { value: 'pads' } });
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }));
+    fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '1200' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '4' } });
+    fireEvent.change(screen.getByPlaceholderText('5'), { target: { value: '2' } });
+  };
+
+  it('starts with no category chosen and requires one', async () => {
+    render(<AddPartDrawer isOpen onClose={vi.fn()} onAddPart={vi.fn()} categoriesList={categoriesList} parts={[]} />);
+
+    expect(screen.getByLabelText('-- Select Category --')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText(/part name/i), { target: { value: 'Brake Pad Set' } });
+    fireEvent.change(screen.getByLabelText(/oem no/i), { target: { value: '1-87610' } });
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }));
+
+    expect(await screen.findByText(/category selection is required/i)).toBeInTheDocument();
+  });
+
+  it('saves new parts unpublished unless the admin turns publishing on', async () => {
+    const onAddPart = vi.fn().mockResolvedValue({ ok: true });
+    render(<AddPartDrawer isOpen onClose={vi.fn()} onAddPart={onAddPart} categoriesList={categoriesList} parts={[]} />);
+
+    fillToStepThree();
+    const publishSwitch = screen.getByRole('switch', { name: /publish to storefront/i });
+    expect(publishSwitch).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: /save part/i }));
+    await waitFor(() => expect(onAddPart).toHaveBeenCalledTimes(1));
+    expect(onAddPart.mock.calls[0][0]).toMatchObject({ published: false, category_id: 'pads' });
+  });
+
+  it('sends published: true when the admin switches publishing on', async () => {
+    const onAddPart = vi.fn().mockResolvedValue({ ok: true });
+    render(<AddPartDrawer isOpen onClose={vi.fn()} onAddPart={onAddPart} categoriesList={categoriesList} parts={[]} />);
+
+    fillToStepThree();
+    const publishSwitch = screen.getByRole('switch', { name: /publish to storefront/i });
+    fireEvent.click(publishSwitch);
+    expect(publishSwitch).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /save part/i }));
+    await waitFor(() => expect(onAddPart).toHaveBeenCalledTimes(1));
+    expect(onAddPart.mock.calls[0][0]).toMatchObject({ published: true });
+  });
+});
