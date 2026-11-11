@@ -226,8 +226,8 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
           className="w-full pl-9 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-colors"
         />
         {search && (
-          <button onClick={() => onSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            <X className="w-3.5 h-3.5" />
+          <button type="button" aria-label="Clear search" onClick={() => onSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -368,11 +368,20 @@ export const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favor
                   <tr
                     key={row.id || row.id}
                     onClick={() => onRowClick && onRowClick(row)}
+                    onKeyDown={e => {
+                      if (!onRowClick || e.target !== e.currentTarget) return;
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      onRowClick(row);
+                    }}
                     className={`hover:bg-secondary/50 transition-colors group ${onRowClick ? 'cursor-pointer focus-within:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent' : ''}`}
                     tabIndex={onRowClick ? 0 : undefined}
                   >
                     <td className="py-3 px-3">
                       <button
+                        type="button"
+                        aria-label={favorites.includes(row.id) ? 'Remove from favorites' : 'Add to favorites'}
+                        aria-pressed={favorites.includes(row.id)}
                         onClick={e => { e.stopPropagation(); onToggleFav(row.id || row.id); }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full p-1"
                       >
