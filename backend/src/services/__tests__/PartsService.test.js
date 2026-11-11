@@ -117,6 +117,23 @@ describe('PartsService OEM/MPN normalization', () => {
     }));
   });
 
+  it('saves a new part unpublished when the client asks for it', async () => {
+    const part = await service.createPart({
+      name: 'Pad', sku: 'BRK-PAD-00009', category_id: 'cat-1', price: 1, stock: 1, minStock: 0, oem: '1-87610', published: false
+    });
+
+    expect(repo.createPart).toHaveBeenCalledWith(expect.objectContaining({ published: false }));
+    expect(part.published).toBe(false);
+  });
+
+  it('leaves published to the schema default when the client sends none', async () => {
+    await service.createPart({
+      name: 'Pad', sku: 'BRK-PAD-00009', category_id: 'cat-1', price: 1, stock: 1, minStock: 0, oem: '1-87610', published: 'yes'
+    });
+
+    expect(repo.createPart.mock.calls[0][0]).not.toHaveProperty('published');
+  });
+
   it('normalizes oem and oemNumbers on update', async () => {
     await service.updatePart('part-1', { oem: 'p/n 1-87610', oemNumbers: ['p/n 1-87610', '1-87610 '] });
 

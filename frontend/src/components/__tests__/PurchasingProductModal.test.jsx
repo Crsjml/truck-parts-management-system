@@ -18,7 +18,9 @@ vi.mock('../../authStore', () => ({
   updatePoPayment: vi.fn(),
   updatePoItemPrices: vi.fn(),
   updatePurchaseOrderDetails: vi.fn(),
-  fetchParts: vi.fn().mockResolvedValue([])
+  fetchParts: vi.fn().mockResolvedValue([]),
+  fetchCategoriesList: vi.fn().mockResolvedValue([]),
+  fetchNextSku: vi.fn().mockResolvedValue({ ok: false })
 }));
 
 vi.mock('../../context/SettingsContext', () => ({
@@ -119,5 +121,30 @@ describe('Purchasing product modal keyboard safety', () => {
     expect(screen.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'false');
     fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'brake' } });
     expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
+  });
+});
+
+describe('Purchasing New Product', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchSuppliers.mockResolvedValue([]);
+    fetchPurchaseOrders.mockResolvedValue([]);
+  });
+
+  it('opens the inventory Add Part drawer instead of a bare product modal', async () => {
+    await renderProducts();
+    fireEvent.click(screen.getByRole('button', { name: /new product/i }));
+
+    expect(await screen.findByRole('dialog', { name: /add new part/i })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'New Product' })).not.toBeInTheDocument();
+    expect(screen.getByText(/fitment/i)).toBeInTheDocument();
+  });
+
+  it('still opens existing products in the edit modal', async () => {
+    await renderProducts();
+    openBrakePad();
+    const dialog = screen.getByRole('dialog', { name: 'Brake Pad' });
+    expect(within(dialog).getByText('SKU: BRK-001')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Sales Analytics' })).toBeInTheDocument();
   });
 });

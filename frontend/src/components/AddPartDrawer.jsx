@@ -59,6 +59,9 @@ export default function AddPartDrawer({
   const [formCompatibleWith, setFormCompatibleWith] = useState(normalizeCompatibilityRows(''));
   const [formDescription, setFormDescription] = useState('');
   const [formImage, setFormImage] = useState('');
+  // New parts stay off the storefront until fitment is checked; publishing is
+  // an explicit choice, never a side effect of saving.
+  const [formPublished, setFormPublished] = useState(false);
 
   // Reset form when drawer opens
   React.useEffect(() => {
@@ -79,6 +82,7 @@ export default function AddPartDrawer({
       setFormCompatibleWith(normalizeCompatibilityRows(''));
       setFormDescription('');
       setFormImage('');
+      setFormPublished(false);
       setFormErrors({});
       setServerError('');
       setIsSubmitting(false);
@@ -158,7 +162,8 @@ export default function AddPartDrawer({
       compatibility: compatibilityRowsToSummary(formCompatibleWith),
       compatibleWith: compatibilityRowsToPayload(formCompatibleWith),
       description: formDescription.trim(),
-      image: formImage
+      image: formImage,
+      published: formPublished
     };
 
     try {
@@ -642,6 +647,28 @@ export default function AddPartDrawer({
                           {formErrors.minStock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.minStock}</p>}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-background px-4 py-3">
+                      <div className="min-w-0">
+                        <p id="add-part-publish-label" className="text-sm font-semibold text-foreground">Publish to storefront</p>
+                        <p id="add-part-publish-hint" className="text-2xs text-muted-foreground">
+                          {formPublished
+                            ? 'Customers will see this part as soon as it is saved.'
+                            : 'Saved as unpublished. Check fitment, then publish from the product page.'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formPublished}
+                        aria-labelledby="add-part-publish-label"
+                        aria-describedby="add-part-publish-hint"
+                        onClick={() => setFormPublished(v => !v)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandBlue-500 ${formPublished ? 'bg-brandBlue-500 border-brandBlue-500' : 'bg-secondary border-border'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${formPublished ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
                     </div>
 
                     {serverError && (
