@@ -343,11 +343,17 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   }), [confirmedPos, isLateReceipt, defectRows]);
 
   // ── Filter / search helpers ───────────────────────────────────────────────────
+  // Plain case-insensitive substring match: user text is never compiled as a regex,
+  // so brackets and other symbols (e.g. "brake (rear") can't throw.
+  const matchesSearch = (query, values) => {
+    const needle = query.trim().toLowerCase();
+    return !needle || values.some(v => String(v ?? '').toLowerCase().includes(needle));
+  };
+
   const applyFilter = (rows, search, filters, favsOnly, favs, searchFields) => {
     let out = rows;
     if (search) {
-      const re = new RegExp(search, 'i');
-      out = out.filter(r => searchFields.some(f => re.test(r[f] ?? '')));
+      out = out.filter(r => matchesSearch(search, searchFields.map(f => r[f])));
     }
     if (favsOnly) out = out.filter(r => favs.includes(r.id || r.id));
     return out;
@@ -405,12 +411,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     const activeStatuses = payableFilters.filter(f => statusFilters.includes(f));
     if (activeStatuses.length > 0) rows = rows.filter(r => activeStatuses.includes(r.paymentStatus));
     if (payableSearch) {
-      const re = new RegExp(payableSearch, 'i');
-      rows = rows.filter(r => (
-        re.test(r.supplierName || '')
-        || re.test(r.rfqNumber || '')
-        || re.test(r.purchaseOrderNumber || '')
-      ));
+      rows = rows.filter(r => matchesSearch(payableSearch, [r.supplierName, r.rfqNumber, r.purchaseOrderNumber]));
     }
     if (payableFavsOnly) rows = rows.filter(r => payableFavs.includes(r.id));
     return rows;
@@ -433,8 +434,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (prodFilters.includes('lowStock')) rows = rows.filter(p => p.stock <= p.minStock);
     const search = prodSearch;
     if (search) {
-      const re = new RegExp(search, 'i');
-      rows = rows.filter(p => re.test(p.name) || re.test(p.sku) || re.test(p.category));
+      rows = rows.filter(p => matchesSearch(search, [p.name, p.sku, p.category, p.oem]));
     }
     if (prodFavsOnly) rows = rows.filter(p => prodFavs.includes(p.id));
     return rows;
