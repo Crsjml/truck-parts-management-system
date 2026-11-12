@@ -14,6 +14,20 @@ import CompatibilityEditor from './inventory/CompatibilityEditor';
 import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
 import { SKU_PATTERN, SKU_FORMAT_MESSAGE, normalizeSku } from '../utils/sku';
 import SellsAtHint from './ui/SellsAtHint';
+import { useDialogFocus } from '../hooks/useDialogFocus';
+
+// Validation keys in on-screen order, mapped to the control that owns them, so
+// a failed Next/Save can send focus to the first field that needs fixing.
+const FIELD_IDS = {
+  name: 'add-part-name',
+  sku: 'add-part-sku',
+  oem: 'add-part-oem',
+  category: 'add-part-category',
+  price: 'add-part-price',
+  stock: 'add-part-stock',
+  minStock: 'add-part-min-stock'
+};
+const errorIdFor = (field) => `add-part-${field}-error`;
 
 const emptyConfirmDialog = () => ({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
 
@@ -63,6 +77,7 @@ export default function AddPartDrawer({
   // New parts stay off the storefront until fitment is checked; publishing is
   // an explicit choice, never a side effect of saving.
   const [formPublished, setFormPublished] = useState(false);
+  const dialogRef = useRef(null);
 
   // Reset form when drawer opens
   React.useEffect(() => {
@@ -120,7 +135,9 @@ export default function AddPartDrawer({
       }
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    const firstInvalid = Object.keys(FIELD_IDS).find(field => errors[field]);
+    if (firstInvalid) document.getElementById(FIELD_IDS[firstInvalid])?.focus();
+    return !firstInvalid;
   };
 
   const nextStep = () => {
@@ -181,8 +198,6 @@ export default function AddPartDrawer({
     }
   };
 
-  if (!isOpen && !isSubmitting) return null;
-
   const isDirty = formName || formSku || formOem || formCategory || formPrice || formStock || formDescription || formImage || formCompatibleWith.some(c => c.brand || c.series || c.year);
   const filledCompatibilityRows = formCompatibleWith.filter(row => row.brand || row.series || row.year).length;
   const closeConfirmDialog = () => setConfirmDialog(emptyConfirmDialog());
@@ -200,10 +215,29 @@ export default function AddPartDrawer({
     onClose();
   };
 
+  // Escape while the discard prompt is up belongs to that prompt (its own
+  // Drawer closes it = keep editing); otherwise it takes the normal close path.
+  useDialogFocus(dialogRef, {
+    isOpen,
+    onClose: () => { if (!confirmDialog.isOpen) requestClose(); },
+    initialFocus: '#add-part-name'
+  });
+
+  // aria-invalid + aria-describedby for a field, keeping any hint it already has.
+  const fieldA11y = (field, hintId) => {
+    const describedBy = [formErrors[field] ? errorIdFor(field) : null, hintId].filter(Boolean).join(' ');
+    return {
+      'aria-invalid': formErrors[field] ? true : undefined,
+      'aria-describedby': describedBy || undefined
+    };
+  };
+
+  if (!isOpen && !isSubmitting) return null;
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 lg:p-8">
+        <div ref={dialogRef} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 lg:p-8">
           {/* Drawer backdrop click to close */}
           <div className="absolute inset-0" onClick={requestClose} />
           
@@ -227,7 +261,7 @@ export default function AddPartDrawer({
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center rounded-full border border-brandBlue-200 bg-brandBlue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brandBlue-700">
+                  <span className="inline-flex items-center rounded-full border border-brandBlue-500/30 bg-brandBlue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brandBlue-700 dark:text-brandBlue-300">
                     Step {step} of 3
                   </span>
                   <span className="inline-flex items-center rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-semibold text-muted-foreground">
@@ -270,7 +304,7 @@ export default function AddPartDrawer({
                           Pull an existing part into this form, then edit the details that are different.
                         </p>
                       </div>
-                      <span className="inline-flex items-center rounded-full border border-brandBlue-200 bg-brandBlue-50 px-3 py-1 text-[11px] font-semibold leading-none text-brandBlue-700 sm:self-center">
+                      <span className="inline-flex items-center rounded-full border border-brandBlue-500/30 bg-brandBlue-500/10 px-3 py-1 text-[11px] font-semibold leading-none text-brandBlue-700 dark:text-brandBlue-300 sm:self-center">
                         Optional shortcut
                       </span>
                     </div>
@@ -352,14 +386,15 @@ export default function AddPartDrawer({
                       </label>
                       <input 
                         id="add-part-name"
+                        {...fieldA11y('name')}
                         type="text" 
                         placeholder="e.g. Starter Motor Assembly (24V)"
                         value={formName}
                         onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.name && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.name}</p>}
+                      {formErrors.name && <p id="add-part-name-error" className="text-2xs text-alarm-text font-semibold">{formErrors.name}</p>}
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -371,7 +406,7 @@ export default function AddPartDrawer({
                           id="add-part-sku"
                           type="text" 
                           placeholder="Auto-filled from category"
-                          aria-describedby="add-part-sku-hint"
+                          {...fieldA11y('sku', formErrors.sku ? undefined : 'add-part-sku-hint')}
                           value={formSku}
                           onChange={(e) => {
                             const value = e.target.value.toUpperCase();
@@ -380,10 +415,10 @@ export default function AddPartDrawer({
                             setFormErrors(prev => ({...prev, sku: ''}));
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                         />
                         {formErrors.sku
-                          ? <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.sku}</p>
+                          ? <p id="add-part-sku-error" className="text-2xs text-alarm-text font-semibold">{formErrors.sku}</p>
                           : <p id="add-part-sku-hint" className="text-2xs text-muted-foreground">Format CAT-PRT-#####. Leave blank to auto-assign.</p>}
                       </div>
                       <div className="space-y-1.5 group">
@@ -392,14 +427,15 @@ export default function AddPartDrawer({
                         </label>
                         <input 
                           id="add-part-oem"
+                          {...fieldA11y('oem')}
                           type="text" 
                           placeholder="e.g. 1-81100-341-1"
                           value={formOem}
                           onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                         />
-                        {formErrors.oem && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.oem}</p>}
+                        {formErrors.oem && <p id="add-part-oem-error" className="text-2xs text-alarm-text font-semibold">{formErrors.oem}</p>}
                       </div>
                     </div>
 
@@ -422,11 +458,10 @@ export default function AddPartDrawer({
                       <label htmlFor="add-part-category" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                         Category *
                       </label>
-                      <div className={`${formErrors.category ? 'rounded-2xl ring-1 ring-destructive' : ''}`}>
+                      <div className={`${formErrors.category ? 'rounded-2xl ring-1 ring-alarm-text' : ''}`}>
                         <Select
                           inputId="add-part-category"
-                          aria-invalid={!!formErrors.category}
-                          aria-describedby={formErrors.category ? "category-error" : undefined}
+                          {...fieldA11y('category')}
                           options={categoriesList.filter(c => !c.parentCategory).map(parent => ({
                             label: parent.name,
                             options: [
@@ -459,7 +494,7 @@ export default function AddPartDrawer({
                           }}
                         />
                       </div>
-                      {formErrors.category && <p id="category-error" className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.category}</p>}
+                      {formErrors.category && <p id="add-part-category-error" className="text-2xs text-alarm-text font-semibold">{formErrors.category}</p>}
                     </div>
                   </div>
                 </motion.div>
@@ -525,6 +560,7 @@ export default function AddPartDrawer({
                         <div className="space-y-1 flex-1">
                           <input 
                             id="part-image"
+                            {...fieldA11y('image')}
                             type="file" 
                             accept="image/*"
                             onChange={(e) => {
@@ -554,7 +590,7 @@ export default function AddPartDrawer({
                           </button>
                         )}
                       </div>
-                      {formErrors.image && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.image}</p>}
+                      {formErrors.image && <p id="add-part-image-error" className="text-2xs text-alarm-text font-semibold">{formErrors.image}</p>}
                     </div>
                   </div>
                 </motion.div>
@@ -580,16 +616,16 @@ export default function AddPartDrawer({
                       </label>
                       <input 
                         id="add-part-price"
-                        aria-describedby="add-part-sells-at"
+                        {...fieldA11y('price', 'add-part-sells-at')}
                         type="number" 
                         step="0.01" min="0" placeholder="0.00"
                         value={formPrice}
                         onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       <SellsAtHint id="add-part-sells-at" cost={formPrice} markupOverride={formMarkupOverride} />
-                      {formErrors.price && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.price}</p>}
+                      {formErrors.price && <p id="add-part-price-error" className="text-2xs text-alarm-text font-semibold">{formErrors.price}</p>}
                     </div>
 
                     <div className="space-y-1.5 group">
@@ -627,14 +663,15 @@ export default function AddPartDrawer({
                           </label>
                           <input 
                             id="add-part-stock"
+                            {...fieldA11y('stock')}
                             type="number" 
                             min="0" placeholder="0"
                             value={formStock}
                             onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                           />
-                          {formErrors.stock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.stock}</p>}
+                          {formErrors.stock && <p id="add-part-stock-error" className="text-2xs text-alarm-text font-semibold">{formErrors.stock}</p>}
                         </div>
 
                         <div className="space-y-1.5 group">
@@ -643,14 +680,15 @@ export default function AddPartDrawer({
                           </label>
                           <input 
                             id="add-part-min-stock"
+                            {...fieldA11y('minStock')}
                             type="number" 
                             min="0" placeholder="5"
                             value={formMinStock}
                             onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
+                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                           />
-                          {formErrors.minStock && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.minStock}</p>}
+                          {formErrors.minStock && <p id="add-part-minStock-error" className="text-2xs text-alarm-text font-semibold">{formErrors.minStock}</p>}
                         </div>
                       </div>
                     </div>
@@ -678,8 +716,8 @@ export default function AddPartDrawer({
                     </div>
 
                     {serverError && (
-                      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive dark:text-destructive-foreground text-sm font-semibold animate-fadeIn">
-                        <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-destructive dark:text-destructive-foreground" />
+                      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-alarm-text text-sm font-semibold animate-fadeIn">
+                        <WarningCircle weight="duotone" className="w-4 h-4 shrink-0 mt-0.5 text-alarm-text" />
                         <span>{serverError}</span>
                       </div>
                     )}
