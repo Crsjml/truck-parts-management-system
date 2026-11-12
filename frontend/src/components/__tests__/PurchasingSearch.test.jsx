@@ -34,8 +34,14 @@ vi.mock('../../supabaseClient', () => ({
 
 const parts = [
   { id: 'p1', sku: 'BRK-001', name: 'Brake (Rear) Pad', category: 'Brakes', oem: '8-97123-456', price: 1200, stock: 10, minStock: 2, archived: false },
-  { id: 'p2', sku: 'FLT-002', name: 'Oil Filter', category: 'Filters', oem: 'ME-215002', price: 450, stock: 10, minStock: 2, archived: false }
+  { id: 'p2', sku: 'FLT-002', name: 'Oil Filter', category: 'Filters', oem: 'ME-215002', price: 450, stock: 10, minStock: 2, archived: false },
+  {
+    id: 'p3', sku: 'BRK-003', name: 'Brake Drum', category: 'Brakes', oem: '', price: 3000, stock: 4, minStock: 1, archived: false,
+    compatibleWith: [{ brand: 'Hino', series: '500 Series', year: '2010-2018' }, { brand: 'Isuzu', series: 'ELF NPR', year: '' }]
+  }
 ];
+
+const shownNames = () => ['Brake (Rear) Pad', 'Oil Filter', 'Brake Drum'].filter(n => screen.queryAllByText(n).length > 0);
 
 const renderProducts = async () => {
   render(
@@ -71,6 +77,27 @@ describe('Purchasing product search', () => {
     fireEvent.change(input, { target: { value: 'me-215' } });
     expect(screen.getAllByText('Oil Filter').length).toBeGreaterThan(0);
     expect(screen.queryByText('Brake (Rear) Pad')).not.toBeInTheDocument();
+  });
+
+  it('ignores word order: "500 hino" finds the same parts as "hino 500"', async () => {
+    const input = await renderProducts();
+    fireEvent.change(input, { target: { value: 'hino 500' } });
+    const forward = shownNames();
+    fireEvent.change(input, { target: { value: '500 hino' } });
+    expect(shownNames()).toEqual(forward);
+    expect(forward).toEqual(['Brake Drum']);
+  });
+
+  it('matches each word in any field: "brake isuzu" uses the name and the fitment', async () => {
+    const input = await renderProducts();
+    fireEvent.change(input, { target: { value: '  brake   isuzu ' } });
+    expect(shownNames()).toEqual(['Brake Drum']);
+  });
+
+  it('needs every word to match somewhere', async () => {
+    const input = await renderProducts();
+    fireEvent.change(input, { target: { value: 'brake volvo' } });
+    expect(shownNames()).toEqual([]);
   });
 });
 
