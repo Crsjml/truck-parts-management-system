@@ -12,7 +12,7 @@ import DefectLogTable from './purchasing/DefectLogTable';
 import {
   fetchSuppliers, createSupplier, updateSupplier, archiveSupplier, restoreSupplier,
   fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, updatePurchaseOrderDetails,
-  updatePoBillingStatus, togglePartPublished, updatePoItemPrices, updatePoPayment, fetchParts,
+  updatePoBillingStatus, updatePoItemPrices, updatePoPayment, fetchParts,
   reportPoItemProblem, resolvePoItemProblem, returnPoToSupplier,
   fetchCategoriesList, fetchNextSku
 } from '../authStore';
@@ -401,11 +401,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   }), [confirmedPos, isLateReceipt, defectRows]);
 
   // ── Filter / search helpers ───────────────────────────────────────────────────
-  // Plain case-insensitive substring match: user text is never compiled as a regex,
-  // so brackets and other symbols (e.g. "brake (rear") can't throw.
+  // Word-order-free, case-insensitive match: every word of the query must appear
+  // in at least one field, so "500 hino" finds what "hino 500" finds. Plain
+  // substring checks, never a regex, so brackets like "brake (rear" can't throw.
   const matchesSearch = (query, values) => {
-    const needle = query.trim().toLowerCase();
-    return !needle || values.some(v => String(v ?? '').toLowerCase().includes(needle));
+    const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return true;
+    const haystacks = values.map(v => String(v ?? '').toLowerCase());
+    return tokens.every(token => haystacks.some(h => h.includes(token)));
   };
 
   const applyFilter = (rows, search, filters, favsOnly, favs, searchFields) => {
@@ -1073,11 +1076,6 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     } finally {
       setSavingProduct(false);
     }
-  };
-
-  const doTogglePublished = async (partId, current) => {
-    const res = await togglePartPublished(partId, !current);
-    if (res.ok && onPartsUpdated) onPartsUpdated();
   };
 
   // ── Tab config ────────────────────────────────────────────────────────────────
@@ -2666,6 +2664,11 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <div className="min-w-0">
                       <h3 id="product-modal-title" className="text-lg sm:text-xl font-bold text-foreground leading-tight break-words">{viewingPart.name}</h3>
                       <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>
+                      <p data-testid="product-publish-status" className={`mt-1 inline-flex items-center gap-1 text-xs font-semibold ${productForm.published ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                        {productForm.published ? <Eye weight="bold" className="w-3.5 h-3.5" aria-hidden="true" /> : <EyeSlash weight="bold" className="w-3.5 h-3.5" aria-hidden="true" />}
+                        {productForm.published ? 'Published' : 'Unpublished'}
+                        {Boolean(productForm.published) !== Boolean(viewingPart.published) && <span className="font-normal">(unsaved)</span>}
+                      </p>
                     </div>
                   </div>
                   <button type="button" data-product-close onClick={requestCloseProductModal} aria-label="Close product" className="order-2 sm:order-3 shrink-0 p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X weight="bold" className="w-5 h-5" aria-hidden="true" /></button>
@@ -2677,9 +2680,6 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     >
                       {savingProduct ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
                       {savingProduct ? 'Saving...' : 'Save'}
-                    </button>
-                    <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); closeProductModal(); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'}`}>
-                      {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
                     </button>
                     <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); closeProductModal(); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
                       <Archive weight="bold" className="w-4 h-4" /> Archive
@@ -2865,12 +2865,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           )}
                           <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
                             <div>
-                              <div className="text-sm font-bold text-foreground">Published</div>
-                              <div className="text-xs text-muted-foreground">Visible on customer storefront</div>
+                              <div id="product-publish-label" className="text-sm font-bold text-foreground">Published</div>
+                              <div id="product-publish-hint" className="text-xs text-muted-foreground">Visible on customer storefront. Applies when you save.</div>
                             </div>
-                            <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
-                              className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
-                              <span className={`inline-block w-4 h-4 rounded-full bg-white transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={Boolean(productForm.published)}
+                              aria-labelledby="product-publish-label"
+                              aria-describedby="product-publish-hint"
+                              onClick={() => setProductForm(f => ({ ...f, published: !f.published }))}
+                              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${productForm.published ? 'bg-accent border-accent' : 'bg-secondary border-border'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${productForm.published ? 'translate-x-6' : 'translate-x-1'}`} />
                             </button>
                           </div>
                         </div>
