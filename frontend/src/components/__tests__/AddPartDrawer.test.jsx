@@ -39,6 +39,19 @@ vi.mock('react-select', () => ({
   }
 }));
 
+// Mirrors SettingsContext: a part's markupOverride wins over the 20% global rate.
+const GLOBAL_MARKUP = 20;
+vi.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: { active_markup: GLOBAL_MARKUP },
+    formatCurrency: (value, part) => {
+      const override = part?.markupOverride;
+      const pct = override !== undefined && override !== null ? override : GLOBAL_MARKUP;
+      return `₱${(Number(value || 0) * (1 + pct / 100)).toFixed(2)}`;
+    }
+  })
+}));
+
 vi.mock('../ui/Drawer', () => ({
   Drawer: ({ isOpen, labelledBy, describedBy, children }) =>
     isOpen ? (
@@ -297,5 +310,53 @@ describe('AddPartDrawer publish and category defaults', () => {
     fireEvent.click(screen.getByRole('button', { name: /save part/i }));
     await waitFor(() => expect(onAddPart).toHaveBeenCalledTimes(1));
     expect(onAddPart.mock.calls[0][0]).toMatchObject({ published: true });
+  });
+});
+
+describe('AddPartDrawer pricing step', () => {
+  const categoriesList = [{ id: 'pads', name: 'Brake Pads/Linings', parentCategory: null }];
+
+  const goToStepThree = () => {
+    render(<AddPartDrawer isOpen onClose={vi.fn()} onAddPart={vi.fn()} categoriesList={categoriesList} parts={[]} />);
+    fireEvent.change(screen.getByLabelText(/part name/i), { target: { value: 'Brake Pad Set' } });
+    fireEvent.change(screen.getByLabelText(/oem no/i), { target: { value: '1-87610' } });
+    fireEvent.change(screen.getByLabelText('-- Select Category --'), { target: { value: 'pads' } });
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }));
+  };
+
+  it('labels the price input as Cost, never Retail Price', () => {
+    goToStepThree();
+
+    expect(screen.getByLabelText('Cost (₱) *')).toHaveAttribute('type', 'number');
+    expect(screen.queryByText(/retail price/i)).not.toBeInTheDocument();
+  });
+
+  it('previews the selling price at the global markup and follows the typed cost', () => {
+    goToStepThree();
+
+    expect(screen.getByText('Sells at ₱0.00')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Cost (₱) *'), { target: { value: '100' } });
+    expect(screen.getByText('Sells at ₱120.00')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cost (₱) *')).toHaveAccessibleDescription('Sells at ₱120.00');
+  });
+
+  it('uses the markup override in the preview, and falls back to global when cleared', () => {
+    goToStepThree();
+
+    fireEvent.change(screen.getByLabelText('Cost (₱) *'), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText(/markup override/i), { target: { value: '50' } });
+    expect(screen.getByText('Sells at ₱150.00')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/markup override/i), { target: { value: '' } });
+    expect(screen.getByText('Sells at ₱120.00')).toBeInTheDocument();
+  });
+
+  it('associates every step-3 label with its input', () => {
+    goToStepThree();
+
+    expect(screen.getByLabelText('Cost (₱) *')).toBeInTheDocument();
+    expect(screen.getByLabelText(/initial stock/i)).toHaveAttribute('placeholder', '0');
+    expect(screen.getByLabelText(/min stock alert/i)).toHaveAttribute('placeholder', '5');
   });
 });
