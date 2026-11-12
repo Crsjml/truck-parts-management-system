@@ -145,6 +145,6 @@ describe('Purchasing New Product', () => {
     openBrakePad();
     const dialog = screen.getByRole('dialog', { name: 'Brake Pad' });
     expect(within(dialog).getByText('SKU: BRK-001')).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Sales Analytics' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('tab', { name: 'Sales Analytics' })).toBeInTheDocument();
   });
 });
