@@ -5,6 +5,7 @@ import { fetchCategoriesList, fetchNextSku } from '../authStore';
 import { SKU_PATTERN, SKU_FORMAT_MESSAGE, normalizeSku } from '../utils/sku';
 import CompatibilityFilter from './CompatibilityFilter';
 import { useSettings } from '../context/SettingsContext';
+import SellsAtHint from './ui/SellsAtHint';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
 import PartCard from './PartCard';
 import PartTableRow from './PartTableRow';
@@ -666,7 +667,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                     <th className="px-4 py-3">Part Name</th>
                     <th className="px-4 py-3">SKU / OEM</th>
                     <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3 text-right">Unit Price</th>
+                    <th className="px-4 py-3 text-right">Selling price</th>
                     <th className="px-4 py-3 text-right">Stock</th>
                     <th className="px-4 py-3 text-right"></th>
                   </tr>
@@ -823,7 +824,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                       </div>
                       
                       <div className="mt-2 min-w-0">
-                        <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><CurrencyDollar weight="fill" className="text-amber-500" /> Unit Retail Price</span>
+                        <span className="text-xs text-muted-foreground uppercase font-bold flex items-center gap-1.5"><CurrencyDollar weight="fill" className="text-amber-500" /> Selling price</span>
                         <p className="font-extrabold text-xl sm:text-lg lg:text-xl text-foreground mt-1 break-words" title={formatCurrency(selectedPart?.price || 0, selectedPart)}>{formatCurrency(selectedPart?.price || 0, selectedPart)}</p>
                       </div>
                       <div className="mt-2 min-w-0">
@@ -1114,9 +1115,10 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div className="space-y-1.5">
-                            <label htmlFor="edit-part-price" className="text-[11px] font-semibold text-muted-foreground">Unit price *</label>
+                            <label htmlFor="edit-part-price" className="text-[11px] font-semibold text-muted-foreground">Cost (₱) *</label>
                             <input
                               id="edit-part-price"
+                              aria-describedby="edit-part-sells-at"
                               type="number"
                               required
                               step="0.01"
@@ -1126,6 +1128,7 @@ export default function PartsCatalog({ parts, categories, structuredCategories =
                               onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
                               className={`h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground transition-all focus:outline-none ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-foreground/40'}`}
                             />
+                            <SellsAtHint id="edit-part-sells-at" cost={formPrice} markupOverride={formMarkupOverride} />
                             {formErrors.price && <p className="text-2xs font-semibold text-destructive">{formErrors.price}</p>}
                           </div>
                           <div className="space-y-1.5">

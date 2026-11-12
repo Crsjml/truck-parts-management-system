@@ -17,6 +17,7 @@ import {
   fetchCategoriesList, fetchNextSku
 } from '../authStore';
 import AddPartDrawer from './AddPartDrawer';
+import { sellsAtText } from '../utils/markup';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
@@ -127,13 +128,6 @@ const isActivationKey = (e) => e.key === 'Enter' || e.key === ' ';
 // Sellable units: on-hand stock minus units held by pending orders.
 const availableStock = (part) => (Number(part?.stock) || 0) - (Number(part?.reservedStock) || 0);
 const isLowStock = (part) => availableStock(part) <= (Number(part?.minStock) || 0);
-
-// Empty markup field means "use the global rate" (null), matching what Save sends.
-const parseMarkupOverride = (value) => {
-  if (value === '' || value === null || value === undefined) return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-};
 
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, transactionsLoading = false, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency, formatBaseCurrency = formatCurrency, settings } = useSettings();
@@ -1637,7 +1631,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         </div>
                       ) },
                       { key: 'category', label: 'Category' },
-                      { key: 'price', label: 'Price', align: 'right', render: (v, r) => formatCurrency(v, r) },
+                      { key: 'price', label: 'Selling price', align: 'right', render: (v, r) => formatCurrency(v, r) },
                       { key: 'stock', label: 'Available / Min', align: 'right', render: (v, r) => (
                         <span className={`font-bold ${isLowStock(r) ? 'text-alarm-text' : 'text-emerald-500'}`} title={`${v} in stock, ${r.reservedStock || 0} reserved`}>
                           {availableStock(r)} <span className="text-muted-foreground/70 font-normal text-3xs">/ {r.minStock || 0} min</span>
@@ -2763,7 +2757,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         </div>
                         <div className="space-y-5">
                           {[
-                            { label: 'Cost (₱) *', key: 'price', type: 'number', hint: `Sells at ${formatCurrency(Number(productForm.price) || 0, { markupOverride: parseMarkupOverride(productForm.markupOverride) })}` },
+                            { label: 'Cost (₱) *', key: 'price', type: 'number', hint: sellsAtText(formatCurrency, productForm.price, productForm.markupOverride) },
                             { label: 'Markup Override % (optional)', key: 'markupOverride', type: 'number', min: '-100', max: '1000', step: '0.5', suffix: '%', placeholder: `Global rate (${Number(settings?.active_markup) || 0}%)`, showSpinner: true },
                             { label: 'Current Stock *', key: 'stock', type: 'number' },
                             { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
@@ -2773,6 +2767,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               <div className="relative">
                                 <input
                                   id={`prod-field-${f.key}`}
+                                  aria-describedby={f.hint ? `prod-field-${f.key}-hint` : undefined}
                                   type={f.type}
                                   inputMode={f.suffix === '%' ? 'decimal' : undefined}
                                   min={f.min ?? '0'}
@@ -2788,7 +2783,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                 />
                                 {f.suffix && <span className="absolute right-0 top-1/2 -translate-y-1/2 text-sm font-normal text-muted-foreground pointer-events-none">{f.suffix}</span>}
                               </div>
-                              {f.hint && <span className="text-xs font-semibold text-muted-foreground mt-0.5" aria-live="polite">{f.hint}</span>}
+                              {f.hint && <span id={`prod-field-${f.key}-hint`} className="text-xs font-semibold text-muted-foreground mt-0.5" aria-live="polite">{f.hint}</span>}
                             </div>
                           ))}
                           {Number(productForm.stock) !== Number(viewingPart.stock) && (

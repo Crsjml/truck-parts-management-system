@@ -13,6 +13,7 @@ import { Drawer } from './ui/Drawer';
 import CompatibilityEditor from './inventory/CompatibilityEditor';
 import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
 import { SKU_PATTERN, SKU_FORMAT_MESSAGE, normalizeSku } from '../utils/sku';
+import SellsAtHint from './ui/SellsAtHint';
 
 const emptyConfirmDialog = () => ({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
 
@@ -569,15 +570,17 @@ export default function AddPartDrawer({
                         Pricing
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Set the retail and alert values that the POS, inventory alerts, and reorder flow will use.
+                        Enter what the part costs you. The selling price is the cost plus the store markup, or this part's override.
                       </p>
                     </div>
 
                     <div className="space-y-1.5 group">
-                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                        Retail Price (₱) *
+                      <label htmlFor="add-part-price" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        Cost (₱) *
                       </label>
                       <input 
+                        id="add-part-price"
+                        aria-describedby="add-part-sells-at"
                         type="number" 
                         step="0.01" min="0" placeholder="0.00"
                         value={formPrice}
@@ -585,6 +588,7 @@ export default function AddPartDrawer({
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                         className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-destructive ring-1 ring-destructive/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
+                      <SellsAtHint id="add-part-sells-at" cost={formPrice} markupOverride={formMarkupOverride} />
                       {formErrors.price && <p className="text-2xs text-destructive dark:text-destructive-foreground font-semibold">{formErrors.price}</p>}
                     </div>
 
@@ -618,10 +622,11 @@ export default function AddPartDrawer({
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5 group">
-                          <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                          <label htmlFor="add-part-stock" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
                             Initial Stock *
                           </label>
                           <input 
+                            id="add-part-stock"
                             type="number" 
                             min="0" placeholder="0"
                             value={formStock}
@@ -633,10 +638,11 @@ export default function AddPartDrawer({
                         </div>
 
                         <div className="space-y-1.5 group">
-                          <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                          <label htmlFor="add-part-min-stock" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
                             Min Stock Alert *
                           </label>
                           <input 
+                            id="add-part-min-stock"
                             type="number" 
                             min="0" placeholder="5"
                             value={formMinStock}
