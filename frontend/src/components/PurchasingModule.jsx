@@ -17,6 +17,8 @@ import {
   fetchCategoriesList, fetchNextSku
 } from '../authStore';
 import AddPartDrawer from './AddPartDrawer';
+import CompatibilityEditor from './inventory/CompatibilityEditor';
+import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
 import { sellsAtText } from '../utils/markup';
 import { supabase } from '../supabaseClient';
 import { useSettings } from '../context/SettingsContext';
@@ -124,6 +126,26 @@ const isProductFormDirty = (form, initial) => {
 };
 
 const isActivationKey = (e) => e.key === 'Enter' || e.key === ' ';
+
+// Product modal tabs. Fitment sits next to General so identity fields stay scannable.
+const PRODUCT_TABS = [
+  { key: 'general', label: 'General Information' },
+  { key: 'fitment', label: 'Fitment' },
+  { key: 'sales', label: 'Sales Analytics' },
+  { key: 'purchases', label: 'Purchase History' },
+];
+
+// Fitment rows as the editor shows them: stored rows first, the legacy summary string as fallback.
+const fitmentRowsFor = (part) =>
+  normalizeCompatibilityRows(part?.compatibleWith?.length ? part.compatibleWith : part?.compatibility || '');
+
+// Every string a Products search should hit for fitment and alternate OEM numbers.
+const fitmentSearchText = (part) => [
+  part?.compatibility,
+  ...(Array.isArray(part?.compatibleWith) ? part.compatibleWith : [])
+    .map(row => [row?.brand, row?.series, row?.year, row?.engineCode].filter(Boolean).join(' ')),
+  ...(Array.isArray(part?.oemNumbers) ? part.oemNumbers : []),
+];
 
 // Sellable units: on-hand stock minus units held by pending orders.
 const availableStock = (part) => (Number(part?.stock) || 0) - (Number(part?.reservedStock) || 0);
@@ -470,7 +492,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (prodFilters.includes('lowStock')) rows = rows.filter(isLowStock);
     const search = prodSearch;
     if (search) {
-      rows = rows.filter(p => matchesSearch(search, [p.name, p.sku, p.category, p.oem]));
+      rows = rows.filter(p => matchesSearch(search, [p.name, p.sku, p.category, p.oem, ...fitmentSearchText(p)]));
     }
     if (prodFavsOnly) rows = rows.filter(p => prodFavs.includes(p.id));
     return rows;
@@ -962,11 +984,23 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setViewingPart(part);
     setProductActiveTab('general');
     setProductValidationErrors({});
-    const initialForm = { ...part };
+    const initialForm = { ...part, description: part.description || '', compatibleWith: fitmentRowsFor(part) };
     setProductForm(initialForm);
     setProductFormInitial(initialForm);
     setConfirmProductDiscard(false);
     setIsProductModalOpen(true);
+  };
+
+  // Arrow / Home / End move between product tabs (WAI-ARIA tabs, automatic activation).
+  const handleProductTabKeyDown = (e) => {
+    const index = PRODUCT_TABS.findIndex(t => t.key === productActiveTab);
+    const last = PRODUCT_TABS.length - 1;
+    const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index === 0 ? last : index - 1, Home: 0, End: last }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    const key = PRODUCT_TABS[next].key;
+    setProductActiveTab(key);
+    document.getElementById(`product-tab-${key}`)?.focus();
   };
 
   const closeProductModal = () => {
@@ -1008,10 +1042,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
     setProductValidationErrors({});
     setSavingProduct(true);
+    // Only rewrite fitment when it was edited, so a legacy free-text summary is not
+    // replaced by the editor's single-row reading of it.
+    const fitmentChanged = JSON.stringify(compatibilityRowsToPayload(productForm.compatibleWith))
+      !== JSON.stringify(compatibilityRowsToPayload(productFormInitial?.compatibleWith));
+    const fitmentFields = fitmentChanged
+      ? { compatibleWith: compatibilityRowsToPayload(productForm.compatibleWith), compatibility: compatibilityRowsToSummary(productForm.compatibleWith) }
+      : { compatibleWith: viewingPart.compatibleWith, compatibility: viewingPart.compatibility };
     let result;
     try {
       result = await onEditPart(viewingPart.id, {
         ...productForm,
+        ...fitmentFields,
+        description: (productForm.description || '').trim(),
         price: Math.max(0, Number(productForm.price) || 0),
         markupOverride: (productForm.markupOverride === '' || productForm.markupOverride == null) ? null : Number(productForm.markupOverride),
         stock: Math.max(0, Number(productForm.stock) || 0),
@@ -2701,13 +2744,19 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                   })()}
 
                   {/* Tabs */}
-                  <div className="flex border-b border-border mb-6 overflow-x-auto hide-scrollbar">
-                    {[
-                      { key: 'general', label: 'General Information' },
-                      { key: 'sales', label: 'Sales Analytics' },
-                      { key: 'purchases', label: 'Purchase History' },
-                    ].map(t => (
-                      <button key={t.key} onClick={() => setProductActiveTab(t.key)} className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                  <div role="tablist" aria-label="Product details" className="flex border-b border-border mb-6 overflow-x-auto hide-scrollbar">
+                    {PRODUCT_TABS.map(t => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        role="tab"
+                        id={`product-tab-${t.key}`}
+                        aria-selected={productActiveTab === t.key}
+                        aria-controls={`product-panel-${t.key}`}
+                        tabIndex={productActiveTab === t.key ? 0 : -1}
+                        onClick={() => setProductActiveTab(t.key)}
+                        onKeyDown={handleProductTabKeyDown}
+                        className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                         {t.label}
                       </button>
                     ))}
@@ -2715,7 +2764,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
                   {/* General */}
                   {productActiveTab === 'general' && (
-                    <div className="space-y-8">
+                    <div role="tabpanel" id="product-panel-general" aria-labelledby="product-tab-general" className="space-y-8">
                       {/* Image Upload Area */}
                       <DragDropImageUploader
                         image={productForm.image}
@@ -2815,12 +2864,35 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           </div>
                         </div>
                       </div>
+
+                      <div className="flex flex-col border-b border-border pb-1">
+                        <label htmlFor="prod-field-description" className="text-xs font-bold text-muted-foreground mb-1">Description</label>
+                        <textarea
+                          id="prod-field-description"
+                          rows={3}
+                          value={productForm.description ?? ''}
+                          onChange={e => setProductForm({ ...productForm, description: e.target.value })}
+                          placeholder="What it is, what it fits, anything staff should know at the counter"
+                          className="bg-transparent focus:outline-none text-foreground text-sm leading-relaxed resize-y"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fitment */}
+                  {productActiveTab === 'fitment' && (
+                    <div role="tabpanel" id="product-panel-fitment" aria-labelledby="product-tab-fitment">
+                      <CompatibilityEditor
+                        rows={productForm.compatibleWith}
+                        onChange={rows => setProductForm({ ...productForm, compatibleWith: rows })}
+                        mode="edit"
+                      />
                     </div>
                   )}
 
                   {/* Sales */}
                   {productActiveTab === 'sales' && (
-                    <div className="overflow-x-auto border border-border rounded-lg bg-secondary">
+                    <div role="tabpanel" id="product-panel-sales" aria-labelledby="product-tab-sales" tabIndex={0} className="overflow-x-auto border border-border rounded-lg bg-secondary">
                       <table className="w-full text-left text-sm">
                         <thead className="bg-background border-b border-border text-muted-foreground">
                           <tr className="uppercase text-xs tracking-wider">
@@ -2854,7 +2926,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
                   {/* Purchase History */}
                   {productActiveTab === 'purchases' && (
-                    <div className="overflow-x-auto border border-border rounded-lg bg-secondary">
+                    <div role="tabpanel" id="product-panel-purchases" aria-labelledby="product-tab-purchases" tabIndex={0} className="overflow-x-auto border border-border rounded-lg bg-secondary">
                       <table className="w-full text-left text-sm">
                         <thead className="bg-background border-b border-border text-muted-foreground">
                           <tr className="uppercase text-xs tracking-wider">
