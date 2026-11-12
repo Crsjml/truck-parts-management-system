@@ -237,7 +237,7 @@ export default function AddPartDrawer({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div ref={dialogRef} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 lg:p-8">
+        <div ref={dialogRef} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 sm:p-6 lg:p-8">
           {/* Drawer backdrop click to close */}
           <div className="absolute inset-0" onClick={requestClose} />
           
@@ -249,22 +249,22 @@ export default function AddPartDrawer({
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-part-drawer-title"
-            className="relative w-full max-w-5xl h-[min(100%,calc(100vh-2rem))] sm:h-[min(100%,calc(100vh-3rem))] bg-secondary/95 border border-border shadow-[0_30px_90px_rgba(15,23,42,0.22)] rounded-3xl overflow-hidden flex flex-col backdrop-blur-2xl"
+            className="relative w-full max-w-5xl h-[min(100%,calc(100vh-2rem))] sm:h-[min(100%,calc(100vh-3rem))] bg-card border border-border rounded-xl overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-4 px-6 py-5 sm:px-8 border-b border-border bg-background/85 backdrop-blur-xl z-10">
+            <div className="flex items-start justify-between gap-4 px-6 py-5 sm:px-8 border-b border-border bg-card z-10">
               <div className="min-w-0 space-y-3">
                 <div className="space-y-1">
                   <h3 id="add-part-drawer-title" className="text-2xl sm:text-[1.65rem] font-bold text-foreground font-display">Add New Part</h3>
                   <p className="text-sm text-muted-foreground max-w-2xl">
-                    Build a new catalog item with fitment, description, and stock controls in one clean flow.
+                    Add a part to the catalogue. Fitment is set in step 2.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center rounded-full border border-brandBlue-500/30 bg-brandBlue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-brandBlue-700 dark:text-brandBlue-300">
                     Step {step} of 3
                   </span>
-                  <span className="inline-flex items-center rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+                  <span className="inline-flex items-center rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {step === 1 ? 'Basic Info' : step === 2 ? 'Details & Compatibility' : 'Pricing & Stock'}
                   </span>
                   {cloneId && (
@@ -277,7 +277,7 @@ export default function AddPartDrawer({
               <button 
                 onClick={requestClose}
                 aria-label="Close add part drawer"
-                className="shrink-0 p-2.5 bg-secondary hover:bg-background rounded-2xl text-muted-foreground hover:text-foreground transition-colors border border-border"
+                className="shrink-0 p-2.5 bg-secondary hover:bg-background rounded-xl text-muted-foreground hover:text-foreground transition-colors border border-border"
               >
                 <X weight="bold" className="w-5 h-5" />
               </button>
@@ -294,7 +294,7 @@ export default function AddPartDrawer({
               {/* Step 1: Basic Info */}
               {step === 1 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
@@ -362,14 +362,14 @@ export default function AddPartDrawer({
                           
                           applyTemplate();
                         }}
-                        className="px-4 py-2.5 bg-brandBlue-500 hover:bg-brandBlue-600 text-white text-sm font-bold rounded-2xl transition-colors shrink-0 shadow-sm shadow-brandBlue-500/15"
+                        className="px-4 py-2.5 bg-brandBlue-500 hover:bg-brandBlue-600 text-white text-sm font-bold rounded-xl transition-colors shrink-0"
                       >
                         Apply Template
                       </button>
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         <Package weight="duotone" className="w-4 h-4 text-brandBlue-400" />
@@ -392,9 +392,9 @@ export default function AddPartDrawer({
                         value={formName}
                         onChange={(e) => { setFormName(e.target.value); setFormErrors(prev => ({...prev, name: ''})); }}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none transition-all text-foreground ${formErrors.name ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
-                      {formErrors.name && <p id="add-part-name-error" className="text-2xs text-alarm-text font-semibold">{formErrors.name}</p>}
+                      {formErrors.name && <p id="add-part-name-error" className="text-xs text-alarm-text font-semibold">{formErrors.name}</p>}
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -415,11 +415,11 @@ export default function AddPartDrawer({
                             setFormErrors(prev => ({...prev, sku: ''}));
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none transition-all text-foreground ${formErrors.sku ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                         />
                         {formErrors.sku
-                          ? <p id="add-part-sku-error" className="text-2xs text-alarm-text font-semibold">{formErrors.sku}</p>
-                          : <p id="add-part-sku-hint" className="text-2xs text-muted-foreground">Format CAT-PRT-#####. Leave blank to auto-assign.</p>}
+                          ? <p id="add-part-sku-error" className="text-xs text-alarm-text font-semibold">{formErrors.sku}</p>
+                          : <p id="add-part-sku-hint" className="text-xs text-muted-foreground">Format CAT-PRT-#####. Leave blank to auto-assign.</p>}
                       </div>
                       <div className="space-y-1.5 group">
                         <label htmlFor="add-part-oem" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
@@ -433,9 +433,9 @@ export default function AddPartDrawer({
                           value={formOem}
                           onChange={(e) => { setFormOem(e.target.value); setFormErrors(prev => ({...prev, oem: ''})); }}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                          className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
+                          className={`w-full bg-background border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none transition-all text-foreground ${formErrors.oem ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                         />
-                        {formErrors.oem && <p id="add-part-oem-error" className="text-2xs text-alarm-text font-semibold">{formErrors.oem}</p>}
+                        {formErrors.oem && <p id="add-part-oem-error" className="text-xs text-alarm-text font-semibold">{formErrors.oem}</p>}
                       </div>
                     </div>
 
@@ -450,7 +450,7 @@ export default function AddPartDrawer({
                         value={formOemNumbers}
                         onChange={(e) => setFormOemNumbers(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextStep(); } }}
-                        className="w-full bg-background border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
                       />
                     </div>
 
@@ -458,7 +458,7 @@ export default function AddPartDrawer({
                       <label htmlFor="add-part-category" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                         Category *
                       </label>
-                      <div className={`${formErrors.category ? 'rounded-2xl ring-1 ring-alarm-text' : ''}`}>
+                      <div className={`${formErrors.category ? 'rounded-xl ring-1 ring-alarm-text' : ''}`}>
                         <Select
                           inputId="add-part-category"
                           {...fieldA11y('category')}
@@ -494,7 +494,7 @@ export default function AddPartDrawer({
                           }}
                         />
                       </div>
-                      {formErrors.category && <p id="add-part-category-error" className="text-2xs text-alarm-text font-semibold">{formErrors.category}</p>}
+                      {formErrors.category && <p id="add-part-category-error" className="text-xs text-alarm-text font-semibold">{formErrors.category}</p>}
                     </div>
                   </div>
                 </motion.div>
@@ -503,7 +503,7 @@ export default function AddPartDrawer({
               {/* Step 2: Compatibility & Description */}
               {step === 2 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -522,7 +522,7 @@ export default function AddPartDrawer({
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-                    <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-1.5">
+                    <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-1.5">
                       <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
                         <ListDashes className="w-4 h-4 text-brandBlue-400" />
                         Technical Description
@@ -535,11 +535,11 @@ export default function AddPartDrawer({
                         placeholder="Enter part details, technical specs..."
                         value={formDescription}
                         onChange={(e) => setFormDescription(e.target.value)}
-                        className="mt-2 w-full bg-background border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground resize-none custom-scrollbar"
+                        className="mt-2 w-full bg-background border border-border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-brandBlue-500 transition-all text-foreground resize-none custom-scrollbar"
                       />
                     </div>
 
-                    <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-3">
+                    <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-3">
                       <div className="space-y-1">
                         <label htmlFor="part-image" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                           <Image className="w-4 h-4 text-brandBlue-400" />
@@ -549,8 +549,8 @@ export default function AddPartDrawer({
                           Use a clear image so the inventory card stays easy to scan.
                         </p>
                       </div>
-                      <div className="flex items-center gap-4 bg-background border border-border rounded-2xl p-4">
-                        <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden bg-secondary flex items-center justify-center border border-border">
+                      <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4">
+                        <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-secondary flex items-center justify-center border border-border">
                           {formImage ? (
                             <img src={formImage} alt="Preview" className="w-full h-full object-cover" />
                           ) : (
@@ -578,19 +578,19 @@ export default function AddPartDrawer({
                             }}
                             className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brandBlue-50 file:text-brandBlue-600 hover:file:bg-brandBlue-100 transition-colors"
                           />
-                          <p className="text-2xs text-muted-foreground/70">Max size: 2MB. Square ratio recommended.</p>
+                          <p className="text-xs text-muted-foreground">Max size: 2MB. Square ratio recommended.</p>
                         </div>
                         {formImage && (
                           <button 
                             type="button"
                             onClick={() => setFormImage('')}
-                            className="text-2xs font-bold text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-lg border border-destructive/30 transition-colors"
+                            className="text-xs font-bold text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-lg border border-destructive/30 transition-colors"
                           >
                             Remove
                           </button>
                         )}
                       </div>
-                      {formErrors.image && <p id="add-part-image-error" className="text-2xs text-alarm-text font-semibold">{formErrors.image}</p>}
+                      {formErrors.image && <p id="add-part-image-error" className="text-xs text-alarm-text font-semibold">{formErrors.image}</p>}
                     </div>
                   </div>
                 </motion.div>
@@ -599,7 +599,7 @@ export default function AddPartDrawer({
               {/* Step 3: Pricing & Stock */}
               {step === 3 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-                  <div className="rounded-3xl border border-border bg-background/85 p-5 sm:p-6 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         <CurrencyDollar className="w-4 h-4 text-brandBlue-400" />
@@ -622,10 +622,10 @@ export default function AddPartDrawer({
                         value={formPrice}
                         onChange={(e) => { setFormPrice(e.target.value); setFormErrors(prev => ({...prev, price: ''})); }}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                        className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
+                        className={`w-full bg-background border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none transition-all text-foreground ${formErrors.price ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                       />
                       <SellsAtHint id="add-part-sells-at" cost={formPrice} markupOverride={formMarkupOverride} />
-                      {formErrors.price && <p id="add-part-price-error" className="text-2xs text-alarm-text font-semibold">{formErrors.price}</p>}
+                      {formErrors.price && <p id="add-part-price-error" className="text-xs text-alarm-text font-semibold">{formErrors.price}</p>}
                     </div>
 
                     <div className="space-y-1.5 group">
@@ -644,14 +644,14 @@ export default function AddPartDrawer({
                           value={formMarkupOverride}
                           onChange={(e) => setFormMarkupOverride(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                          className="show-number-spinner w-full bg-background border border-border rounded-2xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
+                          className="show-number-spinner w-full bg-background border border-border rounded-xl pl-4 pr-9 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-brandBlue-500 transition-all text-foreground"
                         />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                       </div>
-                      <p className="text-2xs text-muted-foreground">Overrides the store-wide markup for this part only. Blank = inherit the global rate.</p>
+                      <p className="text-xs text-muted-foreground">Overrides the store-wide markup for this part only. Blank = inherit the global rate.</p>
                     </div>
 
-                    <div className="rounded-3xl border border-border bg-secondary/30 p-4 sm:p-5 space-y-3">
+                    <div className="rounded-xl border border-border bg-secondary/30 p-4 sm:p-5 space-y-3">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         <CheckCircle className="w-4 h-4 text-brandBlue-400" />
                         Stock planning
@@ -669,9 +669,9 @@ export default function AddPartDrawer({
                             value={formStock}
                             onChange={(e) => { setFormStock(e.target.value); setFormErrors(prev => ({...prev, stock: ''})); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
+                            className={`w-full bg-background border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none transition-all text-foreground ${formErrors.stock ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                           />
-                          {formErrors.stock && <p id="add-part-stock-error" className="text-2xs text-alarm-text font-semibold">{formErrors.stock}</p>}
+                          {formErrors.stock && <p id="add-part-stock-error" className="text-xs text-alarm-text font-semibold">{formErrors.stock}</p>}
                         </div>
 
                         <div className="space-y-1.5 group">
@@ -686,17 +686,17 @@ export default function AddPartDrawer({
                             value={formMinStock}
                             onChange={(e) => { setFormMinStock(e.target.value); setFormErrors(prev => ({...prev, minStock: ''})); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
-                            className={`w-full bg-background border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
+                            className={`w-full bg-background border rounded-xl px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none transition-all text-foreground ${formErrors.minStock ? 'border-alarm-text ring-1 ring-alarm-text/20' : 'border-border focus:border-brandBlue-500'}`}
                           />
-                          {formErrors.minStock && <p id="add-part-minStock-error" className="text-2xs text-alarm-text font-semibold">{formErrors.minStock}</p>}
+                          {formErrors.minStock && <p id="add-part-minStock-error" className="text-xs text-alarm-text font-semibold">{formErrors.minStock}</p>}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-background px-4 py-3">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background px-4 py-3">
                       <div className="min-w-0">
                         <p id="add-part-publish-label" className="text-sm font-semibold text-foreground">Publish to storefront</p>
-                        <p id="add-part-publish-hint" className="text-2xs text-muted-foreground">
+                        <p id="add-part-publish-hint" className="text-xs text-muted-foreground">
                           {formPublished
                             ? 'Customers will see this part as soon as it is saved.'
                             : 'Saved as unpublished. Check fitment, then publish from the product page.'}
@@ -728,12 +728,12 @@ export default function AddPartDrawer({
             </div>
 
             {/* Footer Navigation */}
-            <div className="p-4 sm:p-5 border-t border-border bg-background/90 backdrop-blur-xl flex items-center justify-between">
+            <div className="p-4 sm:p-5 border-t border-border bg-card flex items-center justify-between">
               <button 
                 type="button" 
                 onClick={step === 1 ? requestClose : prevStep}
                 disabled={isSubmitting}
-                className="px-5 py-2.5 bg-secondary hover:bg-background text-muted-foreground text-sm font-bold rounded-2xl border border-border transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-5 py-2.5 bg-secondary hover:bg-background text-slate-600 dark:text-slate-400 hover:text-foreground text-sm font-bold rounded-xl border border-border transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 {step > 1 && <ArrowLeft weight="bold" className="w-4 h-4" />}
                 {step === 1 ? 'Cancel' : 'Back'}
@@ -743,7 +743,7 @@ export default function AddPartDrawer({
                 type="button"
                 onClick={step === 3 ? handleFormSubmit : nextStep}
                 disabled={isSubmitting}
-                className="px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/60 text-white text-sm font-bold rounded-2xl shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
+                className="px-6 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/60 text-white text-sm font-bold rounded-xl transition-colors flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -788,8 +788,8 @@ function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText
       describedBy="confirm-desc"
       wrapperClassName="flex items-center justify-center p-4 z-[140]"
       wrapperStyle={{ zIndex: 140 }}
-      overlayClassName="bg-background/85 backdrop-blur-md"
-      panelClassName="bg-background border border-border shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden flex flex-col ring-1 ring-black/5"
+      overlayClassName="bg-black/60"
+      panelClassName="bg-card border border-border rounded-xl w-full max-w-sm overflow-hidden flex flex-col"
       panelVariants={{
         initial: { opacity: 0, scale: 0.95, y: 10 },
         animate: { opacity: 1, scale: 1, y: 0 },

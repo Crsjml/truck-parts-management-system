@@ -170,26 +170,26 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
 
         {image ? (
           <div className="relative w-full h-32 flex items-center justify-center">
-            <img src={image} alt="Preview" className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
+            <img src={image} alt="Preview" className="max-h-full max-w-full object-contain rounded-lg" />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
               <span className="text-white text-xs font-bold bg-black/60 px-3 py-1.5 rounded-md">Change Image</span>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center text-center">
-            <div className="w-10 h-10 bg-background rounded-full flex items-center justify-center mb-3 border border-border shadow-sm">
+            <div className="w-10 h-10 bg-background rounded-full flex items-center justify-center mb-3 border border-border">
               <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
             <p className="text-sm font-semibold text-foreground">Click or Drag & Drop</p>
-            <p className="text-2xs text-muted-foreground mt-1 uppercase tracking-wider">SVG, PNG, JPG or GIF</p>
+            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">SVG, PNG, JPG or GIF</p>
           </div>
         )}
       </div>
       {uploadError && <p className="text-xs font-bold text-accent mt-0.5 animate-fadeIn">{uploadError}</p>}
       {image && (
-        <button onClick={() => { setUploadError(null); onImageUpload(''); }} className="text-xs text-red-400 hover:text-red-300 self-start font-semibold">
+        <button onClick={() => { setUploadError(null); onImageUpload(''); }} type="button" className="text-xs text-muted-foreground hover:text-foreground self-start font-semibold rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
           Remove Image
         </button>
       )}
@@ -198,7 +198,7 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
 };
 
 // ─── Control Panel (Search + Filters + GroupBy + Favorites) ──────────────────
-export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilter, groupByOptions, activeGroup, onGroupBy, favoritesCount, onFavoritesFilter, showFavoritesOnly }) => {
+export const ControlPanel = ({ search, onSearch, searchLabel = 'Search', filters, activeFilters, onFilter, groupByOptions, activeGroup, onGroupBy, favoritesCount, onFavoritesFilter, showFavoritesOnly }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [showGroup, setShowGroup] = useState(false);
   const filterRef = useRef(null);
@@ -223,7 +223,8 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
           value={search}
           onChange={e => onSearch(e.target.value)}
           placeholder="Search..."
-          className="w-full pl-9 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-colors"
+          aria-label={searchLabel}
+          className="w-full pl-9 pr-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-slate-600 dark:placeholder:text-slate-400 focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-colors"
         />
         {search && (
           <button type="button" aria-label="Clear search" onClick={() => onSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
@@ -237,7 +238,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
         <div className="relative" ref={filterRef}>
           <button
             onClick={() => { setShowFilters(v => !v); setShowGroup(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeFilters.length > 0 ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-muted-foreground hover:text-foreground'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeFilters.length > 0 ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-slate-600 dark:text-slate-400 hover:text-foreground'}`}
           >
             <Funnel weight={activeFilters.length > 0 ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
             Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
@@ -270,7 +271,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
         <div className="relative" ref={groupRef}>
           <button
             onClick={() => { setShowGroup(v => !v); setShowFilters(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeGroup ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-muted-foreground hover:text-foreground'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeGroup ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-slate-600 dark:text-slate-400 hover:text-foreground'}`}
           >
             <ArrowsDownUp weight="regular" className="w-3.5 h-3.5" />
             {activeGroup ? `By: ${activeGroup}` : 'Group By'}
@@ -295,7 +296,7 @@ export const ControlPanel = ({ search, onSearch, filters, activeFilters, onFilte
       {/* Favorites */}
       <button
         onClick={onFavoritesFilter}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${showFavoritesOnly ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' : 'bg-secondary border-border text-muted-foreground hover:text-foreground'}`}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${showFavoritesOnly ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400' : 'bg-secondary border-border text-slate-600 dark:text-slate-400 hover:text-foreground'}`}
       >
         <Star weight={showFavoritesOnly ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
         Favorites {favoritesCount > 0 && `(${favoritesCount})`}

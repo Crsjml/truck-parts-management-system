@@ -487,8 +487,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   const filteredParts = useMemo(() => {
     const showArchived = prodFilters.includes('archived');
     let rows = showArchived ? archivedParts : (parts || []);
-    if (prodFilters.includes('published')) rows = rows.filter(p => p.published);
-    if (prodFilters.includes('unpublished')) rows = rows.filter(p => !p.published);
+    const wantPublished = prodFilters.includes('published');
+    const wantUnpublished = prodFilters.includes('unpublished');
+    // Both ticked means "either status", not "neither" — only narrow when exactly one is on.
+    if (wantPublished !== wantUnpublished) rows = rows.filter(p => Boolean(p.published) === wantPublished);
     if (prodFilters.includes('lowStock')) rows = rows.filter(isLowStock);
     const search = prodSearch;
     if (search) {
@@ -1602,24 +1604,33 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-secondary/20">
           <div className="flex items-start justify-between gap-2 mb-2">
             <ControlPanel
-              search={prodSearch} onSearch={setProdSearch}
+              search={prodSearch} onSearch={setProdSearch} searchLabel="Search products"
               filters={[{ value: 'published', label: 'Published' }, { value: 'unpublished', label: 'Unpublished' }, { value: 'lowStock', label: 'Low Stock' }, { value: 'archived', label: 'Show Archived' }]}
               activeFilters={prodFilters} onFilter={v => setProdFilters(p => p.includes(v) ? p.filter(f => f !== v) : [...p, v])}
               groupByOptions={['Category']} activeGroup={prodGroup} onGroupBy={setProdGroup}
               favoritesCount={prodFavs.length} onFavoritesFilter={() => setProdFavsOnly(p => !p)} showFavoritesOnly={prodFavsOnly}
             />
             <div className="flex shrink-0 items-center gap-1 bg-secondary border border-border p-1 rounded-lg mb-4">
-              <button type="button" aria-label="Grid view" aria-pressed={prodView === 'grid'} onClick={() => setProdView('grid')} className={`p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${prodView === 'grid' ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><SquaresFour className="w-4 h-4" aria-hidden="true" /></button>
-              <button type="button" aria-label="List view" aria-pressed={prodView === 'list'} onClick={() => setProdView('list')} className={`p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${prodView === 'list' ? 'bg-background text-accent shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><ListDashes className="w-4 h-4" aria-hidden="true" /></button>
+              <button type="button" aria-label="Grid view" aria-pressed={prodView === 'grid'} onClick={() => setProdView('grid')} className={`p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${prodView === 'grid' ? 'bg-background text-accent' : 'text-slate-600 dark:text-slate-400 hover:text-foreground'}`}><SquaresFour className="w-4 h-4" aria-hidden="true" /></button>
+              <button type="button" aria-label="List view" aria-pressed={prodView === 'list'} onClick={() => setProdView('list')} className={`p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${prodView === 'list' ? 'bg-background text-accent' : 'text-slate-600 dark:text-slate-400 hover:text-foreground'}`}><ListDashes className="w-4 h-4" aria-hidden="true" /></button>
             </div>
           </div>
 
           {(() => {
             const prodTotalPages = prodGroup ? 1 : Math.ceil(filteredParts.length / ORDERS_PAGE_SIZE);
+            const hasProdFilters = Boolean(prodSearch) || prodFilters.length > 0 || prodFavsOnly;
+            const clearProdFilters = () => { setProdSearch(''); setProdFilters([]); setProdFavsOnly(false); };
             const prodRows = prodGroup ? filteredParts : filteredParts.slice((prodPage - 1) * ORDERS_PAGE_SIZE, prodPage * ORDERS_PAGE_SIZE);
             return (
               <>
-                {prodView === 'grid' ? (
+                {filteredParts.length === 0 && hasProdFilters ? (
+                  <div role="status" className="py-16 flex flex-col items-center gap-3 text-center">
+                    <p className="text-sm font-semibold text-foreground">No products match your search or filters.</p>
+                    <button type="button" onClick={clearProdFilters} className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-bold text-foreground hover:border-accent/40 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                      Clear filters
+                    </button>
+                  </div>
+                ) : prodView === 'grid' ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                     {prodRows.map(part => {
                       const { Icon, color } = getCategoryIconAndColor(part.category);
@@ -1634,29 +1645,29 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           aria-label={part.name}
                           onClick={() => openProductModal(part)}
                           onKeyDown={e => { if (e.target === e.currentTarget && isActivationKey(e)) { e.preventDefault(); openProductModal(part); } }}
-                          className={`bg-secondary border rounded-xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${part.archived ? 'opacity-50 border-border/30' : 'border-border'}`}>
-                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-alarm-text rounded-full animate-pulse shadow-[0_0_6px_rgba(220,38,38,0.7)]" title="Low Stock" />}
+                          className={`bg-secondary border rounded-xl p-4 transition-colors cursor-pointer flex flex-col group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${part.archived ? 'opacity-50 border-border/30' : 'border-border hover:border-accent/40'}`}>
+                          {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-alarm-text rounded-full" title="Low Stock" aria-hidden="true" />}
                           <button type="button" aria-label={isFav ? `Remove ${part.name} from favorites` : `Add ${part.name} to favorites`} aria-pressed={isFav} onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-visible:opacity-100 transition-opacity rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                             <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
                           </button>
-                          <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3 shadow-inner" style={{ color: color || '#888' }}>
+                          <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center mb-3" style={{ color: color || '#888' }}>
                             <Icon weight="duotone" className="w-6 h-6" />
                           </div>
-                          <div className="flex items-center justify-between gap-1 text-2xs font-mono uppercase tracking-wider text-muted-foreground">
-                            <span>{part.sku}</span>
-                            {part.oem && <span className="text-3xs text-muted-foreground/80 font-mono truncate max-w-[100px]" title={`OEM / MPN: ${part.oem}`}>OEM: {part.oem}</span>}
+                          <div className="flex flex-col min-w-0 text-xs font-mono uppercase text-slate-600 dark:text-slate-400">
+                            <span className="truncate" title={part.sku}>{part.sku}</span>
+                            {part.oem && <span className="text-xs text-slate-600 dark:text-slate-400 font-mono truncate" title={`OEM / MPN: ${part.oem}`}>OEM {part.oem}</span>}
                           </div>
                           <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
-                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                          <div className="flex flex-wrap items-center justify-between gap-x-2 mt-3 pt-3 border-t border-border">
                             <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price, part)}</span>
-                            <span className={`text-11px font-bold ${isLow ? 'text-alarm-text' : 'text-emerald-500'}`} title={`Available: ${available} (${part.stock} in stock, ${part.reservedStock || 0} reserved) / Safety threshold: ${part.minStock || 0}`}>
-                              {available} <span className="text-muted-foreground/70 font-normal text-3xs">/ {part.minStock || 0} min</span>
+                            <span className={`text-xs font-bold whitespace-nowrap ${isLow ? 'text-alarm-text' : 'text-emerald-700 dark:text-emerald-400'}`} title={`Available: ${available} (${part.stock} in stock, ${part.reservedStock || 0} reserved) / Safety threshold: ${part.minStock || 0}`}>
+                              {available} <span className="text-slate-600 dark:text-slate-400 font-normal text-xs">/ {part.minStock || 0} min</span>
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 mt-2">
-                            {part.published ? <Eye weight="duotone" className="w-3 h-3 text-emerald-500" /> : <EyeSlash weight="duotone" className="w-3 h-3 text-muted-foreground" />}
-                            <span className={`text-2xs font-semibold ${part.published ? 'text-emerald-500' : 'text-muted-foreground'}`}>{part.published ? 'Published' : 'Unpublished'}</span>
-                            {part.archived && <span className="ml-auto text-2xs font-bold text-amber-400 flex items-center gap-0.5"><Archive className="w-3 h-3" /> Archived</span>}
+                            {part.published ? <Eye weight="duotone" className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" aria-hidden="true" /> : <EyeSlash weight="duotone" className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />}
+                            <span className={`text-xs font-semibold ${part.published ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`}>{part.published ? 'Published' : 'Unpublished'}</span>
+                            {part.archived && <span className="ml-auto text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-0.5"><Archive className="w-3 h-3" /> Archived</span>}
                           </div>
                         </div>
                       );
@@ -1670,17 +1681,17 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       { key: 'sku', label: 'SKU / OEM', render: (v, r) => (
                         <div className="flex flex-col">
                           <span className="font-mono text-xs font-semibold">{v}</span>
-                          {r.oem && <span className="font-mono text-3xs text-muted-foreground">OEM: {r.oem}</span>}
+                          {r.oem && <span className="font-mono text-xs text-slate-600 dark:text-slate-400">OEM: {r.oem}</span>}
                         </div>
                       ) },
                       { key: 'category', label: 'Category' },
                       { key: 'price', label: 'Selling price', align: 'right', render: (v, r) => formatCurrency(v, r) },
                       { key: 'stock', label: 'Available / Min', align: 'right', render: (v, r) => (
-                        <span className={`font-bold ${isLowStock(r) ? 'text-alarm-text' : 'text-emerald-500'}`} title={`${v} in stock, ${r.reservedStock || 0} reserved`}>
-                          {availableStock(r)} <span className="text-muted-foreground/70 font-normal text-3xs">/ {r.minStock || 0} min</span>
+                        <span className={`font-bold ${isLowStock(r) ? 'text-alarm-text' : 'text-emerald-700 dark:text-emerald-400'}`} title={`${v} in stock, ${r.reservedStock || 0} reserved`}>
+                          {availableStock(r)} <span className="text-slate-600 dark:text-slate-400 font-normal text-xs">/ {r.minStock || 0} min</span>
                         </span>
                       ) },
-                      { key: 'published', label: 'Published', align: 'right', render: v => v ? <Eye weight="duotone" className="w-4 h-4 text-emerald-500 ml-auto" /> : <EyeSlash weight="duotone" className="w-4 h-4 text-muted-foreground ml-auto" /> },
+                      { key: 'published', label: 'Published', align: 'right', render: v => v ? <Eye weight="duotone" className="w-4 h-4 text-emerald-700 dark:text-emerald-400 ml-auto" aria-label="Published" /> : <EyeSlash weight="duotone" className="w-4 h-4 text-muted-foreground ml-auto" aria-label="Unpublished" /> },
                     ]}
                     rows={prodRows} groupBy={prodGroup}
                     onRowClick={openProductModal}
@@ -2637,24 +2648,24 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
           {isProductModalOpen && createPortal(
             <div
               onClick={(e) => { if (e.target === e.currentTarget) requestCloseProductModal(); }}
-              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 animate-fadeIn"
             >
               <div
                 ref={productDialogRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="product-modal-title"
-                className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-2xl overflow-hidden shadow-2xl animate-scaleUp flex flex-col"
+                className="w-full max-w-5xl h-[88vh] bg-secondary border border-border rounded-xl overflow-hidden animate-scaleUp flex flex-col"
               >
                 {/* Header: title + Close share the first row on phones, actions wrap below */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 sm:px-6 py-4 border-b border-border bg-background">
                   <div className="order-1 flex flex-1 items-center gap-3 min-w-0">
-                    <div className="shrink-0 w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shadow-inner">
+                    <div className="shrink-0 w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center">
                       <Package weight="duotone" className="w-6 h-6 text-accent" />
                     </div>
                     <div className="min-w-0">
                       <h3 id="product-modal-title" className="text-lg sm:text-xl font-bold text-foreground leading-tight break-words">{viewingPart.name}</h3>
-                      <p className="text-2xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>
+                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>
                     </div>
                   </div>
                   <button type="button" data-product-close onClick={requestCloseProductModal} aria-label="Close product" className="order-2 sm:order-3 shrink-0 p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X weight="bold" className="w-5 h-5" aria-hidden="true" /></button>
@@ -2662,12 +2673,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     <button
                       onClick={saveProduct}
                       disabled={savingProduct}
-                      className="px-4 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow flex items-center gap-1.5 transition-all active:scale-95"
+                      className="px-4 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors"
                     >
                       {savingProduct ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : <CheckCircle weight="bold" className="w-4 h-4" />}
                       {savingProduct ? 'Saving...' : 'Save'}
                     </button>
-                    <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); closeProductModal(); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                    <button onClick={() => { doTogglePublished(viewingPart.id, viewingPart.published); closeProductModal(); }} className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-all flex items-center gap-1.5 ${viewingPart.published ? 'bg-secondary border-border text-muted-foreground hover:text-foreground' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'}`}>
                       {viewingPart.published ? <><EyeSlash weight="bold" className="w-4 h-4" /> Unpublish</> : <><Eye weight="bold" className="w-4 h-4" /> Publish</>}
                     </button>
                     <button onClick={async () => { if (confirm('Archive this product? It will be hidden but preserved.')) { await onDeletePart(viewingPart.id); await loadArchivedParts(); closeProductModal(); } }} className="px-3 py-1.5 text-sm font-bold rounded-lg border border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all flex items-center gap-1.5">
@@ -2707,12 +2718,12 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     const isLow = isLowStock(viewingPart);
                     const tiles = [
                       { label: 'Units Sold', value: totalUnitsSold, icon: ShoppingCart, color: 'text-foreground', busy: transactionsLoading },
-                      { label: 'Revenue', value: formatBaseCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-500', busy: transactionsLoading },
+                      { label: 'Revenue', value: formatBaseCurrency(totalRevenue), icon: CurrencyDollar, color: 'text-emerald-700 dark:text-emerald-400', busy: transactionsLoading },
                       {
                         label: 'Available', value: available, icon: Package, color: isLow ? 'text-alarm-text' : 'text-foreground', alert: isLow, lowStock: isLow,
                         detail: [`${viewingPart.stock ?? 0} in stock · ${viewingPart.reservedStock || 0} reserved`, `min ${viewingPart.minStock || 0}`],
                       },
-                      { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-400', busy: loading },
+                      { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-700 dark:text-blue-400', busy: loading },
                     ];
                     return (
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -2723,10 +2734,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             aria-label={s.label}
                             aria-busy={s.busy ? 'true' : 'false'}
                             data-low-stock={s.lowStock ? 'true' : undefined}
-                            className={`bg-secondary border rounded-xl p-4 text-center shadow-sm relative overflow-hidden ${s.alert ? 'border-alarm-text/50' : 'border-border'}`}
+                            className={`bg-secondary border rounded-xl p-4 text-center relative overflow-hidden ${s.alert ? 'border-alarm-text/50' : 'border-border'}`}
                           >
                             {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-alarm-text" />}
-                            <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                            <span className="text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
                               <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
                             </span>
                             {s.busy ? (
@@ -2735,7 +2746,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               <div className={`text-lg sm:text-2xl font-extrabold font-display tabular-nums [overflow-wrap:anywhere] ${s.color}`}>{s.value}</div>
                             )}
                             {s.detail && s.detail.map(d => (
-                              <div key={d} className="text-xs text-muted-foreground mt-0.5">{d}</div>
+                              <div key={d} className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{d}</div>
                             ))}
                           </div>
                         ))}
@@ -2756,7 +2767,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         tabIndex={productActiveTab === t.key ? 0 : -1}
                         onClick={() => setProductActiveTab(t.key)}
                         onKeyDown={handleProductTabKeyDown}
-                        className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                        className={`shrink-0 whitespace-nowrap px-5 py-3 text-sm font-bold border-b-2 transition-colors ${productActiveTab === t.key ? 'border-accent text-accent' : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-foreground'}`}>
                         {t.label}
                       </button>
                     ))}
@@ -2778,8 +2789,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             { label: 'SKU *', key: 'sku', type: 'text', mono: true },
                             { label: 'OEM / MPN', key: 'oem', type: 'text' },
                           ].map(f => (
-                            <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
-                              <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-red-400' : 'text-muted-foreground'}`}>{f.label}</label>
+                            <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-alarm-text/80 rounded-lg p-1.5 border-transparent' : ''}`}>
+                              <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-alarm-text' : 'text-muted-foreground'}`}>{f.label}</label>
                               <input
                                 id={`prod-field-${f.key}`}
                                 type={f.type}
@@ -2811,8 +2822,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             { label: 'Current Stock *', key: 'stock', type: 'number' },
                             { label: 'Min Safety Stock', key: 'minStock', type: 'number' },
                           ].map(f => (
-                            <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
-                              <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-red-400' : 'text-muted-foreground'}`}>{f.label}</label>
+                            <div key={f.key} className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors[f.key] ? 'ring-2 ring-alarm-text/80 rounded-lg p-1.5 border-transparent' : ''}`}>
+                              <label htmlFor={`prod-field-${f.key}`} className={`text-xs font-bold mb-1 ${productValidationErrors[f.key] ? 'text-alarm-text' : 'text-muted-foreground'}`}>{f.label}</label>
                               <div className="relative">
                                 <input
                                   id={`prod-field-${f.key}`}
@@ -2828,7 +2839,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                     setProductForm({ ...productForm, [f.key]: e.target.value });
                                     if (productValidationErrors[f.key]) setProductValidationErrors(p => ({ ...p, [f.key]: false }));
                                   }}
-                                  className={`w-full bg-transparent focus:outline-none text-foreground font-bold text-lg ${f.suffix ? 'pr-6' : ''} ${f.showSpinner ? 'show-number-spinner' : ''}`}
+                                  className={`w-full bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground font-bold text-lg ${f.suffix ? 'pr-6' : ''} ${f.showSpinner ? 'show-number-spinner' : ''}`}
                                 />
                                 {f.suffix && <span className="absolute right-0 top-1/2 -translate-y-1/2 text-sm font-normal text-muted-foreground pointer-events-none">{f.suffix}</span>}
                               </div>
@@ -2836,7 +2847,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             </div>
                           ))}
                           {Number(productForm.stock) !== Number(viewingPart.stock) && (
-                            <div className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors.adjustmentReason ? 'ring-2 ring-red-500/80 rounded-lg p-1.5 border-transparent' : ''}`}>
+                            <div className={`flex flex-col border-b border-border pb-1 transition-all ${productValidationErrors.adjustmentReason ? 'ring-2 ring-alarm-text/80 rounded-lg p-1.5 border-transparent' : ''}`}>
                               <label htmlFor="prod-field-adjustmentReason" className="text-xs font-bold text-accent mb-1">Reason for Stock Adjustment *</label>
                               <input
                                 id="prod-field-adjustmentReason"
@@ -2846,7 +2857,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                                   setProductForm({ ...productForm, adjustmentReason: e.target.value });
                                   if (productValidationErrors.adjustmentReason) setProductValidationErrors(p => ({ ...p, adjustmentReason: false }));
                                 }}
-                                className="bg-transparent focus:outline-none text-foreground font-bold"
+                                className="bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground font-bold"
                                 placeholder="e.g. damaged goods, return"
                                 required
                               />
@@ -2859,7 +2870,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             </div>
                             <button onClick={() => doTogglePublished(viewingPart.id, viewingPart.published)}
                               className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${viewingPart.published ? 'bg-accent' : 'bg-secondary border border-border'}`}>
-                              <span className={`inline-block w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
+                              <span className={`inline-block w-4 h-4 rounded-full bg-white transform transition-transform mt-1 ${viewingPart.published ? 'translate-x-6' : 'translate-x-1'}`} />
                             </button>
                           </div>
                         </div>
@@ -2873,7 +2884,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           value={productForm.description ?? ''}
                           onChange={e => setProductForm({ ...productForm, description: e.target.value })}
                           placeholder="What it is, what it fits, anything staff should know at the counter"
-                          className="bg-transparent focus:outline-none text-foreground text-sm leading-relaxed resize-y"
+                          className="bg-transparent focus:outline-none text-foreground placeholder:text-muted-foreground text-sm leading-relaxed resize-y"
                         />
                       </div>
                     </div>
@@ -2906,7 +2917,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                               <td className="p-3 font-bold text-foreground">{s.invoice}</td>
                               <td className="p-3">{s.customer}</td>
                               <td className="p-3 text-right font-bold">{s.qty}</td>
-                              <td className="p-3 text-right text-emerald-500 font-bold">{formatBaseCurrency(s.revenue)}</td>
+                              <td className="p-3 text-right text-emerald-700 dark:text-emerald-400 font-bold">{formatBaseCurrency(s.revenue)}</td>
                             </tr>
                           ))}
                           {productSales.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-muted-foreground">No sales recorded yet.</td></tr>}
@@ -2916,7 +2927,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             <tr>
                               <td colSpan="3" className="p-3 font-bold text-foreground">Total</td>
                               <td className="p-3 text-right font-black text-foreground">{totalUnitsSold}</td>
-                              <td className="p-3 text-right font-black text-emerald-500">{formatBaseCurrency(totalRevenue)}</td>
+                              <td className="p-3 text-right font-black text-emerald-700 dark:text-emerald-400">{formatBaseCurrency(totalRevenue)}</td>
                             </tr>
                           </tfoot>
                         )}
