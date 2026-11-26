@@ -202,6 +202,20 @@ describe('search_parts', () => {
     expect(deps.partsRepository.searchCustomerParts).not.toHaveBeenCalled();
   });
 
+  // Small local models invent wrapper keys (e.g. `filters: {}`); rejecting the
+  // whole call made the assistant apologize instead of searching.
+  it('ignores unknown argument keys instead of rejecting the call', async () => {
+    const res = await executeTool('search_parts', { query: 'brake', filters: {}, sort: 'price' }, deps);
+    expect(res.error).toBeUndefined();
+    expect(res.parts).toHaveLength(1);
+    expect(deps.partsRepository.searchCustomerParts.mock.calls[0][0].tokens).toEqual(['brake']);
+  });
+
+  it('lifts known filter fields nested under "filters" to the top level', async () => {
+    await executeTool('search_parts', { query: 'brake', filters: { brand: 'Isuzu', bogus: 'x' } }, deps);
+    expect(deps.partsRepository.searchCustomerParts.mock.calls[0][0].tokens).toEqual(['brake', 'isuzu']);
+  });
+
   it('turns a service failure into a generic error without leaking details', async () => {
     deps.partsRepository.searchCustomerParts.mockRejectedValue(new Error('connect ECONNREFUSED db.secret:5432'));
     const res = await executeTool('search_parts', { query: 'brake' }, deps);

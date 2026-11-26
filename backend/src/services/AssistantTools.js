@@ -28,7 +28,7 @@ export const TOOL_DEFINITIONS = [
       name: 'search_parts',
       description:
         'Search the truck parts catalogue. Use this whenever the customer asks for a part, a part number (SKU or OEM), or parts for a truck. ' +
-        'Put the main keyword(s) in "query" (part name, SKU or OEM number, e.g. "brake pad"). Use the optional filters only when the customer named them. ' +
+        'Put the main keyword(s) in "query" (part name, SKU or OEM number, e.g. "brake pad"). Pass category, brand, series or engineCode as separate top-level arguments, only when the customer named them. ' +
         'Returns up to 5 parts with priceDisplay (the price text to quote) and stockStatus. Never invent parts; only mention parts returned here.',
       parameters: {
         type: 'object',
@@ -213,20 +213,29 @@ const siteHelp = ({ topic }) => {
 
 const optionalText = z.string().trim().min(1).max(100).optional();
 
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+// Small local models sometimes wrap optional fields in an invented `filters`
+// object. Lift them to the top level (explicit top-level values win).
+const liftFilters = (args) =>
+  isPlainObject(args) && isPlainObject(args.filters) ? { ...args.filters, ...args } : args;
+
+// Schemas strip unknown keys rather than reject them: one invented key must not
+// fail the whole call (the model then apologizes instead of answering).
 const SCHEMAS = {
-  search_parts: z.object({
+  search_parts: z.preprocess(liftFilters, z.object({
     query: z.string().trim().min(1).max(200),
     category: optionalText,
     brand: optionalText,
     series: optionalText,
     engineCode: optionalText
-  }).strict(),
+  })),
   get_part: z.object({
     id: z.string().uuid().optional(),
     sku: z.string().trim().min(1).max(100).optional()
-  }).strict().refine((v) => v.id || v.sku, { message: 'Provide either id or sku.' }),
+  }).refine((v) => v.id || v.sku, { message: 'Provide either id or sku.' }),
   list_categories: z.object({}).passthrough(),
-  site_help: z.object({ topic: z.string().trim().min(1).max(100) }).strict()
+  site_help: z.object({ topic: z.string().trim().min(1).max(100) })
 };
 
 const searchText = (part) => [
