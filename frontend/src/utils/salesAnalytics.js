@@ -281,9 +281,11 @@ export function topMovers(allCurrent, allPrevious, limit) {
   const previous = revenueOnly(allPrevious);
   const curCounts = new Map();
   const curRev = new Map();
+  const curIds = new Map();
   
   for (const t of current) {
     for (const item of (t.items || [])) {
+      if (item.partId != null && !curIds.has(item.name)) curIds.set(item.name, item.partId);
       curCounts.set(item.name, (curCounts.get(item.name) || 0) + (item.quantity || 0));
       curRev.set(item.name, (curRev.get(item.name) || 0) + (item.quantity || 0) * (item.price || 0));
     }
@@ -309,6 +311,7 @@ export function topMovers(allCurrent, allPrevious, limit) {
     const prevRank = prevRanks.has(c.name) ? prevRanks.get(c.name) : null;
     return {
       name: c.name,
+      partId: curIds.get(c.name) ?? null,
       quantity: c.quantity,
       revenue: c.revenue,
       rankDelta: prevRank !== null ? prevRank - i : null

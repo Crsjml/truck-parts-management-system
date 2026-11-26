@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { CaretLeft, CaretRight, CurrencyDollar, FileText, ShoppingCart, TrendUp, CheckCircle, Truck, X, Clock, DownloadSimple } from '@phosphor-icons/react';
 import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
-import { inRange, isRevenueTransaction, computeKpis, rankPartsBySales, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
+import { inRange, isRevenueTransaction, computeKpis, rankPartsBySales, getRankDeltaBadge, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
 import { buildSalesSummaryPdf } from '../../utils/salesSummaryPdf';
 import { getStatusTone } from '../../utils/orderStatusTone';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
@@ -39,16 +39,28 @@ export default function DailySalesSummary({ transactions }) {
     setSelectedDate(addLocalDays(selectedDate, 1));
   };
 
+  // Keep the latest handlers in a ref so the single window listener never goes stale.
+  const stepRef = useRef({});
+  stepRef.current = { handlePrevDay, handleNextDay, isToday };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.target.closest?.('[role="tablist"]')) return;
-      if (e.key === 'ArrowLeft') handlePrevDay();
-      else if (e.key === 'ArrowRight' && !isToday) handleNextDay();
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || e.defaultPrevented) return;
+      // Plain buttons do nothing with arrows natively, so they must not block stepping.
+      if (e.target?.closest?.('select, input, textarea, [role="tablist"]')) return;
+      const { handlePrevDay: prev, handleNextDay: next, isToday: onToday } = stepRef.current;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prev();
+      } else if (!onToday) {
+        e.preventDefault();
+        next();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedDate, isToday]);
+  }, []);
 
   // Phase 2 - Analytics math
   const dayTx = useMemo(() => inRange(transactions, dayStart, dayEnd), [transactions, dayStart, dayEnd]);
@@ -70,6 +82,8 @@ export default function DailySalesSummary({ transactions }) {
   
   const topParts = useMemo(() => rankPartsBySales(transactions, { start: dayStart, end: dayEnd }, 5), [transactions, dayStart, dayEnd]);
 
+  const hasSales = kpis.invoices > 0;
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'Completed': return CheckCircle;
@@ -81,6 +95,32 @@ export default function DailySalesSummary({ transactions }) {
 
   const getStatusColor = getStatusTone;
 
+  const orderStatusPanel = (
+    <>
+      <h4 className="text-xs font-bold font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Order Status</h4>
+      <div className="flex-1 flex flex-col justify-center gap-2.5">
+        {orderStatuses.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center">No orders.</p>
+        ) : (
+          orderStatuses.map((status) => {
+            const StatusIcon = getStatusIcon(status.name);
+            return (
+              <div key={status.name} className={`flex items-center justify-between p-3 rounded-lg border ${getStatusColor(status.name)} bg-opacity-30`}>
+                <div className="flex items-center gap-2">
+                  <StatusIcon weight="bold" className="w-4 h-4" />
+                  <span className="text-xs font-bold tracking-tight">{status.name}</span>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-background/80">
+                  {status.count}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-4 animate-fadeIn">
       {/* Header and Controls */}
@@ -88,37 +128,51 @@ export default function DailySalesSummary({ transactions }) {
         <div>
           <h3 className="text-base font-bold text-foreground font-display">Daily Sales Summary</h3>
           <p className="text-xs text-muted-foreground">Detailed breakdown for {dayStart.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.</p>
+          <p className="text-xs text-muted-foreground">← → to change day</p>
         </div>
         
         <div className="flex items-center gap-2">
           <button 
             onClick={handlePrevDay}
-            className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
             title="Previous Day"
+            aria-label="Previous day"
           >
             <CaretLeft weight="bold" className="w-4 h-4" />
           </button>
           
+          <label htmlFor="daily-sales-date" className="sr-only">Select date</label>
           <input
+            id="daily-sales-date"
             type="date"
             value={selectedDate}
             max={todayKey}
             onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-            className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-colors text-foreground min-w-[130px]"
+            className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background transition-colors text-foreground min-w-[130px]"
           />
           
           <button
             onClick={handleNextDay}
             disabled={isToday}
-            className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
             title="Next Day"
+            aria-label="Next day"
           >
             <CaretRight weight="bold" className="w-4 h-4" />
           </button>
 
+          {!isToday && (
+            <button
+              onClick={() => setSelectedDate(todayKey)}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            >
+              Today
+            </button>
+          )}
+
           <button
             onClick={() => buildSalesSummaryPdf(transactions, { selectedDate })}
-            disabled={dayTx.length === 0}
+            disabled={!hasSales}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export PDF
@@ -126,28 +180,36 @@ export default function DailySalesSummary({ transactions }) {
         </div>
       </div>
 
-      {dayTx.length === 0 ? (
+      {!hasSales ? (
         <div className="bg-card border border-border rounded-xl p-12 flex flex-col items-center justify-center text-center">
           <div className="w-12 h-12 bg-secondary/50 rounded-full flex items-center justify-center mb-3">
             <ShoppingCart weight="duotone" className="w-6 h-6 text-muted-foreground" />
           </div>
-          <p className="text-sm font-semibold text-foreground">No sales recorded for {dayStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-          <p className="text-xs text-muted-foreground mt-1">Try selecting a different date or check previous days.</p>
+          <p className="text-sm font-semibold text-foreground">No sales recorded for this day</p>
+          <p className="text-xs text-muted-foreground mt-1">Try selecting a different date.</p>
         </div>
-      ) : (
+      ) : null}
+
+      {!hasSales && orderStatuses.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+          {orderStatusPanel}
+        </div>
+      )}
+
+      {hasSales && (
         <>
           {/* KPI Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiTile label="Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} />
-            <KpiTile label="Transactions" value={kpis.invoices} delta={kpis.deltas?.invoices} icon={FileText} />
-            <KpiTile label="Units Sold" value={curUnits} delta={unitsDelta} icon={ShoppingCart} />
-            <KpiTile label="Avg Ticket" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} />
+            <KpiTile label="Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} baseline="previous day" icon={CurrencyDollar} />
+            <KpiTile label="Transactions" value={kpis.invoices} delta={kpis.deltas?.invoices} baseline="previous day" icon={FileText} />
+            <KpiTile label="Units Sold" value={curUnits} delta={unitsDelta} baseline="previous day" icon={ShoppingCart} />
+            <KpiTile label="Avg Ticket" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} baseline="previous day" icon={TrendUp} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Payment Mix */}
             <div className="bg-card border border-border rounded-xl p-4 lg:col-span-1 flex flex-col space-y-4">
-              <h4 className="text-xs font-bold text-foreground font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Payment Mix</h4>
+              <h4 className="text-xs font-bold font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Payment Mix</h4>
               <div className="space-y-4 flex-1 flex flex-col justify-center">
                 {paymentMix.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center">No payment data.</p>
@@ -158,7 +220,7 @@ export default function DailySalesSummary({ transactions }) {
                         <span className="font-semibold text-foreground">{mix.label}</span>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-foreground">{formatBaseCurrency(mix.amount)}</span>
-                          <span className="text-[10px] font-bold text-foreground bg-secondary/80 px-1.5 py-0.5 rounded border border-border/80">{mix.percentage.toFixed(1)}%</span>
+                          <span className="text-xs font-bold text-foreground bg-secondary/80 px-1.5 py-0.5 rounded">{mix.percentage.toFixed(1)}%</span>
                         </div>
                       </div>
                       <div className="w-full bg-secondary rounded-full h-2 overflow-hidden flex border border-border/50" role="progressbar" aria-valuenow={mix.percentage} aria-valuemin="0" aria-valuemax="100" aria-label={`${mix.label} represents ${mix.percentage.toFixed(1)}% of total revenue`}>
@@ -175,54 +237,45 @@ export default function DailySalesSummary({ transactions }) {
 
             {/* Order Status */}
             <div className="bg-card border border-border rounded-xl p-4 lg:col-span-1 flex flex-col space-y-4">
-              <h4 className="text-xs font-bold text-foreground font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Order Status</h4>
-              <div className="flex-1 flex flex-col justify-center gap-2.5">
-                {orderStatuses.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center">No orders.</p>
-                ) : (
-                  orderStatuses.map((status) => {
-                    const StatusIcon = getStatusIcon(status.name);
-                    return (
-                      <div key={status.name} className={`flex items-center justify-between p-3 rounded-lg border ${getStatusColor(status.name)} bg-opacity-30`}>
-                        <div className="flex items-center gap-2">
-                          <StatusIcon weight="bold" className="w-4 h-4" />
-                          <span className="text-xs font-bold tracking-tight">{status.name}</span>
-                        </div>
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded border border-current bg-background/80">
-                          {status.count}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              {orderStatusPanel}
             </div>
 
             {/* Top Parts */}
             <div className="bg-card border border-border rounded-xl p-4 lg:col-span-2 flex flex-col space-y-3">
-              <h4 className="text-xs font-bold text-foreground font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Top Selling Parts</h4>
+              <h4 className="text-xs font-bold font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Top Selling Parts</h4>
               <div className="flex-1 overflow-x-auto hide-scrollbar">
                 {topParts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center flex items-center justify-center h-full">No parts sold today.</p>
+                  <p className="text-xs text-muted-foreground text-center flex items-center justify-center h-full">No parts sold on this day.</p>
                 ) : (
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="text-muted-foreground font-semibold uppercase border-b border-border">
                         <th className="pb-2 pr-2">Part Name</th>
+                        <th className="pb-2 px-2 text-center">Rank change</th>
                         <th className="pb-2 text-right">Qty</th>
+                        <th className="pb-2 pl-2 text-right">Revenue</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {topParts.map((part) => (
-                        <tr key={part.name} className="group hover:bg-secondary/50 transition-colors">
+                      {topParts.map((part) => {
+                        const badge = getRankDeltaBadge(part.rankDelta);
+                        return (
+                        <tr key={part.partId ?? part.name} className="group hover:bg-secondary/50 transition-colors">
                           <td className="py-3 pr-2 font-medium text-foreground truncate max-w-[120px] sm:max-w-[200px] lg:max-w-[250px]" title={part.name}>
                             {part.name}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${badge.style}`}>{badge.text}</span>
                           </td>
                           <td className="py-3 text-right font-bold text-brandBlue-600 dark:text-brandBlue-400">
                             {part.quantity}
                           </td>
+                          <td className="py-3 pl-2 text-right font-bold text-foreground">
+                            {formatBaseCurrency(part.revenue)}
+                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
