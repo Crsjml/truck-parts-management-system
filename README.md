@@ -192,6 +192,82 @@ Its startup command regenerates Prisma Client and syncs the schema, including th
 new `CASHIER` and `WAREHOUSE` enum values. A database connection is required. A SQL
 migration is also included for environments that deploy Prisma migrations.
 
+## Parts Assistant (local AI)
+
+The storefront has a "Parts Assistant" chat for signed-in customers. It runs on a **local** model through
+[Ollama](https://ollama.com), so no paid cloud API is involved. It can find parts by name, SKU, OEM number or
+vehicle, quote the selling price and stock, and explain how to order, pay, track orders, return items and
+contact the store. It only reads published, non-archived parts and never sees supplier cost, markup or
+minimum-stock data. Part cards appear under its replies.
+
+### Prerequisites
+
+1. Install Ollama on the **host** (not in Docker) and make sure it is running (`ollama serve`, API on `:11434`).
+2. Pull the model:
+
+   ```bash
+   ollama pull qwen2.5:3b-instruct      # default, fits an 8 GB machine
+   ollama pull qwen2.5:7b-instruct      # optional: better tool-calling, needs >= 16 GB RAM
+   ```
+
+   A 7B model fails to load on an 8 GB machine that is also running Docker. To switch, set `OLLAMA_MODEL` in
+   `backend/.env` (fallback model: `llama3.1:8b`) and recreate the backend container.
+3. The backend container reaches the host through `extra_hosts: "host.docker.internal:host-gateway"` in
+   `docker-compose.yml` (already present). After any compose change, run `docker compose up -d backend` so the
+   container is recreated.
+
+### Configuration
+
+All variables are optional, go in `backend/.env`, and are listed in `backend/.env.example`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `LLM_PROVIDER` | `ollama` | `ollama` or `mock` (deterministic stub for e2e/CI) |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Where the backend reaches Ollama |
+| `OLLAMA_MODEL` | `qwen2.5:3b-instruct` | Model used for chat |
+| `OLLAMA_KEEP_ALIVE` | `30m` | How long Ollama keeps the model loaded between chats |
+| `LLM_TIMEOUT_MS` | `120000` | Timeout for one Ollama request (cold model load takes about 30 s) |
+| `LLM_TURN_MAX_MS` | `150000` | Wall-clock cap for a whole reply; on expiry the upstream call is aborted and a friendly "unavailable" message is returned |
+| `LLM_MAX_CONCURRENT` | `2` | Max assistant replies running at once across all users; extra requests get a 503 `assistant_busy` with a friendly message |
+
+### Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/chat` | One-shot JSON reply (also the fallback for streaming). Requires a signed-in user |
+| `POST /api/chat/stream` | Same, streamed as NDJSON (text deltas, then part cards) |
+| `GET /api/chat/health` | Open health check: `{ ok, modelPresent }`; `503` when Ollama is unreachable |
+
+Requests are validated (1-20 messages, 2,000 characters each) and limited to 10 per minute with one in-flight
+request per user.
+
+### Tests
+
+```bash
+cd backend && npx vitest run            # unit tests (mocked LLM and Prisma)
+cd frontend && npx vitest run
+
+# Deterministic e2e, no Ollama needed: run the backend with LLM_PROVIDER=mock, then
+cd frontend && E2E_LLM_MOCK=1 npx playwright test tests/parts-assistant.spec.ts --project=chromium
+
+# Live e2e against the real model (stack and Ollama running; read-only, seed customer login only)
+cd frontend && npx playwright test tests/parts-assistant.spec.ts --project=chromium
+```
+
+### Troubleshooting
+
+- Check `curl http://localhost:5173/api/chat/health` (through the frontend proxy). `modelPresent: false` means
+  `ollama pull` has not been run for `OLLAMA_MODEL`. A `503` means Ollama is not running or not reachable from
+  the container.
+- The first reply after a cold start takes about 30 s while the model loads. Later replies are faster because of
+  `OLLAMA_KEEP_ALIVE`.
+- Replies that never arrive are cut off after `LLM_TURN_MAX_MS` and show the "assistant is unavailable" message.
+  Close memory-hungry apps or use the smaller model.
+- "Tenant or user not found" in the backend logs comes from the Supabase pooler and means the Supabase project is
+  paused. Restore it in the Supabase dashboard and retry.
+
+---
+
 ## Environment variables reference
 
 | Variable | File | Description |
@@ -202,6 +278,7 @@ migration is also included for environments that deploy Prisma migrations.
 | `SUPABASE_SERVICE_ROLE_KEY` | `backend/.env` | Backend admin key, **never expose to frontend** |
 | `STRIPE_SECRET_KEY` | `backend/.env` | Stripe server-side key |
 | `STRIPE_WEBHOOK_SECRET` | `backend/.env` | Verifies incoming Stripe webhook signatures |
+| `LLM_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_KEEP_ALIVE`, `LLM_TIMEOUT_MS`, `LLM_TURN_MAX_MS`, `LLM_MAX_CONCURRENT` | `backend/.env` | Optional, see [Parts Assistant](#parts-assistant-local-ai) |
 | `VITE_SUPABASE_URL` | `frontend/.env` | Supabase project URL (public) |
 | `VITE_SUPABASE_ANON_KEY` | `frontend/.env` | Supabase anon/public key |
 

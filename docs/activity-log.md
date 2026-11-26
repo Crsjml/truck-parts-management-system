@@ -26,3 +26,14 @@
   - Overhauled Parts Catalog category filters to a space-efficient two-tier scrolling pill layout.
   - Enforced a dependency between Vehicle Brand and Series dropdowns in the Compatibility Filter.
 - **Rationale:** Maximize horizontal screen space for data-dense grids and prepare for robust E2E test coverage.
+
+## [2026-11-26] Local AI Parts Assistant (Ollama)
+- **Goal:** Replace the mock storefront chatbot reply with a locally hosted LLM that finds parts and answers site-help questions.
+- **Actions Taken:**
+  - Added `LlmClient` (Ollama over native fetch, typed errors, `keep_alive`, health check, mock provider), customer-safe `AssistantTools`, and `ChatService` with a 4-round tool loop and a per-turn wall-clock cap (`LLM_TURN_MAX_MS`).
+  - Added `POST /api/chat`, `POST /api/chat/stream` (NDJSON) and `GET /api/chat/health` with auth, zod validation and per-user rate limiting; wired `StorefrontChatbot.jsx` to stream replies and show real part cards.
+  - Tool output is an allow-list projection: selling price plus a preformatted `priceDisplay` in the store currency, available stock and a derived `stockStatus`; no cost, supplier, markup or minimum-stock data.
+  - Assistant search is token-based (stopwords dropped, every token must match, partial-match fallback) via the new read-only `PartsRepository.searchCustomerParts`; `/api/parts` is unchanged.
+  - Added a Playwright e2e spec (mock and live modes) and documented setup, env vars and troubleshooting in `README.md`.
+- **Rationale:** Local-only model (no paid APIs) with no schema change; internal data can never reach the model or the customer.
+

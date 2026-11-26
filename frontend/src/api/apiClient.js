@@ -57,6 +57,18 @@ async function request(method, path, { body, timeoutMs = 8000, supabase } = {}) 
   return { ok: res.ok, status: res.status, data };
 }
 
+// Streaming POST: resolves to the raw fetch Response (body unread) with the same
+// auth header as request(). No timeout; the caller owns cancellation via `signal`.
+export async function apiStream(path, body, { signal, supabase } = {}) {
+  const headers = await getAuthHeaders(supabase);
+  return fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { ...headers, Accept: 'application/x-ndjson' },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
 export const apiGet = (path, opts) => request('GET', path, opts);
 export const apiPost = (path, body, opts) => request('POST', path, { ...opts, body });
 export const apiPut = (path, body, opts) => request('PUT', path, { ...opts, body });

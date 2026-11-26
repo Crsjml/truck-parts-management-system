@@ -4,7 +4,8 @@ import { SignIn, ShieldCheck, Tag, UserPlus, Moon, Sun, SquaresFour, Gear, Fader
 import Logo from './Logo';
 import Footer from './Footer';
 import { getCategoryIconAndColor, getCategoryPlaceholder } from '../utils/categoryIcons';
-import { fetchCategoriesList, fetchCustomerProfile } from '../authStore';
+import { fetchCategoriesList, fetchCustomerProfile, fetchParts } from '../authStore';
+import { resolveCatalogPart } from '../utils/resolveCatalogPart';
 import { supabase } from '../supabaseClient';
 import CompatibilityFilter from './CompatibilityFilter';
 import ReviewSection from './ReviewSection';
@@ -60,6 +61,11 @@ export default function CustomerStorefront({
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPart, setSelectedPart] = useState(null);
+  const openChatPartDetail = async (chatPart) => {
+    const full = await resolveCatalogPart(chatPart, parts, fetchParts);
+    if (full) setSelectedPart(full);
+    else showToast?.('Could not load that part. Please search for it in the catalog.', 'warning');
+  };
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [storefrontTab, setStorefrontTab] = useState('home');
   const [sortOrder, setSortOrder] = useState('recommended');
@@ -837,7 +843,7 @@ export default function CustomerStorefront({
         onClose={() => setSelectedPart(null)}
       />
 
-      {customerSession && <StorefrontChatbot onOpenPartDetail={setSelectedPart} />}
+      {customerSession && <StorefrontChatbot onOpenPartDetail={openChatPartDetail} />}
 
       {/* Global Footer */}
       <Footer

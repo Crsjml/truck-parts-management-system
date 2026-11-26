@@ -36,6 +36,39 @@ export class PartsRepository {
     });
   }
 
+  /** Storefront-visible part (published, not archived) by id or sku, with its category. */
+  async findCustomerPart({ id, sku }) {
+    return prisma.part.findFirst({
+      where: { ...(id ? { id } : { sku }), published: true, archived: false },
+      include: { category: { select: { name: true } } }
+    });
+  }
+
+  /**
+   * Assistant-only, read-only token search over storefront-visible parts.
+   * mode 'all': every token must match somewhere (AND of ORs).
+   * mode 'any': at least one token matches (caller ranks the results).
+   */
+  async searchCustomerParts({ tokens, mode = 'all', limit = 25 }) {
+    if (!Array.isArray(tokens) || tokens.length === 0) return [];
+    const clauseFor = (t) => ({
+      OR: [
+        ...['name', 'sku', 'oem', 'compatibility', 'description'].map((f) => ({ [f]: { contains: t, mode: 'insensitive' } })),
+        { category: { name: { contains: t, mode: 'insensitive' } } },
+        { oemNumbers: { has: t } },
+        { oemNumbers: { has: t.toUpperCase() } }
+      ]
+    });
+    const clauses = tokens.map(clauseFor);
+    const match = mode === 'any' ? { OR: clauses.flatMap((c) => c.OR) } : { AND: clauses };
+    return prisma.part.findMany({
+      where: { published: true, archived: false, ...match },
+      include: { category: { select: { name: true } } },
+      orderBy: { name: 'asc' },
+      take: limit
+    });
+  }
+
   async findPartById(id) {
     return prisma.part.findUnique({ where: { id } });
   }

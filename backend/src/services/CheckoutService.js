@@ -3,17 +3,11 @@ import Stripe from 'stripe';
 import { prisma } from '../config/prisma.js';
 import transactionsRepository from '../repositories/TransactionsRepository.js';
 import { STORE_PICKUP } from '../utils/recordFormats.js';
+import { computeSellingPrice } from '../utils/pricing.js';
 import { nextInvoiceNumber, retryOnUniqueViolation } from '../utils/invoiceNumbers.js';
 
-/**
- * Part.price is the wholesale base price; the customer-facing selling price is
- * that value plus a markup percentage. Part.markupOverride, when set, takes
- * precedence over the global Setting.active_markup for that part.
- */
-export function computeSellingPrice(basePrice, markupPercent) {
-  const markup = Number(markupPercent) || 0;
-  return Math.round(basePrice * (1 + markup / 100) * 100) / 100;
-}
+// Selling-price logic lives in utils/pricing.js (shared with the assistant tools).
+export { computeSellingPrice };
 
 /**
  * PH VAT is 12% and has been since 2006. Shelf prices are VAT-inclusive, so VAT
