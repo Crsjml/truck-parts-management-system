@@ -48,6 +48,7 @@ import {
   GroupedTable
 } from './ui/PurchasingAtoms';
 import PaymentsCalendar from './purchasing/PaymentsCalendar';
+import PurchasingReports from './purchasing/PurchasingReports';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const NOT_ACKNOWLEDGED_DAYS = 7;
@@ -154,6 +155,10 @@ const isLowStock = (part) => availableStock(part) <= (Number(part?.minStock) || 
 export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, transactions, transactionsLoading = false, onAddPart, onEditPart, onDeletePart, categories, showToast }) {
   const { formatCurrency, formatBaseCurrency = formatCurrency, settings } = useSettings();
   const [activeSection, setActiveSection] = useState('orders'); // 'orders' | 'products' | 'reports'
+  const purchasingHeaderRef = useRef(null);
+  const [drillBanner, setDrillBanner] = useState(null); // { section, text } set when arriving from Reports
+  const drillBannerRef = useRef(null);
+  useEffect(() => { if (drillBanner) drillBannerRef.current?.focus(); }, [drillBanner]);
   const [activeOrderTab, setActiveOrderTab] = useState('rfq'); // 'rfq' | 'pos' | 'suppliers'
 
   // Data
@@ -269,6 +274,36 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     setSuppliers(sups);
     setPurchaseOrders(pos);
     setLoading(false);
+  };
+
+  // Drop the filters a Reports drill-down applied, but only ones it set; never clobber the user's own.
+  const clearDrillFilters = () => {
+    if (!drillBanner) return;
+    if (drillBanner.section === 'products') setProdSearch('');
+    else { setPosStatFilter(null); setRfqStatFilter(null); }
+    setDrillBanner(null);
+  };
+
+  // Reports → Orders: jump to the order list already filtered to the clicked attention item.
+  const drillIntoOrders = (kind, value) => {
+    // The target list should open at its filters, not at the scroll offset the report was left at.
+    requestAnimationFrame(() => purchasingHeaderRef.current?.scrollIntoView({ block: 'start' }));
+    if (kind === 'part') {
+      setDrillBanner({ section: 'products', text: `Showing "${value}" in products, from Reports.` });
+      setActiveSection('products');
+      setProdSearch(value);
+      return;
+    }
+    const bannerText = { problems: 'Showing problem orders, from Reports.', overdue: 'Showing late receipts, from Reports.', awaitingReply: 'Showing requests awaiting a supplier reply, from Reports.' }[kind];
+    setDrillBanner({ section: 'orders', text: bannerText });
+    setActiveSection('orders');
+    if (kind === 'awaitingReply') {
+      setActiveOrderTab('rfq');
+      setRfqStatFilter('sent');
+      return;
+    }
+    setActiveOrderTab('pos');
+    setPosStatFilter(kind === 'problems' ? 'problems' : 'lateReceipt');
   };
 
   const loadArchivedParts = async () => {
@@ -502,83 +537,6 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
     if (prodFavsOnly) rows = rows.filter(p => prodFavs.includes(p.id));
     return rows;
   }, [parts, archivedParts, prodSearch, prodFilters, prodFavsOnly, prodFavs]);
-
-  // ── Reports data ─────────────────────────────────────────────────────────────
-  const reportData = useMemo(() => {
-    // KPI: Total Spend YTD
-    const totalSpend = purchaseOrders
-      .filter(p => p.status === 'Received')
-      .reduce((sum, po) => sum + (po.totalAmount || 0), 0);
-
-    // KPI: Capital in Transit
-    const capitalInTransit = purchaseOrders
-      .filter(p => p.status === 'Confirmed')
-      .reduce((sum, po) => sum + (po.totalAmount || 0), 0);
-
-    // KPI: Average Supplier Lead Time
-    const receivedPOs = purchaseOrders.filter(p => p.status === 'Received' && p.createdAt && p.updatedAt);
-    const avgLeadTime = receivedPOs.length > 0
-      ? Math.round(receivedPOs.reduce((sum, po) => {
-        const days = (new Date(po.updatedAt) - new Date(po.createdAt)) / (1000 * 60 * 60 * 24);
-        return sum + Math.max(0, days);
-      }, 0) / receivedPOs.length)
-      : 0;
-
-    // KPI: Pending RFQs
-    const pendingRfqs = purchaseOrders.filter(p => p.status === 'Draft' || p.status === 'RFQ Sent').length;
-
-    // Pipeline Distribution
-    const pipelineDataRaw = purchaseOrders.reduce((acc, po) => {
-      acc[po.status] = (acc[po.status] || 0) + 1;
-      return acc;
-    }, {});
-    const pipelineData = Object.entries(pipelineDataRaw).map(([name, value]) => ({ name, value }));
-
-    // Spend by Supplier (Revamped with counts)
-    const spendBySupplierRaw = purchaseOrders.filter(p => p.status === 'Received').reduce((acc, po) => {
-      const name = po.supplier?.name || 'Unknown';
-      if (!acc[name]) acc[name] = { total: 0, count: 0 };
-      acc[name].total += (po.totalAmount || 0);
-      acc[name].count += 1;
-      return acc;
-    }, {});
-
-    const spendBySupplier = Object.entries(spendBySupplierRaw)
-      .map(([name, data]) => ({ name, total: data.total, count: data.count }))
-      .sort((a, b) => b.total - a.total).slice(0, 8);
-
-    const topParts = Object.entries(
-      purchaseOrders.filter(p => p.status === 'Received').flatMap(po => po.items).reduce((acc, item) => {
-        acc[item.name] = (acc[item.name] || 0) + item.quantity;
-        return acc;
-      }, {})
-    ).map(([name, qty]) => ({ name, qty }))
-      .sort((a, b) => b.qty - a.qty).slice(0, 8);
-
-    const totalPos = purchaseOrders.filter(p => ['Confirmed', 'Received'].includes(p.status)).length;
-    const onTimePos = purchaseOrders.filter(p => p.status === 'Received' && p.expectedDeliveryDate && new Date(p.updatedAt) <= new Date(p.expectedDeliveryDate)).length;
-    const onTimeRate = totalPos > 0 ? Math.round((onTimePos / totalPos) * 100) : 0;
-
-    const poByMonth = purchaseOrders.reduce((acc, po) => {
-      const m = new Date(po.createdAt).toLocaleDateString('en', { month: 'short', year: '2-digit' });
-      acc[m] = (acc[m] || 0) + 1;
-      return acc;
-    }, {});
-    const poTimeline = Object.entries(poByMonth).slice(-8).map(([month, count]) => ({ month, count }));
-
-    const top5Parts = (parts || []).slice(0, 5);
-    const purchasedMap = purchaseOrders.filter(p => p.status === 'Received').flatMap(po => po.items)
-      .reduce((acc, item) => { acc[item.name] = (acc[item.name] || 0) + item.quantity; return acc; }, {});
-    const soldMap = (transactions || []).flatMap(tx => tx.items)
-      .reduce((acc, item) => { acc[item.name] = (acc[item.name] || 0) + item.quantity; return acc; }, {});
-    const pvs = top5Parts.map(p => ({
-      name: p.name,
-      purchased: purchasedMap[p.name] || 0,
-      sold: soldMap[p.name] || 0
-    }));
-
-    return { totalSpend, capitalInTransit, avgLeadTime, pendingRfqs, pipelineData, spendBySupplier, topParts, onTimeRate, poTimeline, pvs };
-  }, [purchaseOrders, parts, transactions]);
 
   // ── Product analytics ─────────────────────────────────────────────────────────
   const productSales = useMemo(() => {
@@ -1297,16 +1255,16 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
   return (
     <div className="flex flex-col h-full bg-background animate-fadeIn">
       {/* ── Top Navigation ── */}
-      <div className="bg-background border-b border-border px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sticky top-0 z-10">
+      <div ref={purchasingHeaderRef} className="bg-background border-b border-border px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:sticky sm:top-0 z-10">
         <div className="flex items-center gap-1 text-sm text-muted-foreground min-w-0">
           <span className="font-bold text-foreground">Purchasing</span>
           {activeSection !== 'orders' && <><CaretRight className="w-3 h-3" /><span className="capitalize text-foreground font-medium">{activeSection}</span></>}
-          {activeSection === 'orders' && <><CaretRight className="w-3 h-3" /><span className="text-foreground font-medium">{orderTabs.find(t => t.key === activeOrderTab)?.label}</span></>}
+          {activeSection === 'orders' && <><CaretRight className="w-3 h-3" /><span className="text-foreground font-medium truncate">{orderTabs.find(t => t.key === activeOrderTab)?.label}</span></>}
         </div>
         <div className="order-last sm:order-none w-full sm:w-auto min-w-0 overflow-x-auto hide-scrollbar scroll-fade-edges sm:[mask-image:none] sm:[-webkit-mask-image:none]">
           <div className="flex w-max items-center gap-1 bg-secondary border border-border p-1 rounded-xl">
           {sectionTabs.map(t => (
-            <button key={t.key} onClick={() => setActiveSection(t.key)} className={`flex shrink-0 items-center gap-1.5 px-4 py-1.5 rounded-lg whitespace-nowrap text-sm font-semibold transition-colors ${activeSection === t.key ? 'bg-background text-accent border border-border' : 'text-muted-foreground hover:text-foreground border border-transparent'}`}>
+            <button key={t.key} ref={el => { if (el && activeSection === t.key) el.scrollIntoView?.({ inline: 'nearest', block: 'nearest' }); }} onClick={() => { clearDrillFilters(); setActiveSection(t.key); }} className={`flex shrink-0 items-center gap-1.5 min-h-11 sm:min-h-0 px-4 py-1.5 rounded-lg whitespace-nowrap text-sm font-semibold transition-colors ${activeSection === t.key ? 'bg-background text-accent border border-border' : 'text-slate-600 dark:text-slate-400 hover:text-foreground border border-transparent'}`}>
               <t.icon weight={activeSection === t.key ? 'duotone' : 'regular'} className="w-4 h-4" />
               {t.label}
             </button>
@@ -1319,11 +1277,26 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
             else if (activeSection === 'orders' && activeOrderTab === 'suppliers') openSupplierModal();
             else if (activeSection === 'orders') openPoModal();
           }}
-          className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+          className="min-h-11 sm:min-h-0 sm:justify-self-end px-4 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
         >
           <Plus weight="bold" /> {getNewButtonLabel()}
         </button>
       </div>
+
+      {drillBanner && drillBanner.section === activeSection && (
+        <div ref={drillBannerRef} tabIndex={-1} role="status" className="flex items-center justify-between gap-2 border-b border-border bg-secondary/60 px-4 sm:px-6 py-1 sm:py-2 text-sm text-foreground focus:outline-none">
+          <span className="min-w-0 truncate">{drillBanner.text}</span>
+          <button type="button" onClick={() => {
+            clearDrillFilters();
+            setActiveSection('reports');
+            // The banner unmounts with this click; hand focus to the report title instead of <body>.
+            setTimeout(() => document.getElementById('purchasing-reports-title')?.focus(), 0);
+          }}
+            className="shrink-0 min-h-11 sm:min-h-0 inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-accent hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <ArrowUUpLeft weight="bold" className="w-4 h-4" aria-hidden="true" /> Back to Reports
+          </button>
+        </div>
+      )}
 
       {/* ── Orders Section ── */}
       {activeSection === 'orders' && (
@@ -1731,188 +1704,14 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
 
       {/* ── Reports Section ── */}
       {activeSection === 'reports' && (
-        <div className="flex-1 overflow-y-auto p-6 bg-secondary/20 space-y-6">
-          <div className="flex flex-col">
-            <h2 className="text-2xl font-bold text-foreground">Purchasing Reports</h2>
-            <p className="text-sm text-muted-foreground mt-1">Advanced metrics and operational pipeline analysis.</p>
-          </div>
-
-          {/* Executive KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-accent/20 group-hover:bg-accent transition-colors" />
-              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><CurrencyDollar className="w-4 h-4 text-emerald-500" /> Total Spend (YTD)</span>
-              <span className="text-3xl font-black text-foreground font-display tracking-tight">{formatCurrency(reportData.totalSpend)}</span>
-              <span className="text-2xs text-muted-foreground mt-2">Capital in received inventory</span>
-            </div>
-            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/20 group-hover:bg-blue-500 transition-colors" />
-              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Truck className="w-4 h-4 text-blue-400" /> Capital in Transit</span>
-              <span className="text-3xl font-black text-foreground font-display tracking-tight">{formatCurrency(reportData.capitalInTransit)}</span>
-              <span className="text-2xs text-muted-foreground mt-2">Confirmed orders awaiting delivery</span>
-            </div>
-            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-amber-500/20 group-hover:bg-amber-500 transition-colors" />
-              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Timer className="w-4 h-4 text-amber-500" /> Avg Supplier Lead Time</span>
-              <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.avgLeadTime} <span className="text-sm text-muted-foreground font-semibold">days</span></span>
-              <span className="text-2xs text-muted-foreground mt-2">From order confirmation to receipt</span>
-            </div>
-            <div className="bg-background border border-border p-5 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 group-hover:bg-primary transition-colors" />
-              <span className="text-11px font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><EnvelopeSimple className="w-4 h-4 text-primary" /> Pending Orders</span>
-              <span className="text-3xl font-black text-foreground font-display tracking-tight">{reportData.pendingRfqs} <span className="text-sm text-muted-foreground font-semibold">requests</span></span>
-              <span className="text-2xs text-muted-foreground mt-2">Drafts and pending POs</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {/* Supplier Spend & Order Matrix */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><CurrencyDollar weight="duotone" className="w-4 h-4 text-emerald-500" /> Supplier Spend & Order Matrix</h3>
-              {reportData.spendBySupplier.length > 0 ? (
-                <div className="w-full h-64 pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData.spendBySupplier} layout="vertical" margin={{ top: 0, right: 60, left: 30, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--color-border)" />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `₱${(v / 1000).toFixed(0)}k`} hide />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} width={200} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        formatter={(v, name) => [name === 'total' ? `₱${v.toLocaleString()}` : v, name === 'total' ? 'Spend' : 'Total Orders']}
-                        cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                      />
-                      <Bar dataKey="total" radius={[0, 4, 4, 0]} barSize={20} minPointSize={3}>
-                        <LabelList dataKey="total" position="right" formatter={(v) => `₱${v.toLocaleString()}`} fill="#94a3b8" fontSize={10} fontWeight="bold" />
-                        {reportData.spendBySupplier.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 0 ? '#ef4444' : '#3b82f6'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center">No received orders yet.</p>}
-            </div>
-
-            {/* Pipeline Bottleneck Distribution */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm flex flex-col">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ChartBar weight="duotone" className="w-4 h-4 text-primary" /> Order Pipeline Distribution</h3>
-              {reportData.pipelineData.length > 0 ? (
-                <div className="w-full h-64 flex items-center justify-center relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={reportData.pipelineData}
-                        cx="50%"
-                        cy="45%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={5}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        {reportData.pipelineData.map((entry, index) => {
-                          const COLORS = { 'Draft': '#94a3b8', 'RFQ Sent': '#a855f7', 'Confirmed': '#3b82f6', 'Received': '#10b981', 'Cancelled': '#ef4444', 'Problem Reported': '#dc2626', 'Returned to Supplier': '#f97316' };
-                          return <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#64748b'} />;
-                        })}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                      />
-                      <Legend
-                        verticalAlign="bottom"
-                        height={40}
-                        iconType="circle"
-                        wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                    <span className="text-3xl font-black text-foreground">{purchaseOrders.length}</span>
-                    <span className="text-2xs font-bold text-muted-foreground uppercase">Total POs</span>
-                  </div>
-                </div>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center m-auto">No orders in pipeline.</p>}
-            </div>
-
-            {/* PO History Timeline (Area Chart) */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><ClockCounterClockwise weight="duotone" className="w-4 h-4 text-accent" /> PO History Timeline</h3>
-              {reportData.poTimeline.length > 0 ? (
-                <div className="w-full h-64 pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={reportData.poTimeline} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={10} />
-                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                      />
-                      <Area type="monotone" dataKey="count" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center">No purchase orders yet.</p>}
-            </div>
-
-            {/* Top Restocked Parts */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><Package weight="duotone" className="w-4 h-4 text-emerald-500" /> Top Restocked Parts</h3>
-              {reportData.topParts.length > 0 ? (
-                <div className="w-full h-64 pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData.topParts} margin={{ top: 25, right: 0, left: -20, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} angle={-35} textAnchor="end" height={80} axisLine={false} tickLine={false} interval={0} />
-                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                      />
-                      <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={30} minPointSize={3}>
-                        <LabelList dataKey="qty" position="top" fill="#94a3b8" fontSize={10} fontWeight="bold" />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center">No received orders yet.</p>}
-            </div>
-
-            {/* Purchase vs Sales Volume */}
-            <div className="bg-background border border-border rounded-xl p-5 shadow-sm lg:col-span-2">
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2"><TrendUp weight="duotone" className="w-4 h-4 text-accent" /> Overstock Analysis: Purchase vs Sales Volume</h3>
-              {reportData.pvs.some(p => p.purchased > 0 || p.sold > 0) ? (
-                <div className="w-full h-72 pt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData.pvs} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={10} />
-                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        cursor={{ fill: '#1e293b' }}
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                        itemStyle={{ color: '#f8fafc' }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
-                      <Bar dataKey="purchased" name="Total Purchased" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                      <Bar dataKey="sold" name="Total Sold" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : <p className="text-muted-foreground text-sm py-8 text-center">No data yet. Create purchase orders and record sales to see this chart.</p>}
-            </div>
-          </div>
-        </div>
+        <PurchasingReports
+          isLoading={loading}
+          onDrillDown={drillIntoOrders}
+          purchaseOrders={purchaseOrders}
+          transactions={transactions}
+          formatCurrency={formatCurrency}
+          onNotify={notifyError}
+        />
       )}
 
       {/* ── SUPPLIER MODAL ── */}
