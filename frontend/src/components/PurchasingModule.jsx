@@ -18,6 +18,7 @@ import {
 } from '../authStore';
 import AddPartDrawer from './AddPartDrawer';
 import CompatibilityEditor from './inventory/CompatibilityEditor';
+import FitmentTag from './ui/FitmentTag';
 import { normalizeCompatibilityRows, compatibilityRowsToPayload, compatibilityRowsToSummary } from '../utils/compatibilityModels';
 import { sellsAtText } from '../utils/markup';
 import { supabase } from '../supabaseClient';
@@ -1573,6 +1574,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
       {/* ── Products Section ── */}
       {activeSection === 'products' && (
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-secondary/20">
+          <h2 className="sr-only">Products</h2>
           <div className="flex items-start justify-between gap-2 mb-2">
             <ControlPanel
               search={prodSearch} onSearch={setProdSearch} searchLabel="Search products"
@@ -1616,7 +1618,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           aria-label={part.name}
                           onClick={() => openProductModal(part)}
                           onKeyDown={e => { if (e.target === e.currentTarget && isActivationKey(e)) { e.preventDefault(); openProductModal(part); } }}
-                          className={`bg-secondary border rounded-xl p-4 transition-colors cursor-pointer flex flex-col group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${part.archived ? 'opacity-50 border-border/30' : 'border-border hover:border-accent/40'}`}>
+                          className={`bg-card border rounded-xl p-4 transition-colors cursor-pointer flex flex-col group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${part.archived ? 'opacity-50 border-border/30' : 'border-border hover:border-accent/40'}`}>
                           {isLow && !part.archived && <div className="absolute top-3 right-8 w-2 h-2 bg-alarm-text rounded-full" title="Low Stock" aria-hidden="true" />}
                           <button type="button" aria-label={isFav ? `Remove ${part.name} from favorites` : `Add ${part.name} to favorites`} aria-pressed={isFav} onClick={e => { e.stopPropagation(); setProdFavs(toggleFavorite('prod', part.id)); }} className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-visible:opacity-100 transition-opacity rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                             <Star weight={isFav ? 'fill' : 'regular'} className={`w-3.5 h-3.5 ${isFav ? 'text-amber-400' : 'text-muted-foreground hover:text-amber-400'}`} />
@@ -1628,7 +1630,8 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             <span className="truncate" title={part.sku}>{part.sku}</span>
                             {part.oem && <span className="text-xs text-slate-600 dark:text-slate-400 font-mono truncate" title={`OEM / MPN: ${part.oem}`}>OEM {part.oem}</span>}
                           </div>
-                          <h4 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 mb-auto group-hover:text-accent transition-colors text-sm">{part.name}</h4>
+                          <h3 className="font-bold text-foreground leading-snug line-clamp-2 mt-1 group-hover:text-accent transition-colors text-sm">{part.name}</h3>
+                          <FitmentTag part={part} className="mt-1.5 mb-auto" />
                           <div className="flex flex-wrap items-center justify-between gap-x-2 mt-3 pt-3 border-t border-border">
                             <span className="text-sm font-extrabold text-foreground">{formatCurrency(part.price, part)}</span>
                             <span className={`text-xs font-bold whitespace-nowrap ${isLow ? 'text-alarm-text' : 'text-emerald-700 dark:text-emerald-400'}`} title={`Available: ${available} (${part.stock} in stock, ${part.reservedStock || 0} reserved) / Safety threshold: ${part.minStock || 0}`}>
@@ -1656,6 +1659,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                         </div>
                       ) },
                       { key: 'category', label: 'Category' },
+                      { key: 'compatibility', label: 'Fits', sortable: false, render: (_, r) => <FitmentTag part={r} className="max-w-[14rem]" /> },
                       { key: 'price', label: 'Selling price', align: 'right', render: (v, r) => formatCurrency(v, r) },
                       { key: 'stock', label: 'Available / Min', align: 'right', render: (v, r) => (
                         <span className={`font-bold ${isLowStock(r) ? 'text-alarm-text' : 'text-emerald-700 dark:text-emerald-400'}`} title={`${v} in stock, ${r.reservedStock || 0} reserved`}>
@@ -2462,7 +2466,10 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                     </div>
                     <div className="min-w-0">
                       <h3 id="product-modal-title" className="text-lg sm:text-xl font-bold text-foreground leading-tight break-words">{viewingPart.name}</h3>
-                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider truncate">SKU: {viewingPart.sku}</p>
+                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider truncate">
+                        SKU: {viewingPart.sku}{viewingPart.oem && <span title={`OEM / MPN: ${viewingPart.oem}`}> · OEM {viewingPart.oem}</span>}
+                      </p>
+                      <FitmentTag part={viewingPart} className="mt-1 text-sm" />
                       <p data-testid="product-publish-status" className={`mt-1 inline-flex items-center gap-1 text-xs font-semibold ${productForm.published ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
                         {productForm.published ? <Eye weight="bold" className="w-3.5 h-3.5" aria-hidden="true" /> : <EyeSlash weight="bold" className="w-3.5 h-3.5" aria-hidden="true" />}
                         {productForm.published ? 'Published' : 'Unpublished'}
@@ -2525,7 +2532,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                       { label: 'On Order', value: unitsOnOrder, icon: Truck, color: 'text-blue-700 dark:text-blue-400', busy: loading },
                     ];
                     return (
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px mb-6 bg-border border border-border rounded-lg overflow-hidden">
                         {tiles.map(s => (
                           <div
                             key={s.label}
@@ -2533,20 +2540,22 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                             aria-label={s.label}
                             aria-busy={s.busy ? 'true' : 'false'}
                             data-low-stock={s.lowStock ? 'true' : undefined}
-                            className={`bg-secondary border rounded-xl p-4 text-center relative overflow-hidden ${s.alert ? 'border-alarm-text/50' : 'border-border'}`}
+                            className="bg-card px-3 py-2 relative min-w-0"
                           >
-                            {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-alarm-text" />}
-                            <span className="text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
-                              <s.icon weight="duotone" className="w-3.5 h-3.5" /> {s.label}
-                            </span>
-                            {s.busy ? (
-                              <div className="h-8 w-16 mx-auto rounded-md bg-muted motion-safe:animate-pulse" aria-hidden="true" />
-                            ) : (
-                              <div className={`text-lg sm:text-2xl font-extrabold font-display tabular-nums [overflow-wrap:anywhere] ${s.color}`}>{s.value}</div>
+                            {s.alert && <div className="absolute top-0 left-0 right-0 h-0.5 bg-alarm-text" aria-hidden="true" />}
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1 min-w-0">
+                                <s.icon weight="duotone" className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> <span className="truncate">{s.label}</span>
+                              </span>
+                              {s.busy ? (
+                                <div className="h-5 w-12 rounded bg-muted motion-safe:animate-pulse" aria-hidden="true" />
+                              ) : (
+                                <div className={`text-base font-extrabold font-display tabular-nums [overflow-wrap:anywhere] text-right ${s.color}`}>{s.value}</div>
+                              )}
+                            </div>
+                            {s.detail && (
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{s.detail.join(' · ')}</div>
                             )}
-                            {s.detail && s.detail.map(d => (
-                              <div key={d} className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{d}</div>
-                            ))}
                           </div>
                         ))}
                       </div>
@@ -2665,7 +2674,7 @@ export default function PurchasingModule({ onAddLog, parts, onPartsUpdated, tran
                           <div className="flex items-center justify-between p-3 bg-secondary border border-border rounded-lg">
                             <div>
                               <div id="product-publish-label" className="text-sm font-bold text-foreground">Published</div>
-                              <div id="product-publish-hint" className="text-xs text-muted-foreground">Visible on customer storefront. Applies when you save.</div>
+                              <div id="product-publish-hint" className="text-xs text-slate-600 dark:text-slate-400">Visible on customer storefront. Applies when you save.</div>
                             </div>
                             <button
                               type="button"

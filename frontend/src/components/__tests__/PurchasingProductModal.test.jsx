@@ -135,9 +135,11 @@ describe('Purchasing New Product', () => {
     await renderProducts();
     fireEvent.click(screen.getByRole('button', { name: /new product/i }));
 
-    expect(await screen.findByRole('dialog', { name: /add new part/i })).toBeInTheDocument();
+    const drawer = await screen.findByRole('dialog', { name: /add new part/i });
+    expect(drawer).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'New Product' })).not.toBeInTheDocument();
-    expect(screen.getByText(/fitment/i)).toBeInTheDocument();
+    // Scoped to the drawer: product rows behind it also show "No fitment" tags.
+    expect(within(drawer).getByText(/fitment/i)).toBeInTheDocument();
   });
 
   it('still opens existing products in the edit modal', async () => {

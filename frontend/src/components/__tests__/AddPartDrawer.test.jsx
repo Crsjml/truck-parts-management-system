@@ -360,3 +360,28 @@ describe('AddPartDrawer pricing step', () => {
     expect(screen.getByLabelText(/min stock alert/i)).toHaveAttribute('placeholder', '5');
   });
 });
+
+describe('AddPartDrawer details step', () => {
+  const categoriesList = [{ id: 'pads', name: 'Brake Pads/Linings', parentCategory: null }];
+
+  const goToStepTwo = () => {
+    render(<AddPartDrawer isOpen onClose={vi.fn()} onAddPart={vi.fn()} categoriesList={categoriesList} parts={[]} />);
+    fireEvent.change(screen.getByLabelText(/part name/i), { target: { value: 'Brake Pad Set' } });
+    fireEvent.change(screen.getByLabelText(/oem no/i), { target: { value: '1-87610' } });
+    fireEvent.change(screen.getByLabelText('-- Select Category --'), { target: { value: 'pads' } });
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }));
+  };
+
+  it('labels the technical description textarea and describes it with its hint', () => {
+    goToStepTwo();
+    const description = screen.getByRole('textbox', { name: 'Technical Description' });
+    expect(description.tagName).toBe('TEXTAREA');
+    expect(description).toHaveAccessibleDescription(/help staff match, verify, and sell/i);
+  });
+
+  it('fitment editor drops the developer-facing note', () => {
+    goToStepTwo();
+    expect(screen.queryByText(/shared with edit mode/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Keep the fitment rows short and specific.')).toBeInTheDocument();
+  });
+});

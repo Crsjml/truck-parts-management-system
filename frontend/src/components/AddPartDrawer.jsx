@@ -29,7 +29,8 @@ const FIELD_IDS = {
 };
 const errorIdFor = (field) => `add-part-${field}-error`;
 
-const emptyConfirmDialog = () => ({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
+// tone 'destructive' (data is lost) gets the Alarm solid; anything else is a normal primary action.
+const emptyConfirmDialog = () => ({ isOpen: false, title: '', message: '', confirmText: '', tone: 'neutral', onConfirm: null });
 
 const partSchema = z.object({
   name: z.string().min(3, "Part name must be at least 3 characters."),
@@ -208,6 +209,7 @@ export default function AddPartDrawer({
         title: 'Discard unsaved changes?',
         message: 'Your input will be lost.',
         confirmText: 'Discard',
+        tone: 'destructive',
         onConfirm: onClose
       });
       return;
@@ -355,6 +357,7 @@ export default function AddPartDrawer({
                               title: 'Apply Template?',
                               message: 'Are you sure you want to apply this template? This will overwrite your current inputs.',
                               confirmText: 'Apply Template',
+                              tone: 'neutral',
                               onConfirm: applyTemplate
                             });
                             return;
@@ -523,14 +526,16 @@ export default function AddPartDrawer({
 
                   <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                     <div className="rounded-xl border border-border bg-background p-5 sm:p-6 space-y-1.5">
-                      <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                        <ListDashes className="w-4 h-4 text-brandBlue-400" />
+                      <label htmlFor="part-description" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <ListDashes className="w-4 h-4 text-brandBlue-400" aria-hidden="true" />
                         Technical Description
                       </label>
-                      <p className="text-xs text-muted-foreground">
+                      <p id="part-description-hint" className="text-xs text-muted-foreground">
                         Capture the details that help staff match, verify, and sell the part quickly.
                       </p>
-                      <textarea 
+                      <textarea
+                        id="part-description"
+                        aria-describedby="part-description-hint"
                         rows="6"
                         placeholder="Enter part details, technical specs..."
                         value={formDescription}
@@ -584,7 +589,7 @@ export default function AddPartDrawer({
                           <button 
                             type="button"
                             onClick={() => setFormImage('')}
-                            className="text-xs font-bold text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-lg border border-destructive/30 transition-colors"
+                            className="text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary px-3 py-1.5 rounded-lg border border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             Remove
                           </button>
@@ -772,6 +777,7 @@ export default function AddPartDrawer({
           title={confirmDialog.title}
           message={confirmDialog.message}
           confirmText={confirmDialog.confirmText}
+          tone={confirmDialog.tone}
         />
       )}
     </AnimatePresence>,
@@ -779,7 +785,8 @@ export default function AddPartDrawer({
   );
 }
 
-function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText }) {
+function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText, tone = 'neutral' }) {
+  const isDestructive = tone === 'destructive';
   return (
     <Drawer 
       isOpen={isOpen} 
@@ -799,7 +806,7 @@ function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText
     >
       <div className="p-6">
         <h2 id="confirm-title" className="text-lg font-bold mb-2 flex items-center gap-2">
-          <WarningCircle weight="duotone" className="w-5 h-5 text-destructive" />
+          <WarningCircle weight="duotone" aria-hidden="true" className={`w-5 h-5 ${isDestructive ? 'text-alarm-text' : 'text-accent'}`} />
           {title}
         </h2>
         <p id="confirm-desc" className="text-sm text-muted-foreground mb-6 leading-relaxed">
@@ -819,7 +826,7 @@ function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText
               onClose();
               if (onConfirm) onConfirm();
             }}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-colors"
+            className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${isDestructive ? 'bg-alarm-solid hover:bg-alarm-solid/90' : 'bg-primary hover:bg-primary/90'}`}
           >
             {confirmText}
           </button>

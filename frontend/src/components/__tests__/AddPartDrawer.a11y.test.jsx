@@ -105,7 +105,10 @@ describe('AddPartDrawer modal behaviour', () => {
     const trigger = openDrawer();
     fireEvent.change(screen.getByLabelText(/part name/i), { target: { value: 'Starter Motor' } });
     fireEvent.keyDown(document.activeElement, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    const discard = screen.getByRole('button', { name: 'Discard' });
+    expect(discard).toHaveClass('bg-alarm-solid');
+    expect(discard.className).not.toMatch(/bg-destructive/);
+    fireEvent.click(discard);
     expect(screen.queryByRole('dialog', { name: /add new part/i })).not.toBeInTheDocument();
     expect(document.activeElement).toBe(trigger);
   });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { CaretRight, X, Funnel, ArrowsDownUp, Star, MagnifyingGlass } from '@phosphor-icons/react';
 
 // ─── Custom Styles for React-Select Glassmorphism ─────────────────────────────
@@ -187,7 +187,7 @@ export const DragDropImageUploader = ({ image, onImageUpload }) => {
           </div>
         )}
       </div>
-      {uploadError && <p className="text-xs font-bold text-accent mt-0.5 animate-fadeIn">{uploadError}</p>}
+      {uploadError && <p role="alert" className="text-xs font-bold text-alarm-text mt-0.5 animate-fadeIn">{uploadError}</p>}
       {image && (
         <button onClick={() => { setUploadError(null); onImageUpload(''); }} type="button" className="text-xs text-muted-foreground hover:text-foreground self-start font-semibold rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
           Remove Image
@@ -203,6 +203,18 @@ export const ControlPanel = ({ search, onSearch, searchLabel = 'Search', filters
   const [showGroup, setShowGroup] = useState(false);
   const filterRef = useRef(null);
   const groupRef = useRef(null);
+  const filterTriggerRef = useRef(null);
+  const groupTriggerRef = useRef(null);
+  const filterPanelId = useId();
+  const groupPanelId = useId();
+
+  // Escape closes an open popover and hands focus back to its trigger.
+  const closeOnEscape = (close, triggerRef) => (e) => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    close(false);
+    triggerRef.current?.focus();
+  };
 
   useEffect(() => {
     const handler = (e) => {
@@ -235,8 +247,12 @@ export const ControlPanel = ({ search, onSearch, searchLabel = 'Search', filters
 
       {/* Filters */}
       {filters.length > 0 && (
-        <div className="relative" ref={filterRef}>
+        <div className="relative" ref={filterRef} onKeyDown={showFilters ? closeOnEscape(setShowFilters, filterTriggerRef) : undefined}>
           <button
+            type="button"
+            ref={filterTriggerRef}
+            aria-expanded={showFilters}
+            aria-controls={showFilters ? filterPanelId : undefined}
             onClick={() => { setShowFilters(v => !v); setShowGroup(false); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeFilters.length > 0 ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-slate-600 dark:text-slate-400 hover:text-foreground'}`}
           >
@@ -244,7 +260,7 @@ export const ControlPanel = ({ search, onSearch, searchLabel = 'Search', filters
             Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
           </button>
           {showFilters && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[200px] animate-fadeIn">
+            <div id={filterPanelId} className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[200px] animate-fadeIn">
               {filters.map(f => (
                 <label key={f.value} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary cursor-pointer text-sm text-foreground transition-colors focus-within:ring-2 focus-within:ring-accent">
                   <input
@@ -268,8 +284,12 @@ export const ControlPanel = ({ search, onSearch, searchLabel = 'Search', filters
 
       {/* Group By */}
       {groupByOptions.length > 0 && (
-        <div className="relative" ref={groupRef}>
+        <div className="relative" ref={groupRef} onKeyDown={showGroup ? closeOnEscape(setShowGroup, groupTriggerRef) : undefined}>
           <button
+            type="button"
+            ref={groupTriggerRef}
+            aria-expanded={showGroup}
+            aria-controls={showGroup ? groupPanelId : undefined}
             onClick={() => { setShowGroup(v => !v); setShowFilters(false); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeGroup ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-secondary border-border text-slate-600 dark:text-slate-400 hover:text-foreground'}`}
           >
@@ -277,7 +297,7 @@ export const ControlPanel = ({ search, onSearch, searchLabel = 'Search', filters
             {activeGroup ? `By: ${activeGroup}` : 'Group By'}
           </button>
           {showGroup && (
-            <div className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[160px] animate-fadeIn">
+            <div id={groupPanelId} className="absolute top-full mt-1 left-0 z-50 bg-background border border-border rounded-xl shadow-none p-2 min-w-[160px] animate-fadeIn">
               {activeGroup && (
                 <button onClick={() => { onGroupBy(null); setShowGroup(false); }} className="w-full px-3 py-2 rounded-lg hover:bg-secondary text-left text-xs text-accent font-semibold mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   Clear grouping
@@ -339,7 +359,7 @@ export const GroupedTable = ({ columns, rows, groupBy, onRowClick, favKey, favor
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead>
-            <tr className="border-b border-border bg-secondary/80 text-muted-foreground">
+            <tr className="border-b border-border bg-secondary/80 text-slate-600 dark:text-slate-400">
               <th className="py-2.5 px-3 w-8"></th>
               {columns.map(col => (
                 <th

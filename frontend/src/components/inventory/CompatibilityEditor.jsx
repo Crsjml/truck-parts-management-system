@@ -25,10 +25,10 @@ export default function CompatibilityEditor({ rows = [], onChange, mode = 'add' 
     <div className={isEdit ? 'space-y-3' : 'space-y-3'}>
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className={isEdit ? 'text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground' : 'text-xs font-semibold uppercase tracking-wider text-muted-foreground'}>
+          <p className={isEdit ? 'text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground' : 'text-xs font-semibold uppercase tracking-wider text-muted-foreground'}>
             Vehicle Compatibility
           </p>
-          <p className={isEdit ? 'max-w-xl text-[11px] leading-relaxed text-muted-foreground' : 'text-xs text-muted-foreground'}>
+          <p className={isEdit ? 'max-w-xl text-xs leading-relaxed text-muted-foreground' : 'text-xs text-muted-foreground'}>
             Add one row per fitment. Leave rows blank if the part is universal or the fitment is still being confirmed.
           </p>
         </div>
@@ -48,7 +48,7 @@ export default function CompatibilityEditor({ rows = [], onChange, mode = 'add' 
           return (
             <div key={rowPrefix} className={isEdit ? 'grid grid-cols-1 gap-2 lg:grid-cols-[0.9fr_minmax(0,1.45fr)_0.8fr_auto] lg:items-end' : 'grid grid-cols-1 gap-2 md:grid-cols-[1.1fr_1.4fr_0.9fr_auto] md:items-end'}>
               <div className="space-y-1">
-                <label htmlFor={`${rowPrefix}-brand`} className={isEdit ? 'text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground' : 'text-2xs font-bold uppercase tracking-wider text-muted-foreground'}>
+                <label htmlFor={`${rowPrefix}-brand`} className={isEdit ? 'text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground' : 'text-xs font-bold uppercase tracking-wider text-muted-foreground'}>
                   Brand
                 </label>
                 <input
@@ -57,11 +57,11 @@ export default function CompatibilityEditor({ rows = [], onChange, mode = 'add' 
                   value={row.brand}
                   onChange={(e) => updateRow(index, 'brand', e.target.value)}
                   placeholder="e.g. Isuzu"
-                  className={isEdit ? 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-brandBlue-500 focus:outline-none' : 'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brandBlue-500 focus:outline-none'}
+                  className={isEdit ? 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brandBlue-500 focus:outline-none' : 'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brandBlue-500 focus:outline-none'}
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor={`${rowPrefix}-series`} className={isEdit ? 'text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground' : 'text-2xs font-bold uppercase tracking-wider text-muted-foreground'}>
+                <label htmlFor={`${rowPrefix}-series`} className={isEdit ? 'text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground' : 'text-xs font-bold uppercase tracking-wider text-muted-foreground'}>
                   Series / Model
                 </label>
                 <input
@@ -70,11 +70,11 @@ export default function CompatibilityEditor({ rows = [], onChange, mode = 'add' 
                   value={row.series}
                   onChange={(e) => updateRow(index, 'series', e.target.value)}
                   placeholder="e.g. ELF NPR"
-                  className={isEdit ? 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-brandBlue-500 focus:outline-none' : 'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brandBlue-500 focus:outline-none'}
+                  className={isEdit ? 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brandBlue-500 focus:outline-none' : 'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brandBlue-500 focus:outline-none'}
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor={`${rowPrefix}-year`} className={isEdit ? 'text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground' : 'text-2xs font-bold uppercase tracking-wider text-muted-foreground'}>
+                <label htmlFor={`${rowPrefix}-year`} className={isEdit ? 'text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground' : 'text-xs font-bold uppercase tracking-wider text-muted-foreground'}>
                   Years
                 </label>
                 <input
@@ -83,7 +83,7 @@ export default function CompatibilityEditor({ rows = [], onChange, mode = 'add' 
                   value={row.year}
                   onChange={(e) => updateRow(index, 'year', e.target.value)}
                   placeholder="e.g. 1998-2005"
-                  className={isEdit ? 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-brandBlue-500 focus:outline-none' : 'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-brandBlue-500 focus:outline-none'}
+                  className={isEdit ? 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brandBlue-500 focus:outline-none' : 'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brandBlue-500 focus:outline-none'}
                 />
               </div>
               <button
@@ -101,8 +101,8 @@ export default function CompatibilityEditor({ rows = [], onChange, mode = 'add' 
       </div>
 
       {mode === 'add' && (
-        <p className="text-2xs text-muted-foreground">
-          Keep the fitment rows short and specific. The same structure is shared with edit mode.
+        <p className="text-xs text-muted-foreground">
+          Keep the fitment rows short and specific.
         </p>
       )}
     </div>

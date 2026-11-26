@@ -50,7 +50,8 @@ const renderProducts = async (props = {}) => {
 };
 
 const parts = [
-  { id: 'p1', sku: 'BRK-001', name: 'Brake Pad', category: 'Brakes', oem: 'OEM-LONG-MPN-123456', price: 100, stock: 6, reservedStock: 0, minStock: 3, archived: false, published: true },
+  { id: 'p1', sku: 'BRK-001', name: 'Brake Pad', category: 'Brakes', oem: 'OEM-LONG-MPN-123456', price: 100, stock: 6, reservedStock: 0, minStock: 3, archived: false, published: true,
+    compatibleWith: [{ brand: 'Isuzu', series: 'Forward', year: '' }, { brand: 'Isuzu', series: 'Giga', year: '' }, { brand: 'Hino', series: '500', year: '' }] },
   { id: 'p2', sku: 'FLT-002', name: 'Oil Filter', category: 'Filters', oem: '', price: 450, stock: 10, reservedStock: 0, minStock: 2, archived: false, published: false }
 ];
 const sales = [];
@@ -113,5 +114,66 @@ describe('Purchasing products: search, status filter and empty state', () => {
     const card = screen.getByRole('button', { name: 'Brake Pad' });
     expect(card.className).not.toMatch(/shadow|translate-y/);
     expect(card.innerHTML).not.toMatch(/animate-pulse|shadow-\[/);
+  });
+});
+
+describe('Purchasing products: fitment in the catalogue', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchSuppliers.mockResolvedValue([]);
+    fetchPurchaseOrders.mockResolvedValue([]);
+  });
+
+  it('grid cards show a compact fitment line with +N and the full list on hover', async () => {
+    await renderProducts();
+    const card = screen.getByRole('button', { name: 'Brake Pad' });
+    const line = within(card).getByTitle('Fits: Isuzu Forward, Isuzu Giga, Hino 500');
+    expect(line).toHaveTextContent('Fits Isuzu Forward/Giga +1');
+  });
+
+  it('parts without fitment get a quiet No fitment tag, not an alarm', async () => {
+    await renderProducts();
+    const tag = within(screen.getByRole('button', { name: 'Oil Filter' })).getByText('No fitment');
+    expect(tag.className).not.toMatch(/alarm|destructive|red-/);
+  });
+
+  it('list view has a Fits column', async () => {
+    await renderProducts();
+    fireEvent.click(screen.getByRole('button', { name: 'List view' }));
+    expect(screen.getByRole('columnheader', { name: 'Fits' })).toBeInTheDocument();
+    const row = screen.getByText('Brake Pad').closest('tr');
+    expect(within(row).getByText(/Isuzu Forward\/Giga/).closest('[title]')).toHaveTextContent('Fits Isuzu Forward/Giga +1');
+    expect(within(screen.getByText('Oil Filter').closest('tr')).getByText('No fitment')).toBeInTheDocument();
+  });
+
+  it('gives the product section an h2 so card titles are not a heading skip', async () => {
+    await renderProducts();
+    expect(screen.getByRole('heading', { level: 2, name: 'Products' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Brake Pad' })).toBeInTheDocument();
+  });
+});
+
+describe('Purchasing products: Filters popover', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchSuppliers.mockResolvedValue([]);
+    fetchPurchaseOrders.mockResolvedValue([]);
+  });
+
+  it('reports its open state and closes on Escape, returning focus to the trigger', async () => {
+    await renderProducts();
+    const trigger = screen.getByRole('button', { name: /^Filters/ });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    const checkbox = screen.getByRole('checkbox', { name: 'Published' });
+    expect(document.getElementById(trigger.getAttribute('aria-controls'))).toContainElement(checkbox);
+
+    checkbox.focus();
+    fireEvent.keyDown(checkbox, { key: 'Escape' });
+    expect(screen.queryByRole('checkbox', { name: 'Published' })).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(document.activeElement).toBe(trigger);
   });
 });
