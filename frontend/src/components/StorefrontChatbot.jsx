@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext, useCallback, useMemo } from 'react';
 import { ChatCircleDots, X, Package, CheckCircle, Warning, WarningCircle, Broom, ArrowRight } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from './ui/Drawer';
 import { useSettings } from '../context/SettingsContext';
-import { ThreadPrimitive, MessagePrimitive, ComposerPrimitive, AssistantRuntimeProvider, useLocalRuntime, makeAssistantToolUI, useAuiState } from '@assistant-ui/react';
+import { ThreadPrimitive, MessagePrimitive, ComposerPrimitive, AssistantRuntimeProvider, useLocalRuntime, makeAssistantToolUI, useAuiState, MessagePartPrimitive } from '@assistant-ui/react';
 import { apiPost, apiStream } from '../api/apiClient';
 import { supabase } from '../supabaseClient';
+import { loadThread, saveThread, clearThread } from '../utils/chatThreadStorage';
+import { localizePriceText, showPartParts } from '../utils/chatPriceText';
 import { toChatMessages, contentFromResponse, networkErrorContent, CHAT_TIMEOUT_MS, readNdjson, foldStreamEvent, initialStreamState, contentFromStreamState, STREAM_INTERRUPTED } from '../utils/chatTransport';
 
 const PartDetailContext = createContext(null);
@@ -80,12 +82,39 @@ function ThinkingIndicator() {
   );
 }
 
-export default function StorefrontChatbot({ onOpenPartDetail }) {
+// Saves finished messages after every thread change (in-flight replies are filtered out by saveThread;
+// an empty thread removes the entry). Renders nothing; must sit inside AssistantRuntimeProvider.
+function ThreadPersistence({ runtime, userId }) {
+  useEffect(() => {
+    if (!userId) return undefined;
+    const thread = runtime.thread;
+    return thread.subscribe(() => {
+      const { messages, isRunning } = thread.getState();
+      if (!isRunning) saveThread(userId, messages);
+    });
+  }, [runtime, userId]);
+  return null;
+}
+
+// Keyed by user so a different signed-in user never inherits another user's runtime/thread.
+export default function StorefrontChatbot({ onOpenPartDetail, userId }) {
+  return <StorefrontChatbotInner key={userId ?? 'anon'} onOpenPartDetail={onOpenPartDetail} userId={userId} />;
+}
+
+function StorefrontChatbotInner({ onOpenPartDetail, userId }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [chatId, setChatId] = useState(0);
   const inputRef = useRef(null);
+  // The runtime lives here (always mounted on the storefront), not in the drawer body that unmounts on close.
+  const [initialMessages] = useState(() => loadThread(userId));
+  const runtime = useLocalRuntime(chatModelAdapter, { initialMessages });
+
+  const handleNewChat = useCallback(() => {
+    runtime.thread.cancelRun();
+    runtime.thread.reset();
+    clearThread(userId);
+  }, [runtime, userId]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -102,7 +131,9 @@ export default function StorefrontChatbot({ onOpenPartDetail }) {
   }, []);
 
   return (
-    <>
+    // The provider mounts the thread runtime, so it must stay mounted while the drawer opens and closes.
+    <AssistantRuntimeProvider runtime={runtime}>
+      <ThreadPersistence runtime={runtime} userId={userId} />
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setIsOpen(true)}
@@ -126,21 +157,18 @@ export default function StorefrontChatbot({ onOpenPartDetail }) {
           exit: { opacity: 0, x: isMobile ? 0 : 400, y: isMobile ? "100%" : 0 }
         }}
       >
-        <ChatbotContent 
-          key={chatId} 
+        <ChatbotContent
           onOpenPartDetail={onOpenPartDetail} 
           onClose={() => setIsOpen(false)} 
-          onClear={() => setChatId(c => c + 1)}
+          onClear={handleNewChat}
           inputRef={inputRef}
         />
       </Drawer>
-    </>
+    </AssistantRuntimeProvider>
   );
 }
 
 function ChatbotContent({ onOpenPartDetail, onClose, onClear, inputRef }) {
-  const runtime = useLocalRuntime(chatModelAdapter);
-
   return (
     <div className="flex flex-col h-full flex-1 w-full">
         <div className="flex items-center justify-between border-b border-border p-4 bg-secondary shrink-0">
@@ -159,7 +187,7 @@ function ChatbotContent({ onOpenPartDetail, onClose, onClear, inputRef }) {
         </div>
         
         <div className="flex-1 overflow-hidden bg-background flex flex-col relative">
-          <AssistantRuntimeProvider runtime={runtime}>
+          <>
             <PartDetailContext.Provider value={onOpenPartDetail}>
             <ThreadPrimitive.Root className="flex flex-col h-full">
                <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto p-4 flex flex-col">
@@ -210,11 +238,34 @@ function ChatbotContent({ onOpenPartDetail, onClose, onClear, inputRef }) {
             {/* The tool UI for rendering the mini part card */}
             <MiniPartCardTool />
             </PartDetailContext.Provider>
-          </AssistantRuntimeProvider>
+          </>
         </div>
     </div>
   );
 }
+
+// Assistant text part: same markup as the library default (pre-line paragraph + in-progress dot), but the
+// backend's base-currency price strings are rewritten to the display currency so text and cards agree.
+function PriceAwareText() {
+  const { formatBaseCurrency, settings, displayCurrency } = useSettings();
+  const baseCurrency = settings?.base_currency || 'PHP';
+  const content = useAuiState((s) => s.message.content);
+  const text = useAuiState((s) => (s.part.type === 'text' ? s.part.text : ''));
+  const localized = useMemo(
+    () => localizePriceText(text, showPartParts(content), formatBaseCurrency, { baseCurrency, displayCurrency }),
+    [text, content, formatBaseCurrency, baseCurrency, displayCurrency]
+  );
+  return (
+    <p style={{ whiteSpace: 'pre-line' }}>
+      {localized}
+      <MessagePartPrimitive.InProgress>
+        <span style={{ fontFamily: 'revert' }}> ●</span>
+      </MessagePartPrimitive.InProgress>
+    </p>
+  );
+}
+
+const assistantComponents = { Text: PriceAwareText };
 
 const MyMessage = () => {
   return (
@@ -226,7 +277,7 @@ const MyMessage = () => {
       </MessagePrimitive.If>
       <MessagePrimitive.If assistant>
         <div className="bg-secondary text-secondary-foreground p-3 rounded-2xl rounded-tl-sm max-w-[85%] self-start shadow-sm border border-border empty:hidden">
-           <MessagePrimitive.Content />
+           <MessagePrimitive.Content components={assistantComponents} />
         </div>
       </MessagePrimitive.If>
     </MessagePrimitive.Root>

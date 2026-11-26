@@ -43,6 +43,18 @@ class AssistantPanel {
     await expect(this.input).toBeVisible();
   }
 
+  async close() {
+    await this.page.getByRole('button', { name: 'Close Chat' }).click();
+    await expect(this.input).toHaveCount(0, { timeout: 15_000 });
+  }
+
+  async setDisplayCurrency(code: string) {
+    // The settings widget sits behind the drawer's inert overlay, so call this with the drawer closed.
+    await this.page.getByRole('button', { name: 'Open testing tools' }).click();
+    await this.page.getByRole('region', { name: 'Testing tools' }).locator('select').selectOption(code);
+    await this.page.getByRole('button', { name: 'Close testing tools' }).click();
+  }
+
   async newChat() {
     await this.page.getByRole('button', { name: 'New Chat' }).click();
     await expect(this.assistantBubbles).toHaveCount(0);
@@ -148,4 +160,104 @@ test.describe('Parts Assistant (Step 7)', () => {
       await expect(assistant.cards.filter({ hasText: PART_NAME }).first()).toBeVisible();
     });
   }
+
+  async function loginAndAskPart(page: Page, assistant: AssistantPanel, question: string) {
+    const auth = new AuthPage(page);
+    await auth.goto();
+    await auth.login(CUSTOMER.email, CUSTOMER.password);
+    await expect(page.getByRole('button', { name: /Parts Assistant/ }).first()).toBeVisible({ timeout: 30_000 });
+    await assistant.open();
+    await assistant.ask(question, FIRST_REPLY_TIMEOUT);
+    const card = assistant.cards.filter({ hasText: PART_NAME }).first();
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    return card;
+  }
+
+  test('thread persists across drawer close/reopen and reload; New Chat clears it', async ({ page }) => {
+    const assistant = new AssistantPanel(page);
+    await loginAndAskPart(page, assistant, PART_QUESTION);
+    const userMsg = page.getByText(PART_QUESTION, { exact: true });
+    await expect(userMsg).toBeVisible();
+    const replyBefore = (await assistant.assistantBubbles.first().innerText()).trim();
+    const cardsBefore = await assistant.cards.count();
+
+    // Close / reopen
+    await assistant.close();
+    await assistant.open();
+    await expect(userMsg).toBeVisible();
+    await expect(assistant.assistantBubbles).toHaveCount(1);
+    expect((await assistant.assistantBubbles.first().innerText()).trim()).toBe(replyBefore);
+    await expect(assistant.cards).toHaveCount(cardsBefore);
+    await expect(assistant.cards.filter({ hasText: PART_NAME }).first()).toBeVisible();
+
+    // Same-tab reload (session persists via sessionStorage; auth must survive too)
+    await page.reload();
+    await expect(page.getByRole('button', { name: /Parts Assistant/ }).first()).toBeVisible({ timeout: 30_000 });
+    await assistant.open();
+    await expect(userMsg).toBeVisible({ timeout: 15_000 });
+    await expect(assistant.assistantBubbles).toHaveCount(1);
+    expect((await assistant.assistantBubbles.first().innerText()).trim()).toBe(replyBefore);
+    await expect(assistant.cards.filter({ hasText: PART_NAME }).first()).toBeVisible();
+
+    // New Chat clears it for good
+    await assistant.newChat();
+    await expect(page.getByText('How can I help?')).toBeVisible();
+    await assistant.close();
+    await assistant.open();
+    await expect(page.getByText('How can I help?')).toBeVisible();
+    await expect(userMsg).toHaveCount(0);
+    await expect(assistant.assistantBubbles).toHaveCount(0);
+    await expect(assistant.cards).toHaveCount(0);
+  });
+
+  test('assistant reply text and card follow the display currency', async ({ page }) => {
+    const assistant = new AssistantPanel(page);
+    let card = await loginAndAskPart(page, assistant, 'How much are your Fuso Canter brake linings?');
+    await expect(card).toContainText(/₱\s?\d[\d,]*\.\d{2}/);
+
+    // Ask explicitly for the price if the first reply did not quote one.
+    let bubbleText = await assistant.assistantBubbles.first().innerText();
+    console.log(`[assistant:currency] first reply: ${JSON.stringify(bubbleText)}`);
+    if (!/₱\s?\d/.test(bubbleText.split('SKU:')[0])) {
+      await assistant.ask(`What's the price of ${PART_NAME}?`, REPLY_TIMEOUT);
+      bubbleText = await assistant.assistantBubbles.nth(1).innerText();
+      console.log(`[assistant:currency] price reply: ${JSON.stringify(bubbleText)}`);
+    }
+    const replyQuotesPhp = /₱\s?\d/.test(bubbleText.split('SKU:')[0]);
+    if (!replyQuotesPhp) test.info().annotations.push({ type: 'soft', description: 'model did not quote a price in the reply text; only card + no-peso checked' });
+
+    // Switch to USD (drawer closed: the widget is behind the inert overlay), then reopen.
+    await assistant.close();
+    await assistant.setDisplayCurrency('USD');
+    await assistant.open();
+    const bubbles = assistant.assistantBubbles;
+    const n = await bubbles.count();
+    await expect(assistant.cards.first()).toContainText(/\$\s?\d[\d,]*\.\d{2}/);
+    for (let i = 0; i < n; i++) {
+      const t = await bubbles.nth(i).innerText();
+      expect(t, `assistant bubble ${i} still has a peso amount`).not.toContain('₱');
+    }
+    const cardAmounts = new Set<string>();
+    for (const t of await assistant.cards.allInnerTexts()) for (const m of t.matchAll(/\$\s?(\d[\d,]*\.\d{2})/g)) cardAmounts.add(m[1]);
+    expect(cardAmounts.size).toBeGreaterThan(0);
+    if (replyQuotesPhp) {
+      // every USD amount quoted in the reply text must equal a card amount
+      for (let i = 0; i < n; i++) {
+        const textOnly = (await bubbles.nth(i).innerText()).split('SKU:')[0];
+        for (const m of textOnly.matchAll(/\$\s?(\d[\d,]*\.\d{2})/g)) expect(cardAmounts.has(m[1]), `reply price $${m[1]} matches a card`).toBe(true);
+      }
+      expect(/\$\s?\d/.test((await bubbles.first().innerText()).split('SKU:')[0]) || n > 1).toBe(true);
+    }
+
+    // Switch to EUR, existing messages follow without re-asking
+    await assistant.close();
+    await assistant.setDisplayCurrency('EUR');
+    await assistant.open();
+    await expect(assistant.cards.first()).toContainText(/€\s?\d[\d,]*\.\d{2}/);
+    for (let i = 0; i < n; i++) {
+      const t = await bubbles.nth(i).innerText();
+      expect(t).not.toContain('₱');
+      expect(t).not.toContain('$');
+    }
+  });
 });

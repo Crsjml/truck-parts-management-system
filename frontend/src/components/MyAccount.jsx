@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { clearAllThreads } from '../utils/chatThreadStorage';
 import { User, EnvelopeSimple, Phone, CheckCircle, WarningCircle, CircleNotch, LockKey, PencilSimple, SignOut, Buildings, X, UserCircle, IdentificationCard, ShoppingBag, BookmarkSimple } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
@@ -267,6 +268,7 @@ export default function MyAccount({ user, transactions = [], onGoBack, onViewOrd
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
+      clearAllThreads(); // shared device: never leave the Parts Assistant chat for the next user
       if (onGoBack) onGoBack();
       else window.location.href = '/';
     } catch (error) {

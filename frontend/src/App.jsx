@@ -1,4 +1,5 @@
 import { useEffect, useState, Suspense, lazy, useRef, useCallback, useMemo } from 'react';
+import { clearAllThreads } from './utils/chatThreadStorage';
 import { apiPost } from './api/apiClient';
 import { Bell, List, Moon, Sun, GearSix } from '@phosphor-icons/react';
 
@@ -424,6 +425,7 @@ export default function App() {
 
   const handleLogout = async (_role) => {
     await supabase.auth.signOut();
+    clearAllThreads(); // shared device: never leave the Parts Assistant chat for the next user
     setActiveView('storefront');
   };
 

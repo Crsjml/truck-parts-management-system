@@ -11,6 +11,7 @@ vi.mock('../../supabaseClient', () => ({ supabase: { tag: 'supabase' } }));
 vi.mock('../ui/Drawer', () => ({ Drawer: ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null) }));
 
 import StorefrontChatbot from '../StorefrontChatbot';
+import { threadKey, clearAllThreads, saveThread } from '../../utils/chatThreadStorage';
 
 const part = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -53,6 +54,7 @@ const makeStream = ({ status = 200, contentType = 'application/x-ndjson' } = {})
 };
 
 beforeEach(() => {
+  sessionStorage.clear();
   apiPost.mockReset();
   apiStream.mockReset();
   apiStream.mockRejectedValue(new Error('stream down')); // default: legacy JSON tests exercise the fallback path
@@ -129,6 +131,65 @@ describe('StorefrontChatbot', () => {
     const card = await screen.findByRole('button', { name: /view details/i });
     expect(card).toHaveTextContent('USD 123.50');
     expect(formatCurrency).not.toHaveBeenCalled();
+  });
+
+  it('localizes the price in the assistant text to match the card, and follows currency changes', async () => {
+    const { SettingsContext } = await import('../../context/SettingsContext');
+    const priced = { ...part, price: 1234, priceDisplay: '₱1,234.00' };
+    apiPost.mockResolvedValueOnce(reply([
+      { type: 'text', text: 'The Brake Pad Set is ₱1,234.00 (₱1,234.00 each).' },
+      { type: 'tool-call', toolName: 'show_part', toolCallId: 'c1', args: { part: priced } }
+    ]));
+    const value = (code) => ({ formatBaseCurrency: (n) => `${code} ${n.toFixed(2)}`, formatCurrency: vi.fn() });
+    const tree = (code) => (
+      <SettingsContext.Provider value={value(code)}>
+        <StorefrontChatbot onOpenPartDetail={vi.fn()} />
+      </SettingsContext.Provider>
+    );
+    const { rerender } = render(tree('USD'));
+    fireEvent.click(screen.getByText('Parts Assistant'));
+    await send('brake pads');
+    const card = await screen.findByRole('button', { name: /view details/i });
+    expect(card).toHaveTextContent('USD 1234.00');
+    expect(screen.getByText('The Brake Pad Set is USD 1234.00 (USD 1234.00 each).')).toBeInTheDocument();
+    expect(screen.queryByText(/₱/)).not.toBeInTheDocument();
+
+    rerender(tree('EUR'));
+    expect(screen.getByText('The Brake Pad Set is EUR 1234.00 (EUR 1234.00 each).')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view details/i })).toHaveTextContent('EUR 1234.00');
+  });
+
+  it('converts base-currency prices for parts without a card and follows currency changes', async () => {
+    const { SettingsContext } = await import('../../context/SettingsContext');
+    apiPost.mockResolvedValueOnce(reply([{ type: 'text', text: 'Linings: Ceramic is ₱60,333.59 and Basic is PHP 1,200.' }]));
+    const value = (code) => ({
+      settings: { base_currency: 'PHP' },
+      displayCurrency: code,
+      formatBaseCurrency: (n) => `${code} ${n.toFixed(2)}`,
+      formatCurrency: vi.fn()
+    });
+    const tree = (code) => (
+      <SettingsContext.Provider value={value(code)}>
+        <StorefrontChatbot onOpenPartDetail={vi.fn()} />
+      </SettingsContext.Provider>
+    );
+    const { rerender } = render(tree('PHP'));
+    fireEvent.click(screen.getByText('Parts Assistant'));
+    await send('brake linings');
+    expect(await screen.findByText('Linings: Ceramic is ₱60,333.59 and Basic is PHP 1,200.')).toBeInTheDocument();
+
+    rerender(tree('USD'));
+    expect(screen.getByText('Linings: Ceramic is USD 60333.59 and Basic is USD 1200.00.')).toBeInTheDocument();
+    rerender(tree('EUR'));
+    expect(screen.getByText('Linings: Ceramic is EUR 60333.59 and Basic is EUR 1200.00.')).toBeInTheDocument();
+  });
+
+  it('leaves assistant text without a matching price, and user text, unchanged', async () => {
+    apiPost.mockResolvedValueOnce(reply([{ type: 'text', text: 'Ask about ₱1,234.00 anytime' }]));
+    openChat();
+    await send('is it ₱1,234.00?');
+    expect(await screen.findByText('Ask about ₱1,234.00 anytime')).toBeInTheDocument();
+    expect(screen.getByText('is it ₱1,234.00?')).toBeInTheDocument();
   });
 
   it('renders the friendly content of a 503 and a 429', async () => {
@@ -284,3 +345,103 @@ describe('StorefrontChatbot streaming', () => {
   });
 });
 
+
+describe('StorefrontChatbot persistence', () => {
+  const openFor = (userId, onOpen = vi.fn()) => {
+    const utils = render(<StorefrontChatbot onOpenPartDetail={onOpen} userId={userId} />);
+    fireEvent.click(screen.getByText('Parts Assistant'));
+    return utils;
+  };
+  const stored = (userId) => JSON.parse(sessionStorage.getItem(threadKey(userId)));
+  const askWithCard = async () => {
+    apiPost.mockResolvedValueOnce(reply([
+      { type: 'text', text: 'Found BRK-1.' },
+      { type: 'tool-call', toolName: 'show_part', toolCallId: 'c1', args: { part } }
+    ]));
+    await send('brake pads');
+    await screen.findByRole('button', { name: /view details.*brake pad set/i });
+  };
+
+  it('keeps the thread and part card across close and reopen', async () => {
+    openFor('u1');
+    await askWithCard();
+    fireEvent.click(screen.getByRole('button', { name: /close chat/i }));
+    expect(screen.queryByPlaceholderText(/ask for a part/i)).toBeNull();
+    fireEvent.click(screen.getByText('Parts Assistant'));
+    expect(await screen.findByText('Found BRK-1.')).toBeInTheDocument();
+    expect(screen.getByText('brake pads')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view details.*brake pad set/i })).toBeInTheDocument();
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes the finished thread to sessionStorage under the user key', async () => {
+    openFor('u1');
+    await askWithCard();
+    await waitFor(() => expect(stored('u1')).toHaveLength(2));
+    expect(stored('u1')[1].content.map((p) => p.type)).toEqual(['text', 'tool-call']);
+    expect(Object.keys(sessionStorage)).toEqual([threadKey('u1')]);
+  });
+
+  it('restores from sessionStorage on mount (reload / return to storefront)', async () => {
+    const first = openFor('u1');
+    await askWithCard();
+    await waitFor(() => expect(stored('u1')).toHaveLength(2));
+    first.unmount();
+    openFor('u1');
+    expect(await screen.findByText('Found BRK-1.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view details.*brake pad set/i })).toBeInTheDocument();
+  });
+
+  it('does not show another user a stored thread', async () => {
+    saveThread('u1', [
+      { role: 'user', content: [{ type: 'text', text: 'private q' }] },
+      { role: 'assistant', status: { type: 'complete' }, content: [{ type: 'text', text: 'private a' }] }
+    ]);
+    openFor('u2');
+    expect(screen.queryByText('private a')).toBeNull();
+    expect(await screen.findByText(/how can i help/i)).toBeInTheDocument();
+  });
+
+  it('starts fresh on corrupt stored JSON', async () => {
+    sessionStorage.setItem(threadKey('u1'), '{{ not json');
+    openFor('u1');
+    expect(await screen.findByText(/how can i help/i)).toBeInTheDocument();
+  });
+
+  it('does not persist without a user id', async () => {
+    openFor(undefined);
+    await askWithCard();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('New Chat clears the thread and storage and stays empty after close/reopen', async () => {
+    openFor('u1');
+    await askWithCard();
+    await waitFor(() => expect(stored('u1')).toHaveLength(2));
+    fireEvent.click(screen.getByRole('button', { name: /new chat/i }));
+    await waitFor(() => expect(screen.getByText(/how can i help/i)).toBeInTheDocument());
+    expect(sessionStorage.getItem(threadKey('u1'))).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /close chat/i }));
+    fireEvent.click(screen.getByText('Parts Assistant'));
+    expect(await screen.findByText(/how can i help/i)).toBeInTheDocument();
+    expect(screen.queryByText('Found BRK-1.')).toBeNull();
+  });
+
+  it('does not store an in-flight reply as finished', async () => {
+    const stream = makeStream();
+    apiStream.mockResolvedValueOnce(stream.response);
+    openFor('u1');
+    await send('hi');
+    stream.push({ type: 'text-delta', text: 'Partial' });
+    await screen.findByText('Partial');
+    expect(sessionStorage.getItem(threadKey('u1'))).toBeNull();
+  });
+
+  it('sign-out clear removes the stored thread', async () => {
+    openFor('u1');
+    await askWithCard();
+    await waitFor(() => expect(stored('u1')).toHaveLength(2));
+    clearAllThreads();
+    expect(sessionStorage.getItem(threadKey('u1'))).toBeNull();
+  });
+});

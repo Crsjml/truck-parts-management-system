@@ -843,7 +843,7 @@ export default function CustomerStorefront({
         onClose={() => setSelectedPart(null)}
       />
 
-      {customerSession && <StorefrontChatbot onOpenPartDetail={openChatPartDetail} />}
+      {customerSession && <StorefrontChatbot onOpenPartDetail={openChatPartDetail} userId={customerSession.user?.uid || customerSession.user?.id} />}
 
       {/* Global Footer */}
       <Footer
