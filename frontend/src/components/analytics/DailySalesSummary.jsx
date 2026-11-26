@@ -4,39 +4,38 @@ import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
 import { inRange, computeKpis, rankPartsBySales, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
 import { buildSalesSummaryPdf } from '../../utils/salesSummaryPdf';
+import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 
 export default function DailySalesSummary({ transactions }) {
   const { formatBaseCurrency } = useSettings();
-  const today = new Date();
+  const todayKey = toLocalDateKey();
   
-  const [selectedDate, setSelectedDate] = useState(today.toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(todayKey);
 
   // Phase 1 - Date math
   const { dayStart, dayEnd, prevDayStart, prevDayEnd } = useMemo(() => {
     if (!selectedDate) return { dayStart: new Date(), dayEnd: new Date(), prevDayStart: new Date(), prevDayEnd: new Date() };
     
-    const start = new Date(selectedDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(selectedDate);
+    const start = parseLocalDateKey(selectedDate);
+    const end = parseLocalDateKey(selectedDate);
     end.setHours(23, 59, 59, 999);
 
-    const prevStart = new Date(start.getTime() - 864e5);
-    const prevEnd = new Date(end.getTime() - 864e5);
+    const prevStart = parseLocalDateKey(addLocalDays(selectedDate, -1));
+    const prevEnd = new Date(prevStart);
+    prevEnd.setHours(23, 59, 59, 999);
     
     return { dayStart: start, dayEnd: end, prevDayStart: prevStart, prevDayEnd: prevEnd };
   }, [selectedDate]);
 
-  const isToday = selectedDate === today.toISOString().split('T')[0];
+  const isToday = selectedDate === todayKey;
 
   const handlePrevDay = () => {
-    const prev = new Date(dayStart.getTime() - 864e5);
-    setSelectedDate(prev.toISOString().split('T')[0]);
+    setSelectedDate(addLocalDays(selectedDate, -1));
   };
 
   const handleNextDay = () => {
     if (isToday) return;
-    const next = new Date(dayStart.getTime() + 864e5);
-    setSelectedDate(next.toISOString().split('T')[0]);
+    setSelectedDate(addLocalDays(selectedDate, 1));
   };
 
   useEffect(() => {
@@ -47,7 +46,7 @@ export default function DailySalesSummary({ transactions }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dayStart, isToday]);
+  }, [selectedDate, isToday]);
 
   // Phase 2 - Analytics math
   const dayTx = useMemo(() => inRange(transactions, dayStart, dayEnd), [transactions, dayStart, dayEnd]);
@@ -108,7 +107,7 @@ export default function DailySalesSummary({ transactions }) {
           <input
             type="date"
             value={selectedDate}
-            max={today.toISOString().split('T')[0]}
+            max={todayKey}
             onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
             className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-brandBlue-500 transition-colors text-foreground min-w-[130px]"
           />

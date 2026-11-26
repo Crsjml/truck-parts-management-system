@@ -1,7 +1,8 @@
 import React from 'react';
+import { toLocalDateKey } from '../../utils/localDate';
 
 export default function DateRangePicker({ start, end, onChange }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateKey();
 
   const handleStartChange = (e) => {
     const newStart = e.target.value;

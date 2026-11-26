@@ -1,3 +1,6 @@
+// Tests only: the shop runs in Asia/Manila and date-key tests depend on it.
+if (process.env.VITEST) process.env.TZ = 'Asia/Manila'
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 

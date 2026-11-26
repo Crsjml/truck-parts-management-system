@@ -4,23 +4,24 @@ import DateRangePicker from './DateRangePicker';
 import { rankPartsBySales, getRankDeltaBadge } from '../../utils/salesAnalytics';
 import { buildBestSellingPartsPdf } from '../../utils/bestSellingPartsPdf';
 import { useSettings } from '../../context/SettingsContext';
+import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 
 export default function BestSellingPartsReport({ transactions, parts }) {
   const { formatBaseCurrency } = useSettings();
   const today = new Date();
-  const last30 = new Date(today.getTime() - 30 * 864e5);
+  const todayKey = toLocalDateKey(today);
+  const last30Key = addLocalDays(todayKey, -30);
   
   const [dateRange, setDateRange] = useState({
-    start: last30.toISOString().split('T')[0],
-    end: today.toISOString().split('T')[0]
+    start: last30Key,
+    end: todayKey
   });
 
   const ranked = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];
     
-    const start = new Date(dateRange.start);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(dateRange.end);
+    const start = parseLocalDateKey(dateRange.start);
+    const end = parseLocalDateKey(dateRange.end);
     end.setHours(23, 59, 59, 999);
     
     const rankedData = rankPartsBySales(transactions, { start, end });
