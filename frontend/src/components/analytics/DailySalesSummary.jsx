@@ -41,6 +41,7 @@ export default function DailySalesSummary({ transactions }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.target.closest?.('[role="tablist"]')) return;
       if (e.key === 'ArrowLeft') handlePrevDay();
       else if (e.key === 'ArrowRight' && !isToday) handleNextDay();
     };

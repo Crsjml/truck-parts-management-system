@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSettings } from '../context/SettingsContext';
 import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, TrendDown, Stack, ChartPieSlice, MagnifyingGlass, ShoppingCart, ArrowsOut, X, Package, CaretDown, Clock, Truck, CheckCircle, Receipt, Eye, WarningCircle, ArrowClockwise } from '@phosphor-icons/react';
@@ -11,7 +11,7 @@ import SlowMovingStockReport from './analytics/SlowMovingStockReport';
 import PeakSalesPeriodReport from './analytics/PeakSalesPeriodReport';
 import DailySalesSummary from './analytics/DailySalesSummary';
 import PartDetailDrawer from './PartDetailDrawer';
-import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, slowMovingParts } from '../utils/salesAnalytics';
+import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, slowMovingParts, PERIODS } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,6 +43,16 @@ const normalizeStatus = (status) => {
   return status || 'Order Placed';
 };
 
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'daily-sales', label: 'Daily Sales' },
+  { key: 'best-selling', label: 'Best-Selling Parts' },
+  { key: 'slow-moving', label: 'Slow-Moving Stock' },
+  { key: 'peak-sales', label: 'Busy Periods' }
+];
+
+const CHANNEL_SCOPE_LABELS = { all: 'In-store + Online', store: 'In-store only', online: 'Online only' };
+
 const renderPortal = (node) => {
   if (typeof document === 'undefined') return node;
   return createPortal(node, document.body);
@@ -67,6 +77,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   const [isStatusPending, setIsStatusPending] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const tabRefs = useRef({});
 
   // Close modals on Escape key
   useEffect(() => {
@@ -245,31 +256,66 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
   }, [currentTx, searchInvoice]);
 
+  const channelScopeLabel = CHANNEL_SCOPE_LABELS[channel] || CHANNEL_SCOPE_LABELS.all;
+  const periodLabel = (PERIODS.find(p => p.key === period) || PERIODS[1]).label;
+  const tabScope = activeTab === 'peak-sales'
+    ? `${channelScopeLabel} · uses its own date range`
+    : channelScopeLabel;
+
+  const handleTabKeyDown = (e, index) => {
+    let next = null;
+    if (e.key === 'ArrowRight') next = (index + 1) % TABS.length;
+    else if (e.key === 'ArrowLeft') next = (index - 1 + TABS.length) % TABS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = TABS.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveTab(TABS[next].key);
+    tabRefs.current[TABS[next].key]?.focus();
+  };
+
+  const scopeLine = activeTab !== 'overview' && (
+    <p data-testid="tab-scope" className="text-xs font-semibold text-muted-foreground">
+      Scope: {tabScope}
+    </p>
+  );
+
   return (
     <div className="space-y-5 animate-fadeIn">
+      {/* Persistent filters (page title is rendered by the app shell) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <ChannelSelector selectedChannel={channel} onSelectChannel={setChannel} />
+        {activeTab === 'overview' && <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />}
+      </div>
+
       {/* Tab Navigation */}
-      <div className="flex overflow-x-auto border-b border-border hide-scrollbar">
-        {['overview', 'daily-sales', 'best-selling', 'slow-moving', 'peak-sales'].map(tab => (
+      <div role="tablist" aria-label="Sales analytics sections" className="flex overflow-x-auto border-b border-border hide-scrollbar">
+        {TABS.map((tab, index) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.key}
+            ref={(el) => { tabRefs.current[tab.key] = el; }}
+            type="button"
+            role="tab"
+            id={`analytics-tab-${tab.key}`}
+            aria-selected={activeTab === tab.key}
+            aria-controls={`analytics-panel-${tab.key}`}
+            tabIndex={activeTab === tab.key ? 0 : -1}
+            onClick={() => setActiveTab(tab.key)}
+            onKeyDown={(e) => handleTabKeyDown(e, index)}
             className={`whitespace-nowrap px-5 py-3 font-semibold text-sm border-b-2 transition-colors ${
-              activeTab === tab 
-                ? 'border-brandBlue-500 text-brandBlue-600 dark:text-brandBlue-400' 
+              activeTab === tab.key
+                ? 'border-brandBlue-500 text-brandBlue-600 dark:text-brandBlue-400'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             }`}
           >
-            {tab === 'overview' && 'Overview'}
-            {tab === 'daily-sales' && 'Daily Sales'}
-            {tab === 'best-selling' && 'Best-Selling Parts'}
-            {tab === 'slow-moving' && 'Slow-Moving Stock'}
-            {tab === 'peak-sales' && 'Busy Periods'}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {activeTab === 'overview' && (
-        <>
+        <div role="tabpanel" id="analytics-panel-overview" aria-labelledby="analytics-tab-overview" className="space-y-5">
           {/* KPI Stats Row */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
             <div className="space-y-1">
@@ -277,10 +323,6 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <p className="text-sm text-muted-foreground max-w-2xl">
                 Monitor revenue, spot order follow-up, and connect parts movement to inventory decisions.
               </p>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <ChannelSelector selectedChannel={channel} onSelectChannel={setChannel} />
-              <PeriodSelector selectedPeriod={period} onSelectPeriod={setPeriod} />
             </div>
           </div>
 
@@ -298,7 +340,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 <h3 id="attention-heading" className="text-base font-bold text-foreground font-display">Needs attention</h3>
               </div>
               <span className="text-2xs font-semibold text-muted-foreground">
-                {channel === 'all' ? 'All channels' : channel === 'store' ? 'In-store' : 'Online'} · {period === '30d' ? 'Last 30 days' : period === '7d' ? 'Last 7 days' : 'All time'}
+                {channel === 'all' ? 'All channels' : channel === 'store' ? 'In-store' : 'Online'} · {periodLabel}
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -347,7 +389,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <div className="h-full w-full flex items-center justify-center p-4">
                 <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
-            ) : currentTx.length === 0 ? (
+            ) : kpis.invoices === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
               <ChartRenderer type="trend" data={trend} formatCurrency={formatBaseCurrency} />
@@ -386,7 +428,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <div className="h-full w-full flex items-center justify-center p-4">
                 <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
-            ) : currentTx.length === 0 ? (
+            ) : kpis.invoices === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : catRevenue.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No revenue data for categories.</div>
@@ -429,7 +471,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <div className="h-full w-full flex items-center justify-center p-4">
                 <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
-            ) : currentTx.length === 0 ? (
+            ) : kpis.invoices === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : movers.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No products sold yet.</div>
@@ -466,7 +508,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <div className="h-full w-full flex items-center justify-center p-4">
                 <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
-            ) : currentTx.length === 0 ? (
+            ) : kpis.invoices === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : channel === 'online' ? (
               <div className="h-full flex items-center justify-center p-4">
@@ -506,7 +548,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               <div className="h-full w-full flex items-center justify-center p-4">
                 <div className="w-full h-full bg-secondary animate-pulse rounded-lg border border-border"></div>
               </div>
-            ) : currentTx.length === 0 ? (
+            ) : kpis.invoices === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
             ) : (
               <ChartRenderer type="status" data={orderStatuses} formatCurrency={formatBaseCurrency} />
@@ -648,13 +690,33 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           </div>
         )}
       </div>
-      </>
+      </div>
       )}
 
-      {activeTab === 'daily-sales' && <DailySalesSummary transactions={channelTx} />}
-      {activeTab === 'best-selling' && <BestSellingPartsReport transactions={channelTx} parts={parts} />}
-      {activeTab === 'slow-moving' && <SlowMovingStockReport transactions={channelTx} parts={parts} />}
-      {activeTab === 'peak-sales' && <PeakSalesPeriodReport transactions={channelTx} />}
+      {activeTab === 'daily-sales' && (
+        <div role="tabpanel" id="analytics-panel-daily-sales" aria-labelledby="analytics-tab-daily-sales" className="space-y-5">
+          {scopeLine}
+          <DailySalesSummary transactions={channelTx} />
+        </div>
+      )}
+      {activeTab === 'best-selling' && (
+        <div role="tabpanel" id="analytics-panel-best-selling" aria-labelledby="analytics-tab-best-selling" className="space-y-5">
+          {scopeLine}
+          <BestSellingPartsReport transactions={channelTx} parts={parts} />
+        </div>
+      )}
+      {activeTab === 'slow-moving' && (
+        <div role="tabpanel" id="analytics-panel-slow-moving" aria-labelledby="analytics-tab-slow-moving" className="space-y-5">
+          {scopeLine}
+          <SlowMovingStockReport transactions={channelTx} parts={parts} />
+        </div>
+      )}
+      {activeTab === 'peak-sales' && (
+        <div role="tabpanel" id="analytics-panel-peak-sales" aria-labelledby="analytics-tab-peak-sales" className="space-y-5">
+          {scopeLine}
+          <PeakSalesPeriodReport transactions={channelTx} />
+        </div>
+      )}
 
       {/* ZOOM MODAL */}
       {renderPortal(<AnimatePresence>
