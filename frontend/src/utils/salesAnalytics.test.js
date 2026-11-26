@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   resolvePeriod, inRange, computeKpis, trendSeries,
   buildCategoryTree, categoryRevenue, topMovers, paymentMix,
-  PAYMENT_METHODS
+  PAYMENT_METHODS, isRevenueTransaction, rankPartsBySales, slowMovingParts,
+  peakSalesBuckets, dayPaymentMix, orderStatusBreakdown
 } from './salesAnalytics';
 
 const NOW = new Date('2026-07-27T12:00:00Z');
@@ -229,5 +230,63 @@ describe('paymentMix', () => {
     const r = resolvePeriod('7d', NOW);
     const rows = paymentMix([tx('a', 1, 10)], r);
     rows.forEach(row => PAYMENT_METHODS.forEach(m => expect(row[m]).toBeTypeOf('number')));
+  });
+});
+
+describe('cancelled orders are not revenue', () => {
+  const r = resolvePeriod('7d', NOW);
+  const day = { start: new Date(NOW.getTime() - 7 * 864e5), end: NOW };
+  const sale = tx('s', 1, 100, [item('Filter', 2, 50, 'p1')], { status: 'COMPLETED' });
+  const cancelled = (status) => tx('c', 1, 900, [item('Gasket', 9, 100, 'p2')], { status });
+
+  it.each(['CANCELLED', 'Cancelled', 'cancelled'])('isRevenueTransaction rejects %s', (status) => {
+    expect(isRevenueTransaction({ status })).toBe(false);
+  });
+
+  it('isRevenueTransaction accepts other and missing statuses', () => {
+    ['ORDER_PLACED', 'Order Placed', 'Ready for Pickup', 'COMPLETED', undefined, null]
+      .forEach(status => expect(isRevenueTransaction({ status })).toBe(true));
+  });
+
+  it.each(['CANCELLED', 'Cancelled'])('computeKpis ignores a %s order', (status) => {
+    const base = computeKpis([sale], [sale]);
+    const withCancel = computeKpis([sale, cancelled(status)], [sale, cancelled(status)]);
+    expect(withCancel).toEqual(base);
+    expect(withCancel.revenue).toBe(100);
+    expect(withCancel.invoices).toBe(1);
+  });
+
+  it('keeps units per invoice unchanged', () => {
+    expect(computeKpis([sale, cancelled('CANCELLED')], []).unitsPerInvoice).toBe(2);
+  });
+
+  it('leaves trend, payment mix and peak buckets unchanged', () => {
+    const c = cancelled('CANCELLED');
+    expect(trendSeries([sale, c], [sale, c], r)).toEqual(trendSeries([sale], [sale], r));
+    expect(paymentMix([sale, c], r)).toEqual(paymentMix([sale], r));
+    expect(peakSalesBuckets([sale, c], day, 'day')).toEqual(peakSalesBuckets([sale], day, 'day'));
+    expect(dayPaymentMix([sale, c], day)).toEqual(dayPaymentMix([sale], day));
+  });
+
+  it('leaves movers, rankings and category revenue unchanged', () => {
+    const c = cancelled('Cancelled');
+    expect(topMovers([sale, c], [], 5)).toEqual(topMovers([sale], [], 5));
+    expect(rankPartsBySales([sale, c], day, 5)).toEqual(rankPartsBySales([sale], day, 5));
+    const tree = buildCategoryTree([]);
+    expect(categoryRevenue([sale, c], [], tree, null)).toEqual(categoryRevenue([sale], [], tree, null));
+  });
+
+  it('does not count a cancelled sale as the last sale of a part', () => {
+    const old = tx('o', 20, 10, [item('Gasket', 1, 10, 'p2')], { status: 'COMPLETED' });
+    const parts = [{ id: 'p2', stock: 5 }];
+    const [row] = slowMovingParts(parts, [old, cancelled('CANCELLED')], day, 0);
+    expect(row.daysSinceLastSale).toBeGreaterThan(10);
+    expect(slowMovingParts(parts, [old, cancelled('CANCELLED')], day, 0)[0].unitsSold).toBe(0);
+  });
+
+  it('still counts the cancelled order in the status breakdown', () => {
+    const rows = orderStatusBreakdown([sale, cancelled('CANCELLED'), cancelled('Cancelled')], day);
+    expect(rows).toContainEqual({ name: 'Cancelled', count: 2 });
+    expect(rows).toContainEqual({ name: 'Completed', count: 1 });
   });
 });

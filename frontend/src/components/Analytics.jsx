@@ -475,7 +475,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                     <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
                     <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
                     <p className="text-2xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                      {currentTx.length} orders · {formatBaseCurrency(kpis.revenue)}
+                      {kpis.invoices} orders · {formatBaseCurrency(kpis.revenue)}
                     </p>
                   </div>
                   <div className="p-2.5 rounded-lg border border-border bg-background text-brandBlue-600 dark:text-brandBlue-400">
@@ -717,7 +717,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                           <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
                           <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
                           <p className="text-2xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                            {currentTx.length} orders · {formatBaseCurrency(kpis.revenue)}
+                            {kpis.invoices} orders · {formatBaseCurrency(kpis.revenue)}
                           </p>
                         </div>
                         <div className="p-2.5 rounded-lg border border-border bg-background text-brandBlue-600 dark:text-brandBlue-400">

@@ -49,7 +49,18 @@ export function byChannel(transactions, channel) {
   return transactions;
 }
 
-export function computeKpis(current, previous) {
+// A cancelled order keeps its original `total` and is still returned by
+// GET /api/transactions, so every money/unit/ranking figure must skip it.
+// Only orderStatusBreakdown and the order ledger should see cancelled rows.
+export function isRevenueTransaction(t) {
+  return String(t?.status ?? '').toUpperCase() !== 'CANCELLED';
+}
+
+const revenueOnly = (transactions) => (transactions || []).filter(isRevenueTransaction);
+
+export function computeKpis(allCurrent, allPrevious) {
+  const current = revenueOnly(allCurrent);
+  const previous = revenueOnly(allPrevious);
   const revenue = current.reduce((sum, t) => sum + (t.total || 0), 0);
   const invoices = current.length;
   const avgInvoice = invoices ? revenue / invoices : 0;
@@ -139,7 +150,9 @@ function buildCalendarMonthBuckets(current, previous, range, createRow, aggregat
   return series;
 }
 
-export function trendSeries(current, previous, range) {
+export function trendSeries(allCurrent, allPrevious, range) {
+  const current = revenueOnly(allCurrent);
+  const previous = revenueOnly(allPrevious);
   let { start, bucket, comparable, spanMs } = range;
   
   if (bucket === 'month') {
@@ -226,7 +239,8 @@ export function buildCategoryTree(categories) {
   return { parentOf, childrenOf };
 }
 
-export function categoryRevenue(transactions, parts, tree, drilled) {
+export function categoryRevenue(allTransactions, parts, tree, drilled) {
+  const transactions = revenueOnly(allTransactions);
   const partMap = new Map();
   for (const p of parts) partMap.set(p.id, p.category);
   
@@ -262,7 +276,9 @@ export function categoryRevenue(transactions, parts, tree, drilled) {
   });
 }
 
-export function topMovers(current, previous, limit) {
+export function topMovers(allCurrent, allPrevious, limit) {
+  const current = revenueOnly(allCurrent);
+  const previous = revenueOnly(allPrevious);
   const curCounts = new Map();
   const curRev = new Map();
   
@@ -303,7 +319,8 @@ export function topMovers(current, previous, limit) {
   return result;
 }
 
-export function paymentMix(transactions, range) {
+export function paymentMix(allTransactions, range) {
+  const transactions = revenueOnly(allTransactions);
   let { start, spanMs, bucket } = range;
   
   if (bucket === 'month') {
@@ -392,7 +409,8 @@ export function getRankDeltaBadge(rankDelta) {
   return { text: '—', style: 'text-muted-foreground bg-secondary border-border' };
 }
 
-export function slowMovingParts(parts, transactions, { start, end }, threshold = 0) {
+export function slowMovingParts(parts, allTransactions, { start, end }, threshold = 0) {
+  const transactions = revenueOnly(allTransactions);
   const current = inRange(transactions, start, end);
   const curCounts = new Map();
   
@@ -432,7 +450,7 @@ export function slowMovingParts(parts, transactions, { start, end }, threshold =
 }
 
 export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
-  const current = inRange(transactions, start, end);
+  const current = inRange(revenueOnly(transactions), start, end);
 
   if (bucketBy === 'month') {
     const series = buildCalendarMonthBuckets(
@@ -513,7 +531,7 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
 // series like paymentMix() above) — shared by DailySalesSummary.jsx and
 // salesSummaryPdf.js so the on-screen and exported figures never drift.
 export function dayPaymentMix(transactions, { start, end }) {
-  const dayTx = inRange(transactions, start, end);
+  const dayTx = inRange(revenueOnly(transactions), start, end);
   const mix = {};
   let totalRevenue = 0;
   PAYMENT_METHODS.forEach(m => mix[m] = 0);

@@ -7,7 +7,7 @@ import {
   jsPDF, safe, masthead, paginate, sectionLabel, openTable, totalCell, qty,
   formatMoney, formatDate, formatDateTime, INK, INK_2, RULE, MARGIN
 } from './pdf/reportPdfKit';
-import { inRange, computeKpis, orderStatusBreakdown, dayPaymentMix } from './salesAnalytics';
+import { inRange, isRevenueTransaction, computeKpis, orderStatusBreakdown, dayPaymentMix } from './salesAnalytics';
 
 const HALF_SPLIT = 110; // x where the right-hand table column starts
 
@@ -51,8 +51,9 @@ function kpiStrip(doc, kpis, y) {
 
 function summarize(transactions, selectedDate) {
   const { start, end, prevStart, prevEnd } = dayBounds(selectedDate);
-  const dayTx = inRange(transactions, start, end);
-  const prevDayTx = inRange(transactions, prevStart, prevEnd);
+  const salesTx = transactions.filter(isRevenueTransaction);
+  const dayTx = inRange(salesTx, start, end);
+  const prevDayTx = inRange(salesTx, prevStart, prevEnd);
   const kpis = computeKpis(dayTx, prevDayTx);
   const curUnits = sumUnits(dayTx);
   const prevUnits = sumUnits(prevDayTx);

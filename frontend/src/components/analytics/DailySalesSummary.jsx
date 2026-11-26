@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { CaretLeft, CaretRight, CurrencyDollar, FileText, ShoppingCart, TrendUp, CheckCircle, Truck, X, Clock, DownloadSimple } from '@phosphor-icons/react';
 import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
-import { inRange, computeKpis, rankPartsBySales, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
+import { inRange, isRevenueTransaction, computeKpis, rankPartsBySales, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
 import { buildSalesSummaryPdf } from '../../utils/salesSummaryPdf';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 
@@ -55,7 +55,7 @@ export default function DailySalesSummary({ transactions }) {
   const kpis = useMemo(() => computeKpis(dayTx, prevDayTx), [dayTx, prevDayTx]);
   
   const { curUnits, unitsDelta } = useMemo(() => {
-    const getUnits = (txs) => txs.reduce((sum, t) => sum + (t.items || []).reduce((s, i) => s + (i.quantity || 0), 0), 0);
+    const getUnits = (txs) => txs.filter(isRevenueTransaction).reduce((sum, t) => sum + (t.items || []).reduce((s, i) => s + (i.quantity || 0), 0), 0);
     const cur = getUnits(dayTx);
     const prev = getUnits(prevDayTx);
     const delta = prev === 0 ? null : ((cur - prev) / prev) * 100;

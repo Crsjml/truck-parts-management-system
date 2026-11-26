@@ -46,4 +46,17 @@ describe('analytics local-date stepping (run with TZ=Asia/Manila)', () => {
     expect(inputs[0].value).toBe('2026-10-27');
     expect(inputs[1].value).toBe('2026-11-26');
   });
+
+  it('excludes a cancelled order from revenue and top parts but still lists its status', () => {
+    const base = { transactionDate: '2026-11-26T00:30:00Z', paymentMethod: 'CASH', discount: 0, subtotal: 0, taxAmount: 0 };
+    const transactions = [
+      { ...base, id: 'a', invoiceNumber: 'INV-A', total: 111, status: 'COMPLETED', items: [{ name: 'Oil Filter', partId: 'p1', quantity: 1, price: 111 }] },
+      { ...base, id: 'b', invoiceNumber: 'INV-B', total: 7777, status: 'CANCELLED', items: [{ name: 'Phantom Gasket', partId: 'p2', quantity: 9, price: 864 }] },
+    ];
+    render(<DailySalesSummary transactions={transactions} />);
+    expect(screen.getAllByText(/PHP 111\b/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/7777/)).toBeNull();
+    expect(screen.queryByText(/Phantom Gasket/)).toBeNull();
+    expect(screen.getByText('Cancelled')).toBeTruthy();
+  });
 });
