@@ -15,6 +15,13 @@ const CHART_SERIES = [
   'hsl(var(--chart-6))',
   'hsl(var(--chart-danger))'
 ];
+const onActivateKey = (callback) => (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    callback();
+  }
+};
+
 const RANK_COLORS = {
   neutral: 'hsl(var(--chart-6))',
   new: 'hsl(var(--chart-3))',
@@ -154,7 +161,18 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
                 if (entry.rankDelta === null) fill = RANK_COLORS.new;
                 else if (entry.rankDelta > 0) fill = RANK_COLORS.up;
                 else if (entry.rankDelta < 0) fill = RANK_COLORS.down;
-                return <Cell key={`cell-${index}`} fill={fill} />;
+                const { onMoverClick } = extraProps || {};
+                const activate = () => { if (onMoverClick) onMoverClick(entry.name); };
+                return (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={fill}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${entry.name}, ${entry.quantity} units. View part details`}
+                    onKeyDown={onActivateKey(activate)}
+                  />
+                );
               })}
             </Bar>
           </BarChart>
@@ -202,11 +220,18 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             >
               {data.map((entry, index) => {
                 const fill = entry.name === 'Uncategorized' ? 'hsl(var(--chart-6))' : CHART_SERIES[index % CHART_SERIES.length];
+                const drillProps = entry.hasChildren && onDrill ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-label': `${entry.name}, ${formatCurrency ? formatCurrency(entry.revenue || 0) : entry.revenue}. Drill into subcategories`,
+                  onKeyDown: onActivateKey(() => onDrill(entry.name))
+                } : {};
                 return (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={fill} 
-                    style={{ cursor: entry.hasChildren ? 'pointer' : 'default', transition: 'opacity 0.2s', outline: 'none' }}
+                    {...drillProps}
+                    style={{ cursor: entry.hasChildren ? 'pointer' : 'default', transition: 'opacity 0.2s' }}
                     onMouseEnter={(e) => { e.target.style.opacity = 0.8; }}
                     onMouseLeave={(e) => { e.target.style.opacity = 1; }}
                   />

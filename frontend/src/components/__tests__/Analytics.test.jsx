@@ -42,6 +42,7 @@ describe('Analytics Channel Filter', () => {
       customerName: 'Cust A',
       transactionDate: new Date().toISOString(),
       salesChannel: 'WEB',
+      paymentMethod: 'CARD',
       total: 100,
       items: [{ quantity: 1, price: 100 }]
     },
@@ -76,7 +77,7 @@ describe('Analytics Channel Filter', () => {
     // Revenue should now be 100
     expect(screen.getAllByText('$100').length).toBeGreaterThan(0);
     
-    // Payment Mix should show degenerate card "100% Card"
+    // Payment Mix should show computed card (single method = 100%)
     expect(screen.getByText('100% Card')).toBeInTheDocument();
     expect(screen.getByText('1 orders · $100')).toBeInTheDocument();
   });

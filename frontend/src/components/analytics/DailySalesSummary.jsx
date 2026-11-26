@@ -4,6 +4,7 @@ import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
 import { inRange, isRevenueTransaction, computeKpis, rankPartsBySales, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
 import { buildSalesSummaryPdf } from '../../utils/salesSummaryPdf';
+import { getStatusTone } from '../../utils/orderStatusTone';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 
 export default function DailySalesSummary({ transactions }) {
@@ -78,14 +79,7 @@ export default function DailySalesSummary({ transactions }) {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completed': return 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30';
-      case 'Ready for Pickup': return 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30';
-      case 'Cancelled': return 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30';
-      default: return 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30';
-    }
-  };
+  const getStatusColor = getStatusTone;
 
   return (
     <div className="space-y-4 animate-fadeIn">

@@ -5,13 +5,15 @@ import { ChartBar, Download, FileText, CurrencyDollar, TrendUp, TrendDown, Stack
 import PeriodSelector from './analytics/PeriodSelector';
 import ChannelSelector from './analytics/ChannelSelector';
 import KpiTile from './analytics/KpiTile';
+import OnlineMixCard from './analytics/OnlineMixCard';
+import { getStatusTone, normalizeOrderStatus } from '../utils/orderStatusTone';
 import ChartRenderer from './analytics/ChartRenderer';
 import BestSellingPartsReport from './analytics/BestSellingPartsReport';
 import SlowMovingStockReport from './analytics/SlowMovingStockReport';
 import PeakSalesPeriodReport from './analytics/PeakSalesPeriodReport';
 import DailySalesSummary from './analytics/DailySalesSummary';
 import PartDetailDrawer from './PartDetailDrawer';
-import { resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, slowMovingParts, PERIODS } from '../utils/salesAnalytics';
+import { dayPaymentMix, resolvePeriod, inRange, computeKpis, trendSeries, buildCategoryTree, categoryRevenue, topMovers, paymentMix, orderStatusBreakdown, byChannel, slowMovingParts, PERIODS } from '../utils/salesAnalytics';
 import { fetchCategoriesList } from '../authStore';
 import { buildInvoicePdf } from '../utils/invoicePdf';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,13 +37,10 @@ const ZOOM_ICONS = {
 
 const ORDER_STATUSES = ['Order Placed', 'Ready for Pickup', 'Completed', 'Cancelled'];
 
-const normalizeStatus = (status) => {
-  if (status === 'ORDER_PLACED') return 'Order Placed';
-  if (status === 'READY_FOR_PICKUP') return 'Ready for Pickup';
-  if (status === 'COMPLETED') return 'Completed';
-  if (status === 'CANCELLED') return 'Cancelled';
-  return status || 'Order Placed';
-};
+const normalizeStatus = normalizeOrderStatus;
+
+const LEDGER_PAGE_SIZES = [10, 25, 50];
+const DEFAULT_LEDGER_PAGE_SIZE = 10;
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -64,6 +63,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   const { displayCurrency, formatBaseCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerPageSize, setLedgerPageSize] = useState(DEFAULT_LEDGER_PAGE_SIZE);
   const [zoomedChart, setZoomedChart] = useState(null); // 'trend' | 'movers' | 'donut' | 'payments' | null
   const [localTransactions, setLocalTransactions] = useState(transactions);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -188,14 +188,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     }
   };
 
-  const getStatusColor = (status) => {
-    switch(normalizeStatus(status)) {
-      case 'Completed': return 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30';
-      case 'Ready for Pickup': return 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30';
-      case 'Cancelled': return 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30';
-      default: return 'text-brandBlue-700 dark:text-brandBlue-300 bg-brandBlue-500/10 border-brandBlue-500/30';
-    }
-  };
+  const getStatusColor = getStatusTone;
 
   // Computations
   const range = useMemo(() => resolvePeriod(period), [period]);
@@ -215,6 +208,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   // ponytail: top movers ranking by period with rank-change indicators
   const movers = useMemo(() => topMovers(currentTx, previousTx, 5), [currentTx, previousTx]);
   const payments = useMemo(() => paymentMix(currentTx, range), [currentTx, range]);
+  const onlineMix = useMemo(() => dayPaymentMix(currentTx, range), [currentTx, range]);
   const orderStatuses = useMemo(() => orderStatusBreakdown(currentTx, range), [currentTx, range]);
   const slowMovingAttention = useMemo(
     () => slowMovingParts(parts, channelTx, { start: range.start, end: range.end }, 0),
@@ -256,8 +250,15 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     ).sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
   }, [currentTx, searchInvoice]);
 
+  const ledgerPageCount = Math.max(1, Math.ceil(filteredTransactions.length / ledgerPageSize));
+  // Data can shrink on refresh; never show a page past the last one.
+  const currentLedgerPage = Math.min(ledgerPage, ledgerPageCount);
   const channelScopeLabel = CHANNEL_SCOPE_LABELS[channel] || CHANNEL_SCOPE_LABELS.all;
-  const periodLabel = (PERIODS.find(p => p.key === period) || PERIODS[1]).label;
+  const activePeriod = PERIODS.find(p => p.key === period) || PERIODS[1];
+  const periodLabel = activePeriod.label;
+  const baseline = activePeriod.baseline;
+  const cancelledCount = orderStatuses.find(s => s.name === 'Cancelled')?.count || 0;
+  const orderStatusTotal = orderStatuses.reduce((sum, s) => sum + s.count, 0);
   const tabScope = activeTab === 'peak-sales'
     ? `${channelScopeLabel} · uses its own date range`
     : channelScopeLabel;
@@ -327,10 +328,10 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiTile label="Total Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} icon={CurrencyDollar} />
-            <KpiTile label="Total Invoices" value={kpis.invoices} delta={kpis.deltas?.invoices} icon={FileText} />
-            <KpiTile label="Average Invoice" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} icon={TrendUp} />
-            <KpiTile label="Units per Invoice" value={kpis.unitsPerInvoice.toFixed(1)} delta={kpis.deltas?.unitsPerInvoice} icon={ShoppingCart} />
+            <KpiTile label="Total Revenue" value={formatBaseCurrency(kpis.revenue)} delta={kpis.deltas?.revenue} baseline={baseline} icon={CurrencyDollar} />
+            <KpiTile label="Total Invoices" value={kpis.invoices} delta={kpis.deltas?.invoices} baseline={baseline} icon={FileText} />
+            <KpiTile label="Average Invoice" value={formatBaseCurrency(kpis.avgInvoice)} delta={kpis.deltas?.avgInvoice} baseline={baseline} icon={TrendUp} />
+            <KpiTile label="Units per Invoice" value={kpis.unitsPerInvoice.toFixed(1)} delta={kpis.deltas?.unitsPerInvoice} baseline={baseline} icon={ShoppingCart} />
           </div>
 
           <section className="bg-card border border-border rounded-xl p-4" aria-labelledby="attention-heading">
@@ -339,7 +340,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 <WarningCircle weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
                 <h3 id="attention-heading" className="text-base font-bold text-foreground font-display">Needs attention</h3>
               </div>
-              <span className="text-2xs font-semibold text-muted-foreground">
+              <span className="text-xs font-semibold text-muted-foreground">
                 {channel === 'all' ? 'All channels' : channel === 'store' ? 'In-store' : 'Online'} · {periodLabel}
               </span>
             </div>
@@ -368,15 +369,15 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 const hasDelta = delta !== null && delta !== undefined;
                 const isPositive = hasDelta && delta >= 0;
                 return hasDelta ? (
-                  <span className={`ml-2 text-2xs flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border ${isPositive ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30'}`}>
+                  <span className={`ml-2 text-xs flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border ${isPositive ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-brandRed-700 dark:text-brandRed-300 bg-brandRed-500/10 border-brandRed-500/30'}`}>
                     {isPositive ? <TrendUp weight="bold" className="w-3 h-3" /> : <TrendDown weight="bold" className="w-3 h-3" />}
-                    {isPositive ? '+' : '-'}{Math.abs(delta).toFixed(1)}% vs prior
+                    {isPositive ? '+' : '-'}{Math.abs(delta).toFixed(1)}% vs {baseline || 'prior period'}
                   </span>
-                ) : (
-                  <span className="ml-2 text-2xs text-muted-foreground flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border border-border/50 bg-secondary/50">
-                    No prior period
+                ) : baseline ? (
+                  <span className="ml-2 text-xs text-muted-foreground flex items-center gap-1 font-medium px-1.5 py-0.5 rounded border border-border/50 bg-secondary/50">
+                    No data for {baseline}
                   </span>
-                );
+                ) : null;
               })()}
             </div>
             <button title="Expand Chart" aria-label="Zoom Revenue Trend" onClick={() => setZoomedChart('trend')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
@@ -451,7 +452,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                 <ChartBar weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
                 <h3 className="text-base font-bold text-foreground font-display">Top Movers</h3>
               </div>
-              <span className="text-[11px] text-muted-foreground ml-7 leading-tight mt-0.5">Rank change by volume vs previous</span>
+              <span className="text-xs text-muted-foreground ml-7 leading-tight mt-0.5">Rank change by volume{baseline ? ` vs ${baseline}` : ''}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -510,21 +511,8 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               </div>
             ) : kpis.invoices === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period.</div>
-            ) : channel === 'online' ? (
-              <div className="h-full flex items-center justify-center p-4">
-                <div className="bg-secondary border border-border rounded-lg p-4 flex items-center justify-between w-full max-w-sm">
-                  <div className="space-y-2">
-                    <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
-                    <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
-                    <p className="text-2xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                      {kpis.invoices} orders · {formatBaseCurrency(kpis.revenue)}
-                    </p>
-                  </div>
-                  <div className="p-2.5 rounded-lg border border-border bg-background text-brandBlue-600 dark:text-brandBlue-400">
-                    <CurrencyDollar weight="duotone" className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
+            ) : channel === 'online' && onlineMix.length > 0 ? (
+              <OnlineMixCard mix={onlineMix} orders={kpis.invoices} revenueLabel={formatBaseCurrency(kpis.revenue)} />
             ) : (
               <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />
             )}
@@ -537,6 +525,11 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
             <div className="flex items-center gap-2">
               <Package weight="duotone" className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400" />
               <h3 className="text-base font-bold text-foreground font-display">Order Status</h3>
+              {cancelledCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {orderStatusTotal} orders · incl. {cancelledCount} cancelled
+                </span>
+              )}
             </div>
             <button title="Expand Chart" aria-label="Zoom Order Status" onClick={() => setZoomedChart('status')} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
               <ArrowsOut weight="duotone" className="w-4 h-4" />
@@ -599,10 +592,10 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               </thead>
               <tbody className="divide-y divide-border">
                 {(() => {
-                  const itemsPerPage = 5;
+                  const itemsPerPage = ledgerPageSize;
                   const paginatedTransactions = filteredTransactions.slice(
-                    (ledgerPage - 1) * itemsPerPage,
-                    ledgerPage * itemsPerPage
+                    (currentLedgerPage - 1) * itemsPerPage,
+                    currentLedgerPage * itemsPerPage
                   );
                   return (
                     <>
@@ -666,22 +659,38 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
         </div>
         
         {/* Pagination Controls */}
-        {filteredTransactions.length > 5 && (
-          <div className="flex items-center justify-between border-t border-border pt-4">
-            <p className="text-xs text-muted-foreground">
-              Showing {((ledgerPage - 1) * 5) + 1} to {Math.min(ledgerPage * 5, filteredTransactions.length)} of {filteredTransactions.length} entries
-            </p>
+        {filteredTransactions.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-muted-foreground">
+                Showing {((currentLedgerPage - 1) * ledgerPageSize) + 1} to {Math.min(currentLedgerPage * ledgerPageSize, filteredTransactions.length)} of {filteredTransactions.length} entries
+              </p>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Rows per page
+                <select
+                  value={ledgerPageSize}
+                  onChange={(e) => {
+                    setLedgerPageSize(Number(e.target.value));
+                    setLedgerPage(1);
+                  }}
+                  className="bg-background border border-border rounded-md px-1.5 py-1 text-xs text-foreground"
+                >
+                  {LEDGER_PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+            </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
-                disabled={ledgerPage === 1}
+                onClick={() => setLedgerPage(Math.max(1, currentLedgerPage - 1))}
+                disabled={currentLedgerPage === 1}
                 className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
               >
                 Previous
               </button>
+              <span className="text-xs font-semibold text-foreground">Page {currentLedgerPage} of {ledgerPageCount}</span>
               <button
-                onClick={() => setLedgerPage(p => Math.min(Math.ceil(filteredTransactions.length / 5), p + 1))}
-                disabled={ledgerPage >= Math.ceil(filteredTransactions.length / 5)}
+                onClick={() => setLedgerPage(Math.min(ledgerPageCount, currentLedgerPage + 1))}
+                disabled={currentLedgerPage >= ledgerPageCount}
                 className="px-3 py-1 text-xs rounded-md border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
               >
                 Next
@@ -772,21 +781,8 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
                   />
                 )}
                 {zoomedChart === 'payments' && (
-                  channel === 'online' ? (
-                    <div className="h-full flex items-center justify-center p-4">
-                      <div className="bg-secondary border border-border rounded-lg p-4 flex items-center justify-between w-full max-w-sm">
-                        <div className="space-y-2">
-                          <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">Online Payments</span>
-                          <h3 className="text-2xl font-bold text-foreground font-display">100% Card</h3>
-                          <p className="text-2xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                            {kpis.invoices} orders · {formatBaseCurrency(kpis.revenue)}
-                          </p>
-                        </div>
-                        <div className="p-2.5 rounded-lg border border-border bg-background text-brandBlue-600 dark:text-brandBlue-400">
-                          <CurrencyDollar weight="duotone" className="w-6 h-6" />
-                        </div>
-                      </div>
-                    </div>
+                  channel === 'online' && onlineMix.length > 0 ? (
+                    <OnlineMixCard mix={onlineMix} orders={kpis.invoices} revenueLabel={formatBaseCurrency(kpis.revenue)} />
                   ) : (
                     <ChartRenderer type="payments" data={payments} formatCurrency={formatBaseCurrency} />
                   )
@@ -824,7 +820,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               {/* Header */}
               <div className="flex items-start justify-between gap-4 px-5 sm:px-6 py-5 border-b border-border bg-background shrink-0">
                 <div className="min-w-0">
-                  <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Invoice detail</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Invoice detail</p>
                   <h3 className="text-lg sm:text-xl font-bold text-foreground font-display flex items-center gap-2 min-w-0">
                     <Receipt className="w-5 h-5 text-brandBlue-600 dark:text-brandBlue-400 shrink-0" />
                     <span className="truncate">
