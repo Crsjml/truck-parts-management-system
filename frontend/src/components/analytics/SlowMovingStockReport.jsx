@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { DownloadSimple, MagnifyingGlass } from '@phosphor-icons/react';
+import { DownloadSimple, MagnifyingGlass, Warning } from '@phosphor-icons/react';
 import DateRangePicker from './DateRangePicker';
 import { slowMovingParts } from '../../utils/salesAnalytics';
 import { buildSlowMovingStockPdf } from '../../utils/slowMovingStockPdf';
 import { useSettings } from '../../context/SettingsContext';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 import { usePdfExport } from '../../hooks/usePdfExport';
-import { lastSaleText, stockValueOf } from '../../utils/slowMovingLabels';
+import { lastSaleText, lastSaleSeverity, OLD_SALE_DAYS, stockValueOf } from '../../utils/slowMovingLabels';
 
 const PAGE_SIZE = 10;
 const DEFAULT_WINDOW_DAYS = 30;
@@ -17,12 +17,32 @@ const PRESETS = [
   { days: 182, label: '6 months' }
 ];
 const EM_DASH = '—';
+const LAST_SALE_TONE = {
+  never: 'text-alarm-text font-bold',
+  old: 'text-amber-800 dark:text-amber-300 font-bold',
+  recent: 'text-muted-foreground'
+};
 
 const categoryOf = (part) => {
   const c = part.category;
   return (c && typeof c === 'object' ? c.name : c) || part.categoryName || 'Uncategorized';
 };
 
+
+function LastSaleCell({ days }) {
+  const severity = lastSaleSeverity(days);
+  return (
+    <td data-severity={severity} className={`py-3 px-3 text-right tabular-nums ${LAST_SALE_TONE[severity]}`}>
+      <span className="inline-flex flex-col items-end">
+        <span className="inline-flex items-center gap-1">
+          {severity !== 'recent' && <Warning weight="bold" aria-hidden="true" className="w-3.5 h-3.5" />}
+          {lastSaleText(days)}
+        </span>
+        {severity === 'old' && <span className="text-[11px] font-semibold">Idle {OLD_SALE_DAYS}+ days</span>}
+      </span>
+    </td>
+  );
+}
 
 export default function SlowMovingStockReport({ transactions, parts, allTransactions, showToast }) {
   const { formatBaseCurrency } = useSettings();
@@ -173,7 +193,7 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
                   <td className="py-3 px-3 text-right font-semibold text-foreground tabular-nums">
                     {item.stockValue === null ? EM_DASH : formatBaseCurrency(item.stockValue)}
                   </td>
-                  <td className="py-3 px-3 text-right text-muted-foreground tabular-nums">{lastSaleText(item.daysSinceLastSale)}</td>
+                  <LastSaleCell days={item.daysSinceLastSale} />
                 </tr>
               ))}
             </tbody>

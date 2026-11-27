@@ -15,7 +15,7 @@ vi.mock('jspdf', async (importOriginal) => {
 });
 
 const { buildSlowMovingStockPdf } = await import('../slowMovingStockPdf');
-const { lastSaleText, NEVER_SOLD_LABEL } = await import('../slowMovingLabels');
+const { lastSaleText, lastSaleSeverity, OLD_SALE_DAYS, NEVER_SOLD_LABEL } = await import('../slowMovingLabels');
 
 const range = { start: '2026-10-11', end: '2026-11-10' };
 const items = [
@@ -77,5 +77,15 @@ describe('lastSaleText', () => {
     expect(lastSaleText(undefined)).toBe('Never sold');
     expect(lastSaleText(0)).toBe('Today');
     expect(lastSaleText(40)).toBe('40 days ago');
+  });
+});
+
+describe('lastSaleSeverity', () => {
+  it('flags never-sold, very old and recent stock', () => {
+    expect(lastSaleSeverity(null)).toBe('never');
+    expect(lastSaleSeverity(undefined)).toBe('never');
+    expect(lastSaleSeverity(OLD_SALE_DAYS)).toBe('old');
+    expect(lastSaleSeverity(OLD_SALE_DAYS - 1)).toBe('recent');
+    expect(lastSaleSeverity(0)).toBe('recent');
   });
 });

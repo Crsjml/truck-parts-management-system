@@ -13,3 +13,12 @@ export function lastSaleText(days) {
 export function stockValueOf(part) {
   return typeof part.price === 'number' && Number.isFinite(part.price) ? (part.stock || 0) * part.price : null;
 }
+
+// Stock idle for at least this many days is flagged in the Last sale column.
+export const OLD_SALE_DAYS = 90;
+
+// 'never' (no sale on record), 'old' (idle OLD_SALE_DAYS+), or 'recent'.
+export function lastSaleSeverity(days) {
+  if (days === null || days === undefined) return 'never';
+  return days >= OLD_SALE_DAYS ? 'old' : 'recent';
+}
