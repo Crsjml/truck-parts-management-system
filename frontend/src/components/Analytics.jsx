@@ -59,7 +59,7 @@ const renderPortal = (node) => {
 
 // Removed inline chart components, moved to ChartRenderer
 
-export default function Analytics({ parts = [], transactions = [], isLoading = false }) {
+export default function Analytics({ parts = [], transactions = [], isLoading = false, showToast }) {
   const { displayCurrency, formatBaseCurrency } = useSettings();
   const [searchInvoice, setSearchInvoice] = useState('');
   const [ledgerPage, setLedgerPage] = useState(1);
@@ -711,7 +711,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       {activeTab === 'best-selling' && (
         <div role="tabpanel" id="analytics-panel-best-selling" aria-labelledby="analytics-tab-best-selling" className="space-y-5">
           {scopeLine}
-          <BestSellingPartsReport transactions={channelTx} parts={parts} />
+          <BestSellingPartsReport transactions={channelTx} parts={parts} showToast={showToast} />
         </div>
       )}
       {activeTab === 'slow-moving' && (
