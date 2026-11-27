@@ -70,6 +70,27 @@ export function MoverTick({ x, y, payload, movers }) {
   );
 }
 
+// Show at most ~10 x-axis labels so long Day ranges stay readable.
+// Week labels ("7 days from Nov 27") are long, so they thin out sooner.
+export const peakTickInterval = (n, bucketBy = 'day') => {
+  const threshold = bucketBy === 'week' ? 5 : 12;
+  const target = bucketBy === 'week' ? 5 : 10;
+  return n > threshold ? Math.ceil(n / target) - 1 : 0;
+};
+
+export function PeakTooltipContent({ active, payload, formatCurrency }) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+  return (
+    <div style={CHART_TOOLTIP_STYLE} className="px-3 py-2 text-xs space-y-0.5">
+      <div className="font-semibold">{row.label}</div>
+      <div>{formatCurrency(row.revenue || 0)}</div>
+      <div className="text-muted-foreground">{row.invoices} {row.invoices === 1 ? 'invoice' : 'invoices'}</div>
+      {row.isPeak && <div className="font-semibold">Busiest</div>}
+    </div>
+  );
+}
+
 export default function ChartRenderer({ type, data, formatCurrency, extraProps }) {
   if (type === 'trend') {
     return (
@@ -306,6 +327,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             <tr>
               <th>Period</th>
               <th>Revenue</th>
+              <th>Invoices</th>
             </tr>
           </thead>
           <tbody>
@@ -313,6 +335,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               <tr key={i}>
                 <td>{row.label}</td>
                 <td>{formatCurrency(row.revenue || 0)}</td>
+                <td>{row.invoices ?? 0}</td>
               </tr>
             ))}
           </tbody>
@@ -320,13 +343,11 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-            <Tooltip 
+            <XAxis dataKey="label" interval={peakTickInterval(data?.length || 0, extraProps?.bucketBy)} axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => (extraProps?.formatCompactCurrency || formatCurrency)(val)} dx={-10} />
+            <Tooltip
               cursor={{ fill: CHART_CURSOR_FILL }}
-              contentStyle={CHART_TOOLTIP_STYLE}
-              itemStyle={CHART_ITEM_STYLE}
-              formatter={(value) => [formatCurrency(value), undefined]}
+              content={<PeakTooltipContent formatCurrency={formatCurrency} />}
             />
             <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
               {

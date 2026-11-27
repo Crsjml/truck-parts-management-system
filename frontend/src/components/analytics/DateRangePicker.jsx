@@ -26,18 +26,20 @@ export default function DateRangePicker({ start, end, onChange }) {
     <div className="flex items-center gap-2">
       <input
         type="date"
+        aria-label="Start date"
         max={today}
         value={start || ''}
         onChange={handleStartChange}
-        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:glowing-blue-border transition-colors"
+        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background transition-colors"
       />
       <span className="text-muted-foreground text-sm">to</span>
       <input
         type="date"
+        aria-label="End date"
         max={today}
         value={end || ''}
         onChange={handleEndChange}
-        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:glowing-blue-border transition-colors"
+        className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background transition-colors"
       />
     </div>
   );

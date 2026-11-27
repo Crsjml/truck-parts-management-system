@@ -488,30 +488,39 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
     return series;
   }
 
-  const spanMs = end - start;
-  
-  const numBuckets = bucketBy === 'day' ? Math.round(spanMs / 864e5) : bucketBy === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
-  const buckets = Math.max(numBuckets, 1);
-  const bucketMs = spanMs > 0 ? spanMs / buckets : 1;
-  
+  // Day/week buckets use LOCAL calendar arithmetic so a DST hour can neither
+  // duplicate a day nor push a late-evening sale into the previous bucket.
+  // Weeks are exact 7-calendar-day slices from the start (the last may be shorter).
+  const stepDays = bucketBy === 'week' ? 7 : 1;
+  const y = start.getFullYear(), m = start.getMonth(), d0 = start.getDate();
+  const calendarDays = Math.round(
+    (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(y, m, d0)) / 864e5
+  ) + 1;
+  const buckets = Math.max(Math.ceil(calendarDays / stepDays), 1);
+  const starts = Array.from({ length: buckets + 1 }, (_, i) => new Date(y, m, d0 + i * stepDays));
+
   const series = Array.from({ length: buckets }, (_, i) => ({
     label: '',
-    date: new Date(start.getTime() + i * bucketMs),
+    date: starts[i],
     revenue: 0,
     invoices: 0,
     isPeak: false
   }));
-  
+
   for (const t of current) {
-    const d = new Date(t.transactionDate);
-    let i = Math.floor((d - start) / bucketMs);
-    if (i === buckets && buckets > 0) i = buckets - 1;
-    if (i >= 0 && i < buckets) {
+    const ms = new Date(t.transactionDate).getTime();
+    // bucket i covers [starts[i], starts[i+1]); the last also takes the inclusive end instant
+    let i = -1;
+    for (let k = 0; k < buckets; k++) {
+      if (ms >= starts[k].getTime() && ms < starts[k + 1].getTime()) { i = k; break; }
+    }
+    if (i === -1 && ms >= starts[buckets].getTime() && ms <= end.getTime()) i = buckets - 1;
+    if (i >= 0) {
       series[i].revenue += (t.total || 0);
       series[i].invoices += 1;
     }
   }
-  
+
   let maxRev = -1;
   let peakIndex = -1;
   for (let i = 0; i < series.length; i++) {
@@ -528,13 +537,30 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
     if (bucketBy === 'day') {
       s.label = s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     } else if (bucketBy === 'week') {
-      s.label = `Wk ${s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+      s.label = `7 days from ${s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
     } else {
       s.label = s.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
     }
   });
   
   return series;
+}
+
+// Callout text naming the busiest bucket. Ties go to the earliest period
+// (peakSalesBuckets flags only the first maximum). Null when nothing sold.
+export function peakCalloutText(series, bucketBy, formatCurrency) {
+  const peak = (series || []).find((s) => s.isPeak);
+  if (!peak || !(peak.invoices > 0)) return null;
+  const money = formatCurrency(peak.revenue);
+  const inv = `${peak.invoices} invoice${peak.invoices === 1 ? '' : 's'}`;
+  if (bucketBy === 'day') {
+    const d = peak.date;
+    const wd = d.toLocaleDateString(undefined, { weekday: 'short' });
+    const mon = d.toLocaleDateString(undefined, { month: 'short' });
+    return `Busiest day: ${wd} ${d.getDate()} ${mon}, ${money} from ${inv}`;
+  }
+  if (bucketBy === 'week') return `Busiest week (${peak.label}): ${money} from ${inv}`;
+  return `Busiest month: ${peak.label}, ${money} from ${inv}`;
 }
 
 // Payment-method breakdown for a single range (not bucketed into a time
