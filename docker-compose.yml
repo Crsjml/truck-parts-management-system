@@ -17,6 +17,8 @@ services:
       - ./backend/.env
     environment:
       - NODE_NO_WARNINGS=1
+      # Wins over backend/.env, which points at localhost for native runs.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
     # Lets the container reach Ollama running on the host (OLLAMA_BASE_URL).
     extra_hosts:
       - "host.docker.internal:host-gateway"
