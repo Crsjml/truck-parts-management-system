@@ -78,6 +78,8 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
   const [statusMessage, setStatusMessage] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const tabRefs = useRef({});
+  const zoomTriggerRef = useRef(null);
+  const zoomCloseRef = useRef(null);
 
   // Close modals on Escape key
   useEffect(() => {
@@ -90,6 +92,19 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Move focus into the zoom dialog on open and give it back to the trigger on close.
+  const isZoomOpen = Boolean(zoomedChart);
+  useEffect(() => {
+    if (!isZoomOpen) return undefined;
+    zoomTriggerRef.current = document.activeElement;
+    zoomCloseRef.current?.focus();
+    return () => {
+      const trigger = zoomTriggerRef.current;
+      zoomTriggerRef.current = null;
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, [isZoomOpen]);
 
   useEffect(() => {
     if (!selectedInvoice && !zoomedChart) return undefined;
@@ -740,16 +755,19 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="zoom-dialog-title"
               className="w-full max-w-5xl h-[80dvh] bg-card border border-border rounded-lg overflow-hidden flex flex-col relative shadow-2xl shadow-black/10 dark:shadow-black/40"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background shrink-0">
                 <div className="flex items-center gap-2">
                   {React.createElement(ZOOM_ICONS[zoomedChart] || ChartBar, { weight: 'duotone', className: 'w-6 h-6 text-brandBlue-600 dark:text-brandBlue-400' })}
-                  <h3 className="text-xl font-bold text-foreground font-display">
+                  <h3 id="zoom-dialog-title" className="text-xl font-bold text-foreground font-display">
                     {ZOOM_TITLES[zoomedChart] || 'Chart View'}
                   </h3>
                 </div>
-                <button aria-label="Close modal" onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+                <button ref={zoomCloseRef} aria-label="Close modal" onClick={() => setZoomedChart(null)} className="p-2 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-lg transition-colors">
                   <X weight="bold" className="w-6 h-6" />
                 </button>
               </div>
