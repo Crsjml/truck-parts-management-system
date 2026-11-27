@@ -31,7 +31,19 @@ describe('SYSTEM_PROMPT', () => {
   });
 
   it('stays compact for a small model', () => {
-    expect(SYSTEM_PROMPT.length).toBeLessThan(1800);
+    expect(SYSTEM_PROMPT.length).toBeLessThan(2700);
+  });
+
+  it('maps sort, price, stock, browse and follow-up questions to tool arguments', () => {
+    expect(SYSTEM_PROMPT).toMatch(/price_asc/);
+    expect(SYSTEM_PROMPT).toMatch(/price_desc/);
+    expect(SYSTEM_PROMPT).toMatch(/maxPrice/);
+    expect(SYSTEM_PROMPT).toMatch(/minPrice/);
+    expect(SYSTEM_PROMPT).toMatch(/inStockOnly/);
+    expect(SYSTEM_PROMPT).toMatch(/list_categories/);
+    expect(SYSTEM_PROMPT).toMatch(/totalMatches/);
+    expect(SYSTEM_PROMPT).toMatch(/get_part/);
+    expect(SYSTEM_PROMPT).toMatch(/site_help/);
   });
 });
 
@@ -170,9 +182,19 @@ describe('ChatService.respond', () => {
       .toEqual({ ok: false, error: 'assistant_unavailable' });
   });
 
-  it('uses a fallback text when the model returns nothing', async () => {
-    const out = await run(scripted(say('  ')), vi.fn());
+  it('uses a fallback text when the model keeps returning nothing', async () => {
+    const llm = scripted(say('  '), say(''), say('  '), say(' '));
+    const out = await run(llm, vi.fn());
     expect(out.content[0].text).toMatch(/couldn't/);
+    expect(llm.chat).toHaveBeenCalledTimes(MAX_ROUNDS);
+  });
+
+  it('retries once when the model returns an empty reply with no tool call', async () => {
+    const exec = vi.fn(async () => ({ parts: [] }));
+    const llm = scripted(say(''), call('search_parts', { query: 'x' }), say('Found nothing.'));
+    const out = await run(llm, exec);
+    expect(out.content[0].text).toBe('Found nothing.');
+    expect(exec).toHaveBeenCalledTimes(1);
   });
 
   it('limits tool calls per round', async () => {
@@ -242,7 +264,7 @@ describe('ChatService.respondStream', () => {
   });
 
   it('streams the fallback text when the model returns nothing', async () => {
-    const { events } = await collect(makeLlm(say('  ')));
+    const { events } = await collect(makeLlm(say('  '), say(''), say('  '), say(' ')));
     expect(events[0]).toMatchObject({ type: 'text-delta', text: expect.stringMatching(/couldn't/) });
     expect(events.at(-1)).toEqual({ type: 'done' });
   });

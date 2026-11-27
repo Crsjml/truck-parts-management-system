@@ -33,7 +33,7 @@ export const TOOL_DEFINITIONS = [
         'Keep every argument flat (no nested objects). "query" is the part name, SKU or OEM number only (e.g. "brake pad"); put price, stock and sort words in their own arguments, not in "query". ' +
         'Examples: cheapest brake part -> {"query":"brake","sort":"price_asc"}; most expensive -> {"sort":"price_desc"}; brakes under 5000 -> {"query":"brake","maxPrice":5000}; ' +
         'what is in stock for filters -> {"query":"filter","inStockOnly":true}; parts for an Isuzu Elf -> {"brand":"Isuzu","series":"ELF"}. ' +
-        'Returns up to 5 parts (priceDisplay is the price text to quote, plus stockStatus) and totalMatches, the number of parts that matched in all. Never invent parts; only mention parts returned here.',
+        'Returns up to 5 parts (priceDisplay is the price text to quote, plus stockStatus) totalMatches (how many parts matched in all) and, when sorted by price, "best" (the cheapest or most expensive match: name this one). Never invent parts; only mention parts returned here.',
       parameters: {
         type: 'object',
         properties: {
@@ -59,7 +59,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: 'get_part',
       description:
-        'Get full details (price, available stock, compatibility) for ONE specific part. Provide either "id" (from an earlier search result) or "sku". ' +
+        'Get full details (price, available stock, compatibility) for ONE specific part. Provide either "id" or "sku", only values seen in a tool result; never guess a SKU. ' +
         'Use this to confirm details before recommending a part.',
       parameters: {
         type: 'object',
@@ -243,10 +243,20 @@ const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArr
 const liftFilters = (args) =>
   isPlainObject(args) && isPlainObject(args.filters) ? { ...args.filters, ...args } : args;
 
+// Repair the usual wrong `sort` values a small model sends instead of rejecting them.
+const repairSort = (args) => {
+  if (!isPlainObject(args) || typeof args.sort !== 'string' || SORTS.includes(args.sort)) return args;
+  const word = args.sort.toLowerCase();
+  if (/stock/.test(word)) return { ...args, sort: undefined, inStockOnly: args.inStockOnly ?? true };
+  if (/expens|high|desc/.test(word)) return { ...args, sort: 'price_desc' };
+  if (/cheap|low|asc|price/.test(word)) return { ...args, sort: 'price_asc' };
+  return args;
+};
+
 // Schemas strip unknown keys rather than reject them: one invented key must not
 // fail the whole call (the model then apologizes instead of answering).
 const SCHEMAS = {
-  search_parts: z.preprocess(liftFilters, z.object({
+  search_parts: z.preprocess((args) => repairSort(liftFilters(args)), z.object({
     query: z.string().trim().max(200).optional(),
     category: optionalText,
     brand: optionalText,
@@ -260,7 +270,7 @@ const SCHEMAS = {
   get_part: z.object({
     id: z.string().uuid().optional(),
     sku: z.string().trim().min(1).max(100).optional()
-  }).refine((v) => v.id || v.sku, { message: 'Provide either id or sku.' }),
+  }).refine((v) => v.id || v.sku, { message: 'Provide either id or sku. To find a part by name, call search_parts instead.' }),
   list_categories: z.object({}).passthrough(),
   site_help: z.object({ topic: z.string().trim().min(1).max(100) })
 };
@@ -314,7 +324,13 @@ const HANDLERS = {
         && (minPrice === undefined || p.price >= minPrice)
         && (maxPrice === undefined || p.price <= maxPrice));
     const ordered = sort && SORT_COMPARATORS[sort] ? [...matches].sort(SORT_COMPARATORS[sort]) : matches;
-    return { parts: ordered.slice(0, MAX_RESULTS), totalMatches: ordered.length };
+    const result = { parts: ordered.slice(0, MAX_RESULTS), totalMatches: ordered.length };
+    // Small models mis-pick from a sorted list; name the cheapest / priciest match outright.
+    if ((sort === 'price_asc' || sort === 'price_desc') && ordered.length > 0) {
+      const { name, sku, priceDisplay } = ordered[0];
+      result.best = { name, sku, priceDisplay };
+    }
+    return result;
   },
 
   async get_part(args, deps) {

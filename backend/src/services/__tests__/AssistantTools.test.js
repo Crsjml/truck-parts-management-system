@@ -243,6 +243,15 @@ describe('search_parts price, stock, sort and browse', () => {
     expect(names(await executeTool('search_parts', { query: 'pad', sort: 'price_desc' }, deps))).toEqual(['Charlie Pad', 'Delta Pad', 'Alpha Pad', 'Bravo Pad']);
   });
 
+  it('names the best match (cheapest / most expensive) explicitly for price sorts', async () => {
+    const asc = await executeTool('search_parts', { query: 'pad', sort: 'price_asc' }, deps);
+    expect(asc.best).toEqual({ name: 'Bravo Pad', sku: 'B-1', priceDisplay: asc.parts[0].priceDisplay });
+    const desc = await executeTool('search_parts', { query: 'pad', sort: 'price_desc' }, deps);
+    expect(desc.best.name).toBe('Charlie Pad');
+    expect((await executeTool('search_parts', { query: 'pad' }, deps)).best).toBeUndefined();
+    expect((await executeTool('search_parts', { query: 'pad', sort: 'stock_desc' }, deps)).best).toBeUndefined();
+  });
+
   it('sorts by available stock descending', async () => {
     const res = await executeTool('search_parts', { query: 'pad', sort: 'stock_desc' }, deps);
     expect(names(res)).toEqual(['Charlie Pad', 'Alpha Pad', 'Delta Pad', 'Bravo Pad']);
@@ -307,6 +316,13 @@ describe('search_parts price, stock, sort and browse', () => {
     expect(names(res)).toEqual(['Alpha Pad']);
   });
 
+  it('maps common sort mistakes: stock words become inStockOnly, price words become a price sort', async () => {
+    const stock = await executeTool('search_parts', { query: 'pad', sort: 'inStockOnly' }, deps);
+    expect(names(stock)).toEqual(['Alpha Pad', 'Charlie Pad', 'Delta Pad']);
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'cheapest' }, deps))[0]).toBe('Bravo Pad');
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'most_expensive' }, deps))[0]).toBe('Charlie Pad');
+  });
+
   it('ignores invalid price, sort and stock values instead of failing', async () => {
     const res = await executeTool('search_parts', { query: 'pad', minPrice: -5, maxPrice: 'cheap', sort: 'newest', inStockOnly: 'maybe' }, deps);
     expect(res.error).toBeUndefined();
@@ -317,6 +333,13 @@ describe('search_parts price, stock, sort and browse', () => {
     const res = await executeTool('search_parts', { query: 'pad', sort: 'price_asc', inStockOnly: true }, deps);
     const keys = keysDeep(res);
     FORBIDDEN.forEach((k) => expect(keys.has(k)).toBe(false));
+  });
+});
+
+describe('get_part errors', () => {
+  it('points the model at search_parts when neither id nor sku is given', async () => {
+    const res = await executeTool('get_part', { query: 'first one' }, makeDeps());
+    expect(res.error).toMatch(/search_parts/);
   });
 });
 
