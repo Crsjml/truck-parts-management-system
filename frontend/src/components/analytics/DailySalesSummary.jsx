@@ -118,6 +118,7 @@ export default function DailySalesSummary({ transactions }) {
           })
         )}
       </div>
+      <p className="text-[11px] text-muted-foreground">Cancelled orders are excluded from sales figures</p>
     </>
   );
 
