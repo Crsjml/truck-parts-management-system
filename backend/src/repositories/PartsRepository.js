@@ -69,6 +69,25 @@ export class PartsRepository {
     });
   }
 
+  /** Assistant-only: storefront-visible parts without a keyword (browse / sort / filter in memory). */
+  async listCustomerParts({ limit = 200 } = {}) {
+    return prisma.part.findMany({
+      where: { published: true, archived: false },
+      include: { category: { select: { name: true } } },
+      orderBy: { name: 'asc' },
+      take: limit
+    });
+  }
+
+  /** Assistant-only: [{ name, partCount }] counting only storefront-visible parts. */
+  async countCustomerPartsByCategory() {
+    const rows = await prisma.category.findMany({
+      select: { name: true, _count: { select: { parts: { where: { published: true, archived: false } } } } },
+      orderBy: { name: 'asc' }
+    });
+    return rows.map((c) => ({ name: c.name, partCount: c._count.parts }));
+  }
+
   async findPartById(id) {
     return prisma.part.findUnique({ where: { id } });
   }

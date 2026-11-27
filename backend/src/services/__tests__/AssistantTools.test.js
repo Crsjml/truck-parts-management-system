@@ -36,7 +36,8 @@ const makeDeps = (parts = [rawPart()], markup = 20) => ({
   partsService: { getParts: vi.fn().mockResolvedValue({ parts, totalCount: parts.length }) },
   partsRepository: {
     searchCustomerParts: vi.fn().mockResolvedValue(parts),
-    findCategories: vi.fn().mockResolvedValue([{ name: 'Brakes' }, { name: 'Filters' }]),
+    listCustomerParts: vi.fn().mockResolvedValue(parts),
+    countCustomerPartsByCategory: vi.fn().mockResolvedValue([{ name: 'Brakes', partCount: 4 }, { name: 'Filters', partCount: 2 }]),
     findCustomerPart: vi.fn()
   },
   getMarkup: vi.fn().mockResolvedValue(markup),
@@ -107,7 +108,9 @@ describe('search_parts', () => {
   it('returns no parts (without querying) when the query is only stopwords', async () => {
     const res = await executeTool('search_parts', { query: 'do you have any' }, deps);
     expect(res.parts).toEqual([]);
+    expect(res.hint).toMatch(/list_categories/);
     expect(deps.partsRepository.searchCustomerParts).not.toHaveBeenCalled();
+    expect(deps.partsRepository.listCustomerParts).not.toHaveBeenCalled();
   });
 
   it('prices at the storefront selling price using the global markup', async () => {
@@ -195,11 +198,25 @@ describe('search_parts', () => {
   });
 
   it('returns a JSON-serializable error object for invalid args', async () => {
-    for (const args of [{}, { query: '' }, { query: 123 }, { query: 'x'.repeat(500) }, null, 'str']) {
+    for (const args of [{ query: 123 }, { query: 'x'.repeat(500) }, null, 'str']) {
       const res = await executeTool('search_parts', args, deps);
       expect(res).toEqual({ error: expect.any(String) });
     }
     expect(deps.partsRepository.searchCustomerParts).not.toHaveBeenCalled();
+  });
+
+  // Small local models invent wrapper keys (e.g. `filters: {}`); rejecting the
+  // whole call made the assistant apologize instead of searching.
+  it('ignores unknown argument keys instead of rejecting the call', async () => {
+    const res = await executeTool('search_parts', { query: 'brake', filters: {}, sort: 'price' }, deps);
+    expect(res.error).toBeUndefined();
+    expect(res.parts).toHaveLength(1);
+    expect(deps.partsRepository.searchCustomerParts.mock.calls[0][0].tokens).toEqual(['brake']);
+  });
+
+  it('lifts known filter fields nested under "filters" to the top level', async () => {
+    await executeTool('search_parts', { query: 'brake', filters: { brand: 'Isuzu', bogus: 'x' } }, deps);
+    expect(deps.partsRepository.searchCustomerParts.mock.calls[0][0].tokens).toEqual(['brake', 'isuzu']);
   });
 
   it('turns a service failure into a generic error without leaking details', async () => {
@@ -207,6 +224,122 @@ describe('search_parts', () => {
     const res = await executeTool('search_parts', { query: 'brake' }, deps);
     expect(res).toEqual({ error: expect.any(String) });
     expect(JSON.stringify(res)).not.toContain('secret');
+  });
+});
+
+describe('search_parts price, stock, sort and browse', () => {
+  const parts = () => [
+    rawPart({ id: 'a', name: 'Alpha Pad', sku: 'A-1', price: 1000, stock: 10, reservedStock: 0 }), // sells 1200
+    rawPart({ id: 'b', name: 'Bravo Pad', sku: 'B-1', price: 500, stock: 3, reservedStock: 3 }), // sells 600, none available
+    rawPart({ id: 'c', name: 'Charlie Pad', sku: 'C-1', price: 5000, stock: 50, reservedStock: 0, markupOverride: 0 }), // sells 5000
+    rawPart({ id: 'd', name: 'Delta Pad', sku: 'D-1', price: 3000, stock: 7, reservedStock: 0 }) // sells 3600
+  ];
+  let deps;
+  beforeEach(() => { deps = makeDeps(parts()); });
+  const names = (res) => res.parts.map((p) => p.name);
+
+  it('sorts by selling price ascending and descending (markupOverride affects order)', async () => {
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'price_asc' }, deps))).toEqual(['Bravo Pad', 'Alpha Pad', 'Delta Pad', 'Charlie Pad']);
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'price_desc' }, deps))).toEqual(['Charlie Pad', 'Delta Pad', 'Alpha Pad', 'Bravo Pad']);
+  });
+
+  it('names the best match (cheapest / most expensive) explicitly for price sorts', async () => {
+    const asc = await executeTool('search_parts', { query: 'pad', sort: 'price_asc' }, deps);
+    expect(asc.best).toEqual({ name: 'Bravo Pad', sku: 'B-1', priceDisplay: asc.parts[0].priceDisplay });
+    const desc = await executeTool('search_parts', { query: 'pad', sort: 'price_desc' }, deps);
+    expect(desc.best.name).toBe('Charlie Pad');
+    expect((await executeTool('search_parts', { query: 'pad' }, deps)).best).toBeUndefined();
+    expect((await executeTool('search_parts', { query: 'pad', sort: 'stock_desc' }, deps)).best).toBeUndefined();
+  });
+
+  it('sorts by available stock descending', async () => {
+    const res = await executeTool('search_parts', { query: 'pad', sort: 'stock_desc' }, deps);
+    expect(names(res)).toEqual(['Charlie Pad', 'Alpha Pad', 'Delta Pad', 'Bravo Pad']);
+  });
+
+  it('keeps repository order for relevance sort', async () => {
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'relevance' }, deps))).toEqual(['Alpha Pad', 'Bravo Pad', 'Charlie Pad', 'Delta Pad']);
+  });
+
+  it('applies inclusive minPrice and maxPrice on the selling price', async () => {
+    expect(names(await executeTool('search_parts', { query: 'pad', maxPrice: 1200 }, deps))).toEqual(['Alpha Pad', 'Bravo Pad']);
+    expect(names(await executeTool('search_parts', { query: 'pad', minPrice: 3600, maxPrice: 5000 }, deps))).toEqual(['Charlie Pad', 'Delta Pad']);
+  });
+
+  it('inStockOnly drops parts with no available stock (stock minus reserved)', async () => {
+    const res = await executeTool('search_parts', { query: 'pad', inStockOnly: true }, deps);
+    expect(names(res)).toEqual(['Alpha Pad', 'Charlie Pad', 'Delta Pad']);
+    expect(res.parts.every((p) => p.stockStatus !== 'out_of_stock')).toBe(true);
+  });
+
+  it('combines filters with sort: cheapest in-stock part first', async () => {
+    const res = await executeTool('search_parts', { query: 'pad', inStockOnly: true, sort: 'price_asc' }, deps);
+    expect(res.parts[0].name).toBe('Alpha Pad');
+  });
+
+  it('reports totalMatches after filters but before the 5-part cap', async () => {
+    const many = Array.from({ length: 8 }, (_, i) => rawPart({ id: `m${i}`, name: `Pad ${i}`, sku: `M-${i}`, price: 100 + i }));
+    const d = makeDeps(many);
+    const res = await executeTool('search_parts', { query: 'pad' }, d);
+    expect(res.parts).toHaveLength(5);
+    expect(res.totalMatches).toBe(8);
+    expect((await executeTool('search_parts', { query: 'pad', maxPrice: 123.6 }, d)).totalMatches).toBe(4);
+  });
+
+  it('fetches a wide window so counts and sorting cover the whole catalogue', async () => {
+    await executeTool('search_parts', { query: 'pad', sort: 'price_asc' }, deps);
+    expect(deps.partsRepository.searchCustomerParts.mock.calls[0][0].limit).toBe(200);
+  });
+
+  it('browses the visible catalogue when there is no keyword but a filter or sort', async () => {
+    const res = await executeTool('search_parts', { sort: 'price_asc', inStockOnly: true }, deps);
+    expect(deps.partsRepository.listCustomerParts).toHaveBeenCalledWith({ limit: 200 });
+    expect(deps.partsRepository.searchCustomerParts).not.toHaveBeenCalled();
+    expect(res.parts[0].name).toBe('Alpha Pad');
+    expect(res.totalMatches).toBe(3);
+  });
+
+  it('browse mode never returns unpublished or archived parts', async () => {
+    deps.partsRepository.listCustomerParts.mockResolvedValue([...parts(), rawPart({ id: 'x', name: 'Hidden', published: false })]);
+    const res = await executeTool('search_parts', { maxPrice: 99999 }, deps);
+    expect(names(res)).not.toContain('Hidden');
+  });
+
+  it('returns a list_categories hint when there is nothing usable to search', async () => {
+    const res = await executeTool('search_parts', {}, deps);
+    expect(res.parts).toEqual([]);
+    expect(res.hint).toMatch(/list_categories/);
+  });
+
+  it('accepts numeric strings and boolean strings from the model', async () => {
+    const res = await executeTool('search_parts', { query: 'pad', maxPrice: '1200', inStockOnly: 'true' }, deps);
+    expect(names(res)).toEqual(['Alpha Pad']);
+  });
+
+  it('maps common sort mistakes: stock words become inStockOnly, price words become a price sort', async () => {
+    const stock = await executeTool('search_parts', { query: 'pad', sort: 'inStockOnly' }, deps);
+    expect(names(stock)).toEqual(['Alpha Pad', 'Charlie Pad', 'Delta Pad']);
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'cheapest' }, deps))[0]).toBe('Bravo Pad');
+    expect(names(await executeTool('search_parts', { query: 'pad', sort: 'most_expensive' }, deps))[0]).toBe('Charlie Pad');
+  });
+
+  it('ignores invalid price, sort and stock values instead of failing', async () => {
+    const res = await executeTool('search_parts', { query: 'pad', minPrice: -5, maxPrice: 'cheap', sort: 'newest', inStockOnly: 'maybe' }, deps);
+    expect(res.error).toBeUndefined();
+    expect(res.parts).toHaveLength(4);
+  });
+
+  it('still never leaks internal fields', async () => {
+    const res = await executeTool('search_parts', { query: 'pad', sort: 'price_asc', inStockOnly: true }, deps);
+    const keys = keysDeep(res);
+    FORBIDDEN.forEach((k) => expect(keys.has(k)).toBe(false));
+  });
+});
+
+describe('get_part errors', () => {
+  it('points the model at search_parts when neither id nor sku is given', async () => {
+    const res = await executeTool('get_part', { query: 'first one' }, makeDeps());
+    expect(res.error).toMatch(/search_parts/);
   });
 });
 
@@ -247,10 +380,17 @@ describe('get_part', () => {
 });
 
 describe('list_categories', () => {
-  it('returns category names only', async () => {
+  it('returns category names with visible part counts', async () => {
     const deps = makeDeps();
-    deps.partsRepository.findCategories.mockResolvedValue([{ name: 'Brakes', id: 'x' }, { name: 'Filters', id: 'y' }]);
-    expect(await executeTool('list_categories', {}, deps)).toEqual({ categories: ['Brakes', 'Filters'] });
+    expect(await executeTool('list_categories', {}, deps)).toEqual({
+      categories: [{ name: 'Brakes', partCount: 4 }, { name: 'Filters', partCount: 2 }]
+    });
+  });
+
+  it('omits categories that have no visible parts', async () => {
+    const deps = makeDeps();
+    deps.partsRepository.countCustomerPartsByCategory.mockResolvedValue([{ name: 'Brakes', partCount: 4 }, { name: 'Empty', partCount: 0 }]);
+    expect((await executeTool('list_categories', {}, deps)).categories).toEqual([{ name: 'Brakes', partCount: 4 }]);
   });
 });
 
