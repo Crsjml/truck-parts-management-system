@@ -6,7 +6,7 @@ import { buildSlowMovingStockPdf } from '../../utils/slowMovingStockPdf';
 import { useSettings } from '../../context/SettingsContext';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 import { usePdfExport } from '../../hooks/usePdfExport';
-import { lastSaleText, lastSaleSeverity, oldSaleThreshold, stockValueOf } from '../../utils/slowMovingLabels';
+import { lastSaleText, lastSaleSeverity, oldSaleThreshold, stockValueOf, OLD_SALE_DAYS, EM_DASH } from '../../utils/slowMovingLabels';
 
 const PAGE_SIZE = 10;
 const DEFAULT_WINDOW_DAYS = 30;
@@ -16,7 +16,6 @@ const PRESETS = [
   { days: 90, label: '90 days' },
   { days: 182, label: '6 months' }
 ];
-const EM_DASH = '—';
 const MS_PER_DAY = 864e5;
 // Missing values (no cost) sort last; never-sold counts as the longest idle.
 const SORT_VALUE = {
@@ -97,11 +96,6 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
       .map((p) => ({ ...p, categoryLabel: categoryOf(p), stockValue: stockValueOf(p) }));
   }, [transactions, allTransactions, parts, dateRange]);
 
-  const summary = useMemo(() => ({
-    count: rows.length,
-    capital: rows.reduce((sum, r) => sum + (r.stockValue ?? 0), 0),
-    missingCost: rows.filter((r) => r.stockValue === null).length
-  }), [rows]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -119,6 +113,14 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
       return factor * (av < bv ? -1 : 1);
     });
   }, [rows, query, sort]);
+
+  // The summary describes what the table shows, so it follows the search.
+  const isSearching = query.trim() !== '';
+  const summary = useMemo(() => ({
+    count: visible.length,
+    capital: visible.reduce((sum, r) => sum + (r.stockValue ?? 0), 0),
+    missingCost: visible.filter((r) => r.stockValue === null).length
+  }), [visible]);
 
   const handleSort = (key) =>
     setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' }));
@@ -144,8 +146,14 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
         <div>
           <h3 className="text-base font-bold text-foreground font-display">Slow-Moving Stock</h3>
           <p className="text-xs text-muted-foreground">Parts in stock with no sales in this period.</p>
+          <p className="text-xs text-muted-foreground">
+            Last sale counts every sales channel. Stock idle {idleThreshold}+ days is flagged "Idle {idleThreshold}+ days" (twice the
+            look-back window, minimum {OLD_SALE_DAYS}). "Never sold" means no sale on record.
+          </p>
           <p aria-live="polite" className="text-xs text-foreground mt-1 tabular-nums">
-            <span className="font-semibold">{summary.count} {summary.count === 1 ? 'part' : 'parts'}</span>
+            <span className="font-semibold">
+              {isSearching ? `${summary.count} of ${rows.length} parts match` : `${summary.count} ${summary.count === 1 ? 'part' : 'parts'}`}
+            </span>
             {' · '}
             <span className="font-semibold">{formatBaseCurrency(summary.capital)}</span> capital tied up
             {summary.missingCost > 0 && (

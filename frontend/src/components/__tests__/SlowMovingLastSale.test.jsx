@@ -51,4 +51,13 @@ describe('Slow-moving Last sale emphasis', () => {
     expect(lastSaleCell('Old Part')).toHaveAttribute('data-severity', 'recent');
     expect(lastSaleCell('Never Part')).toHaveAttribute('data-severity', 'never');
   });
+
+  it('explains Last sale and the idle rule in visible text, not only a tooltip', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    const note = screen.getByText(/means no sale on record/);
+    expect(note).toBeVisible();
+    expect(note).toHaveTextContent('Last sale counts every sales channel');
+    expect(note).toHaveTextContent('Idle 90+ days');
+    expect(note).toHaveTextContent('Never sold');
+  });
 });

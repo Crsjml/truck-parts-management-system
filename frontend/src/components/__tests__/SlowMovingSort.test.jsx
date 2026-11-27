@@ -57,3 +57,20 @@ describe('Slow-moving sorting', () => {
     expect(names()).toEqual(['Charlie', 'Alpha', 'Bravo', 'Delta']);
   });
 });
+
+describe('Slow-moving summary follows the search', () => {
+  const summary = () => screen.getByText(/capital tied up/).closest('p');
+
+  it('counts every part until a search narrows the list', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    expect(summary()).toHaveTextContent('4 parts');
+    expect(summary()).toHaveTextContent('$360 capital tied up'); // 10 + 300 + 50, Delta has no cost
+  });
+
+  it('shows matching parts and their capital while a search is active', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search parts' }), { target: { value: 'bravo' } });
+    expect(summary()).toHaveTextContent('1 of 4 parts match');
+    expect(summary()).toHaveTextContent('$300 capital tied up');
+  });
+});

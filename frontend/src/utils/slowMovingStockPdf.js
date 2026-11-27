@@ -8,7 +8,7 @@ import {
   jsPDF, safe, masthead, paginate, openTable, totalCell, qty, formatDate, formatDateTime, formatMoney, INK, INK_2, MARGIN
 } from './pdf/reportPdfKit';
 import { toLocalDateKey } from './localDate';
-import { lastSaleText, stockValueOf } from './slowMovingLabels';
+import { lastSaleText, stockValueOf, EM_DASH } from './slowMovingLabels';
 
 const UNCATEGORIZED = 'Uncategorized';
 
@@ -39,15 +39,15 @@ export function groupByCategory(items) {
 
 function stockValueCell(item, formatCurrency) {
   const value = stockValueOf(item);
-  return value === null ? 'N/A' : formatCurrency(value);
+  return value === null ? EM_DASH : formatCurrency(value);
 }
 
 function groupRows({ category, rows, stock, value }, formatCurrency) {
   const detail = rows.map((item, i) => [
     i === 0 ? { content: category, bold: true } : '',
-    safe(item.sku, 13) || 'N/A',
+    safe(item.sku, 13) || EM_DASH,
     safe(item.name, 32),
-    safe(item.oem, 14) || 'N/A',
+    safe(item.oem, 14) || EM_DASH,
     qty(item.stock),
     stockValueCell(item, formatCurrency),
     lastSaleText(item.daysSinceLastSale)
@@ -104,7 +104,7 @@ export function buildSlowMovingStockPdf(items, { dateRange, formatCurrency = for
 
   paginate(doc, {
     title: 'SLOW-MOVING STOCK REPORT', dateLine, abbrev: ['OEM'],
-    notes: 'STOCK VALUE = stock on hand x unit cost. Parts without a cost show N/A and are not counted in totals.'
+    notes: 'STOCK VALUE = stock on hand x unit cost. Parts without a cost show a dash and are not counted in totals.'
   });
 
   const filenameDate = toLocalDateKey(new Date());

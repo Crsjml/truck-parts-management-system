@@ -69,6 +69,16 @@ describe('buildSlowMovingStockPdf', () => {
     expect(out).not.toContain('PHP');
   });
 
+  it('shows the same em dash as the screen for a missing cost or SKU, not N/A', () => {
+    buildSlowMovingStockPdf(
+      [{ name: 'Bare Part', category: 'Misc', stock: 2, daysSinceLastSale: 10 }],
+      { dateRange: range }
+    );
+    const out = contentOf();
+    expect(out).toContain('(\u0097) Tj'); // WinAnsi em dash
+    expect(out).not.toContain('(N/A) Tj');
+  });
+
   it('uses the same last-sale wording as the screen', () => {
     buildSlowMovingStockPdf(items, { dateRange: range });
     const out = contentOf();

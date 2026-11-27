@@ -3,6 +3,9 @@
 
 export const NEVER_SOLD_LABEL = 'Never sold';
 
+// Placeholder for a missing value (no SKU, no cost). WinAnsi encodes it, so the PDF can print it too.
+export const EM_DASH = '\u2014';
+
 export function lastSaleText(days) {
   if (days === null || days === undefined) return NEVER_SOLD_LABEL;
   return days === 0 ? 'Today' : `${days} days ago`;
