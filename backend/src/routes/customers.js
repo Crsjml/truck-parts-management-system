@@ -185,6 +185,20 @@ router.delete('/saved-parts/:partId', requireAuth, async (req, res) => {
   }
 });
 
+// A cancelled order keeps its total, so it must not count toward a customer's
+// order count, spend or last order date (same rule as Sales Analytics).
+const isCountedOrder = (tx) => String(tx?.status ?? '').toUpperCase() !== 'CANCELLED';
+
+function summarizeOrders(txs) {
+  const counted = txs.filter(isCountedOrder);
+  const latest = counted.reduce((a, b) => (a && new Date(a.transactionDate) >= new Date(b.transactionDate) ? a : b), null);
+  return {
+    orderCount: counted.length,
+    totalSpend: counted.reduce((sum, t) => sum + (t.total || 0), 0),
+    lastOrderDate: latest ? latest.transactionDate : null
+  };
+}
+
 // ── Admin: list all customers (online + FTF walk-ins) ───────────────────────
 router.get('/', requireAuth, requirePermission('customers'), async (req, res) => {
   try {
@@ -192,7 +206,7 @@ router.get('/', requireAuth, requirePermission('customers'), async (req, res) =>
       prisma.customer.findMany({ orderBy: { createdAt: 'desc' } }),
       prisma.transaction.findMany({
         select: {
-          userId: true, total: true, transactionDate: true,
+          userId: true, total: true, status: true, transactionDate: true,
           customerName: true, customerContact: true, customerEmail: true
         }
       })
@@ -210,9 +224,7 @@ router.get('/', requireAuth, requirePermission('customers'), async (req, res) =>
         displayName: c.displayName || 'Unnamed User',
         companyName: c.companyName || '',
         phoneNumber: c.phoneNumber || '',
-        orderCount: myTx.length,
-        totalSpend: myTx.reduce((s, t) => s + (t.total || 0), 0),
-        lastOrderDate: myTx.length > 0 ? myTx.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate))[0].transactionDate : null,
+        ...summarizeOrders(myTx),
         createdAt: c.createdAt
       };
     });
@@ -232,9 +244,7 @@ router.get('/', requireAuth, requirePermission('customers'), async (req, res) =>
         displayName: c.displayName || 'Walk-in Customer',
         companyName: c.companyName || '',
         phoneNumber: c.phoneNumber || '',
-        orderCount: myTx.length,
-        totalSpend: myTx.reduce((s, t) => s + (t.total || 0), 0),
-        lastOrderDate: myTx.length > 0 ? myTx.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate))[0].transactionDate : null,
+        ...summarizeOrders(myTx),
         createdAt: c.createdAt
       });
     }
@@ -247,10 +257,12 @@ router.get('/', requireAuth, requirePermission('customers'), async (req, res) =>
 
       const key = email || contact;
       const existing = ftfMap.get(key);
+      const counted = isCountedOrder(tx);
       if (existing) {
+        if (!counted) continue;
         existing.orderCount += 1;
         existing.totalSpend += (tx.total || 0);
-        if (new Date(tx.transactionDate) > new Date(existing.lastOrderDate)) {
+        if (!existing.lastOrderDate || new Date(tx.transactionDate) > new Date(existing.lastOrderDate)) {
           existing.lastOrderDate = tx.transactionDate;
           if (tx.customerName && tx.customerName !== 'Walk-in Customer') {
             existing.displayName = tx.customerName;
@@ -264,9 +276,9 @@ router.get('/', requireAuth, requirePermission('customers'), async (req, res) =>
           displayName: tx.customerName || 'Walk-in Customer',
           companyName: '',
           phoneNumber: tx.customerContact === 'N/A' ? '' : tx.customerContact,
-          orderCount: 1,
-          totalSpend: tx.total || 0,
-          lastOrderDate: tx.transactionDate,
+          orderCount: counted ? 1 : 0,
+          totalSpend: counted ? (tx.total || 0) : 0,
+          lastOrderDate: counted ? tx.transactionDate : null,
           createdAt: tx.transactionDate
         });
       }

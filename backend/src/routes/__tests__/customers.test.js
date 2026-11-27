@@ -165,4 +165,40 @@ describe('customers admin routes', () => {
       }
     }));
   });
+
+  describe('cancelled orders in the customer summary', () => {
+    const baseTx = {
+      customerName: 'Driver One', customerContact: '09171234567', customerEmail: 'driver@example.com'
+    };
+
+    it('leaves cancelled orders out of order count, spend and last order date', async () => {
+      customerFindMany.mockResolvedValue([
+        { id: 'c1', authId: 'auth-1', email: 'a@example.com', displayName: 'Online', createdAt: '2026-08-01T00:00:00.000Z' },
+        { id: 'c2', authId: 'temp-abc', email: 'driver@example.com', displayName: 'Driver One', phoneNumber: '09171234567', createdAt: '2026-08-01T00:00:00.000Z' }
+      ]);
+      transactionFindMany.mockResolvedValue([
+        { ...baseTx, userId: 'auth-1', total: 100, status: 'COMPLETED', transactionDate: '2026-08-02T00:00:00.000Z' },
+        { ...baseTx, userId: 'auth-1', total: 900, status: 'CANCELLED', transactionDate: '2026-08-09T00:00:00.000Z' },
+        { ...baseTx, userId: 'temp-abc', total: 200, status: 'COMPLETED', transactionDate: '2026-08-03T00:00:00.000Z' },
+        { ...baseTx, userId: 'temp-abc', total: 800, status: 'Cancelled', transactionDate: '2026-08-10T00:00:00.000Z' }
+      ]);
+
+      const { body } = await invokeRoute('get', '/');
+
+      expect(body.online[0]).toMatchObject({ orderCount: 1, totalSpend: 100, lastOrderDate: '2026-08-02T00:00:00.000Z' });
+      expect(body.ftf[0]).toMatchObject({ orderCount: 1, totalSpend: 200, lastOrderDate: '2026-08-03T00:00:00.000Z' });
+    });
+
+    it('still lists a walk-in whose only order was cancelled, with zero orders and spend', async () => {
+      customerFindMany.mockResolvedValue([]);
+      transactionFindMany.mockResolvedValue([
+        { ...baseTx, userId: null, total: 500, status: 'CANCELLED', transactionDate: '2026-08-05T00:00:00.000Z' }
+      ]);
+
+      const { body } = await invokeRoute('get', '/');
+
+      expect(body.ftf).toHaveLength(1);
+      expect(body.ftf[0]).toMatchObject({ orderCount: 0, totalSpend: 0, lastOrderDate: null });
+    });
+  });
 });

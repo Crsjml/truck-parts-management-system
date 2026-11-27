@@ -3,6 +3,7 @@ import { Users, UserPlus, Storefront, MagnifyingGlass, ArrowsClockwise, CircleNo
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchCustomers, mergeCustomer, createCustomer, updateCustomer, deleteCustomer, fetchCustomerTransactions, updateTransactionStatus } from '../authStore';
 import { useSettings } from '../context/SettingsContext';
+import { isRevenueTransaction } from '../utils/salesAnalytics';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -293,9 +294,11 @@ export default function CustomerManagement({ showToast }) {
   const paginatedFtf = filteredFtf.slice((ftfPage - 1) * itemsPerPage, ftfPage * itemsPerPage);
 
   const dashboardTransactions = [...dashTxOnline, ...dashTxFtf];
-  const dashboardOrderCount = dashboardTransactions.length || dashboardCustomer?.orderCount || 0;
+  // The purchase history lists cancelled orders, but they are not counted as orders or spend.
+  const countedTransactions = dashboardTransactions.filter(isRevenueTransaction);
+  const dashboardOrderCount = dashboardTransactions.length > 0 ? countedTransactions.length : dashboardCustomer?.orderCount || 0;
   const dashboardTotalSpend = dashboardTransactions.length > 0
-    ? dashboardTransactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0)
+    ? countedTransactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0)
     : dashboardCustomer?.totalSpend || 0;
 
   return (
@@ -934,8 +937,8 @@ export default function CustomerManagement({ showToast }) {
                     </div>
                     <div className="p-3 bg-secondary/50 rounded-xl text-center">
                       <div className="text-lg font-black text-foreground">
-                        {dashboardTransactions.length > 0
-                          ? formatCurrency(dashboardTotalSpend / dashboardTransactions.length)
+                        {countedTransactions.length > 0
+                          ? formatCurrency(dashboardTotalSpend / countedTransactions.length)
                           : '—'}
                       </div>
                       <div className="text-2xs text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Avg. Order</div>
