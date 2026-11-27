@@ -6,6 +6,7 @@ import { buildSlowMovingStockPdf } from '../../utils/slowMovingStockPdf';
 import { useSettings } from '../../context/SettingsContext';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 import { usePdfExport } from '../../hooks/usePdfExport';
+import { lastSaleText, stockValueOf } from '../../utils/slowMovingLabels';
 
 const PAGE_SIZE = 10;
 const DEFAULT_WINDOW_DAYS = 30;
@@ -22,14 +23,6 @@ const categoryOf = (part) => {
   return (c && typeof c === 'object' ? c.name : c) || part.categoryName || 'Uncategorized';
 };
 
-// Part.price is the base cost (see utils/markup.js), so stock value = stock x price.
-const stockValueOf = (part) =>
-  typeof part.price === 'number' && Number.isFinite(part.price) ? (part.stock || 0) * part.price : null;
-
-const lastSaleText = (days) => {
-  if (days === null || days === undefined) return 'Never sold';
-  return days === 0 ? 'Today' : `${days} days ago`;
-};
 
 export default function SlowMovingStockReport({ transactions, parts, allTransactions, showToast }) {
   const { formatBaseCurrency } = useSettings();
