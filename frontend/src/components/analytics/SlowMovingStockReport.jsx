@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { DownloadSimple, MagnifyingGlass, Warning } from '@phosphor-icons/react';
+import { DownloadSimple, MagnifyingGlass, Warning, CaretUp, CaretDown } from '@phosphor-icons/react';
 import DateRangePicker from './DateRangePicker';
 import { slowMovingParts } from '../../utils/salesAnalytics';
 import { buildSlowMovingStockPdf } from '../../utils/slowMovingStockPdf';
 import { useSettings } from '../../context/SettingsContext';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 import { usePdfExport } from '../../hooks/usePdfExport';
-import { lastSaleText, lastSaleSeverity, OLD_SALE_DAYS, stockValueOf } from '../../utils/slowMovingLabels';
+import { lastSaleText, lastSaleSeverity, oldSaleThreshold, stockValueOf } from '../../utils/slowMovingLabels';
 
 const PAGE_SIZE = 10;
 const DEFAULT_WINDOW_DAYS = 30;
@@ -17,6 +17,13 @@ const PRESETS = [
   { days: 182, label: '6 months' }
 ];
 const EM_DASH = '—';
+const MS_PER_DAY = 864e5;
+// Missing values (no cost) sort last; never-sold counts as the longest idle.
+const SORT_VALUE = {
+  stock: (r) => r.stock || 0,
+  stockValue: (r) => (r.stockValue === null ? null : r.stockValue),
+  lastSale: (r) => (r.daysSinceLastSale === null || r.daysSinceLastSale === undefined ? Infinity : r.daysSinceLastSale)
+};
 const LAST_SALE_TONE = {
   never: 'text-alarm-text font-bold',
   old: 'text-amber-800 dark:text-amber-300 font-bold',
@@ -29,8 +36,25 @@ const categoryOf = (part) => {
 };
 
 
-function LastSaleCell({ days }) {
-  const severity = lastSaleSeverity(days);
+function SortHeader({ label, title, sortKey, sort, onSort }) {
+  const active = sort.key === sortKey;
+  const Icon = sort.dir === 'asc' ? CaretUp : CaretDown;
+  return (
+    <th scope="col" title={title} className="py-3 px-3 text-right" aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 font-semibold uppercase hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+      >
+        {label}
+        {active && <Icon weight="bold" aria-hidden="true" className="w-3 h-3" />}
+      </button>
+    </th>
+  );
+}
+
+function LastSaleCell({ days, threshold }) {
+  const severity = lastSaleSeverity(days, threshold);
   return (
     <td data-severity={severity} className={`py-3 px-3 text-right tabular-nums ${LAST_SALE_TONE[severity]}`}>
       <span className="inline-flex flex-col items-end">
@@ -38,23 +62,31 @@ function LastSaleCell({ days }) {
           {severity !== 'recent' && <Warning weight="bold" aria-hidden="true" className="w-3.5 h-3.5" />}
           {lastSaleText(days)}
         </span>
-        {severity === 'old' && <span className="text-[11px] font-semibold">Idle {OLD_SALE_DAYS}+ days</span>}
+        {severity === 'old' && <span className="text-[11px] font-semibold">Idle {threshold}+ days</span>}
       </span>
     </td>
   );
 }
 
 export default function SlowMovingStockReport({ transactions, parts, allTransactions, showToast }) {
-  const { formatBaseCurrency } = useSettings();
+  const { formatBaseCurrency, formatPdfBaseCurrency } = useSettings();
   const todayKey = toLocalDateKey(new Date());
 
   const [dateRange, setDateRange] = useState({ start: addLocalDays(todayKey, -DEFAULT_WINDOW_DAYS), end: todayKey });
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState({ key: null, dir: 'desc' });
 
   const activeDays = PRESETS.find(
     (p) => dateRange.end === todayKey && dateRange.start === addLocalDays(todayKey, -p.days)
   )?.days;
+
+  const windowDays = useMemo(() => {
+    const start = parseLocalDateKey(dateRange.start);
+    const end = parseLocalDateKey(dateRange.end);
+    return start && end ? Math.round((end - start) / MS_PER_DAY) : 0;
+  }, [dateRange]);
+  const idleThreshold = oldSaleThreshold(windowDays);
 
   const rows = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];
@@ -73,13 +105,27 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => [r.name, r.sku, r.categoryLabel].some((v) => String(v ?? '').toLowerCase().includes(q)));
-  }, [rows, query]);
+    const filtered = q
+      ? rows.filter((r) => [r.name, r.sku, r.categoryLabel].some((v) => String(v ?? '').toLowerCase().includes(q)))
+      : rows;
+    if (!sort.key) return filtered;
+    const valueOf = SORT_VALUE[sort.key];
+    const factor = sort.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = valueOf(a);
+      const bv = valueOf(b);
+      if (av === null || bv === null) return (av === null) - (bv === null); // missing last
+      if (av === bv) return 0;
+      return factor * (av < bv ? -1 : 1);
+    });
+  }, [rows, query, sort]);
 
-  useEffect(() => setPage(1), [dateRange, query]);
+  const handleSort = (key) =>
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' }));
 
-  const runExport = useCallback(() => buildSlowMovingStockPdf(rows, { dateRange }), [rows, dateRange]);
+  useEffect(() => setPage(1), [dateRange, query, sort]);
+
+  const runExport = useCallback(() => buildSlowMovingStockPdf(rows, { dateRange, formatCurrency: formatPdfBaseCurrency }), [rows, dateRange, formatPdfBaseCurrency]);
   const onExportSuccess = useCallback(() => showToast?.(`PDF exported (${rows.length} parts).`, 'success'), [showToast, rows.length]);
   const onExportError = useCallback((err) => showToast?.(`PDF export failed: ${err.message}`, 'error'), [showToast]);
   const { exportPdf, isExporting, error: exportError, reset: resetExportError } = usePdfExport(runExport, { onSuccess: onExportSuccess, onError: onExportError });
@@ -171,16 +217,16 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
         ) : (
           <table className="w-full text-left text-xs border-collapse">
             <caption className="sr-only">
-              Parts in stock with no sales in the selected period, longest idle first. Last sale counts every sales channel.
+              Parts in stock with no sales in the selected period, longest idle first unless you sort a column. Last sale counts every sales channel.
             </caption>
             <thead>
               <tr className="text-muted-foreground font-semibold uppercase border-b border-border">
                 <th scope="col" className="py-3 px-3">Part Name</th>
                 <th scope="col" className="py-3 px-3">SKU</th>
                 <th scope="col" className="py-3 px-3">Category</th>
-                <th scope="col" className="py-3 px-3 text-right">Current Stock</th>
-                <th scope="col" className="py-3 px-3 text-right" title="Current stock x unit cost">Stock value</th>
-                <th scope="col" className="py-3 px-3 text-right" title="Most recent sale on any channel, regardless of the channel filter">Last sale (any channel)</th>
+                <SortHeader label="Current Stock" sortKey="stock" sort={sort} onSort={handleSort} />
+                <SortHeader label="Stock value" title="Current stock x unit cost" sortKey="stockValue" sort={sort} onSort={handleSort} />
+                <SortHeader label="Last sale (any channel)" title="Most recent sale on any channel, regardless of the channel filter" sortKey="lastSale" sort={sort} onSort={handleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -193,7 +239,7 @@ export default function SlowMovingStockReport({ transactions, parts, allTransact
                   <td className="py-3 px-3 text-right font-semibold text-foreground tabular-nums">
                     {item.stockValue === null ? EM_DASH : formatBaseCurrency(item.stockValue)}
                   </td>
-                  <LastSaleCell days={item.daysSinceLastSale} />
+                  <LastSaleCell days={item.daysSinceLastSale} threshold={idleThreshold} />
                 </tr>
               ))}
             </tbody>

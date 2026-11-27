@@ -37,31 +37,31 @@ export function groupByCategory(items) {
     }));
 }
 
-function stockValueCell(item) {
+function stockValueCell(item, formatCurrency) {
   const value = stockValueOf(item);
-  return value === null ? 'N/A' : formatMoney(value);
+  return value === null ? 'N/A' : formatCurrency(value);
 }
 
-function groupRows({ category, rows, stock, value }) {
+function groupRows({ category, rows, stock, value }, formatCurrency) {
   const detail = rows.map((item, i) => [
     i === 0 ? { content: category, bold: true } : '',
     safe(item.sku, 13) || 'N/A',
     safe(item.name, 32),
     safe(item.oem, 14) || 'N/A',
     qty(item.stock),
-    stockValueCell(item),
+    stockValueCell(item, formatCurrency),
     lastSaleText(item.daysSinceLastSale)
   ]);
   const subtotal = [
     { content: `${category} SUBTOTAL  (${rows.length} parts)`, colSpan: 4, styles: { halign: 'right', fontStyle: 'italic' } },
     totalCell(stock, 'single'),
-    totalCell(formatMoney(value), 'single'),
+    totalCell(formatCurrency(value), 'single'),
     { content: '' }
   ];
   return [...detail, subtotal];
 }
 
-export function buildSlowMovingStockPdf(items, { dateRange }) {
+export function buildSlowMovingStockPdf(items, { dateRange, formatCurrency = formatMoney }) {
   const doc = new jsPDF();
   const dateLine = `Period : ${formatDate(dateRange.start)} to ${formatDate(dateRange.end)}`;
 
@@ -77,7 +77,7 @@ export function buildSlowMovingStockPdf(items, { dateRange }) {
   const capital = groups.reduce((sum, g) => sum + g.value, 0);
   const missingCost = items.filter((item) => stockValueOf(item) === null).length;
   const partsLabel = `${items.length} ${items.length === 1 ? 'part' : 'parts'}`;
-  const summaryLine = `${partsLabel} · ${formatMoney(capital)} capital tied up`
+  const summaryLine = `${partsLabel} · ${formatCurrency(capital)} capital tied up`
     + (missingCost > 0 ? ` (${missingCost} without cost, not counted)` : '');
   doc.setFontSize(9);
   doc.text(summaryLine, MARGIN, 47);
@@ -93,11 +93,11 @@ export function buildSlowMovingStockPdf(items, { dateRange }) {
       { head: 'STOCK\nVALUE', align: 'right', mono: true, width: 28 },
       { head: 'LAST\nSALE', align: 'right', width: 22 }
     ],
-    body: groups.length ? groups.flatMap(groupRows) : [[{ content: 'No slow-moving parts for this period.', colSpan: 7 }]],
+    body: groups.length ? groups.flatMap((g) => groupRows(g, formatCurrency)) : [[{ content: 'No slow-moving parts for this period.', colSpan: 7 }]],
     foot: [[
       { content: `GRAND TOTAL  (${items.length} idle parts)`, colSpan: 4, styles: { halign: 'right' }, bold: true },
       totalCell(totalStock, 'double', true),
-      totalCell(formatMoney(capital), 'double', true),
+      totalCell(formatCurrency(capital), 'double', true),
       { content: '' }
     ]]
   });

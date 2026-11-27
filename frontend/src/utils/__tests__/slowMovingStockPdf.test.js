@@ -15,7 +15,7 @@ vi.mock('jspdf', async (importOriginal) => {
 });
 
 const { buildSlowMovingStockPdf } = await import('../slowMovingStockPdf');
-const { lastSaleText, lastSaleSeverity, OLD_SALE_DAYS, NEVER_SOLD_LABEL } = await import('../slowMovingLabels');
+const { lastSaleText, lastSaleSeverity, oldSaleThreshold, OLD_SALE_DAYS, NEVER_SOLD_LABEL } = await import('../slowMovingLabels');
 
 const range = { start: '2026-10-11', end: '2026-11-10' };
 const items = [
@@ -61,6 +61,14 @@ describe('buildSlowMovingStockPdf', () => {
     expect(out).toMatch(/1 without cost, not counted/);
   });
 
+  it('formats money with the supplied formatter so totals match the display currency', () => {
+    buildSlowMovingStockPdf(items, { dateRange: range, formatCurrency: (v) => `USD ${v}` });
+    const out = contentOf();
+    expect(out).toContain('USD 1000');
+    expect(out).toContain('USD 1501');
+    expect(out).not.toContain('PHP');
+  });
+
   it('uses the same last-sale wording as the screen', () => {
     buildSlowMovingStockPdf(items, { dateRange: range });
     const out = contentOf();
@@ -87,5 +95,21 @@ describe('lastSaleSeverity', () => {
     expect(lastSaleSeverity(OLD_SALE_DAYS)).toBe('old');
     expect(lastSaleSeverity(OLD_SALE_DAYS - 1)).toBe('recent');
     expect(lastSaleSeverity(0)).toBe('recent');
+  });
+
+  it('takes a threshold so long look-back windows are not all flagged', () => {
+    expect(lastSaleSeverity(120, 180)).toBe('recent');
+    expect(lastSaleSeverity(180, 180)).toBe('old');
+    expect(lastSaleSeverity(null, 180)).toBe('never');
+  });
+});
+
+describe('oldSaleThreshold', () => {
+  it('is at least OLD_SALE_DAYS and at least twice the look-back window', () => {
+    expect(oldSaleThreshold(30)).toBe(OLD_SALE_DAYS);
+    expect(oldSaleThreshold(60)).toBe(120);
+    expect(oldSaleThreshold(90)).toBe(180);
+    expect(oldSaleThreshold(182)).toBe(364);
+    expect(oldSaleThreshold(undefined)).toBe(OLD_SALE_DAYS);
   });
 });

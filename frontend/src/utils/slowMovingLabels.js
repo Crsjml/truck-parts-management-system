@@ -17,8 +17,15 @@ export function stockValueOf(part) {
 // Stock idle for at least this many days is flagged in the Last sale column.
 export const OLD_SALE_DAYS = 90;
 
-// 'never' (no sale on record), 'old' (idle OLD_SALE_DAYS+), or 'recent'.
-export function lastSaleSeverity(days) {
+// Every row in the report was already idle for the whole look-back window, so a
+// fixed cutoff would flag everything on wide windows. Flag stock idle for at
+// least twice the window, and never less than OLD_SALE_DAYS.
+export function oldSaleThreshold(windowDays) {
+  return Math.max(OLD_SALE_DAYS, 2 * (Number(windowDays) || 0));
+}
+
+// 'never' (no sale on record), 'old' (idle `threshold`+ days), or 'recent'.
+export function lastSaleSeverity(days, threshold = OLD_SALE_DAYS) {
   if (days === null || days === undefined) return 'never';
-  return days >= OLD_SALE_DAYS ? 'old' : 'recent';
+  return days >= threshold ? 'old' : 'recent';
 }

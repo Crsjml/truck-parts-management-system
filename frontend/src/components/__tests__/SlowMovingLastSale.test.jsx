@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import SlowMovingStockReport from '../analytics/SlowMovingStockReport';
 
@@ -39,5 +39,16 @@ describe('Slow-moving Last sale emphasis', () => {
     render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
     expect(lastSaleCell('Recent Part')).toHaveAttribute('data-severity', 'recent');
     expect(within(lastSaleCell('Recent Part')).queryByText('Idle 90+ days')).toBeNull();
+  });
+
+  it('scales the "old" threshold with the look-back window so wide windows are not all flagged', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    expect(lastSaleCell('Old Part')).toHaveAttribute('data-severity', 'old');
+    expect(within(lastSaleCell('Old Part')).getByText('Idle 90+ days')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '90 days' }));
+    // 120 days idle is under twice the 90-day window (180), so it is no longer flagged.
+    expect(lastSaleCell('Old Part')).toHaveAttribute('data-severity', 'recent');
+    expect(lastSaleCell('Never Part')).toHaveAttribute('data-severity', 'never');
   });
 });
