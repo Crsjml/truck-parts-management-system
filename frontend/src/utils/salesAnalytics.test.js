@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   resolvePeriod, inRange, computeKpis, trendSeries,
   buildCategoryTree, categoryRevenue, topMovers, paymentMix,
@@ -288,5 +288,29 @@ describe('cancelled orders are not revenue', () => {
     const rows = orderStatusBreakdown([sale, cancelled('CANCELLED'), cancelled('Cancelled')], day);
     expect(rows).toContainEqual({ name: 'Cancelled', count: 2 });
     expect(rows).toContainEqual({ name: 'Completed', count: 1 });
+  });
+});
+
+describe('slowMovingParts ordering and last-sale source (step 7)', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
+  afterEach(() => vi.useRealTimers());
+  const win = { start: new Date(NOW.getTime() - 864e5), end: NOW };
+  const mk = (id, stock) => ({ id, name: id, stock });
+  const old = (partId, daysAgo, extra) => tx(`o-${partId}`, daysAgo, 10, [item(partId, 1, 10, partId)], extra);
+
+  it('orders Never first, then oldest sale first, then stock descending', () => {
+    const parts = [mk('a', 5), mk('b', 9), mk('c', 1), mk('d', 3), mk('e', 7)];
+    const txs = [old('a', 40), old('b', 90), old('d', 40)];
+    const ids = slowMovingParts(parts, txs, win, 0).map((r) => r.id);
+    // Never: c(1), e(7) -> e, c ; then b (90d) ; then a(5), d(3) tie at 40d by stock
+    expect(ids).toEqual(['e', 'c', 'b', 'a', 'd']);
+  });
+
+  it('takes last sale from lastSaleTransactions when given, but sales-in-period from the first list', () => {
+    const parts = [mk('a', 5)];
+    const online = [];
+    const all = [old('a', 12, { salesChannel: 'POS' })];
+    expect(slowMovingParts(parts, online, win, 0)[0].daysSinceLastSale).toBeNull();
+    expect(slowMovingParts(parts, online, win, 0, all)[0].daysSinceLastSale).toBe(12);
   });
 });

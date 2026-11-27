@@ -717,7 +717,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       {activeTab === 'slow-moving' && (
         <div role="tabpanel" id="analytics-panel-slow-moving" aria-labelledby="analytics-tab-slow-moving" className="space-y-5">
           {scopeLine}
-          <SlowMovingStockReport transactions={channelTx} parts={parts} />
+          <SlowMovingStockReport transactions={channelTx} allTransactions={localTransactions} parts={parts} showToast={showToast} />
         </div>
       )}
       {activeTab === 'peak-sales' && (

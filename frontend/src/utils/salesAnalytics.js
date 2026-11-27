@@ -412,7 +412,9 @@ export function getRankDeltaBadge(rankDelta) {
   return { text: '—', style: 'text-muted-foreground bg-secondary border-border' };
 }
 
-export function slowMovingParts(parts, allTransactions, { start, end }, threshold = 0) {
+// `lastSaleTransactions` (optional) is the pool used for "last sale"; pass the
+// unfiltered list so a channel filter does not turn in-store sales into "Never".
+export function slowMovingParts(parts, allTransactions, { start, end }, threshold = 0, lastSaleTransactions = allTransactions) {
   const transactions = revenueOnly(allTransactions);
   const current = inRange(transactions, start, end);
   const curCounts = new Map();
@@ -425,7 +427,7 @@ export function slowMovingParts(parts, allTransactions, { start, end }, threshol
   
   // Precompute last sale dates from ALL transactions (O(T))
   const lastSaleMap = new Map();
-  for (const t of transactions) {
+  for (const t of revenueOnly(lastSaleTransactions)) {
     const d = new Date(t.transactionDate);
     for (const item of (t.items || [])) {
       const existing = lastSaleMap.get(item.partId);
@@ -449,7 +451,12 @@ export function slowMovingParts(parts, allTransactions, { start, end }, threshol
       }
     }
   }
-  return result.sort((a, b) => a.unitsSold - b.unitsSold);
+  // Never sold first, then longest idle, then most stock (largest idle capital).
+  const idle = (r) => (r.daysSinceLastSale === null ? Infinity : r.daysSinceLastSale);
+  return result.sort((a, b) => {
+    const byIdle = idle(b) - idle(a);
+    return (Number.isNaN(byIdle) ? 0 : byIdle) || (b.stock - a.stock);
+  });
 }
 
 export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
