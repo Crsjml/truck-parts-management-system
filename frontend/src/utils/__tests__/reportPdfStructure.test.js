@@ -69,6 +69,15 @@ describe('open-style report structure', () => {
     expect(text(outputs[0])).toContain('PHP 2,000.00');
   });
 
+  it('labels Best-Selling stock as available and prints available, not raw, stock', () => {
+    const rows = [{ ...rankedRows(1)[0], stock: 10, available: 7 }];
+    buildBestSellingPartsPdf(rows, { dateRange: range });
+    const out = text(outputs[0]);
+    expect(out).toMatch(/AVAILABLE/);
+    expect(out).not.toMatch(/ON HAND/);
+    expect(out).toContain('(7) Tj');
+  });
+
   it('groups Slow-Moving by category with subtotals, category printed once', () => {
     const items = [
       { name: 'Radiator Cap', sku: 'COO-CAP-00001', oem: null, category: 'Cooling', stock: 35, unitsSold: 0, daysSinceLastSale: null },

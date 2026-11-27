@@ -106,6 +106,10 @@ export default function BestSellingPartsReport({ transactions, parts, showToast 
   const safePage = Math.min(page, totalPages);
   const pageRows = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const noRows = ranked.length === 0;
+  const totals = useMemo(() => ({
+    units: ranked.reduce((sum, r) => sum + (r.quantity || 0), 0),
+    revenue: ranked.reduce((sum, r) => sum + (r.revenue || 0), 0)
+  }), [ranked]);
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-4">
@@ -136,6 +140,21 @@ export default function BestSellingPartsReport({ transactions, parts, showToast 
         <p role="alert" className="text-xs font-semibold text-alarm-text">
           PDF export failed: {exportError.message}
         </p>
+      )}
+
+      {!noRows && (
+        <dl role="group" aria-label="Totals for the selected period" className="grid grid-cols-3 gap-3">
+          {[
+            ['Parts ranked', ranked.length.toLocaleString('en-US')],
+            ['Units sold', totals.units.toLocaleString('en-US')],
+            ['Revenue', formatBaseCurrency(totals.revenue)]
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-border bg-background px-3 py-2">
+              <dt className="text-[11px] font-semibold uppercase text-muted-foreground">{label}</dt>
+              <dd className="text-base font-bold text-foreground font-display tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
       )}
 
       {!noRows && (
@@ -179,7 +198,7 @@ export default function BestSellingPartsReport({ transactions, parts, showToast 
                 <th scope="col" className="py-3 px-3">Part Name</th>
                 <th scope="col" className="py-3 px-3">SKU</th>
                 <th scope="col" className="py-3 px-3">Category</th>
-                <th scope="col" className="py-3 px-3 text-right">Stock</th>
+                <th scope="col" className="py-3 px-3 text-right" title="Units on hand minus units reserved for open orders">Stock available</th>
                 <SortHeader label="Units Sold" sortKey="quantity" sort={sort} onSort={handleSort} />
                 <SortHeader label="Revenue" sortKey="revenue" sort={sort} onSort={handleSort} />
               </tr>
@@ -208,7 +227,7 @@ export default function BestSellingPartsReport({ transactions, parts, showToast 
                           <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-alarm-text/40 bg-alarm-text/10 text-alarm-text">Out of stock</span>
                         )}
                         {item.stockStatus === 'low' && (
-                          <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-border bg-secondary text-muted-foreground">Low stock</span>
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300">Low stock</span>
                         )}
                         {item.available !== null ? item.available : item.stock}
                         {item.reserved > 0 && <span className="text-xs font-normal text-muted-foreground">({item.reserved} reserved)</span>}
