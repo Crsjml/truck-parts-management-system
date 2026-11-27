@@ -1,6 +1,7 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
+import { getStatusChartColor } from '../../utils/orderStatusTone';
 
 const CHART_TOOLTIP_STYLE = { backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '12px' };
 const CHART_ITEM_STYLE = { color: 'hsl(var(--popover-foreground))' };
@@ -28,18 +29,6 @@ const RANK_COLORS = {
   up: 'hsl(var(--chart-2))',
   down: 'hsl(var(--chart-danger))'
 };
-const STATUS_CHART_COLORS = {
-  Completed: 'hsl(var(--chart-2))',
-  'Ready for Pickup': 'hsl(var(--chart-1))',
-  Cancelled: 'hsl(var(--chart-danger))',
-  'Order Placed': 'hsl(var(--chart-4))',
-  COMPLETED: 'hsl(var(--chart-2))',
-  READY_FOR_PICKUP: 'hsl(var(--chart-1))',
-  CANCELLED: 'hsl(var(--chart-danger))',
-  ORDER_PLACED: 'hsl(var(--chart-4))'
-};
-
-
 
 export function MoverTick({ x, y, payload, movers }) {
   const name = payload?.value || '';
@@ -398,7 +387,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               {data.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 
-                  fill={STATUS_CHART_COLORS[entry.name] || 'hsl(var(--chart-6))'} 
+                  fill={getStatusChartColor(entry.name)} 
                   style={{ outline: 'none' }}
                 />
               ))}

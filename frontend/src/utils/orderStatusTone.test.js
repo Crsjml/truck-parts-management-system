@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getStatusTone, normalizeOrderStatus } from './orderStatusTone';
+import { getStatusTone, getStatusChartColor, normalizeOrderStatus } from './orderStatusTone';
 
 describe('orderStatusTone', () => {
   it('gives Order Placed a tone distinct from Ready for Pickup', () => {
@@ -18,5 +18,20 @@ describe('orderStatusTone', () => {
     expect(getStatusTone('ORDER_PLACED')).toBe(getStatusTone('Order Placed'));
     expect(getStatusTone(undefined)).toBe(getStatusTone('Order Placed'));
     expect(normalizeOrderStatus('COMPLETED')).toBe('Completed');
+  });
+
+  it('makes Order Placed the one attention tone (amber), distinct from all other chips', () => {
+    const tones = ['Order Placed', 'Ready for Pickup', 'Completed', 'Cancelled'].map(getStatusTone);
+    expect(new Set(tones).size).toBe(4);
+    expect(getStatusTone('Order Placed')).toContain('amber');
+    expect(getStatusTone('Order Placed')).not.toContain('text-muted-foreground');
+  });
+
+  it('draws chart slices from the same module, by label or raw enum', () => {
+    const labels = ['Order Placed', 'Ready for Pickup', 'Completed', 'Cancelled'];
+    expect(new Set(labels.map(getStatusChartColor)).size).toBe(4);
+    expect(getStatusChartColor('ORDER_PLACED')).toBe(getStatusChartColor('Order Placed'));
+    expect(getStatusChartColor('CANCELLED')).toBe(getStatusChartColor('Cancelled'));
+    expect(getStatusChartColor(undefined)).toBe(getStatusChartColor('Order Placed'));
   });
 });
