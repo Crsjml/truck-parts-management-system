@@ -1,13 +1,14 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { CaretLeft, CaretRight, CurrencyDollar, FileText, ShoppingCart, TrendUp, CheckCircle, Truck, X, Clock, DownloadSimple } from '@phosphor-icons/react';
 import { useSettings } from '../../context/SettingsContext';
 import KpiTile from './KpiTile';
 import { inRange, isRevenueTransaction, computeKpis, rankPartsBySales, getRankDeltaBadge, orderStatusBreakdown, dayPaymentMix } from '../../utils/salesAnalytics';
 import { buildSalesSummaryPdf } from '../../utils/salesSummaryPdf';
 import { getStatusTone } from '../../utils/orderStatusTone';
+import { usePdfExport } from '../../hooks/usePdfExport';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 
-export default function DailySalesSummary({ transactions }) {
+export default function DailySalesSummary({ transactions, showToast }) {
   const { formatBaseCurrency } = useSettings();
   const todayKey = toLocalDateKey();
   
@@ -83,6 +84,12 @@ export default function DailySalesSummary({ transactions }) {
   const topParts = useMemo(() => rankPartsBySales(transactions, { start: dayStart, end: dayEnd }, 5), [transactions, dayStart, dayEnd]);
 
   const hasSales = kpis.invoices > 0;
+
+  const runExport = useCallback(() => buildSalesSummaryPdf(transactions, { selectedDate }), [transactions, selectedDate]);
+  const onExportSuccess = useCallback(() => showToast?.('PDF exported.', 'success'), [showToast]);
+  const onExportError = useCallback((err) => showToast?.(`PDF export failed: ${err.message}`, 'error'), [showToast]);
+  const { exportPdf, isExporting, error: exportError } = usePdfExport(runExport, { onSuccess: onExportSuccess, onError: onExportError });
+  const exportHint = 'No sales on this day, so there is nothing to export.';
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -172,14 +179,25 @@ export default function DailySalesSummary({ transactions }) {
           )}
 
           <button
-            onClick={() => buildSalesSummaryPdf(transactions, { selectedDate })}
-            disabled={!hasSales}
+            type="button"
+            onClick={() => exportPdf()}
+            disabled={!hasSales || isExporting}
+            aria-busy={isExporting}
+            aria-describedby={hasSales ? undefined : 'ds-export-hint'}
+            title={hasSales ? undefined : exportHint}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-secondary hover:bg-muted text-foreground border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
-            <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> Export PDF
+            <DownloadSimple weight="bold" className="w-3.5 h-3.5" /> {isExporting ? 'Exporting…' : 'Export PDF'}
           </button>
+          {!hasSales && <span id="ds-export-hint" className="sr-only">{exportHint}</span>}
         </div>
       </div>
+
+      {exportError && !showToast && (
+        <p role="alert" className="text-xs font-semibold text-alarm-text">
+          PDF export failed: {exportError.message}
+        </p>
+      )}
 
       {!hasSales ? (
         <div className="bg-card border border-border rounded-xl p-12 flex flex-col items-center justify-center text-center">

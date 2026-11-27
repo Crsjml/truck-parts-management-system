@@ -720,7 +720,7 @@ export default function Analytics({ parts = [], transactions = [], isLoading = f
       {activeTab === 'daily-sales' && (
         <div role="tabpanel" id="analytics-panel-daily-sales" aria-labelledby="analytics-tab-daily-sales" className="space-y-5">
           {scopeLine}
-          <DailySalesSummary transactions={channelTx} />
+          <DailySalesSummary transactions={channelTx} showToast={showToast} />
         </div>
       )}
       {activeTab === 'best-selling' && (
