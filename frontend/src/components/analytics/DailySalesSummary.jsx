@@ -9,7 +9,7 @@ import { usePdfExport } from '../../hooks/usePdfExport';
 import { toLocalDateKey, parseLocalDateKey, addLocalDays } from '../../utils/localDate';
 
 export default function DailySalesSummary({ transactions, showToast }) {
-  const { formatBaseCurrency } = useSettings();
+  const { formatBaseCurrency, formatPdfBaseCurrency } = useSettings();
   const todayKey = toLocalDateKey();
   
   const [selectedDate, setSelectedDate] = useState(todayKey);
@@ -85,7 +85,7 @@ export default function DailySalesSummary({ transactions, showToast }) {
 
   const hasSales = kpis.invoices > 0;
 
-  const runExport = useCallback(() => buildSalesSummaryPdf(transactions, { selectedDate }), [transactions, selectedDate]);
+  const runExport = useCallback(() => buildSalesSummaryPdf(transactions, { selectedDate, formatCurrency: formatPdfBaseCurrency }), [transactions, selectedDate, formatPdfBaseCurrency]);
   const onExportSuccess = useCallback(() => showToast?.('PDF exported.', 'success'), [showToast]);
   const onExportError = useCallback((err) => showToast?.(`PDF export failed: ${err.message}`, 'error'), [showToast]);
   const { exportPdf, isExporting, error: exportError } = usePdfExport(runExport, { onSuccess: onExportSuccess, onError: onExportError });
@@ -100,8 +100,6 @@ export default function DailySalesSummary({ transactions, showToast }) {
     }
   };
 
-  const getStatusColor = getStatusTone;
-
   const orderStatusPanel = (
     <>
       <h4 className="text-xs font-bold font-display uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Order Status</h4>
@@ -112,7 +110,7 @@ export default function DailySalesSummary({ transactions, showToast }) {
           orderStatuses.map((status) => {
             const StatusIcon = getStatusIcon(status.name);
             return (
-              <div key={status.name} className={`flex items-center justify-between p-3 rounded-lg border ${getStatusColor(status.name)} bg-opacity-30`}>
+              <div key={status.name} className={`flex items-center justify-between p-3 rounded-lg border ${getStatusTone(status.name)}`}>
                 <div className="flex items-center gap-2">
                   <StatusIcon weight="bold" className="w-4 h-4" />
                   <span className="text-xs font-bold tracking-tight">{status.name}</span>
@@ -242,7 +240,7 @@ export default function DailySalesSummary({ transactions, showToast }) {
                           <span className="text-xs font-bold text-foreground bg-secondary/80 px-1.5 py-0.5 rounded">{mix.percentage.toFixed(1)}%</span>
                         </div>
                       </div>
-                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden flex border border-border/50" role="progressbar" aria-valuenow={mix.percentage} aria-valuemin="0" aria-valuemax="100" aria-label={`${mix.label} represents ${mix.percentage.toFixed(1)}% of total revenue`}>
+                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden flex border border-border/50" role="img" aria-label={`${mix.label} represents ${mix.percentage.toFixed(1)}% of total revenue`}>
                         <div 
                           className="bg-brandBlue-500 rounded-full" 
                           style={{ width: `${mix.percentage}%` }}

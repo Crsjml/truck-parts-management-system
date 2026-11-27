@@ -72,13 +72,13 @@ function summarize(transactions, selectedDate) {
   };
 }
 
-function financialTable(doc, s) {
+function financialTable(doc, s, formatCurrency) {
   const lines = [
-    ['Gross Sales', formatMoney(s.kpis.revenue)],
-    ['Less: Discounts', `-${formatMoney(s.discounts)}`],
-    [{ content: 'Net Sales', bold: true }, totalCell(formatMoney(s.netSales), 'single', true)],
-    ['VATable (net of VAT)', formatMoney(s.vatableSales)],
-    ['Output VAT (12%)', formatMoney(s.vatAmount)]
+    ['Gross Sales', formatCurrency(s.kpis.revenue)],
+    ['Less: Discounts', `-${formatCurrency(s.discounts)}`],
+    [{ content: 'Net Sales', bold: true }, totalCell(formatCurrency(s.netSales), 'single', true)],
+    ['VATable (net of VAT)', formatCurrency(s.vatableSales)],
+    ['Output VAT (12%)', formatCurrency(s.vatAmount)]
   ];
   sectionLabel(doc, 'Financial Breakdown', MARGIN, 70);
   return openTable(doc, {
@@ -88,15 +88,15 @@ function financialTable(doc, s) {
   });
 }
 
-function mixTables(doc, s, startY) {
+function mixTables(doc, s, startY, formatCurrency) {
   sectionLabel(doc, 'Payment Mix', MARGIN, startY - 2);
   const payY = openTable(doc, {
     startY, margin: { right: HALF_SPLIT },
     columns: [{ head: 'PAYMENT\nMETHOD' }, { head: 'AMOUNT', align: 'right', mono: true }, { head: 'SHARE', align: 'right', mono: true, width: 18 }],
     body: s.paymentMix.length
-      ? s.paymentMix.map((m) => [safe(m.label, 14), formatMoney(m.amount), `${m.percentage.toFixed(1)}%`])
+      ? s.paymentMix.map((m) => [safe(m.label, 14), formatCurrency(m.amount), `${m.percentage.toFixed(1)}%`])
       : [['No payment data', '', '']],
-    foot: [[{ content: 'TOTAL', bold: true }, totalCell(formatMoney(s.kpis.revenue), 'double', true), totalCell('100.0%', 'double', true)]]
+    foot: [[{ content: 'TOTAL', bold: true }, totalCell(formatCurrency(s.kpis.revenue), 'double', true), totalCell('100.0%', 'double', true)]]
   });
   sectionLabel(doc, 'Order Status', HALF_SPLIT, startY - 2);
   const statusTotal = s.orderStatuses.reduce((sum, o) => sum + (o.count || 0), 0);
@@ -109,20 +109,20 @@ function mixTables(doc, s, startY) {
   return Math.max(payY, doc.lastAutoTable.finalY);
 }
 
-export function buildSalesSummaryPdf(transactions, { selectedDate }) {
+export function buildSalesSummaryPdf(transactions, { selectedDate, formatCurrency = formatMoney }) {
   const s = summarize(transactions, selectedDate);
   const dateLine = `Date : ${formatDate(s.start)}`;
   const doc = new jsPDF();
 
   masthead(doc, { title: 'SALES SUMMARY', meta: [dateLine, `Generated : ${formatDateTime(new Date())}`] });
   kpiStrip(doc, [
-    ['GROSS SALES', formatMoney(s.kpis.revenue), deltaText(s.kpis.deltas?.revenue)],
+    ['GROSS SALES', formatCurrency(s.kpis.revenue), deltaText(s.kpis.deltas?.revenue)],
     ['TRANSACTIONS', s.kpis.invoices, deltaText(s.kpis.deltas?.invoices)],
     ['UNITS SOLD', s.curUnits, deltaText(s.unitsDelta)]
   ], 44);
 
-  const finY = financialTable(doc, s);
-  const endY = mixTables(doc, s, finY + 10);
+  const finY = financialTable(doc, s, formatCurrency);
+  const endY = mixTables(doc, s, finY + 10, formatCurrency);
   doc.setFont('Helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(INK_2);
   doc.text('Deltas compare against the previous day.', MARGIN, endY + 10);
   doc.setTextColor(INK);

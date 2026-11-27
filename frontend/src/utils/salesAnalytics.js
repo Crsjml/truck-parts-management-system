@@ -1,3 +1,5 @@
+import { normalizeOrderStatus } from './orderStatusTone';
+
 export const PERIODS = [
   { key: '7d', label: 'Last 7 Days', bucket: 'day', spanMs: 7 * 864e5, comparable: true, baseline: 'previous 7 days' },
   { key: '30d', label: 'Last 30 Days', bucket: 'week', spanMs: 30 * 864e5, comparable: true, baseline: 'previous 30 days' },
@@ -595,12 +597,7 @@ export function orderStatusBreakdown(transactions, { start, end }) {
   const statusCounts = new Map();
   
   for (const t of current) {
-    let s = t.status || 'Order Placed';
-    if (s === 'ORDER_PLACED') s = 'Order Placed';
-    if (s === 'READY_FOR_PICKUP') s = 'Ready for Pickup';
-    if (s === 'COMPLETED') s = 'Completed';
-    if (s === 'CANCELLED') s = 'Cancelled';
-    
+    const s = normalizeOrderStatus(t.status);
     statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
   }
   
