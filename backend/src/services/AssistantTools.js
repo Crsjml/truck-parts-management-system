@@ -335,7 +335,7 @@ const HANDLERS = {
 
   async get_part(args, deps) {
     const part = await deps.partsRepository.findCustomerPart(args.id ? { id: args.id } : { sku: args.sku });
-    if (!isCustomerVisible(part)) return { error: 'Part not found.' };
+    if (!isCustomerVisible(part)) return { error: 'Part not found. Call search_parts with the part name to find the real SKU.' };
     return { part: toCustomerPart(part, await deps.getMarkup(), await getCurrency(deps)) };
   },
 

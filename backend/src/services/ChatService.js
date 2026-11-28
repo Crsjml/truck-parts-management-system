@@ -47,6 +47,16 @@ export const UNAVAILABLE_ERROR = 'assistant_unavailable';
 export const UNAVAILABLE_TEXT = 'The parts assistant is unavailable right now. Please try again in a few minutes, or contact the store for help.';
 const EMPTY_REPLY = "Sorry, I couldn't put together an answer. Please try rephrasing, or contact the store for help.";
 
+// Deterministic guard: a 3B model sometimes answers "supplier cost" questions with the selling price.
+// Internal-data requests never reach the model or any tool. Bare "cost" is NOT matched (customers ask "how much does it cost").
+const INTERNAL_DATA_QUESTION = /\b(suppliers?|supplied by|supplies|cost price|supplier cost|your cost|profit|margins?|markups?|wholesale|(?:buy|buying|purchase|purchasing) (?:price|cost)|how much (?:do|does) (?:you|the store) (?:buy|pay|purchase))\b/i;
+const INTERNAL_DATA_REPLY = "Sorry, I can't share supplier or cost information.";
+
+const lastUserText = (messages) => {
+  const last = Array.isArray(messages) ? [...messages].reverse().find((m) => m?.role === 'user') : null;
+  return typeof last?.content === 'string' ? last.content : '';
+};
+
 const text = (value) => ({ type: 'text', text: value });
 
 const safeStringify = (value) => {
@@ -132,6 +142,10 @@ const ABORTED = 'aborted';
  * { ok:false, error } (error === 'aborted' when `signal` fired).
  */
 async function runTurn(input, deps, io = {}) {
+  if (INTERNAL_DATA_QUESTION.test(lastUserText(input?.messages))) {
+    io.onText?.(INTERNAL_DATA_REPLY);
+    return { ok: true, finalText: INTERNAL_DATA_REPLY, collected: new Map() };
+  }
   // One wall-clock budget for the whole turn (all LLM rounds + tools). When it
   // elapses, the upstream request is aborted and the turn fails as "unavailable".
   const turn = new AbortController();

@@ -337,6 +337,14 @@ describe('search_parts price, stock, sort and browse', () => {
 });
 
 describe('get_part errors', () => {
+  it('tells the model to search by name when a sku is not found', async () => {
+    const deps = makeDeps();
+    deps.partsRepository.findCustomerPart.mockResolvedValue(null);
+    const res = await executeTool('get_part', { sku: 'the first one' }, deps);
+    expect(res.error).toMatch(/not found/i);
+    expect(res.error).toMatch(/search_parts/);
+  });
+
   it('points the model at search_parts when neither id nor sku is given', async () => {
     const res = await executeTool('get_part', { query: 'first one' }, makeDeps());
     expect(res.error).toMatch(/search_parts/);

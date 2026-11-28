@@ -295,3 +295,40 @@ describe('ChatService.respondStream', () => {
     expect(events).toEqual([]);
   });
 });
+
+describe('internal-data questions (supplier / cost / margin)', () => {
+  const ask = (content) => ({ messages: [{ role: 'user', content }], userId: 'u1' });
+  const DECLINE = /can't share supplier or cost information/;
+
+  it.each([
+    'What is your supplier cost for the Fuso Canter Brake Linings?',
+    "What's your profit margin on brake pads?",
+    'who supplies your alternators',
+    'how much do you buy the air dryer relay for?',
+    'what is the cost price of BRK-PAD-00002'
+  ])('declines "%s" without calling the model or any tool', async (q) => {
+    const llm = { chat: vi.fn() };
+    const exec = vi.fn();
+    const out = await respond(ask(q), {}, { llm, executeTool: exec, toolDeps: {} });
+    expect(out.ok).toBe(true);
+    expect(out.content[0].text).toMatch(DECLINE);
+    expect(llm.chat).not.toHaveBeenCalled();
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it('streams the same decline', async () => {
+    const events = [];
+    const llm = { chat: vi.fn(), chatStream: vi.fn() };
+    await respondStream(ask('supplier cost of brake pads?'), { onEvent: (e) => events.push(e) }, { llm, executeTool: vi.fn(), toolDeps: {} });
+    expect(events.map((e) => e.type)).toEqual(['text-delta', 'done']);
+    expect(events[0].text).toMatch(DECLINE);
+    expect(llm.chatStream).not.toHaveBeenCalled();
+  });
+
+  it.each(['How much does the brake pad cost?', 'what is the price of BRK-1', 'Do you have a supply of oil filters?'])(
+    'still lets the model answer ordinary question "%s"', async (q) => {
+      const llm = scripted(say('Sure.'));
+      const out = await respond(ask(q), {}, { llm, executeTool: vi.fn(), toolDeps: {} });
+      expect(out.content[0].text).toBe('Sure.');
+    });
+});
