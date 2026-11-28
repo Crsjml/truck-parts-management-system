@@ -68,7 +68,7 @@ Steps 1-3 are done and uncommitted. Results: `parts-assistant.spec.ts` passes 5/
 Files: `StorefrontChatbot.jsx`, `CustomerStorefront.jsx` (userId prop), `App.jsx` + `MyAccount.jsx` (clearAllThreads on sign-out),
 `utils/chatThreadStorage.js`, `utils/chatPriceText.js` (+ tests), `StorefrontChatbot.test.jsx`, `frontend/tests/parts-assistant.spec.ts`.
 
-## Step 4: Convert leftover base-currency prices that have no card (TODO)
+## Step 4: Convert leftover base-currency prices that have no card (DONE in 46bb5f7)
 
 Problem found in Step 3: for broad questions the model mentions more parts in its text (e.g. 5) than get `show_part`
 cards (e.g. 3). `localizePriceText` only rewrites the `priceDisplay` strings of parts with a card in the same message,
