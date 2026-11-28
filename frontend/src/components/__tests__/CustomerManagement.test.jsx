@@ -96,6 +96,35 @@ describe('CustomerManagement drawer stats', () => {
     });
   });
 
+  it('leaves cancelled orders out of drawer orders, spend and average order', async () => {
+    fetchCustomers.mockResolvedValue({
+      online: [],
+      ftf: [{
+        id: 'a@b.com', authId: 'temp-ftf-a@b.com', email: 'a@b.com', displayName: 'Mixed Orders', companyName: '',
+        phoneNumber: '1', orderCount: 1, totalSpend: 100, lastOrderDate: '2026-08-05T06:56:00.000Z', createdAt: '2026-08-05T00:00:00.000Z'
+      }]
+    });
+    const tx = (id, status, total) => ({
+      id, invoiceNumber: `INV-${id}`, status, paymentMethod: 'CASH', transactionDate: '2026-08-05T06:56:00.000Z',
+      total, tax: 0, discount: 0, processedBy: 'admin', items: [{ name: 'Part', quantity: 1, price: total }]
+    });
+    fetchCustomerTransactions.mockResolvedValue({
+      ok: true, online: [], ftf: [tx('1', 'COMPLETED', 100), tx('2', 'CANCELLED', 900)]
+    });
+
+    render(<CustomerManagement />);
+    fireEvent.click(await screen.findByRole('button', { name: /Face-to-Face Clients/i }));
+    fireEvent.click(await screen.findByText('Mixed Orders'));
+    await screen.findByText('INV-1');
+
+    const card = (label) => screen.getAllByText(label).at(-1).closest('.p-3');
+    expect(within(card('Total Orders')).getByText('1')).toBeInTheDocument();
+    expect(within(card('Total Spend')).getByText('₱100.00')).toBeInTheDocument();
+    expect(within(card('Avg. Order')).getByText('₱100.00')).toBeInTheDocument();
+    // The purchase history itself still lists the cancelled order.
+    expect(screen.getByText('INV-2')).toBeInTheDocument();
+  });
+
   it('renders selection bar when customer checkboxes are selected', async () => {
     fetchCustomers.mockResolvedValue({
       online: [
