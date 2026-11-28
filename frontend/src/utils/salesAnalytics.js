@@ -1,7 +1,9 @@
+import { normalizeOrderStatus } from './orderStatusTone';
+
 export const PERIODS = [
-  { key: '7d', label: 'Last 7 Days', bucket: 'day', spanMs: 7 * 864e5, comparable: true },
-  { key: '30d', label: 'Last 30 Days', bucket: 'week', spanMs: 30 * 864e5, comparable: true },
-  { key: 'all', label: 'All Time', bucket: 'month', spanMs: 0, comparable: false }
+  { key: '7d', label: 'Last 7 Days', bucket: 'day', spanMs: 7 * 864e5, comparable: true, baseline: 'previous 7 days' },
+  { key: '30d', label: 'Last 30 Days', bucket: 'week', spanMs: 30 * 864e5, comparable: true, baseline: 'previous 30 days' },
+  { key: 'all', label: 'All Time', bucket: 'month', spanMs: 0, comparable: false, baseline: null }
 ];
 
 export const PAYMENT_METHODS = ['CASH', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GCASH'];
@@ -49,7 +51,18 @@ export function byChannel(transactions, channel) {
   return transactions;
 }
 
-export function computeKpis(current, previous) {
+// A cancelled order keeps its original `total` and is still returned by
+// GET /api/transactions, so every money/unit/ranking figure must skip it.
+// Only orderStatusBreakdown and the order ledger should see cancelled rows.
+export function isRevenueTransaction(t) {
+  return String(t?.status ?? '').toUpperCase() !== 'CANCELLED';
+}
+
+const revenueOnly = (transactions) => (transactions || []).filter(isRevenueTransaction);
+
+export function computeKpis(allCurrent, allPrevious) {
+  const current = revenueOnly(allCurrent);
+  const previous = revenueOnly(allPrevious);
   const revenue = current.reduce((sum, t) => sum + (t.total || 0), 0);
   const invoices = current.length;
   const avgInvoice = invoices ? revenue / invoices : 0;
@@ -139,7 +152,9 @@ function buildCalendarMonthBuckets(current, previous, range, createRow, aggregat
   return series;
 }
 
-export function trendSeries(current, previous, range) {
+export function trendSeries(allCurrent, allPrevious, range) {
+  const current = revenueOnly(allCurrent);
+  const previous = revenueOnly(allPrevious);
   let { start, bucket, comparable, spanMs } = range;
   
   if (bucket === 'month') {
@@ -226,7 +241,8 @@ export function buildCategoryTree(categories) {
   return { parentOf, childrenOf };
 }
 
-export function categoryRevenue(transactions, parts, tree, drilled) {
+export function categoryRevenue(allTransactions, parts, tree, drilled) {
+  const transactions = revenueOnly(allTransactions);
   const partMap = new Map();
   for (const p of parts) partMap.set(p.id, p.category);
   
@@ -262,12 +278,16 @@ export function categoryRevenue(transactions, parts, tree, drilled) {
   });
 }
 
-export function topMovers(current, previous, limit) {
+export function topMovers(allCurrent, allPrevious, limit) {
+  const current = revenueOnly(allCurrent);
+  const previous = revenueOnly(allPrevious);
   const curCounts = new Map();
   const curRev = new Map();
+  const curIds = new Map();
   
   for (const t of current) {
     for (const item of (t.items || [])) {
+      if (item.partId != null && !curIds.has(item.name)) curIds.set(item.name, item.partId);
       curCounts.set(item.name, (curCounts.get(item.name) || 0) + (item.quantity || 0));
       curRev.set(item.name, (curRev.get(item.name) || 0) + (item.quantity || 0) * (item.price || 0));
     }
@@ -293,6 +313,7 @@ export function topMovers(current, previous, limit) {
     const prevRank = prevRanks.has(c.name) ? prevRanks.get(c.name) : null;
     return {
       name: c.name,
+      partId: curIds.get(c.name) ?? null,
       quantity: c.quantity,
       revenue: c.revenue,
       rankDelta: prevRank !== null ? prevRank - i : null
@@ -303,7 +324,8 @@ export function topMovers(current, previous, limit) {
   return result;
 }
 
-export function paymentMix(transactions, range) {
+export function paymentMix(allTransactions, range) {
+  const transactions = revenueOnly(allTransactions);
   let { start, spanMs, bucket } = range;
   
   if (bucket === 'month') {
@@ -392,7 +414,10 @@ export function getRankDeltaBadge(rankDelta) {
   return { text: '—', style: 'text-muted-foreground bg-secondary border-border' };
 }
 
-export function slowMovingParts(parts, transactions, { start, end }, threshold = 0) {
+// `lastSaleTransactions` (optional) is the pool used for "last sale"; pass the
+// unfiltered list so a channel filter does not turn in-store sales into "Never".
+export function slowMovingParts(parts, allTransactions, { start, end }, threshold = 0, lastSaleTransactions = allTransactions) {
+  const transactions = revenueOnly(allTransactions);
   const current = inRange(transactions, start, end);
   const curCounts = new Map();
   
@@ -404,7 +429,7 @@ export function slowMovingParts(parts, transactions, { start, end }, threshold =
   
   // Precompute last sale dates from ALL transactions (O(T))
   const lastSaleMap = new Map();
-  for (const t of transactions) {
+  for (const t of revenueOnly(lastSaleTransactions)) {
     const d = new Date(t.transactionDate);
     for (const item of (t.items || [])) {
       const existing = lastSaleMap.get(item.partId);
@@ -428,11 +453,16 @@ export function slowMovingParts(parts, transactions, { start, end }, threshold =
       }
     }
   }
-  return result.sort((a, b) => a.unitsSold - b.unitsSold);
+  // Never sold first, then longest idle, then most stock (largest idle capital).
+  const idle = (r) => (r.daysSinceLastSale === null ? Infinity : r.daysSinceLastSale);
+  return result.sort((a, b) => {
+    const byIdle = idle(b) - idle(a);
+    return (Number.isNaN(byIdle) ? 0 : byIdle) || (b.stock - a.stock);
+  });
 }
 
 export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
-  const current = inRange(transactions, start, end);
+  const current = inRange(revenueOnly(transactions), start, end);
 
   if (bucketBy === 'month') {
     const series = buildCalendarMonthBuckets(
@@ -460,30 +490,39 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
     return series;
   }
 
-  const spanMs = end - start;
-  
-  const numBuckets = bucketBy === 'day' ? Math.round(spanMs / 864e5) : bucketBy === 'week' ? Math.ceil(spanMs / (864e5 * 7)) : Math.ceil(spanMs / (864e5 * 30)) || 1;
-  const buckets = Math.max(numBuckets, 1);
-  const bucketMs = spanMs > 0 ? spanMs / buckets : 1;
-  
+  // Day/week buckets use LOCAL calendar arithmetic so a DST hour can neither
+  // duplicate a day nor push a late-evening sale into the previous bucket.
+  // Weeks are exact 7-calendar-day slices from the start (the last may be shorter).
+  const stepDays = bucketBy === 'week' ? 7 : 1;
+  const y = start.getFullYear(), m = start.getMonth(), d0 = start.getDate();
+  const calendarDays = Math.round(
+    (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(y, m, d0)) / 864e5
+  ) + 1;
+  const buckets = Math.max(Math.ceil(calendarDays / stepDays), 1);
+  const starts = Array.from({ length: buckets + 1 }, (_, i) => new Date(y, m, d0 + i * stepDays));
+
   const series = Array.from({ length: buckets }, (_, i) => ({
     label: '',
-    date: new Date(start.getTime() + i * bucketMs),
+    date: starts[i],
     revenue: 0,
     invoices: 0,
     isPeak: false
   }));
-  
+
   for (const t of current) {
-    const d = new Date(t.transactionDate);
-    let i = Math.floor((d - start) / bucketMs);
-    if (i === buckets && buckets > 0) i = buckets - 1;
-    if (i >= 0 && i < buckets) {
+    const ms = new Date(t.transactionDate).getTime();
+    // bucket i covers [starts[i], starts[i+1]); the last also takes the inclusive end instant
+    let i = -1;
+    for (let k = 0; k < buckets; k++) {
+      if (ms >= starts[k].getTime() && ms < starts[k + 1].getTime()) { i = k; break; }
+    }
+    if (i === -1 && ms >= starts[buckets].getTime() && ms <= end.getTime()) i = buckets - 1;
+    if (i >= 0) {
       series[i].revenue += (t.total || 0);
       series[i].invoices += 1;
     }
   }
-  
+
   let maxRev = -1;
   let peakIndex = -1;
   for (let i = 0; i < series.length; i++) {
@@ -500,7 +539,7 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
     if (bucketBy === 'day') {
       s.label = s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     } else if (bucketBy === 'week') {
-      s.label = `Wk ${s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+      s.label = `7 days from ${s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
     } else {
       s.label = s.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
     }
@@ -509,11 +548,28 @@ export function peakSalesBuckets(transactions, { start, end }, bucketBy) {
   return series;
 }
 
+// Callout text naming the busiest bucket. Ties go to the earliest period
+// (peakSalesBuckets flags only the first maximum). Null when nothing sold.
+export function peakCalloutText(series, bucketBy, formatCurrency) {
+  const peak = (series || []).find((s) => s.isPeak);
+  if (!peak || !(peak.invoices > 0)) return null;
+  const money = formatCurrency(peak.revenue);
+  const inv = `${peak.invoices} invoice${peak.invoices === 1 ? '' : 's'}`;
+  if (bucketBy === 'day') {
+    const d = peak.date;
+    const wd = d.toLocaleDateString(undefined, { weekday: 'short' });
+    const mon = d.toLocaleDateString(undefined, { month: 'short' });
+    return `Busiest day: ${wd} ${d.getDate()} ${mon}, ${money} from ${inv}`;
+  }
+  if (bucketBy === 'week') return `Busiest week (${peak.label}): ${money} from ${inv}`;
+  return `Busiest month: ${peak.label}, ${money} from ${inv}`;
+}
+
 // Payment-method breakdown for a single range (not bucketed into a time
 // series like paymentMix() above) — shared by DailySalesSummary.jsx and
 // salesSummaryPdf.js so the on-screen and exported figures never drift.
 export function dayPaymentMix(transactions, { start, end }) {
-  const dayTx = inRange(transactions, start, end);
+  const dayTx = inRange(revenueOnly(transactions), start, end);
   const mix = {};
   let totalRevenue = 0;
   PAYMENT_METHODS.forEach(m => mix[m] = 0);
@@ -541,12 +597,7 @@ export function orderStatusBreakdown(transactions, { start, end }) {
   const statusCounts = new Map();
   
   for (const t of current) {
-    let s = t.status || 'Order Placed';
-    if (s === 'ORDER_PLACED') s = 'Order Placed';
-    if (s === 'READY_FOR_PICKUP') s = 'Ready for Pickup';
-    if (s === 'COMPLETED') s = 'Completed';
-    if (s === 'CANCELLED') s = 'Cancelled';
-    
+    const s = normalizeOrderStatus(t.status);
     statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
   }
   

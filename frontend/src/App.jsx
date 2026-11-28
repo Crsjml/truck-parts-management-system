@@ -763,7 +763,7 @@ export default function App() {
 
                 {page === 'pos' && <TransactionPOS parts={parts} onCheckout={handleCheckout} />}
 
-                {page === 'analytics' && <Analytics parts={parts} transactions={transactions} />}
+                {page === 'analytics' && <Analytics parts={parts} transactions={transactions} showToast={showToast} />}
                 {page === 'categories' && <CategoryManagement onAddLog={addLog} />}
                 {page === 'account' && <MyAccount user={supabaseUser} transactions={transactions} variant="admin" backLabel="Back to workspace" onGoBack={() => setPage(defaultStaffPage(staffRole))} />}
                 {(adminSession?.user?.staffData?.role === 'SUPERADMIN') && page === 'staff' && <StaffManagement currentEmail={adminSession?.user?.staffData?.email} />}

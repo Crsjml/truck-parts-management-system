@@ -89,6 +89,12 @@
   *:focus-visible {
     @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-background transition-shadow duration-200;
   }
+  /* Chart shapes are SVG, so the box-shadow ring above does not paint on them. */
+  .recharts-wrapper [role="button"]:focus-visible {
+    outline: 2px solid hsl(var(--accent));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
   body {
     @apply bg-background text-foreground font-sans overflow-x-hidden selection:bg-accent selection:text-accent-foreground transition-colors duration-300;
     background-image: 

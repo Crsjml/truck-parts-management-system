@@ -1,6 +1,7 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { PAYMENT_METHODS, PAYMENT_LABELS, PAYMENT_COLORS, getRankDeltaBadge } from '../../utils/salesAnalytics';
+import { getStatusChartColor } from '../../utils/orderStatusTone';
 
 const CHART_TOOLTIP_STYLE = { backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '12px' };
 const CHART_ITEM_STYLE = { color: 'hsl(var(--popover-foreground))' };
@@ -15,24 +16,19 @@ const CHART_SERIES = [
   'hsl(var(--chart-6))',
   'hsl(var(--chart-danger))'
 ];
+const onActivateKey = (callback) => (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    callback();
+  }
+};
+
 const RANK_COLORS = {
   neutral: 'hsl(var(--chart-6))',
   new: 'hsl(var(--chart-3))',
   up: 'hsl(var(--chart-2))',
   down: 'hsl(var(--chart-danger))'
 };
-const STATUS_CHART_COLORS = {
-  Completed: 'hsl(var(--chart-2))',
-  'Ready for Pickup': 'hsl(var(--chart-1))',
-  Cancelled: 'hsl(var(--chart-danger))',
-  'Order Placed': 'hsl(var(--chart-4))',
-  COMPLETED: 'hsl(var(--chart-2))',
-  READY_FOR_PICKUP: 'hsl(var(--chart-1))',
-  CANCELLED: 'hsl(var(--chart-danger))',
-  ORDER_PLACED: 'hsl(var(--chart-4))'
-};
-
-
 
 export function MoverTick({ x, y, payload, movers }) {
   const name = payload?.value || '';
@@ -60,6 +56,27 @@ export function MoverTick({ x, y, payload, movers }) {
         </div>
       </foreignObject>
     </g>
+  );
+}
+
+// Show at most ~10 x-axis labels so long Day ranges stay readable.
+// Week labels ("7 days from Nov 27") are long, so they thin out sooner.
+export const peakTickInterval = (n, bucketBy = 'day') => {
+  const threshold = bucketBy === 'week' ? 5 : 12;
+  const target = bucketBy === 'week' ? 5 : 10;
+  return n > threshold ? Math.ceil(n / target) - 1 : 0;
+};
+
+export function PeakTooltipContent({ active, payload, formatCurrency }) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+  return (
+    <div style={CHART_TOOLTIP_STYLE} className="px-3 py-2 text-xs space-y-0.5">
+      <div className="font-semibold">{row.label}</div>
+      <div>{formatCurrency(row.revenue || 0)}</div>
+      <div className="text-muted-foreground">{row.invoices} {row.invoices === 1 ? 'invoice' : 'invoices'}</div>
+      {row.isPeak && <div className="font-semibold">Busiest</div>}
+    </div>
   );
 }
 
@@ -154,7 +171,18 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
                 if (entry.rankDelta === null) fill = RANK_COLORS.new;
                 else if (entry.rankDelta > 0) fill = RANK_COLORS.up;
                 else if (entry.rankDelta < 0) fill = RANK_COLORS.down;
-                return <Cell key={`cell-${index}`} fill={fill} />;
+                const { onMoverClick } = extraProps || {};
+                const activate = () => { if (onMoverClick) onMoverClick(entry.name); };
+                return (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={fill}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${entry.name}, ${entry.quantity} units. View part details`}
+                    onKeyDown={onActivateKey(activate)}
+                  />
+                );
               })}
             </Bar>
           </BarChart>
@@ -202,11 +230,18 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             >
               {data.map((entry, index) => {
                 const fill = entry.name === 'Uncategorized' ? 'hsl(var(--chart-6))' : CHART_SERIES[index % CHART_SERIES.length];
+                const drillProps = entry.hasChildren && onDrill ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-label': `${entry.name}, ${formatCurrency ? formatCurrency(entry.revenue || 0) : entry.revenue}. Drill into subcategories`,
+                  onKeyDown: onActivateKey(() => onDrill(entry.name))
+                } : {};
                 return (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={fill} 
-                    style={{ cursor: entry.hasChildren ? 'pointer' : 'default', transition: 'opacity 0.2s', outline: 'none' }}
+                    {...drillProps}
+                    style={{ cursor: entry.hasChildren ? 'pointer' : 'default', transition: 'opacity 0.2s' }}
                     onMouseEnter={(e) => { e.target.style.opacity = 0.8; }}
                     onMouseLeave={(e) => { e.target.style.opacity = 1; }}
                   />
@@ -281,6 +316,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
             <tr>
               <th>Period</th>
               <th>Revenue</th>
+              <th>Invoices</th>
             </tr>
           </thead>
           <tbody>
@@ -288,6 +324,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               <tr key={i}>
                 <td>{row.label}</td>
                 <td>{formatCurrency(row.revenue || 0)}</td>
+                <td>{row.invoices ?? 0}</td>
               </tr>
             ))}
           </tbody>
@@ -295,13 +332,11 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} vertical={false} />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => `₱${val.toLocaleString()}`} dx={-10} />
-            <Tooltip 
+            <XAxis dataKey="label" interval={peakTickInterval(data?.length || 0, extraProps?.bucketBy)} axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={CHART_AXIS_TICK} tickFormatter={(val) => (extraProps?.formatCompactCurrency || formatCurrency)(val)} dx={-10} />
+            <Tooltip
               cursor={{ fill: CHART_CURSOR_FILL }}
-              contentStyle={CHART_TOOLTIP_STYLE}
-              itemStyle={CHART_ITEM_STYLE}
-              formatter={(value) => [formatCurrency(value), undefined]}
+              content={<PeakTooltipContent formatCurrency={formatCurrency} />}
             />
             <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
               {
@@ -352,7 +387,7 @@ export default function ChartRenderer({ type, data, formatCurrency, extraProps }
               {data.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 
-                  fill={STATUS_CHART_COLORS[entry.name] || 'hsl(var(--chart-6))'} 
+                  fill={getStatusChartColor(entry.name)} 
                   style={{ outline: 'none' }}
                 />
               ))}

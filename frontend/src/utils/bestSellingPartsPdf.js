@@ -23,7 +23,7 @@ const COLUMNS = [
   { head: 'PART NAME' },
   { head: 'OEM/MPN', mono: true, width: 28 },
   { head: 'CATEGORY', width: 34 },
-  { head: 'STOCK\nON HAND', align: 'right', mono: true, width: 20 },
+  { head: 'STOCK\nAVAILABLE', align: 'right', mono: true, width: 20 },
   { head: 'UNITS\nSOLD', align: 'right', mono: true, width: 20 },
   { head: 'REVENUE', align: 'right', mono: true, width: 38 }
 ];
@@ -50,7 +50,7 @@ export function buildBestSellingPartsPdf(ranked, { dateRange }) {
       safe(item.name, 40),
       safe(item.oem, 14) || 'N/A',
       safe(item.category, 18) || 'Uncategorized',
-      qty(item.stock),
+      qty(item.available ?? item.stock),
       qty(item.quantity),
       formatMoney(item.revenue)
     ]),

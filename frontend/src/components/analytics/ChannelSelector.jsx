@@ -8,7 +8,7 @@ const CHANNELS = [
 
 export default function ChannelSelector({ selectedChannel, onSelectChannel }) {
   return (
-    <div className="flex bg-secondary p-1 rounded-lg w-max border border-border">
+    <div role="group" aria-label="Sales channel" className="flex bg-secondary p-1 rounded-lg w-max border border-border">
       {CHANNELS.map((channel) => {
         const isActive = selectedChannel === channel.key;
         return (

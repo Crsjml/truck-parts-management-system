@@ -5,8 +5,10 @@
 // grand total. Renders the same `slowMovingParts()` rows shown on screen by
 // SlowMovingStockReport.jsx so the PDF numbers always match the dashboard.
 import {
-  jsPDF, safe, masthead, paginate, openTable, totalCell, qty, formatDate, formatDateTime, INK, INK_2, MARGIN
+  jsPDF, safe, masthead, paginate, openTable, totalCell, qty, formatDate, formatDateTime, formatMoney, INK, INK_2, MARGIN
 } from './pdf/reportPdfKit';
+import { toLocalDateKey } from './localDate';
+import { lastSaleText, stockValueOf, EM_DASH } from './slowMovingLabels';
 
 const UNCATEGORIZED = 'Uncategorized';
 
@@ -27,32 +29,39 @@ export function groupByCategory(items) {
   });
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([category, rows]) => ({ category, rows, stock: rows.reduce((s, r) => s + (r.stock || 0), 0) }));
+    .map(([category, rows]) => ({
+      category,
+      rows,
+      stock: rows.reduce((s, r) => s + (r.stock || 0), 0),
+      value: rows.reduce((s, r) => s + (stockValueOf(r) ?? 0), 0)
+    }));
 }
 
-function lastSale(days) {
-  return days !== null && days !== undefined ? `${days} days ago` : 'Never';
+function stockValueCell(item, formatCurrency) {
+  const value = stockValueOf(item);
+  return value === null ? EM_DASH : formatCurrency(value);
 }
 
-function groupRows({ category, rows, stock }) {
+function groupRows({ category, rows, stock, value }, formatCurrency) {
   const detail = rows.map((item, i) => [
     i === 0 ? { content: category, bold: true } : '',
-    safe(item.sku, 13) || 'N/A',
+    safe(item.sku, 13) || EM_DASH,
     safe(item.name, 32),
-    safe(item.oem, 14) || 'N/A',
+    safe(item.oem, 14) || EM_DASH,
     qty(item.stock),
-    qty(item.unitsSold),
-    lastSale(item.daysSinceLastSale)
+    stockValueCell(item, formatCurrency),
+    lastSaleText(item.daysSinceLastSale)
   ]);
   const subtotal = [
     { content: `${category} SUBTOTAL  (${rows.length} parts)`, colSpan: 4, styles: { halign: 'right', fontStyle: 'italic' } },
     totalCell(stock, 'single'),
-    { content: '', colSpan: 2 }
+    totalCell(formatCurrency(value), 'single'),
+    { content: '' }
   ];
   return [...detail, subtotal];
 }
 
-export function buildSlowMovingStockPdf(items, { dateRange }) {
+export function buildSlowMovingStockPdf(items, { dateRange, formatCurrency = formatMoney }) {
   const doc = new jsPDF();
   const dateLine = `Period : ${formatDate(dateRange.start)} to ${formatDate(dateRange.end)}`;
 
@@ -65,31 +74,39 @@ export function buildSlowMovingStockPdf(items, { dateRange }) {
 
   const groups = groupByCategory(items);
   const totalStock = groups.reduce((sum, g) => sum + g.stock, 0);
+  const capital = groups.reduce((sum, g) => sum + g.value, 0);
+  const missingCost = items.filter((item) => stockValueOf(item) === null).length;
+  const partsLabel = `${items.length} ${items.length === 1 ? 'part' : 'parts'}`;
+  const summaryLine = `${partsLabel} · ${formatCurrency(capital)} capital tied up`
+    + (missingCost > 0 ? ` (${missingCost} without cost, not counted)` : '');
+  doc.setFontSize(9);
+  doc.text(summaryLine, MARGIN, 47);
 
   openTable(doc, {
-    startY: 46,
+    startY: 51,
     columns: [
       { head: 'CATEGORY', width: 26 },
       { head: 'SKU', mono: true, width: 30 },
       { head: 'PART NAME' },
       { head: 'OEM/MPN', mono: true, width: 26 },
       { head: 'STOCK\nON HAND', align: 'right', mono: true, width: 19 },
-      { head: 'UNITS\nSOLD', align: 'right', mono: true, width: 15 },
-      { head: 'LAST\nSALE', align: 'right', width: 24 }
+      { head: 'STOCK\nVALUE', align: 'right', mono: true, width: 28 },
+      { head: 'LAST\nSALE', align: 'right', width: 22 }
     ],
-    body: groups.length ? groups.flatMap(groupRows) : [[{ content: 'No slow-moving parts for this period.', colSpan: 7 }]],
+    body: groups.length ? groups.flatMap((g) => groupRows(g, formatCurrency)) : [[{ content: 'No slow-moving parts for this period.', colSpan: 7 }]],
     foot: [[
       { content: `GRAND TOTAL  (${items.length} idle parts)`, colSpan: 4, styles: { halign: 'right' }, bold: true },
       totalCell(totalStock, 'double', true),
-      { content: '', colSpan: 2 }
+      totalCell(formatCurrency(capital), 'double', true),
+      { content: '' }
     ]]
   });
 
   paginate(doc, {
     title: 'SLOW-MOVING STOCK REPORT', dateLine, abbrev: ['OEM'],
-    notes: 'Blank UNITS SOLD = none sold in the period.'
+    notes: 'STOCK VALUE = stock on hand x unit cost. Parts without a cost show a dash and are not counted in totals.'
   });
 
-  const filenameDate = new Date().toISOString().split('T')[0];
+  const filenameDate = toLocalDateKey(new Date());
   doc.save(`Slow_Moving_Stock_Report_${filenameDate}.pdf`);
 }

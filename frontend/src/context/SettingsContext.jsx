@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { fetchSettings, updateSettings } from '../authStore';
 import { fetchExchangeRates } from '../utils/currency_api';
+import { formatCurrencyCode } from '../utils/currencyFormat';
 
 const defaultSettingsContext = {
   settings: { base_currency: 'PHP', active_markup: 0 },
@@ -10,6 +11,7 @@ const defaultSettingsContext = {
   formatCurrency: (amount) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0),
   formatCompactCurrency: (amount) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0),
   formatBaseCurrency: (amount) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0),
+  formatPdfBaseCurrency: (amount) => formatCurrencyCode(amount, 'PHP'),
   loading: false,
 };
 
@@ -106,6 +108,13 @@ export const SettingsProvider = ({ children }) => {
     }).format(finalAmount);
   };
 
+  // Same conversion as formatBaseCurrency, but ASCII-safe for PDF output.
+  const formatPdfBaseCurrency = (amount) => {
+    const baseRate = exchangeRates[settings.base_currency] || 1;
+    const targetRate = exchangeRates[displayCurrency] || 1;
+    return formatCurrencyCode(amount * (targetRate / baseRate), displayCurrency);
+  };
+
   const formatCompactBaseCurrency = (amount) => {
     let finalAmount = amount;
     const baseRate = exchangeRates[settings.base_currency] || 1;
@@ -137,6 +146,7 @@ export const SettingsProvider = ({ children }) => {
       formatCurrency,
       formatCompactCurrency,
       formatBaseCurrency,
+      formatPdfBaseCurrency,
       formatCompactBaseCurrency,
       loading
     }}>

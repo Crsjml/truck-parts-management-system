@@ -1,0 +1,63 @@
+import React from 'react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import SlowMovingStockReport from '../analytics/SlowMovingStockReport';
+
+vi.mock('../../utils/slowMovingStockPdf', () => ({ buildSlowMovingStockPdf: vi.fn() }));
+vi.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({ formatBaseCurrency: (v) => `$${v}` })
+}));
+
+const daysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString();
+const sale = (id, n, partId) => ({
+  id, transactionDate: daysAgo(n), status: 'Completed', salesChannel: 'POS',
+  items: [{ partId, name: partId, quantity: 1, price: 1 }]
+});
+const parts = [
+  { id: 'never', name: 'Never Part', sku: 'N-1', category: 'A', stock: 3, price: 1 },
+  { id: 'old', name: 'Old Part', sku: 'O-1', category: 'A', stock: 3, price: 1 },
+  { id: 'recent', name: 'Recent Part', sku: 'R-1', category: 'A', stock: 3, price: 1 }
+];
+const transactions = [sale('t1', 120, 'old'), sale('t2', 45, 'recent')];
+
+const lastSaleCell = (partName) => {
+  const row = screen.getByText(partName).closest('tr');
+  return within(row).getAllByRole('cell').at(-1);
+};
+
+describe('Slow-moving Last sale emphasis', () => {
+  it('flags never-sold and very old stock, with words and not colour alone', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    expect(lastSaleCell('Never Part')).toHaveAttribute('data-severity', 'never');
+    expect(lastSaleCell('Never Part')).toHaveTextContent('Never sold');
+    expect(lastSaleCell('Old Part')).toHaveAttribute('data-severity', 'old');
+    expect(lastSaleCell('Old Part')).toHaveTextContent('120 days ago');
+    expect(within(lastSaleCell('Old Part')).getByText('Idle 90+ days')).toBeTruthy();
+  });
+
+  it('leaves recent sales unemphasised', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    expect(lastSaleCell('Recent Part')).toHaveAttribute('data-severity', 'recent');
+    expect(within(lastSaleCell('Recent Part')).queryByText('Idle 90+ days')).toBeNull();
+  });
+
+  it('scales the "old" threshold with the look-back window so wide windows are not all flagged', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    expect(lastSaleCell('Old Part')).toHaveAttribute('data-severity', 'old');
+    expect(within(lastSaleCell('Old Part')).getByText('Idle 90+ days')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '90 days' }));
+    // 120 days idle is under twice the 90-day window (180), so it is no longer flagged.
+    expect(lastSaleCell('Old Part')).toHaveAttribute('data-severity', 'recent');
+    expect(lastSaleCell('Never Part')).toHaveAttribute('data-severity', 'never');
+  });
+
+  it('explains Last sale and the idle rule in visible text, not only a tooltip', () => {
+    render(<SlowMovingStockReport transactions={transactions} parts={parts} />);
+    const note = screen.getByText(/means no sale on record/);
+    expect(note).toBeVisible();
+    expect(note).toHaveTextContent('Last sale counts every sales channel');
+    expect(note).toHaveTextContent('Idle 90+ days');
+    expect(note).toHaveTextContent('Never sold');
+  });
+});
