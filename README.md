@@ -200,6 +200,9 @@ vehicle, quote the selling price and stock, and explain how to order, pay, track
 contact the store. It only reads published, non-archived parts and never sees supplier cost, markup or
 minimum-stock data. Part cards appear under its replies.
 
+> Step-by-step setup (Docker and native), the eval script and a troubleshooting table are in
+> [docs/parts-assistant-setup.md](docs/parts-assistant-setup.md).
+
 ### Prerequisites
 
 1. Install Ollama on the **host** (not in Docker) and make sure it is running (`ollama serve`, API on `:11434`).
@@ -223,7 +226,7 @@ All variables are optional, go in `backend/.env`, and are listed in `backend/.en
 | Variable | Default | Description |
 |---|---|---|
 | `LLM_PROVIDER` | `ollama` | `ollama` or `mock` (deterministic stub for e2e/CI) |
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Where the backend reaches Ollama |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Where the backend reaches Ollama. Use `http://localhost:11434` when running the backend natively; `docker-compose.yml` overrides it for the container |
 | `OLLAMA_MODEL` | `qwen2.5:3b-instruct` | Model used for chat |
 | `OLLAMA_KEEP_ALIVE` | `30m` | How long Ollama keeps the model loaded between chats |
 | `LLM_TIMEOUT_MS` | `120000` | Timeout for one Ollama request (cold model load takes about 30 s) |
